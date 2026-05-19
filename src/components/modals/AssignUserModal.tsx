@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/Dialog"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
-import { Badge } from "@/components/ui/Badge"
 import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
 
 interface User {

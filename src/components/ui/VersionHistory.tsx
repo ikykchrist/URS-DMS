@@ -1,4 +1,4 @@
-import { FileText, User, Calendar, Clock } from "lucide-react"
+import { Calendar } from "lucide-react"
 import { Badge } from "@/components/ui/Badge"
 import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
 import { cn } from "@/lib/utils"

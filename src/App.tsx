@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react"
+import { BrowserRouter, useNavigate } from "react-router-dom"
 import {
   FileText,
   Users,
   CheckCircle,
   Clock,
-  TrendingUp,
   Upload,
   Filter,
   MoreHorizontal,
@@ -176,7 +176,7 @@ const recentSubmissions = [
   },
 ]
 
-function Dashboard({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
+function Dashboard() {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
 
   const getStatusBadge = (status: string) => {
@@ -195,25 +195,20 @@ function Dashboard({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
   }
 
   return (
-    <main
-      className="pt-16 pb-8 transition-all duration-200"
-      style={{
-        marginLeft: sidebarCollapsed ? "72px" : "260px",
-      }}
-    >
-      <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
         <PageHeader
           title="Dashboard"
           description="Welcome back! Here's an overview of your document management system."
           actions={
-            <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="shadow-sm">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Document
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
+            <>
+              <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="shadow-sm">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Document
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-[500px]">
                 <DialogHeader className="pb-2">
                   <DialogTitle className="text-lg">Upload New Document</DialogTitle>
                   <DialogDescription className="text-[14px]">
@@ -264,10 +259,11 @@ function Dashboard({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            </>
           }
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
           <StatCard
             title="Total Documents"
             value="1,245"
@@ -294,13 +290,13 @@ function Dashboard({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
           />
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 mb-6 lg:mb-8">
           <ChartCard
             title="Submission Trends"
             description="Monthly document submissions"
-            className="xl:col-span-2"
+            className="lg:col-span-2"
           >
-            <div className="h-[280px]">
+            <div className="h-[200px] sm:h-[240px] lg:h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={submissionData}>
                   <defs>
@@ -380,9 +376,9 @@ function Dashboard({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
           </ChartCard>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 mb-6 lg:mb-8">
           <ChartCard title="Category Distribution" description="Documents by category">
-            <div className="h-[220px]">
+            <div className="h-[180px] sm:h-[200px] md:h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={[
@@ -468,18 +464,18 @@ function Dashboard({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
           </ChartCard>
         </div>
 
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-gray-200/60 shadow-sm overflow-hidden">
           <CardHeader className="pb-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <CardTitle className="text-[17px] font-semibold">Recent Submissions</CardTitle>
-                <p className="text-[13px] text-gray-500 mt-1">
+                <CardTitle className="text-base md:text-[17px] font-semibold">Recent Submissions</CardTitle>
+                <p className="text-[13px] text-gray-500 mt-1 hidden sm:block">
                   Latest document submissions awaiting review
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <Select defaultValue="all">
-                  <SelectTrigger className="w-[140px] h-9">
+                  <SelectTrigger className="w-[130px] md:w-[140px] h-9">
                     <Filter className="w-3.5 h-3.5 mr-2" />
                     <SelectValue placeholder="Filter" />
                   </SelectTrigger>
@@ -491,54 +487,54 @@ function Dashboard({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
                     <SelectItem value="review">In Review</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" className="h-9">View All</Button>
+                <Button variant="outline" size="sm" className="h-9 hidden sm:inline-flex">View All</Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Submitted By</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="whitespace-nowrap">ID</TableHead>
+                  <TableHead className="whitespace-nowrap">Title</TableHead>
+                  <TableHead className="whitespace-nowrap hidden md:table-cell">Category</TableHead>
+                  <TableHead className="whitespace-nowrap hidden lg:table-cell">Submitted By</TableHead>
+                  <TableHead className="whitespace-nowrap hidden sm:table-cell">Date</TableHead>
+                  <TableHead className="whitespace-nowrap">Status</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {recentSubmissions.map((submission) => (
                   <TableRow key={submission.id}>
-                    <TableCell className="font-medium text-gray-700">{submission.id}</TableCell>
-                    <TableCell className="max-w-[220px] truncate font-medium text-gray-900">
+                    <TableCell className="font-medium text-gray-700 whitespace-nowrap">{submission.id}</TableCell>
+                    <TableCell className="max-w-[150px] md:max-w-[220px] truncate font-medium text-gray-900">
                       {submission.title}
                     </TableCell>
-                    <TableCell className="text-gray-500">{submission.category}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <Avatar className="h-7 w-7">
+                    <TableCell className="text-gray-500 whitespace-nowrap hidden md:table-cell">{submission.category}</TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6 md:h-7 md:w-7">
                           <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${submission.submittedBy}`} />
                           <AvatarFallback className="text-[10px] bg-gray-100 text-gray-600">
                             {submission.submittedBy.split(" ").map((n) => n[0]).join("")}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-[13px] text-gray-700">{submission.submittedBy}</span>
+                        <span className="text-[13px] text-gray-700 whitespace-nowrap">{submission.submittedBy}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-gray-500 text-[13px]">{submission.date}</TableCell>
-                    <TableCell>{getStatusBadge(submission.status)}</TableCell>
+                    <TableCell className="text-gray-500 text-[13px] whitespace-nowrap hidden sm:table-cell">{submission.date}</TableCell>
+                    <TableCell className="whitespace-nowrap">{getStatusBadge(submission.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-0.5">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-gray-900">
-                          <Eye className="w-4 h-4" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900">
+                          <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-gray-900">
-                          <Download className="w-4 h-4" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900">
+                          <Download className="w-3.5 h-3.5 md:w-4 md:h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-gray-900">
-                          <MoreHorizontal className="w-4 h-4" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900">
+                          <MoreHorizontal className="w-3.5 h-3.5 md:w-4 md:h-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -546,9 +542,10 @@ function Dashboard({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
                 ))}
               </TableBody>
             </Table>
-            <div className="mt-4 px-5 pb-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="text-[13px] text-gray-500">
-                Showing 5 of 89 submissions
+            <div className="mt-4 px-4 md:px-5 pb-4 md:pb-5 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="text-[12px] md:text-[13px] text-gray-500">
+                <span className="sm:hidden">5/89</span>
+                <span className="hidden sm:inline">Showing 5 of 89 submissions</span>
               </p>
               <Pagination>
                 <PaginationPrevious className="h-8" />
@@ -574,12 +571,12 @@ function Dashboard({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
             </div>
           </CardContent>
         </Card>
-      </div>
-    </main>
+    </div>
   )
 }
 
-function App() {
+function AppContent() {
+  const navigate = useNavigate()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed")
     return saved ? JSON.parse(saved) : false
@@ -589,6 +586,21 @@ function App() {
     return saved || "dashboard"
   })
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
+
+  const routeToPageMap: Record<string, string> = {
+    "/": "dashboard",
+    "/dashboard": "dashboard",
+    "/documents": "documents",
+    "/repository": "documents",
+    "/submissions": "submissions",
+    "/users": "users",
+    "/user-management": "users",
+    "/audit": "audit",
+    "/audit-logs": "audit",
+    "/settings": "settings",
+    "/aaccup": "aaccup",
+    "/aaccup-management": "aaccup",
+  }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -601,9 +613,28 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [])
 
+  useEffect(() => {
+    const path = window.location.pathname
+    const page = routeToPageMap[path]
+    if (page && page !== activePage) {
+      setActivePage(page)
+      localStorage.setItem("activePage", page)
+    }
+  }, [])
+
   const handleNavigate = (page: string) => {
     setActivePage(page)
     localStorage.setItem("activePage", page)
+    const pageToRouteMap: Record<string, string> = {
+      dashboard: "/",
+      documents: "/documents",
+      submissions: "/submissions",
+      users: "/users",
+      audit: "/audit",
+      settings: "/settings",
+      aaccup: "/aaccup",
+    }
+    navigate(pageToRouteMap[page] || "/")
   }
 
   const handleToggleSidebar = () => {
@@ -613,27 +644,43 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
+    <div className="flex h-screen w-full overflow-hidden bg-[#FAFAFA]">
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={handleToggleSidebar}
         activePage={activePage}
         onNavigate={handleNavigate}
       />
-      <TopNav sidebarCollapsed={sidebarCollapsed} onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
-      <CommandPalette
-        open={isCommandPaletteOpen}
-        onOpenChange={setIsCommandPaletteOpen}
-        onNavigate={handleNavigate}
-      />
-      {activePage === "dashboard" && <Dashboard sidebarCollapsed={sidebarCollapsed} />}
-      {activePage === "documents" && <DocumentRepository sidebarCollapsed={sidebarCollapsed} />}
-      {activePage === "submissions" && <Submissions sidebarCollapsed={sidebarCollapsed} />}
-      {activePage === "users" && <UserManagement sidebarCollapsed={sidebarCollapsed} />}
-      {activePage === "audit" && <AuditLogs sidebarCollapsed={sidebarCollapsed} />}
-      {activePage === "settings" && <Settings sidebarCollapsed={sidebarCollapsed} />}
-      {activePage === "aaccup" && <AACCUPManagement sidebarCollapsed={sidebarCollapsed} />}
+
+      <div className="flex flex-col flex-1 min-w-0 w-full">
+        <TopNav
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          onNavigate={handleNavigate}
+        />
+        <CommandPalette
+          open={isCommandPaletteOpen}
+          onOpenChange={setIsCommandPaletteOpen}
+          onNavigate={handleNavigate}
+        />
+        <main className="flex-1 overflow-y-auto">
+          {activePage === "dashboard" && <Dashboard />}
+          {activePage === "documents" && <DocumentRepository />}
+          {activePage === "submissions" && <Submissions />}
+          {activePage === "users" && <UserManagement />}
+          {activePage === "audit" && <AuditLogs />}
+          {activePage === "settings" && <Settings />}
+          {activePage === "aaccup" && <AACCUPManagement />}
+        </main>
+      </div>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   )
 }
 

@@ -11,10 +11,8 @@ import {
   Monitor,
   Moon,
   Smartphone,
-  ChevronRight,
   Lock,
   LogOut,
-  Trash2,
 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
@@ -50,7 +48,7 @@ const navItems = [
   { id: "access" as const, label: "Access Control", icon: KeyRound },
 ]
 
-export default function Settings({ sidebarCollapsed = false }: SettingsProps) {
+export default function Settings({ sidebarCollapsed: _sidebarCollapsed = false }: SettingsProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>("profile")
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false)
   const [isSessionManagementOpen, setIsSessionManagementOpen] = useState(false)
@@ -65,21 +63,14 @@ export default function Settings({ sidebarCollapsed = false }: SettingsProps) {
   })
 
   return (
-    <>
-      <main
-        className="pt-16 pb-8 transition-all duration-200"
-        style={{
-          marginLeft: sidebarCollapsed ? "72px" : "260px",
-        }}
-      >
-        <div className="p-8">
-          <PageHeader
+    <div className="p-4 sm:p-6 lg:p-8">
+      <PageHeader
             title="Settings"
             description="Manage your account settings and preferences"
           />
 
-          <div className="flex gap-6">
-            <div className="w-64 flex-shrink-0">
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+            <div className="w-full lg:w-64 flex-shrink-0">
               <Card className="border-gray-200/60 shadow-sm">
                 <CardContent className="p-2">
                   <nav className="space-y-1">
@@ -497,10 +488,8 @@ export default function Settings({ sidebarCollapsed = false }: SettingsProps) {
               )}
             </div>
           </div>
-        </div>
-      </main>
 
-      <ChangePasswordModal
+          <ChangePasswordModal
         open={isChangePasswordOpen}
         onOpenChange={setIsChangePasswordOpen}
       />
@@ -509,7 +498,7 @@ export default function Settings({ sidebarCollapsed = false }: SettingsProps) {
         open={isSessionManagementOpen}
         onOpenChange={setIsSessionManagementOpen}
       />
-    </>
+    </div>
   )
 }
 

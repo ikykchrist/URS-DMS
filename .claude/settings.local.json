@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/cjbal/**)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(curl -s \"http://localhost:5173/src/App.tsx\")",
+      "Bash(npx tsc *)",
+      "Bash(curl -s http://localhost:5174)",
+      "Bash(curl -s http://localhost:5174/src/App.tsx)",
+      "Bash(curl -s http://localhost:5174/src/main.tsx)",
+      "Bash(curl -s \"http://localhost:5174/src/components/layout/Sidebar.tsx\")",
+      "Bash(curl -s \"http://localhost:5174/src/App.tsx\")",
+      "Bash(curl -s \"http://localhost:5174/src/components/ui/Button.tsx\")",
+      "Bash(curl -s http://localhost:5173/src/index.css)",
+      "Bash(sed -i 's/^}$//' src/pages/Submissions.tsx)",
+      "Bash(sed -i 's/^  \\)}$//' src/pages/Submissions.tsx)"
+    ]
+  }
+}

@@ -1,14 +1,11 @@
 import { useState } from "react"
 import {
   FileText,
-  Users,
   Calendar,
   MessageSquare,
   Clock,
-  CheckCircle,
   Upload,
   Send,
-  Paperclip,
 } from "lucide-react"
 import {
   Dialog,
@@ -21,7 +18,6 @@ import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
 import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
 import { Textarea } from "@/components/ui/Textarea"
-import { cn } from "@/lib/utils"
 
 interface Task {
   id: string

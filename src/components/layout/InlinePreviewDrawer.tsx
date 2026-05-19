@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { X, Eye, FileText, Calendar, User, Download, ChevronRight } from "lucide-react"
+import { X, Eye, FileText, Download } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
 import { Avatar, AvatarFallback } from "@/components/ui/Avatar"

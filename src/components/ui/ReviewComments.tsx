@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { MessageSquare, Send, CheckCircle, AlertCircle, Clock, User } from "lucide-react"
+import { MessageSquare, Send, CheckCircle, AlertCircle, Clock } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
 import { cn } from "@/lib/utils"

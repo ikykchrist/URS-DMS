@@ -6,13 +6,10 @@ import {
   CheckCircle,
   ClipboardList,
   Award,
-  Upload,
-  Settings,
   ArrowRight,
   Command,
   X,
 } from "lucide-react"
-import { Input } from "@/components/ui/Input"
 import { Badge } from "@/components/ui/Badge"
 import { cn } from "@/lib/utils"
 

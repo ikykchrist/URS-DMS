@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   Search,
   Filter,
@@ -171,11 +172,20 @@ const roleBadgeVariant: Record<string, "default" | "secondary" | "success" | "wa
   "Department User": "secondary",
 }
 
-export default function UserManagement({ sidebarCollapsed = false }: UserManagementProps) {
-  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
+export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = false }: UserManagementProps) {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(() => searchParams.get("modal") === "add-user")
   const [isUserDetailsModalOpen, setIsUserDetailsModalOpen] = useState(false)
   const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
+
+  const handleCloseAddUserModal = (open: boolean) => {
+    setIsAddUserModalOpen(open)
+    if (!open) {
+      searchParams.delete("modal")
+      setSearchParams(searchParams)
+    }
+  }
 
   const handleViewUser = (user: User) => {
     setSelectedUser(user)
@@ -192,14 +202,8 @@ export default function UserManagement({ sidebarCollapsed = false }: UserManagem
   }
 
   return (
-    <>
-      <main
-        className="pt-16 pb-8 transition-all duration-200"
-        style={{
-          marginLeft: sidebarCollapsed ? "72px" : "260px",
-        }}
-      >
-        <div className="p-8">
+    <div>
+      <div className="p-4 sm:p-6 lg:p-8">
           <PageHeader
             title="User Management"
             description="Manage user accounts, roles, and access permissions."
@@ -424,12 +428,11 @@ export default function UserManagement({ sidebarCollapsed = false }: UserManagem
               </div>
             </CardContent>
           </Card>
-        </div>
-      </main>
+</div>
 
       <AddUserModal
         open={isAddUserModalOpen}
-        onOpenChange={setIsAddUserModalOpen}
+        onOpenChange={handleCloseAddUserModal}
       />
 
       <UserDetailsModal
@@ -445,6 +448,6 @@ export default function UserManagement({ sidebarCollapsed = false }: UserManagem
         onOpenChange={setIsResetPasswordModalOpen}
         userEmail={selectedUser?.email}
       />
-    </>
+    </div>
   )
 }

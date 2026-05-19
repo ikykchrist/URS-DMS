@@ -1,3 +1,5 @@
+import { ReactNode } from "react"
+
 export type UserRole = "super_admin" | "analyst" | "faculty" | "staff"
 
 export interface RolePermissions {
@@ -72,7 +74,7 @@ export function hasPermission(role: UserRole, permission: keyof RolePermissions)
   return rolePermissions[role][permission]
 }
 
-export function RoleGuard({ role, permission, children }: { role: UserRole; permission: keyof RolePermissions; children: React.ReactNode }) {
+export function RoleGuard({ role, permission, children }: { role: UserRole; permission: keyof RolePermissions; children: ReactNode }) {
   if (!hasPermission(role, permission)) return null
-  return <>{children}</>
+  return children as any
 }

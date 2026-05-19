@@ -19,7 +19,7 @@ const PaginationContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ul
     ref={ref}
-    className={cn("flex flex-row items-center gap-1", className)}
+    className={cn("flex flex-row items-center gap-0.5 sm:gap-1", className)}
     {...props}
   />
 ))
@@ -47,7 +47,7 @@ const PaginationLink = ({
   return (
     <Button
       variant={isActive ? "outline" : "ghost"}
-      className={cn("h-10 w-10 p-0", className)}
+      className={cn("h-8 w-8 sm:h-10 sm:w-10 p-0 text-[12px] sm:text-[14px]", className)}
       asChild={asChild}
       {...props}
     />
@@ -61,11 +61,11 @@ const PaginationPrevious = ({
 }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
   <PaginationLink
     aria-label="Go to previous page"
-    className={cn("gap-1 pl-2.5", className)}
+    className={cn("gap-1 pl-1.5 sm:pl-2.5 w-auto sm:w-10", className)}
     {...props}
   >
-    <ChevronLeft className="h-4 w-4" />
-    <span className="hidden sm:inline">Previous</span>
+    <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+    <span className="hidden md:inline text-[12px]">Previous</span>
   </PaginationLink>
 )
 PaginationPrevious.displayName = "PaginationPrevious"
@@ -76,11 +76,11 @@ const PaginationNext = ({
 }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
   <PaginationLink
     aria-label="Go to next page"
-    className={cn("gap-1 pr-2.5", className)}
+    className={cn("gap-1 pr-1.5 sm:pr-2.5 w-auto sm:w-10", className)}
     {...props}
   >
-    <span className="hidden sm:inline">Next</span>
-    <ChevronRight className="h-4 w-4" />
+    <span className="hidden md:inline text-[12px]">Next</span>
+    <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
   </PaginationLink>
 )
 PaginationNext.displayName = "PaginationNext"
@@ -91,10 +91,10 @@ const PaginationEllipsis = ({
 }: React.HTMLAttributes<HTMLSpanElement>) => (
   <span
     aria-hidden
-    className={cn("flex h-9 w-9 items-center justify-center", className)}
+    className={cn("flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center", className)}
     {...props}
   >
-    <MoreHorizontal className="h-4 w-4" />
+    <MoreHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
     <span className="sr-only">More pages</span>
   </span>
 )

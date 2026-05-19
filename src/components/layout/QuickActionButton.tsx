@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom"
 import {
   Upload,
   FileText,
@@ -21,48 +22,79 @@ import { cn } from "@/lib/utils"
 
 interface QuickActionButtonProps {
   className?: string
+  onNavigate?: (page: string) => void
 }
 
-const quickActions = [
+interface QuickAction {
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  description: string
+  shortcut: string
+  route: string
+  page: string
+}
+
+const quickActions: QuickAction[] = [
   {
     label: "Upload Document",
     icon: Upload,
     description: "Upload new document",
     shortcut: "U",
+    route: "/documents?modal=upload",
+    page: "documents",
   },
   {
     label: "Create Task",
     icon: FileText,
     description: "Assign a new task",
     shortcut: "T",
+    route: "/aaccup?modal=create-task",
+    page: "aaccup",
   },
   {
     label: "Add User",
     icon: Users,
     description: "Register new user",
     shortcut: "N",
+    route: "/users?modal=add-user",
+    page: "users",
   },
   {
     label: "Create Folder",
     icon: FolderPlus,
     description: "New folder in repository",
     shortcut: "F",
+    route: "/documents?modal=create-folder",
+    page: "documents",
   },
   {
     label: "Generate Report",
     icon: BarChart3,
     description: "Export system report",
     shortcut: "R",
+    route: "/audit?modal=generate-report",
+    page: "audit",
   },
   {
     label: "Assign Area",
     icon: Award,
     description: "Assign AACCUP area",
     shortcut: "A",
+    route: "/aaccup?modal=assign-area",
+    page: "aaccup",
   },
 ]
 
-export function QuickActionButton({ className }: QuickActionButtonProps) {
+export function QuickActionButton({ className, onNavigate }: QuickActionButtonProps) {
+  const navigate = useNavigate()
+
+  const handleActionClick = (action: QuickAction) => {
+    if (onNavigate) {
+      onNavigate(action.page)
+    }
+    navigate(action.route)
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -83,6 +115,7 @@ export function QuickActionButton({ className }: QuickActionButtonProps) {
             <DropdownMenuItem
               key={action.label}
               className="flex items-center gap-3 py-2 px-3 cursor-pointer"
+              onClick={() => handleActionClick(action)}
             >
               <div className="w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center flex-shrink-0">
                 <Icon className="w-3.5 h-3.5 text-gray-600" />

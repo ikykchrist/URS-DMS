@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   FileText,
   Folder,
@@ -325,12 +326,29 @@ interface DocumentRepositoryProps {
   sidebarCollapsed?: boolean
 }
 
-export default function DocumentRepository({ sidebarCollapsed = false }: DocumentRepositoryProps) {
+export default function DocumentRepository({ sidebarCollapsed: _sidebarCollapsed = false }: DocumentRepositoryProps) {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [selectedFolder, setSelectedFolder] = useState("root")
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["root", "aaccup", "faculty"]))
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
-  const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false)
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(() => searchParams.get("modal") === "upload")
+  const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(() => searchParams.get("modal") === "create-folder")
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+
+  const handleCloseUploadModal = (open: boolean) => {
+    setIsUploadModalOpen(open)
+    if (!open) {
+      searchParams.delete("modal")
+      setSearchParams(searchParams)
+    }
+  }
+
+  const handleCloseCreateFolderModal = (open: boolean) => {
+    setIsCreateFolderModalOpen(open)
+    if (!open) {
+      searchParams.delete("modal")
+      setSearchParams(searchParams)
+    }
+  }
 
   const toggleExpand = (id: string) => {
     setExpandedFolders((prev) => {
@@ -345,19 +363,13 @@ export default function DocumentRepository({ sidebarCollapsed = false }: Documen
   }
 
   return (
-    <main
-      className="pt-16 pb-8 transition-all duration-200"
-      style={{
-        marginLeft: sidebarCollapsed ? "72px" : "260px",
-      }}
-    >
-        <div className="p-8">
-          <PageHeader
+    <div className="p-4 sm:p-6 lg:p-8">
+      <PageHeader
             title="Document Repository"
             description="Manage and organize all your documents in one place."
             actions={
               <div className="flex items-center gap-3">
-                <Dialog open={isCreateFolderModalOpen} onOpenChange={setIsCreateFolderModalOpen}>
+                <Dialog open={isCreateFolderModalOpen} onOpenChange={handleCloseCreateFolderModal}>
                   <DialogTrigger asChild>
                     <Button variant="outline">
                       <Plus className="w-4 h-4 mr-2" />
@@ -404,7 +416,7 @@ export default function DocumentRepository({ sidebarCollapsed = false }: Documen
                   </DialogContent>
                 </Dialog>
 
-                <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
+                <Dialog open={isUploadModalOpen} onOpenChange={handleCloseUploadModal}>
                   <DialogTrigger asChild>
                     <Button className="shadow-sm">
                       <Upload className="w-4 h-4 mr-2" />
@@ -744,10 +756,9 @@ export default function DocumentRepository({ sidebarCollapsed = false }: Documen
                   </div>
                 </CardContent>
               </Card>
-              )}
-            </div>
+            )}
           </div>
         </div>
-      </main>
+      </div>
   )
 }

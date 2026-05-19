@@ -13,19 +13,13 @@ import {
 } from "@/components/ui/DropdownMenu"
 
 interface TopNavProps {
-  sidebarCollapsed?: boolean
   onOpenCommandPalette?: () => void
+  onNavigate?: (page: string) => void
 }
 
-export function TopNav({ sidebarCollapsed = false, onOpenCommandPalette }: TopNavProps) {
+export function TopNav({ onOpenCommandPalette, onNavigate }: TopNavProps) {
   return (
-    <header
-      className="fixed top-0 right-0 z-30 h-16 bg-white/80 backdrop-blur-sm border-b border-gray-200 transition-all duration-200"
-      style={{
-        left: sidebarCollapsed ? "72px" : "260px",
-        width: sidebarCollapsed ? "calc(100% - 72px)" : "calc(100% - 260px)",
-      }}
-    >
+    <header className="h-16 bg-white/80 backdrop-blur-sm border-b border-gray-200 flex-shrink-0">
       <div className="flex items-center justify-between h-full px-6">
         <div className="flex-1 max-w-xl">
           <button
@@ -52,7 +46,7 @@ export function TopNav({ sidebarCollapsed = false, onOpenCommandPalette }: TopNa
         </div>
 
         <div className="flex items-center gap-2">
-          <QuickActionButton />
+          <QuickActionButton onNavigate={onNavigate} />
 
           <NotificationCenter />
 

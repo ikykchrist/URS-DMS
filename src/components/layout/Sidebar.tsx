@@ -39,8 +39,8 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 h-screen bg-white border-r border-gray-200 transition-all duration-200",
-        collapsed ? "w-[72px]" : "w-[260px]"
+        "h-screen bg-white border-r border-gray-200 transition-all duration-300 flex-shrink-0",
+        collapsed ? "w-20" : "w-64"
       )}
     >
       <div className="flex flex-col h-full">
@@ -66,7 +66,7 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
           )}
         </div>
 
-        <nav className="flex-1 px-3 py-4">
+        <nav className="flex-1 px-3 py-4 overflow-y-auto">
           <div className="space-y-1">
             {sidebarItems.map((item) => {
               const Icon = item.icon

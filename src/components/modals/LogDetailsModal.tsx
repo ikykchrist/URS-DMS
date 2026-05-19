@@ -1,6 +1,5 @@
 import {
   Clock,
-  User,
   Activity,
   Monitor,
   Globe,

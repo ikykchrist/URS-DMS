@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Bookmark, BookmarkCheck, Filter, ChevronDown, Plus, Star } from "lucide-react"
+import { Bookmark, BookmarkCheck, ChevronDown, Plus } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import {
   DropdownMenu,
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/DropdownMenu"
 import { cn } from "@/lib/utils"
 
-interface SavedFilter {
+export interface SavedFilter {
   id: string
   label: string
   icon?: string

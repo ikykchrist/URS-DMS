@@ -1,6 +1,5 @@
 import { CheckSquare, Square, X, CheckCircle, XCircle, Download, Users, Archive, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/Button"
-import { Badge } from "@/components/ui/Badge"
 import { cn } from "@/lib/utils"
 
 interface BulkActionsToolbarProps {

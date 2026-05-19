@@ -29,7 +29,6 @@ import {
 import { Button } from "@/components/ui/Button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Badge } from "@/components/ui/Badge"
-import { cn } from "@/lib/utils"
 
 interface Submission {
   id: string
@@ -81,69 +80,32 @@ export function DocumentPreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[1200px] h-[88vh] p-0 overflow-hidden flex flex-col">
+      <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 overflow-hidden flex flex-col">
         <DialogHeader className="px-5 py-4 border-b border-gray-100 flex-shrink-0">
           <DialogTitle className="text-lg">Preview Submission</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-1 overflow-hidden">
-          <div className="w-[280px] bg-[#1a1a2e] flex flex-col flex-shrink-0">
-            <div className="p-3 border-b border-white/10">
-              <div className="flex items-center justify-between text-white">
-                <span className="text-[12px] text-white/60">Thumbnails</span>
-                <span className="text-[11px] text-white/40">{currentPage} / {totalPages}</span>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-2">
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={cn(
-                    "w-full aspect-[3/4] rounded-lg transition-all duration-150 flex items-center justify-center text-[10px] font-medium",
-                    currentPage === i + 1
-                      ? "bg-primary ring-2 ring-primary ring-offset-2 ring-offset-[#1a1a2e]"
-                      : "bg-white/10 hover:bg-white/20 text-white/60"
-                  )}
-                >
-                  <div className="transform" style={{ fontSize: `${Math.max(8, zoomLevel / 12)}px` }}>
-                    <FileText className="w-6 h-6 opacity-40" />
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <div className="p-3 border-t border-white/10">
-              <div className="flex items-center justify-center gap-2">
-                <button
-                  onClick={handlePrevPage}
-                  disabled={currentPage === 1}
-                  className="p-1.5 rounded-md bg-white/10 hover:bg-white/20 text-white/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="text-[12px] text-white/60 min-w-[50px] text-center">
-                  {currentPage} / {totalPages}
-                </span>
-                <button
-                  onClick={handleNextPage}
-                  disabled={currentPage === totalPages}
-                  className="p-1.5 rounded-md bg-white/10 hover:bg-white/20 text-white/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 flex flex-col bg-gray-100">
+        <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
+          <div className="flex-1 flex flex-col bg-gray-100 min-h-[300px] lg:min-h-0 overflow-hidden">
             <div className="h-12 bg-white border-b border-gray-200 flex items-center justify-between px-4 flex-shrink-0">
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 text-gray-600"
+                  onClick={handlePrevPage}
+                  disabled={currentPage === 1}
+                >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
                 <span className="text-[13px] text-gray-600 px-2">Page {currentPage} of {totalPages}</span>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 text-gray-600"
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages}
+                >
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
@@ -182,9 +144,9 @@ export function DocumentPreviewModal({
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-8 flex items-start justify-center">
+            <div className="flex-1 overflow-y-auto p-6 lg:p-8 flex items-start justify-center">
               <div
-                className="bg-white shadow-xl w-full max-w-[600px] aspect-[8.5/11] flex items-center justify-center text-gray-300 relative"
+                className="bg-white shadow-xl w-full max-w-[700px] aspect-[8.5/11] flex items-center justify-center text-gray-300 relative"
                 style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: "top center" }}
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-white p-12">
@@ -218,7 +180,7 @@ export function DocumentPreviewModal({
             </div>
           </div>
 
-          <div className="w-[320px] bg-white border-l border-gray-200 flex flex-col flex-shrink-0 overflow-y-auto">
+          <div className="w-full lg:w-[340px] bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col flex-shrink-0 overflow-y-auto">
             <div className="p-5 border-b border-gray-100">
               <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Submission Details</h3>
               <p className="text-[12px] text-gray-400">ID: {submission?.id}</p>
@@ -314,39 +276,23 @@ export function DocumentPreviewModal({
 
             <div className="p-5 border-t border-gray-100 bg-gray-50/50">
               <p className="text-[12px] font-medium text-gray-700 mb-3">Admin Actions</p>
-              <div className="space-y-2">
-                <button className="w-full flex items-center gap-3 p-3 rounded-xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-100/50 transition-colors group">
-                  <div className="w-10 h-10 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <CheckCircle className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-emerald-700">Approve</p>
-                    <p className="text-[11px] text-emerald-600/70 truncate">Accept this submission</p>
-                  </div>
-                </button>
-
-                <button
+              <div className="flex flex-col gap-2">
+                <Button className="w-full h-10 flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white">
+                  <CheckCircle className="w-4 h-4" />
+                  Approve
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="w-full h-10 flex items-center gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
                   onClick={onReturn}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-100/50 transition-colors group"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <RotateCcw className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-amber-700">Return</p>
-                    <p className="text-[11px] text-amber-600/70 truncate">Request revisions</p>
-                  </div>
-                </button>
-
-                <button className="w-full flex items-center gap-3 p-3 rounded-xl border border-red-200 bg-red-50/50 hover:bg-red-100/50 transition-colors group">
-                  <div className="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <XCircle className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-red-700">Reject</p>
-                    <p className="text-[11px] text-red-600/70 truncate">Reject this submission</p>
-                  </div>
-                </button>
+                  <RotateCcw className="w-4 h-4" />
+                  Return
+                </Button>
+                <Button variant="outline" className="w-full h-10 flex items-center gap-2 border-red-300 text-red-700 hover:bg-red-50">
+                  <XCircle className="w-4 h-4" />
+                  Reject
+                </Button>
               </div>
             </div>
           </div>

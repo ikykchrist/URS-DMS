@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   Search,
   Filter,
@@ -10,7 +11,7 @@ import {
   TrendingUp,
   FileText,
   Calendar,
-  ChevronRight,
+  Plus,
 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { StatCard } from "@/components/layout/StatCard"
@@ -29,6 +30,7 @@ import {
 import { AACCUPAreaDetailsModal } from "@/components/modals/AACCUPAreaDetailsModal"
 import { CreateTaskModal } from "@/components/modals/CreateTaskModal"
 import { UploadDocumentsModal } from "@/components/modals/UploadDocumentsModal"
+import { AddAreaModal } from "@/components/modals/AddAreaModal"
 import { aaccupAreas, submissions, getAACCUPAreaStats, getSubmissionsByArea, AACCUPArea } from "@/data/aaccupData"
 import { cn } from "@/lib/utils"
 
@@ -50,11 +52,29 @@ const statusBadge = {
   Overdue: "danger",
 } as const
 
-export default function AACCUPManagement({ sidebarCollapsed = false }: AACCUPManagementProps) {
+export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed = false }: AACCUPManagementProps) {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [selectedArea, setSelectedArea] = useState<AACCUPArea | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
-  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false)
-  const [isUploadDocumentsOpen, setIsUploadDocumentsOpen] = useState(false)
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(() => searchParams.get("modal") === "create-task")
+  const [isUploadDocumentsOpen, setIsUploadDocumentsOpen] = useState(() => searchParams.get("modal") === "assign-area")
+  const [isAddAreaModalOpen, setIsAddAreaModalOpen] = useState(false)
+
+  const handleCloseCreateTaskModal = (open: boolean) => {
+    setIsCreateTaskOpen(open)
+    if (!open) {
+      searchParams.delete("modal")
+      setSearchParams(searchParams)
+    }
+  }
+
+  const handleCloseUploadDocumentsModal = (open: boolean) => {
+    setIsUploadDocumentsOpen(open)
+    if (!open) {
+      searchParams.delete("modal")
+      setSearchParams(searchParams)
+    }
+  }
 
   const handleViewArea = (area: AACCUPArea) => {
     setSelectedArea(area)
@@ -64,7 +84,6 @@ export default function AACCUPManagement({ sidebarCollapsed = false }: AACCUPMan
   const totalSubmissions = submissions.length
   const completedSubmissions = submissions.filter(s => s.status === "Approved").length
   const pendingSubmissions = submissions.filter(s => s.status === "Pending").length
-  const returnedSubmissions = submissions.filter(s => s.status === "Returned").length
 
   const calculateOverallCompliance = () => {
     const totalCompletion = aaccupAreas.reduce((sum, area) => sum + area.completion, 0)
@@ -73,19 +92,19 @@ export default function AACCUPManagement({ sidebarCollapsed = false }: AACCUPMan
 
   return (
     <>
-      <main
-        className="pt-16 pb-8 transition-all duration-200"
-        style={{
-          marginLeft: sidebarCollapsed ? "72px" : "260px",
-        }}
-      >
-        <div className="p-8">
-          <PageHeader
-            title="AACCUP Management"
-            description="Manage accreditation areas, submissions, and compliance tracking"
-          />
+      <div className="p-4 sm:p-6 lg:p-8">
+        <PageHeader
+          title="AACCUP Management"
+          description="Manage accreditation areas, submissions, and compliance tracking"
+          actions={
+            <Button className="shadow-sm" onClick={() => setIsAddAreaModalOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Area
+            </Button>
+          }
+        />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-5 mb-6 lg:mb-8">
             <StatCard
               title="Total Submissions"
               value={totalSubmissions.toString()}
@@ -259,8 +278,7 @@ export default function AACCUPManagement({ sidebarCollapsed = false }: AACCUPMan
               )
             })}
           </div>
-        </div>
-      </main>
+</div>
 
       <AACCUPAreaDetailsModal
         open={isDetailsOpen}
@@ -272,13 +290,18 @@ export default function AACCUPManagement({ sidebarCollapsed = false }: AACCUPMan
 
       <CreateTaskModal
         open={isCreateTaskOpen}
-        onOpenChange={setIsCreateTaskOpen}
+        onOpenChange={handleCloseCreateTaskModal}
         areaTitle={selectedArea?.title}
       />
 
       <UploadDocumentsModal
         open={isUploadDocumentsOpen}
-        onOpenChange={setIsUploadDocumentsOpen}
+        onOpenChange={handleCloseUploadDocumentsModal}
+      />
+
+      <AddAreaModal
+        open={isAddAreaModalOpen}
+        onOpenChange={setIsAddAreaModalOpen}
       />
     </>
   )

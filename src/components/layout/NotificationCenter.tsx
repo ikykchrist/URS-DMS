@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Bell, Check, CheckCheck, FileText, Users, Upload, AlertTriangle, Clock, Award, Settings, X } from "lucide-react"
+import { Bell, Check, CheckCheck, Users, Upload, AlertTriangle, Clock, Settings, X } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
 import { cn } from "@/lib/utils"
@@ -54,7 +54,6 @@ export function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications)
   const [activeTab, setActiveTab] = useState<string>("All")
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
 
   const unreadCount = notifications.filter((n) => !n.read).length
 
@@ -105,7 +104,7 @@ export function NotificationCenter() {
               <div className="flex items-center gap-2">
                 <h3 className="text-[14px] font-semibold text-gray-900">Notifications</h3>
                 {unreadCount > 0 && (
-                  <Badge variant="primary" className="text-[10px]">{unreadCount} new</Badge>
+                  <Badge variant="high" className="text-[10px]">{unreadCount} new</Badge>
                 )}
               </div>
               <div className="flex items-center gap-1">
