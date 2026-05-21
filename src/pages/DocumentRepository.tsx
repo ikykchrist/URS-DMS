@@ -65,6 +65,7 @@ import {
 import { Label } from "@/components/ui/Label"
 import { Dropzone } from "@/components/ui/Dropzone"
 import { cn } from "@/lib/utils"
+import { DocumentRepositoryPreviewModal } from "@/components/preview/DocumentRepositoryPreviewModal"
 
 interface FolderItem {
   id: string
@@ -333,6 +334,8 @@ export default function DocumentRepository({ sidebarCollapsed: _sidebarCollapsed
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(() => searchParams.get("modal") === "upload")
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(() => searchParams.get("modal") === "create-folder")
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+  const [previewFileId, setPreviewFileId] = useState<string | null>(null)
+  const selectedDocument = documents.find((doc) => doc.id === previewFileId) || null
 
   const handleCloseUploadModal = (open: boolean) => {
     setIsUploadModalOpen(open)
@@ -651,7 +654,7 @@ export default function DocumentRepository({ sidebarCollapsed: _sidebarCollapsed
                           <span>{doc.dateModified}</span>
                         </div>
                         <div className="flex items-center gap-1 mt-3 pt-3 border-t border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setPreviewFileId(doc.id); }}><Eye className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7"><Download className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7"><Share2 className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="w-3.5 h-3.5" /></Button>
@@ -710,7 +713,7 @@ export default function DocumentRepository({ sidebarCollapsed: _sidebarCollapsed
                           <TableCell>{getStatusBadge(doc.status)}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-0.5">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-gray-900">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-gray-900" onClick={() => setPreviewFileId(doc.id)}>
                                 <Eye className="w-4 h-4" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-gray-900">
@@ -759,6 +762,13 @@ export default function DocumentRepository({ sidebarCollapsed: _sidebarCollapsed
             )}
           </div>
         </div>
+
+        <DocumentRepositoryPreviewModal
+          open={previewFileId !== null}
+          onOpenChange={(open) => !open && setPreviewFileId(null)}
+          file={selectedDocument}
+          allFiles={documents}
+        />
       </div>
   )
 }
