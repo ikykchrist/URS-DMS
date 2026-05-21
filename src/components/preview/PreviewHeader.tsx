@@ -6,9 +6,6 @@ import type { DocumentFile } from "./types"
 interface PreviewHeaderProps {
   file: DocumentFile
   onClose: () => void
-  onDownload?: () => void
-  onShare?: () => void
-  onFullscreen?: () => void
 }
 
 const getFileTypeBadge = (type: DocumentFile["type"]) => {
@@ -34,23 +31,27 @@ const getFileTypeBadge = (type: DocumentFile["type"]) => {
   }
 }
 
-export function PreviewHeader({ file, onClose, onDownload, onShare, onFullscreen }: PreviewHeaderProps) {
+export function PreviewHeader({ file, onClose }: PreviewHeaderProps) {
+  const handleDownload = () => {
+    alert(`Download initiated for: ${file.name}\n\nNote: Backend not connected yet.`)
+  }
+
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0">
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
-          <h2 className="text-[15px] font-semibold text-gray-900 truncate">
+          <h2 className="text-[15px] font-semibold text-gray-900 truncate" title={file.name}>
             {file.name}
           </h2>
           {getFileTypeBadge(file.type)}
         </div>
         
-        {file.folderPath && file.folderPath.length > 0 && (
+        {file.folderPath?.length ? (
           <div className="hidden sm:flex items-center gap-1 text-[12px] text-gray-500">
             <ChevronRight className="w-3 h-3" />
-            <span className="truncate max-w-[150px]">{file.folderPath.join(" / ")}</span>
+            <span className="truncate max-w-[150px]" title={file.folderPath.join(" / ")}>{file.folderPath.join(" / ")}</span>
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className="flex items-center gap-1 flex-shrink-0 ml-4">
@@ -58,8 +59,8 @@ export function PreviewHeader({ file, onClose, onDownload, onShare, onFullscreen
           variant="ghost"
           size="icon"
           className="h-8 w-8 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          onClick={onDownload}
-          title="Download"
+          onClick={handleDownload}
+          title="Download (placeholder - no backend)"
         >
           <Download className="w-4 h-4" />
         </Button>
@@ -67,9 +68,9 @@ export function PreviewHeader({ file, onClose, onDownload, onShare, onFullscreen
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          onClick={onShare}
-          title="Share"
+          className="h-8 w-8 text-gray-400 cursor-not-allowed"
+          title="Share (not implemented)"
+          disabled
         >
           <Share2 className="w-4 h-4" />
         </Button>
@@ -77,9 +78,9 @@ export function PreviewHeader({ file, onClose, onDownload, onShare, onFullscreen
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          onClick={onFullscreen}
-          title="Fullscreen"
+          className="h-8 w-8 text-gray-400 cursor-not-allowed"
+          title="Fullscreen (not implemented)"
+          disabled
         >
           <Maximize2 className="w-4 h-4" />
         </Button>

@@ -22,8 +22,6 @@ interface FilePreviewRendererProps {
   className?: string
 }
 
-const SAMPLE_IMAGE_URL = "https://picsum.photos/800/1000?random=1"
-
 const getFileTypeIcon = (type: DocumentFile["type"]) => {
   switch (type) {
     case "PDF":
@@ -90,6 +88,7 @@ function PdfPreview({ file }: { file: DocumentFile }) {
             className="h-7 w-7 text-gray-600"
             onClick={handlePrevPage}
             disabled={currentPage === 1}
+            aria-label="Previous page"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
@@ -102,6 +101,7 @@ function PdfPreview({ file }: { file: DocumentFile }) {
             className="h-7 w-7 text-gray-600"
             onClick={handleNextPage}
             disabled={currentPage === totalPages}
+            aria-label="Next page"
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
@@ -114,6 +114,7 @@ function PdfPreview({ file }: { file: DocumentFile }) {
             className="h-7 w-7 text-gray-600"
             onClick={handleZoomOut}
             disabled={zoomLevel <= 50}
+            aria-label="Zoom out"
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </Button>
@@ -126,11 +127,12 @@ function PdfPreview({ file }: { file: DocumentFile }) {
             className="h-7 w-7 text-gray-600"
             onClick={handleZoomIn}
             disabled={zoomLevel >= 200}
+            aria-label="Zoom in"
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </Button>
           <div className="w-px h-4 bg-gray-300 mx-1" />
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-600">
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-600" aria-label="Maximize">
             <Maximize2 className="w-3.5 h-3.5" />
           </Button>
         </div>
@@ -191,7 +193,7 @@ function ImagePreview({ file }: { file: DocumentFile }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-end px-4 py-2.5 border-b border-gray-200 bg-gray-50/50 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 bg-gray-50/50 flex-shrink-0">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -199,6 +201,7 @@ function ImagePreview({ file }: { file: DocumentFile }) {
             className="h-7 w-7 text-gray-600"
             onClick={handleZoomOut}
             disabled={zoomLevel <= 25}
+            aria-label="Zoom out"
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </Button>
@@ -211,11 +214,12 @@ function ImagePreview({ file }: { file: DocumentFile }) {
             className="h-7 w-7 text-gray-600"
             onClick={handleZoomIn}
             disabled={zoomLevel >= 200}
+            aria-label="Zoom in"
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </Button>
           <div className="w-px h-4 bg-gray-300 mx-1" />
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-600">
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-600" aria-label="Maximize">
             <Maximize2 className="w-3.5 h-3.5" />
           </Button>
         </div>
@@ -223,17 +227,21 @@ function ImagePreview({ file }: { file: DocumentFile }) {
 
       <div className="flex-1 overflow-auto bg-gray-100 p-6 flex items-start justify-center">
         <div
-          className="bg-white shadow-lg transition-all duration-200"
+          className="bg-white shadow-lg transition-all duration-200 flex items-center justify-center"
           style={{
-            width: `${800 * zoomLevel / 100}px`,
-            height: `${600 * zoomLevel / 100}px`,
+            width: `${Math.min(800 * zoomLevel / 100, 800)}px`,
+            height: `${Math.min(600 * zoomLevel / 100, 600)}px`,
           }}
         >
-          <img
-            src={SAMPLE_IMAGE_URL}
-            alt={file.name}
-            className="w-full h-full object-contain"
-          />
+          <div className="text-center p-8">
+            <Image className="w-24 h-24 text-purple-400 mx-auto mb-4" />
+            <p className="text-sm text-gray-500 mb-2">{file.name}</p>
+            <p className="text-xs text-gray-400">{file.type} Image</p>
+            <p className="text-xs text-gray-400 mt-1">{file.size}</p>
+            <p className="text-[10px] text-gray-400 mt-4 italic">
+              (Image preview placeholder - connect backend for actual images)
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -262,14 +270,14 @@ function OfficePreview({ file }: { file: DocumentFile }) {
                 {getFileTypeIcon(file.type)}
               </div>
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                <p className="text-sm font-medium text-gray-900 truncate" title={file.name}>{file.name}</p>
                 <p className="text-xs text-gray-500">{file.size}</p>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 w-full">
-            <Button variant="outline" className="flex-1 h-10">
+            <Button variant="outline" className="flex-1 h-10" aria-label="Download file">
               <Download className="w-4 h-4 mr-2" />
               Download
             </Button>
@@ -296,7 +304,7 @@ function UnsupportedPreview() {
             This file type is not supported for preview. Please download the file to view it.
           </p>
 
-          <Button variant="outline" className="h-10">
+          <Button variant="outline" className="h-10" aria-label="Download file">
             <Download className="w-4 h-4 mr-2" />
             Download File
           </Button>

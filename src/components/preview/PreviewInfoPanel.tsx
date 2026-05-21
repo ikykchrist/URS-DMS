@@ -1,5 +1,5 @@
 import { Calendar, User, HardDrive, MapPin, Building2, Tag as TagIcon, Clock, FileText, Download, Eye, Edit, CheckCircle } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
 import { Badge } from "@/components/ui/Badge"
 import type { DocumentFile, PreviewFileActivity, PreviewFileVersion } from "./types"
 
@@ -81,9 +81,8 @@ export function PreviewInfoPanel({ file, activities, versions }: PreviewInfoPane
               </label>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <Avatar className="h-5 w-5">
-                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${uploadedBy}`} />
-                  <AvatarFallback className="text-[8px]">
-                    {uploadedBy.split(" ").map((n) => n[0]).join("")}
+                  <AvatarFallback className="text-[8px] bg-gray-100">
+                    {uploadedBy.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
                   </AvatarFallback>
                 </Avatar>
                 <span className="text-[11px] text-gray-700 truncate">{uploadedBy}</span>

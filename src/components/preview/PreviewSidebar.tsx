@@ -77,7 +77,7 @@ export function PreviewSidebar({
         <p className="text-[10px] text-gray-400 mt-0.5">{files.length} documents</p>
       </div>
 
-      {canGoPrev !== undefined && canGoNext !== undefined && (
+      {(canGoPrev !== undefined && canGoNext !== undefined && files.length > 1) && (
         <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-200 bg-white">
           <Button
             variant="ghost"
@@ -85,6 +85,7 @@ export function PreviewSidebar({
             className="h-6 w-6 text-gray-500"
             onClick={onPrevFile}
             disabled={!canGoPrev}
+            aria-label="Previous file"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
           </Button>
@@ -97,6 +98,7 @@ export function PreviewSidebar({
             className="h-6 w-6 text-gray-500"
             onClick={onNextFile}
             disabled={!canGoNext}
+            aria-label="Next file"
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </Button>
@@ -127,10 +129,10 @@ export function PreviewSidebar({
                 <p className={cn(
                   "text-[11px] font-medium truncate",
                   isActive ? "text-gray-900" : "text-gray-700"
-                )}>
+                )} title={file.name}>
                   {file.name}
                 </p>
-                <p className="text-[10px] text-gray-400">{file.size}</p>
+                <p className="text-[10px] text-gray-400" title={file.size}>{file.size}</p>
               </div>
             </button>
           )

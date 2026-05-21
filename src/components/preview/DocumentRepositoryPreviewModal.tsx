@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import { Loader2 } from "lucide-react"
 import {
   Dialog,
   PreviewDialogContent,
@@ -25,19 +26,24 @@ export function DocumentRepositoryPreviewModal({
   allFiles = [],
   onSelectFile,
 }: DocumentRepositoryPreviewModalProps) {
-  const [activeFile, setActiveFile] = useState<DocumentFile | null>(file)
+const [activeFile, setActiveFile] = useState<DocumentFile | null>(file)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleClose = useCallback(() => {
+    onOpenChange(false)
+  }, [onOpenChange])
   
   useEffect(() => {
     setActiveFile(file)
   }, [file])
 
-  const handleClose = useCallback(() => {
-    onOpenChange(false)
-  }, [onOpenChange])
-
   const handleSelectFile = useCallback((selectedFile: DocumentFile) => {
-    setActiveFile(selectedFile)
-    onSelectFile?.(selectedFile)
+    setIsLoading(true)
+    setTimeout(() => {
+      setActiveFile(selectedFile)
+      onSelectFile?.(selectedFile)
+      setIsLoading(false)
+    }, 150)
   }, [onSelectFile])
 
   const currentIndex = allFiles.findIndex(f => f.id === activeFile?.id)
@@ -74,13 +80,13 @@ export function DocumentRepositoryPreviewModal({
   }, [open, handleClose, handlePrevFile, handleNextFile, canGoPrev, canGoNext])
 
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden"
-    } else {
-      document.body.style.overflow = ""
-    }
+    if (!open) return
+
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
     return () => {
-      document.body.style.overflow = ""
+      document.body.style.overflow = originalOverflow || ""
     }
   }, [open])
 
@@ -90,14 +96,10 @@ export function DocumentRepositoryPreviewModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <PreviewDialogContent 
         className="p-0 max-w-[95vw] w-[95vw] h-[92vh] overflow-hidden flex flex-col rounded-2xl"
-        onInteractOutside={(e) => e.preventDefault()}
       >
         <PreviewHeader
           file={activeFile}
           onClose={handleClose}
-          onDownload={() => console.log("Download", activeFile.id)}
-          onShare={() => console.log("Share", activeFile.id)}
-          onFullscreen={() => console.log("Fullscreen", activeFile.id)}
         />
 
         <div className="flex flex-1 overflow-hidden">
@@ -113,7 +115,12 @@ export function DocumentRepositoryPreviewModal({
             />
           )}
 
-          <div className="flex-1 overflow-hidden bg-gray-100">
+          <div className="flex-1 overflow-hidden bg-gray-100 relative">
+            {isLoading && (
+              <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+                <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+              </div>
+            )}
             <FilePreviewRenderer file={activeFile} />
           </div>
 
