@@ -1,4 +1,5 @@
 import { Search, User, LogOut, Settings, ChevronDown, Command } from "lucide-react"
+import { useAuth } from "@/context/AuthContext"
 import { Input } from "@/components/ui/Input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { QuickActionButton } from "@/components/layout/QuickActionButton"
@@ -18,6 +19,7 @@ interface TopNavProps {
 }
 
 export function TopNav({ onOpenCommandPalette, onNavigate }: TopNavProps) {
+  const { logout } = useAuth()
   return (
     <header className="h-16 bg-white/80 backdrop-blur-sm border-b border-gray-200 flex-shrink-0">
       <div className="flex items-center justify-between h-full px-6">
@@ -81,7 +83,7 @@ export function TopNav({ onOpenCommandPalette, onNavigate }: TopNavProps) {
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-[13px] text-red-600">
+              <DropdownMenuItem className="text-[13px] text-red-600 cursor-pointer" onClick={logout}>
                 <LogOut className="mr-2.5 w-4 h-4" />
                 Log out
               </DropdownMenuItem>

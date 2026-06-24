@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { BrowserRouter, useNavigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom"
 import {
   FileText,
   Users,
@@ -83,7 +83,13 @@ import UserManagement from "@/pages/UserManagement"
 import AuditLogs from "@/pages/AuditLogs"
 import Settings from "@/pages/Settings"
 import AACCUPManagement from "@/pages/AACCUPManagement"
+import AACCUPManagementISO from "@/pages/AACCUPManagementISO"
+import AACCUPManagementCert from "@/pages/AACCUPManagementCert"
 import { CommandPalette } from "@/components/layout/CommandPalette"
+import { AuthProvider, useAuth } from "@/context/AuthContext"
+import LoginPage from "@/pages/Login"
+import ForgotPasswordPage from "@/pages/ForgotPassword"
+import ResetPasswordPage from "@/pages/ResetPassword"
 
 const submissionData = [
   { name: "Jan", submissions: 45 },
@@ -576,6 +582,7 @@ function Dashboard() {
 }
 
 function AppContent() {
+  const { isAuthenticated, isLoading } = useAuth()
   const navigate = useNavigate()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed")
@@ -600,6 +607,8 @@ function AppContent() {
     "/settings": "settings",
     "/aaccup": "aaccup",
     "/aaccup-management": "aaccup",
+    "/iso": "iso",
+    "/certification": "certification",
   }
 
   useEffect(() => {
@@ -633,6 +642,8 @@ function AppContent() {
       audit: "/audit",
       settings: "/settings",
       aaccup: "/aaccup",
+      iso: "/iso",
+      certification: "/certification",
     }
     navigate(pageToRouteMap[page] || "/")
   }
@@ -641,6 +652,23 @@ function AppContent() {
     const newValue = !sidebarCollapsed
     setSidebarCollapsed(newValue)
     localStorage.setItem("sidebarCollapsed", JSON.stringify(newValue))
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FB]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-[#2563EB] flex items-center justify-center">
+            <FileText className="w-6 h-6 text-white" />
+          </div>
+          <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return null
   }
 
   return (
@@ -670,16 +698,45 @@ function AppContent() {
           {activePage === "audit" && <AuditLogs />}
           {activePage === "settings" && <Settings />}
           {activePage === "aaccup" && <AACCUPManagement />}
+          {activePage === "iso" && <AACCUPManagementISO />}
+          {activePage === "certification" && <AACCUPManagementCert />}
         </main>
       </div>
     </div>
   )
 }
 
+function AppRoutes() {
+  const { isAuthenticated } = useAuth()
+
+  return (
+    <Routes>
+      <Route 
+        path="/login" 
+        element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} 
+      />
+      <Route 
+        path="/forgot-password" 
+        element={isAuthenticated ? <Navigate to="/" replace /> : <ForgotPasswordPage />} 
+      />
+      <Route 
+        path="/reset-password" 
+        element={isAuthenticated ? <Navigate to="/" replace /> : <ResetPasswordPage />} 
+      />
+      <Route
+        path="/*"
+        element={isAuthenticated ? <AppContent /> : <Navigate to="/login" replace />}
+      />
+    </Routes>
+  )
+}
+
 function App() {
   return (
     <BrowserRouter>
-      <AppContent />
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </BrowserRouter>
   )
 }
