@@ -15,6 +15,7 @@ import {
   CalendarClock,
   FileCheck,
   RotateCcw,
+  MoreVertical,
 } from "lucide-react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopNav } from "@/components/layout/TopNav"
@@ -59,6 +60,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/Dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/DropdownMenu"
 import { Label } from "@/components/ui/Label"
 import { Dropzone } from "@/components/ui/Dropzone"
 import { Switch } from "@/components/ui/Switch"
@@ -90,6 +97,17 @@ import { AuthProvider, useAuth } from "@/context/AuthContext"
 import LoginPage from "@/pages/Login"
 import ForgotPasswordPage from "@/pages/ForgotPassword"
 import ResetPasswordPage from "@/pages/ResetPassword"
+import { UserSidebar } from "@/components/user/UserSidebar"
+import { UserTopNav } from "@/components/user/UserTopNav"
+import UserDashboard from "@/pages/user/UserDashboard"
+import UserDocuments from "@/pages/user/UserDocuments"
+import UserRequests from "@/pages/user/UserRequests"
+import UserBrowseArchive from "@/pages/user/UserBrowseArchive"
+import UserSubmitRequest from "@/pages/user/UserSubmitRequest"
+import UserAACCUP from "@/pages/user/UserAACCUP"
+import UserNotifications from "@/pages/user/UserNotifications"
+import UserProfile from "@/pages/user/UserProfile"
+import UserSettings from "@/pages/user/UserSettings"
 
 const submissionData = [
   { name: "Jan", submissions: 45 },
@@ -115,14 +133,14 @@ interface ActionWidgetProps {
   subtitle: string
   badge: string
   badgeVariant: "success" | "warning" | "danger" | "default" | "secondary"
-  href: string
+  onClick: () => void
 }
 
-function ActionWidget({ icon, iconBg, iconColor, title, subtitle, badge, badgeVariant, href }: ActionWidgetProps) {
+function ActionWidget({ icon, iconBg, iconColor, title, subtitle, badge, badgeVariant, onClick }: ActionWidgetProps) {
   return (
-    <a
-      href={href}
-      className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-all duration-150 group"
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-all duration-150 group"
     >
       <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0", iconBg)}>
         <span className={iconColor}>{icon}</span>
@@ -135,7 +153,7 @@ function ActionWidget({ icon, iconBg, iconColor, title, subtitle, badge, badgeVa
         {badge}
       </Badge>
       <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors flex-shrink-0" />
-    </a>
+    </button>
   )
 }
 
@@ -182,8 +200,49 @@ const recentSubmissions = [
   },
 ]
 
-function Dashboard() {
+function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [filterStatus, setFilterStatus] = useState("all")
+  const [selectedSubmission, setSelectedSubmission] = useState<typeof recentSubmissions[0] | null>(null)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [uploadTitle, setUploadTitle] = useState("")
+  const [uploadDescription, setUploadDescription] = useState("")
+  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error', message: string } | null>(null)
+
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToastMessage({ type, message })
+    setTimeout(() => setToastMessage(null), 3000)
+  }
+
+  const handleUpload = () => {
+    if (!uploadTitle.trim()) {
+      showToast('error', 'Please enter a document title')
+      return
+    }
+    showToast('success', `"${uploadTitle}" has been uploaded successfully`)
+    setUploadTitle("")
+    setUploadDescription("")
+    setIsUploadDialogOpen(false)
+  }
+
+  const handlePreview = (submission: typeof recentSubmissions[0]) => {
+    setSelectedSubmission(submission)
+    setIsPreviewOpen(true)
+  }
+
+  const handleDownload = (submission: typeof recentSubmissions[0]) => {
+    const content = `Document: ${submission.title}\nID: ${submission.id}\nCategory: ${submission.category}\nSubmitted By: ${submission.submittedBy}\nDate: ${submission.date}\nStatus: ${submission.status}`
+    const blob = new Blob([content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${submission.id}-${submission.title.substring(0, 20)}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    showToast('success', `Downloading "${submission.title}"`)
+  }
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -224,7 +283,7 @@ function Dashboard() {
                 <div className="grid gap-5 py-4">
                   <div className="grid gap-2">
                     <Label htmlFor="title" className="text-[13px] font-medium">Document Title</Label>
-                    <Input id="title" placeholder="Enter document title" className="h-10" />
+                    <Input id="title" placeholder="Enter document title" className="h-10" value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="category" className="text-[13px] font-medium">Category</Label>
@@ -259,7 +318,7 @@ function Dashboard() {
                   <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)} className="h-9">
                     Cancel
                   </Button>
-                  <Button onClick={() => setIsUploadDialogOpen(false)} className="h-9 shadow-sm">
+                  <Button onClick={handleUpload} className="h-9 shadow-sm">
                     Upload Document
                   </Button>
                 </DialogFooter>
@@ -424,7 +483,7 @@ function Dashboard() {
                 subtitle="3 documents awaiting review"
                 badge="3"
                 badgeVariant="warning"
-                href="#"
+                onClick={() => onNavigate('submissions')}
               />
               <ActionWidget
                 icon={<AlertTriangle className="w-4 h-4" />}
@@ -434,7 +493,7 @@ function Dashboard() {
                 subtitle="Area 6 is past due"
                 badge="1"
                 badgeVariant="danger"
-                href="#"
+                onClick={() => onNavigate('submissions')}
               />
               <ActionWidget
                 icon={<RotateCcw className="w-4 h-4" />}
@@ -444,7 +503,7 @@ function Dashboard() {
                 subtitle="2 submissions returned"
                 badge="2"
                 badgeVariant="warning"
-                href="#"
+                onClick={() => onNavigate('submissions')}
               />
               <ActionWidget
                 icon={<CalendarClock className="w-4 h-4" />}
@@ -454,7 +513,7 @@ function Dashboard() {
                 subtitle="3 deadlines this week"
                 badge="3"
                 badgeVariant="default"
-                href="#"
+                onClick={() => onNavigate('submissions')}
               />
               <ActionWidget
                 icon={<FileCheck className="w-4 h-4" />}
@@ -464,7 +523,7 @@ function Dashboard() {
                 subtitle="5 new documents today"
                 badge="5"
                 badgeVariant="success"
-                href="#"
+                onClick={() => onNavigate('documents')}
               />
             </div>
           </ChartCard>
@@ -480,7 +539,7 @@ function Dashboard() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Select defaultValue="all">
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
                   <SelectTrigger className="w-[130px] md:w-[140px] h-9">
                     <Filter className="w-3.5 h-3.5 mr-2" />
                     <SelectValue placeholder="Filter" />
@@ -493,7 +552,7 @@ function Dashboard() {
                     <SelectItem value="review">In Review</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" className="h-9 hidden sm:inline-flex">View All</Button>
+                <Button variant="outline" size="sm" className="h-9 hidden sm:inline-flex" onClick={() => onNavigate('submissions')}>View All</Button>
               </div>
             </div>
           </CardHeader>
@@ -533,15 +592,33 @@ function Dashboard() {
                     <TableCell className="whitespace-nowrap">{getStatusBadge(submission.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-0.5">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900" onClick={() => handlePreview(submission)}>
                           <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900" onClick={() => handleDownload(submission)}>
                           <Download className="w-3.5 h-3.5 md:w-4 md:h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900">
-                          <MoreHorizontal className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900">
+                              <MoreHorizontal className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem onClick={() => handlePreview(submission)}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDownload(submission)}>
+                              <Download className="w-4 h-4 mr-2" />
+                              Download
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onNavigate('submissions')}>
+                              <FileText className="w-4 h-4 mr-2" />
+                              View in Submissions
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -577,12 +654,28 @@ function Dashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {toastMessage && (
+          <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border ${
+            toastMessage.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+          }`}>
+            {toastMessage.type === 'success' ? (
+              <CheckCircle className="w-5 h-5 text-emerald-600" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+            )}
+            <span className="text-[14px] font-medium">{toastMessage.message}</span>
+            <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-70">
+              ×
+            </button>
+          </div>
+        )}
     </div>
   )
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, user } = useAuth()
   const navigate = useNavigate()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed")
@@ -635,7 +728,7 @@ function AppContent() {
     setActivePage(page)
     localStorage.setItem("activePage", page)
     const pageToRouteMap: Record<string, string> = {
-      dashboard: "/",
+      dashboard: "/dashboard",
       documents: "/documents",
       submissions: "/submissions",
       users: "/users",
@@ -645,7 +738,7 @@ function AppContent() {
       iso: "/iso",
       certification: "/certification",
     }
-    navigate(pageToRouteMap[page] || "/")
+    navigate(pageToRouteMap[page] || "/dashboard")
   }
 
   const handleToggleSidebar = () => {
@@ -667,7 +760,7 @@ function AppContent() {
     )
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user || user.role !== "admin") {
     return null
   }
 
@@ -691,7 +784,7 @@ function AppContent() {
           onNavigate={handleNavigate}
         />
         <main className="flex-1 overflow-y-auto">
-          {activePage === "dashboard" && <Dashboard />}
+          {activePage === "dashboard" && <Dashboard onNavigate={handleNavigate} />}
           {activePage === "documents" && <DocumentRepository />}
           {activePage === "submissions" && <Submissions />}
           {activePage === "users" && <UserManagement />}
@@ -706,26 +799,233 @@ function AppContent() {
   )
 }
 
+function UserAppContent() {
+  const { isAuthenticated, isLoading, user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem("userSidebarCollapsed")
+    return saved ? JSON.parse(saved) : false
+  })
+  const [activePage, setActivePage] = useState("dashboard")
+  const [showBrowseArchive, setShowBrowseArchive] = useState(false)
+  const [showSubmitRequest, setShowSubmitRequest] = useState(false)
+
+  const userRouteToPageMap: Record<string, string> = {
+    "/user": "dashboard",
+    "/user/dashboard": "dashboard",
+    "/user/documents": "documents",
+    "/user/requests": "requests",
+    "/user/aaccup": "aaccup",
+    "/user/notifications": "notifications",
+    "/user/profile": "profile",
+    "/user/settings": "settings",
+  }
+
+  useEffect(() => {
+    const path = window.location.pathname
+    const page = userRouteToPageMap[path]
+    if (page) {
+      setActivePage(page)
+    }
+  }, [])
+
+  const handleNavigate = (page: string) => {
+    setActivePage(page)
+    setShowBrowseArchive(false)
+    setShowSubmitRequest(false)
+    const pageToRouteMap: Record<string, string> = {
+      dashboard: "/user/dashboard",
+      documents: "/user/documents",
+      requests: "/user/requests",
+      aaccup: "/user/aaccup",
+      notifications: "/user/notifications",
+      profile: "/user/profile",
+      settings: "/user/settings",
+    }
+    navigate(pageToRouteMap[page] || "/user/dashboard")
+  }
+
+  const handleToggleSidebar = () => {
+    const newValue = !sidebarCollapsed
+    setSidebarCollapsed(newValue)
+    localStorage.setItem("userSidebarCollapsed", JSON.stringify(newValue))
+  }
+
+  const handleBrowseArchive = () => {
+    setShowBrowseArchive(true)
+    setActivePage("requests")
+  }
+
+  const handleNewRequest = () => {
+    setShowSubmitRequest(true)
+    setActivePage("requests")
+  }
+
+  const handleSubmitRequest = (_docIds: string[]) => {
+    setShowBrowseArchive(false)
+    setShowSubmitRequest(true)
+  }
+
+  const handleSubmitRequestSuccess = () => {
+    setShowSubmitRequest(false)
+    handleNavigate("requests")
+  }
+
+  const handleLogout = () => {
+    logout()
+    navigate("/")
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FB]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-[#2563EB] flex items-center justify-center">
+            <FileText className="w-6 h-6 text-white" />
+          </div>
+          <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated || !user || user.role === "admin") {
+    return null
+  }
+
+  return (
+    <div className="flex h-screen w-full overflow-hidden bg-[#FAFAFA]">
+      <UserSidebar
+        collapsed={sidebarCollapsed}
+        onToggle={handleToggleSidebar}
+        activePage={activePage}
+        onNavigate={handleNavigate}
+        onLogout={handleLogout}
+        unreadNotifications={2}
+      />
+
+      <div className="flex flex-col flex-1 min-w-0 w-full">
+        <UserTopNav
+          onNavigate={handleNavigate}
+          unreadNotifications={2}
+        />
+        <main className="flex-1 overflow-y-auto">
+          {activePage === "dashboard" && <UserDashboard onNavigate={handleNavigate} />}
+          {activePage === "documents" && <UserDocuments />}
+          {activePage === "requests" && !showBrowseArchive && !showSubmitRequest && (
+            <UserRequests onBrowseArchive={handleBrowseArchive} onNewRequest={handleNewRequest} />
+          )}
+          {activePage === "requests" && showBrowseArchive && !showSubmitRequest && (
+            <UserBrowseArchive
+              onBack={() => setShowBrowseArchive(false)}
+              onSubmitRequest={handleSubmitRequest}
+            />
+          )}
+          {activePage === "requests" && showSubmitRequest && (
+            <UserSubmitRequest
+              onBack={() => setShowSubmitRequest(false)}
+              onSuccess={handleSubmitRequestSuccess}
+            />
+          )}
+          {activePage === "aaccup" && <UserAACCUP />}
+          {activePage === "notifications" && <UserNotifications />}
+          {activePage === "profile" && <UserProfile />}
+          {activePage === "settings" && <UserSettings />}
+        </main>
+      </div>
+    </div>
+  )
+}
+
 function AppRoutes() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading, user } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FB]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-[#2563EB] flex items-center justify-center">
+            <FileText className="w-6 h-6 text-white" />
+          </div>
+          <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <Routes>
-      <Route 
-        path="/login" 
-        element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} 
+      <Route
+        path="/"
+        element={<LoginPage />}
       />
-      <Route 
-        path="/forgot-password" 
-        element={isAuthenticated ? <Navigate to="/" replace /> : <ForgotPasswordPage />} 
+      <Route
+        path="/login"
+        element={<LoginPage />}
       />
-      <Route 
-        path="/reset-password" 
-        element={isAuthenticated ? <Navigate to="/" replace /> : <ResetPasswordPage />} 
+      <Route
+        path="/forgot-password"
+        element={isAuthenticated && user ? <Navigate to={user.role === "admin" ? "/dashboard" : "/user/dashboard"} replace /> : <ForgotPasswordPage />}
+      />
+      <Route
+        path="/reset-password"
+        element={isAuthenticated && user ? <Navigate to={user.role === "admin" ? "/dashboard" : "/user/dashboard"} replace /> : <ResetPasswordPage />}
+      />
+      <Route
+        path="/dashboard"
+        element={isAuthenticated && user?.role === "admin" ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/documents"
+        element={isAuthenticated && user?.role === "admin" ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/submissions"
+        element={isAuthenticated && user?.role === "admin" ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/users"
+        element={isAuthenticated && user?.role === "admin" ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/user-management"
+        element={isAuthenticated && user?.role === "admin" ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/audit"
+        element={isAuthenticated && user?.role === "admin" ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/audit-logs"
+        element={isAuthenticated && user?.role === "admin" ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/settings"
+        element={isAuthenticated && user?.role === "admin" ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/aaccup"
+        element={isAuthenticated && user?.role === "admin" ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/aaccup-management"
+        element={isAuthenticated && user?.role === "admin" ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/iso"
+        element={isAuthenticated && user?.role === "admin" ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/certification"
+        element={isAuthenticated && user?.role === "admin" ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/user/*"
+        element={isAuthenticated && user?.role !== "admin" ? <UserAppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/*"
-        element={isAuthenticated ? <AppContent /> : <Navigate to="/login" replace />}
+        element={isAuthenticated && user ? <Navigate to={user.role === "admin" ? "/dashboard" : "/user/dashboard"} replace /> : <Navigate to="/" replace />}
       />
     </Routes>
   )

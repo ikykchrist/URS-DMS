@@ -25,6 +25,8 @@ interface Session {
 interface SessionManagementModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onLogoutSession?: (sessionId: string) => void
+  onLogoutAll?: () => void
 }
 
 const sessions: Session[] = [
@@ -63,7 +65,17 @@ const sessions: Session[] = [
   },
 ]
 
-export function SessionManagementModal({ open, onOpenChange }: SessionManagementModalProps) {
+export function SessionManagementModal({ open, onOpenChange, onLogoutSession, onLogoutAll }: SessionManagementModalProps) {
+  const handleLogoutSession = (sessionId: string) => {
+    onLogoutSession?.(sessionId)
+    onOpenChange(false)
+  }
+
+  const handleLogoutAll = () => {
+    onLogoutAll?.()
+    onOpenChange(false)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
@@ -136,6 +148,7 @@ export function SessionManagementModal({ open, onOpenChange }: SessionManagement
                         variant="ghost"
                         size="sm"
                         className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleLogoutSession(session.id)}
                       >
                         <LogOut className="w-3.5 h-3.5 mr-1.5" />
                         Logout
@@ -158,7 +171,7 @@ export function SessionManagementModal({ open, onOpenChange }: SessionManagement
           </Button>
           <Button
             variant="destructive"
-            onClick={() => onOpenChange(false)}
+            onClick={handleLogoutAll}
             className="h-10 px-5 shadow-sm"
           >
             <LogOut className="w-4 h-4 mr-2" />

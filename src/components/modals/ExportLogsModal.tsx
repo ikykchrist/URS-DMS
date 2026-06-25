@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Download, Calendar, FileText, Filter } from "lucide-react"
 import {
   Dialog,
@@ -21,9 +22,21 @@ import {
 interface ExportLogsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onExport?: (options: { dateFrom: string; dateTo: string; format: string; exportType: string; includeHeaders: boolean }) => void
 }
 
-export function ExportLogsModal({ open, onOpenChange }: ExportLogsModalProps) {
+export function ExportLogsModal({ open, onOpenChange, onExport }: ExportLogsModalProps) {
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
+  const [format, setFormat] = useState("csv")
+  const [exportType, setExportType] = useState("all")
+  const [includeHeaders, setIncludeHeaders] = useState(true)
+
+  const handleExport = () => {
+    onExport?.({ dateFrom, dateTo, format, exportType, includeHeaders })
+    onOpenChange(false)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
@@ -46,11 +59,11 @@ export function ExportLogsModal({ open, onOpenChange }: ExportLogsModalProps) {
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label className="text-[11px] text-gray-500">From</Label>
-                <Input type="date" className="h-10 text-[14px]" />
+                <Input type="date" className="h-10 text-[14px]" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-[11px] text-gray-500">To</Label>
-                <Input type="date" className="h-10 text-[14px]" />
+                <Input type="date" className="h-10 text-[14px]" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
               </div>
             </div>
           </div>
@@ -60,7 +73,7 @@ export function ExportLogsModal({ open, onOpenChange }: ExportLogsModalProps) {
               <FileText className="w-3.5 h-3.5" />
               File Format
             </Label>
-            <Select defaultValue="csv">
+            <Select value={format} onValueChange={setFormat}>
               <SelectTrigger className="h-10">
                 <SelectValue />
               </SelectTrigger>
@@ -78,7 +91,7 @@ export function ExportLogsModal({ open, onOpenChange }: ExportLogsModalProps) {
               <Filter className="w-3.5 h-3.5" />
               Export Type
             </Label>
-            <Select defaultValue="all">
+            <Select value={exportType} onValueChange={setExportType}>
               <SelectTrigger className="h-10">
                 <SelectValue />
               </SelectTrigger>
@@ -102,7 +115,8 @@ export function ExportLogsModal({ open, onOpenChange }: ExportLogsModalProps) {
               <div className="relative inline-block w-11 h-6 cursor-pointer">
                 <input
                   type="checkbox"
-                  defaultChecked
+                  checked={includeHeaders}
+                  onChange={(e) => setIncludeHeaders(e.target.checked)}
                   className="peer sr-only"
                   id="includeHeaders"
                 />
@@ -125,7 +139,7 @@ export function ExportLogsModal({ open, onOpenChange }: ExportLogsModalProps) {
             Cancel
           </Button>
           <Button
-            onClick={() => onOpenChange(false)}
+            onClick={handleExport}
             className="h-10 px-5 shadow-sm"
           >
             <Download className="w-4 h-4 mr-2" />

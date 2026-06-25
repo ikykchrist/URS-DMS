@@ -47,8 +47,9 @@ interface UserDetailsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   user: User | null
-  onResetPassword: () => void
-  onDelete: () => void
+  onResetPassword?: () => void
+  onDelete?: () => void
+  onSave?: (userId: string, data: { isActive: boolean }) => void
 }
 
 const roleBadgeVariant: Record<string, "default" | "secondary" | "success" | "warning" | "danger"> = {
@@ -66,9 +67,16 @@ export function UserDetailsModal({
   user,
   onResetPassword,
   onDelete,
+  onSave,
 }: UserDetailsModalProps) {
   const [isActive, setIsActive] = useState(user?.status === "Active")
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+
+  const handleSave = () => {
+    if (!user) return
+    onSave?.(user.id, { isActive })
+    onOpenChange(false)
+  }
 
   if (!user) return null
 
@@ -277,7 +285,7 @@ export function UserDetailsModal({
             Cancel
           </Button>
           <Button
-            onClick={() => onOpenChange(false)}
+            onClick={handleSave}
             className="h-10 px-5 shadow-sm"
           >
             Save Changes

@@ -47,7 +47,9 @@ interface DocumentPreviewModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   submission: Submission | null
-  onReturn: () => void
+  onReturn?: () => void
+  onApprove?: (submissionId: string) => void
+  onReject?: (submissionId: string) => void
 }
 
 const getStatusBadge = (status: string) => {
@@ -68,15 +70,43 @@ export function DocumentPreviewModal({
   onOpenChange,
   submission,
   onReturn,
+  onApprove,
+  onReject,
 }: DocumentPreviewModalProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [zoomLevel, setZoomLevel] = useState(100)
+  const [rotation, setRotation] = useState(0)
   const totalPages = 12
 
   const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 25, 200))
   const handleZoomOut = () => setZoomLevel((prev) => Math.max(prev - 25, 50))
   const handlePrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1))
   const handleNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+  const handleRotate = () => setRotation((prev) => (prev + 90) % 360)
+  const handlePrint = () => window.print()
+  const handleDownload = () => {
+    if (!submission) return
+    const content = `Document: ${submission.title}\nID: ${submission.id}\nArea: ${submission.area}\nSubmitted By: ${submission.submittedBy}\nDate: ${submission.dateSubmitted}\nStatus: ${submission.status}`
+    const blob = new Blob([content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${submission.id}-${submission.title.substring(0, 20)}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+  const handleApprove = () => {
+    if (!submission) return
+    onApprove?.(submission.id)
+    onOpenChange(false)
+  }
+  const handleReject = () => {
+    if (!submission) return
+    onReject?.(submission.id)
+    onOpenChange(false)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -129,13 +159,13 @@ export function DocumentPreviewModal({
                   <ZoomIn className="w-4 h-4" />
                 </Button>
                 <div className="w-px h-5 bg-gray-200 mx-1" />
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600" onClick={handleRotate}>
                   <RotateCw className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600" onClick={handlePrint}>
                   <Printer className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600" onClick={handleDownload}>
                   <Download className="w-4 h-4" />
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600">
@@ -277,11 +307,11 @@ export function DocumentPreviewModal({
             <div className="p-5 border-t border-gray-100 bg-gray-50/50">
               <p className="text-[12px] font-medium text-gray-700 mb-3">Admin Actions</p>
               <div className="flex flex-col gap-2">
-                <Button className="w-full h-10 flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white">
+                <Button className="w-full h-10 flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white" onClick={handleApprove}>
                   <CheckCircle className="w-4 h-4" />
                   Approve
                 </Button>
-                <Button 
+                <Button
                   variant="outline"
                   className="w-full h-10 flex items-center gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
                   onClick={onReturn}
@@ -289,7 +319,7 @@ export function DocumentPreviewModal({
                   <RotateCcw className="w-4 h-4" />
                   Return
                 </Button>
-                <Button variant="outline" className="w-full h-10 flex items-center gap-2 border-red-300 text-red-700 hover:bg-red-50">
+                <Button variant="outline" className="w-full h-10 flex items-center gap-2 border-red-300 text-red-700 hover:bg-red-50" onClick={handleReject}>
                   <XCircle className="w-4 h-4" />
                   Reject
                 </Button>

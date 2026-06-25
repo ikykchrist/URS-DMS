@@ -16,12 +16,14 @@ interface ReturnSubmissionModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   submissionTitle?: string
+  onReturn?: (reason: string, files: File[]) => void
 }
 
 export function ReturnSubmissionModal({
   open,
   onOpenChange,
   submissionTitle,
+  onReturn,
 }: ReturnSubmissionModalProps) {
   const [returnReason, setReturnReason] = useState("")
   const [files, setFiles] = useState<File[]>([])
@@ -62,6 +64,14 @@ export function ReturnSubmissionModal({
 
   const removeFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleReturn = () => {
+    if (!returnReason.trim()) return
+    onReturn?.(returnReason, files)
+    setReturnReason("")
+    setFiles([])
+    onOpenChange(false)
   }
 
   const getFileSize = (bytes: number) => {
@@ -234,9 +244,7 @@ export function ReturnSubmissionModal({
             variant="outline"
             className="border-amber-500 text-amber-600 hover:bg-amber-50 h-10 px-5"
             disabled={!returnReason.trim()}
-            onClick={() => {
-              onOpenChange(false)
-            }}
+            onClick={handleReturn}
           >
             <RotateCcw className="w-4 h-4 mr-2" />
             Return Submission

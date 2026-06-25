@@ -22,11 +22,13 @@ import { cn } from "@/lib/utils"
 interface UploadDocumentsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSuccess?: (files: File[], category: string) => void
 }
 
-export function UploadDocumentsModal({ open, onOpenChange }: UploadDocumentsModalProps) {
+export function UploadDocumentsModal({ open, onOpenChange, onSuccess }: UploadDocumentsModalProps) {
   const [files, setFiles] = useState<File[]>([])
   const [isDragging, setIsDragging] = useState(false)
+  const [category, setCategory] = useState("annual-report")
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -64,6 +66,16 @@ export function UploadDocumentsModal({ open, onOpenChange }: UploadDocumentsModa
     setFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
+  const handleUpload = () => {
+    if (files.length === 0) {
+      return
+    }
+    onSuccess?.(files, category)
+    onOpenChange(false)
+    setFiles([])
+    setCategory("annual-report")
+  }
+
   const getFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -94,7 +106,7 @@ export function UploadDocumentsModal({ open, onOpenChange }: UploadDocumentsModa
             <Label className="text-[13px] font-medium text-gray-700">
               Document Category
             </Label>
-            <Select defaultValue="annual-report">
+            <Select value={category} onValueChange={setCategory}>
               <SelectTrigger className="h-10">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
@@ -193,7 +205,7 @@ export function UploadDocumentsModal({ open, onOpenChange }: UploadDocumentsModa
           <Button variant="outline" onClick={() => onOpenChange(false)} className="h-10 px-5">
             Cancel
           </Button>
-          <Button onClick={() => onOpenChange(false)} className="h-10 px-5 shadow-sm">
+          <Button onClick={handleUpload} disabled={files.length === 0} className="h-10 px-5 shadow-sm">
             <Upload className="w-4 h-4 mr-2" />
             Upload Files
           </Button>

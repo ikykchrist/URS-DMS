@@ -1,6 +1,6 @@
 import { useState, FormEvent } from "react"
 import { Loader2, AlertCircle } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { AuthCard, AuthCardHeader, AuthCardTitle, AuthCardDescription, AuthCardFooter } from "./AuthCard"
 import { PasswordInput } from "./PasswordInput"
 import { Button } from "@/components/ui/Button"
@@ -9,12 +9,9 @@ import { Label } from "@/components/ui/Label"
 import { Switch } from "@/components/ui/Switch"
 import { useAuth } from "@/context/AuthContext"
 
-interface LoginFormProps {
-  onSuccess?: () => void
-}
-
-export function LoginForm({ onSuccess }: LoginFormProps) {
+export function LoginForm() {
   const { login, isLoading, rememberMe, setRememberMe } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -22,7 +19,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
   const validateForm = () => {
     const errors: { email?: string; password?: string } = {}
-    
+
     if (!email) {
       errors.email = "Email is required"
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -44,10 +41,14 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
     if (!validateForm()) return
 
-    const success = await login(email, password)
-    
-    if (success) {
-      onSuccess?.()
+    const result = await login(email, password)
+
+    if (result.success) {
+      if (result.role === "admin") {
+        navigate("/dashboard")
+      } else {
+        navigate("/user/dashboard")
+      }
     } else {
       setError("Invalid email or password. Please try again.")
     }
@@ -142,9 +143,17 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
       </form>
 
       <AuthCardFooter className="mt-6">
-        <p className="text-xs text-[#64748B]">
-          Demo credentials: <span className="font-medium text-[#0F172A]">admin@urs.edu.ph</span> / <span className="font-medium text-[#0F172A]">password123</span>
-        </p>
+        <div className="space-y-1">
+          <p className="text-xs text-[#64748B]">
+            <span className="font-medium text-[#0F172A]">Admin:</span> admin@urs.edu.ph / admin123
+          </p>
+          <p className="text-xs text-[#64748B]">
+            <span className="font-medium text-[#0F172A]">Faculty:</span> faculty@urs.edu.ph / faculty123
+          </p>
+          <p className="text-xs text-[#64748B]">
+            <span className="font-medium text-[#0F172A]">Department:</span> dean@urs.edu.ph / dean123
+          </p>
+        </div>
       </AuthCardFooter>
     </AuthCard>
   )

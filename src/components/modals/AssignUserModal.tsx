@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { UserPlus, Check } from "lucide-react"
 import {
   Dialog,
@@ -23,6 +24,7 @@ interface AssignUserModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   areaTitle?: string
+  onSuccess?: (userIds: string[]) => void
 }
 
 const availableUsers: User[] = [
@@ -33,9 +35,28 @@ const availableUsers: User[] = [
   { id: "5", name: "Ms. Ana Reyes", email: "ana.reyes@university.edu", initials: "AR", role: "Viewer" },
 ]
 
-const assignedUsers = ["1", "3"]
+export function AssignUserModal({ open, onOpenChange, areaTitle, onSuccess }: AssignUserModalProps) {
+  const [selectedUsers, setSelectedUsers] = useState<string[]>(["1", "3"])
+  const [searchQuery, setSearchQuery] = useState("")
 
-export function AssignUserModal({ open, onOpenChange, areaTitle }: AssignUserModalProps) {
+  const toggleUser = (userId: string) => {
+    setSelectedUsers((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    )
+  }
+
+  const handleAssign = () => {
+    onSuccess?.(selectedUsers)
+    onOpenChange(false)
+  }
+
+  const filteredUsers = availableUsers.filter((user) =>
+    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
@@ -54,6 +75,8 @@ export function AssignUserModal({ open, onOpenChange, areaTitle }: AssignUserMod
             <Input
               placeholder="Search users..."
               className="h-10 pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
@@ -67,11 +90,12 @@ export function AssignUserModal({ open, onOpenChange, areaTitle }: AssignUserMod
           </div>
 
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {availableUsers.map((user) => {
-              const isAssigned = assignedUsers.includes(user.id)
+            {filteredUsers.map((user) => {
+              const isAssigned = selectedUsers.includes(user.id)
               return (
                 <div
                   key={user.id}
+                  onClick={() => toggleUser(user.id)}
                   className={`flex items-center justify-between p-3 rounded-lg border transition-colors cursor-pointer ${
                     isAssigned
                       ? "border-primary/30 bg-primary-5"
@@ -102,8 +126,8 @@ export function AssignUserModal({ open, onOpenChange, areaTitle }: AssignUserMod
           <Button variant="outline" onClick={() => onOpenChange(false)} className="h-10 px-5">
             Cancel
           </Button>
-          <Button onClick={() => onOpenChange(false)} className="h-10 px-5 shadow-sm">
-            Assign Users
+          <Button onClick={handleAssign} className="h-10 px-5 shadow-sm">
+            Assign Users ({selectedUsers.length})
           </Button>
         </DialogFooter>
       </DialogContent>

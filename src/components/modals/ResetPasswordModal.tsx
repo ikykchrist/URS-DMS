@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { KeyRound, Mail, Info } from "lucide-react"
 import {
   Dialog,
@@ -15,13 +16,25 @@ interface ResetPasswordModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   userEmail?: string
+  onSuccess?: (email: string) => void
 }
 
 export function ResetPasswordModal({
   open,
   onOpenChange,
   userEmail,
+  onSuccess,
 }: ResetPasswordModalProps) {
+  const [email, setEmail] = useState(userEmail || "")
+
+  const handleSendReset = () => {
+    if (!email.trim()) {
+      return
+    }
+    onSuccess?.(email)
+    onOpenChange(false)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[460px]">
@@ -45,7 +58,8 @@ export function ResetPasswordModal({
               <Input
                 id="resetEmail"
                 type="email"
-                defaultValue={userEmail}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter email address"
                 className="h-10 pl-10"
               />
@@ -74,7 +88,8 @@ export function ResetPasswordModal({
             Cancel
           </Button>
           <Button
-            onClick={() => onOpenChange(false)}
+            onClick={handleSendReset}
+            disabled={!email.trim()}
             className="h-10 px-5 shadow-sm"
           >
             Send Reset Link

@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Plus } from "lucide-react"
 import {
   Dialog,
@@ -23,9 +24,38 @@ interface CreateTaskModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   areaTitle?: string
+  onSuccess?: (taskData: { name: string; description: string; assignTo: string; priority: string; dueDate: string; category: string }) => void
 }
 
-export function CreateTaskModal({ open, onOpenChange, areaTitle }: CreateTaskModalProps) {
+export function CreateTaskModal({ open, onOpenChange, areaTitle, onSuccess }: CreateTaskModalProps) {
+  const [taskName, setTaskName] = useState("")
+  const [taskDescription, setTaskDescription] = useState("")
+  const [assignTo, setAssignTo] = useState("")
+  const [priority, setPriority] = useState("medium")
+  const [dueDate, setDueDate] = useState("")
+  const [category, setCategory] = useState("documentation")
+  const [error, setError] = useState("")
+
+  const handleSubmit = () => {
+    setError("")
+    if (!taskName.trim()) {
+      setError("Task name is required")
+      return
+    }
+    if (!assignTo) {
+      setError("Please select a user to assign")
+      return
+    }
+    onSuccess?.({ name: taskName, description: taskDescription, assignTo, priority, dueDate, category })
+    onOpenChange(false)
+    setTaskName("")
+    setTaskDescription("")
+    setAssignTo("")
+    setPriority("medium")
+    setDueDate("")
+    setCategory("documentation")
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[560px]">
@@ -40,6 +70,11 @@ export function CreateTaskModal({ open, onOpenChange, areaTitle }: CreateTaskMod
         </DialogHeader>
 
         <div className="grid gap-5 py-4">
+          {error && (
+            <div className="text-[13px] text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+              {error}
+            </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="taskName" className="text-[13px] font-medium text-gray-700">
               Task Name <span className="text-red-500">*</span>
@@ -48,6 +83,8 @@ export function CreateTaskModal({ open, onOpenChange, areaTitle }: CreateTaskMod
               id="taskName"
               placeholder="Enter task name"
               className="h-10"
+              value={taskName}
+              onChange={(e) => setTaskName(e.target.value)}
             />
           </div>
 
@@ -59,6 +96,8 @@ export function CreateTaskModal({ open, onOpenChange, areaTitle }: CreateTaskMod
               id="taskDescription"
               placeholder="Enter task description..."
               className="min-h-[100px] resize-none"
+              value={taskDescription}
+              onChange={(e) => setTaskDescription(e.target.value)}
             />
           </div>
 
@@ -67,7 +106,7 @@ export function CreateTaskModal({ open, onOpenChange, areaTitle }: CreateTaskMod
               <Label className="text-[13px] font-medium text-gray-700">
                 Assign To <span className="text-red-500">*</span>
               </Label>
-              <Select>
+              <Select value={assignTo} onValueChange={setAssignTo}>
                 <SelectTrigger className="h-10">
                   <SelectValue placeholder="Select user" />
                 </SelectTrigger>
@@ -83,7 +122,7 @@ export function CreateTaskModal({ open, onOpenChange, areaTitle }: CreateTaskMod
               <Label className="text-[13px] font-medium text-gray-700">
                 Priority
               </Label>
-              <Select defaultValue="medium">
+              <Select value={priority} onValueChange={setPriority}>
                 <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
@@ -102,13 +141,13 @@ export function CreateTaskModal({ open, onOpenChange, areaTitle }: CreateTaskMod
               <Label className="text-[13px] font-medium text-gray-700">
                 Due Date
               </Label>
-              <Input type="date" className="h-10" />
+              <Input type="date" className="h-10" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
             <div className="grid gap-2">
               <Label className="text-[13px] font-medium text-gray-700">
                 Category
               </Label>
-              <Select defaultValue="documentation">
+              <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
@@ -141,7 +180,7 @@ export function CreateTaskModal({ open, onOpenChange, areaTitle }: CreateTaskMod
           <Button variant="outline" onClick={() => onOpenChange(false)} className="h-10 px-5">
             Cancel
           </Button>
-          <Button onClick={() => onOpenChange(false)} className="h-10 px-5 shadow-sm">
+          <Button onClick={handleSubmit} className="h-10 px-5 shadow-sm">
             Create Task
           </Button>
         </DialogFooter>

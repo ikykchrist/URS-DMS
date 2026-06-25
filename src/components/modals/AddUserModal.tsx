@@ -23,10 +23,51 @@ import {
 interface AddUserModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSuccess?: (userData: { name: string; email: string; role: string; department: string }) => void
 }
 
-export function AddUserModal({ open, onOpenChange }: AddUserModalProps) {
+export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProps) {
   const [isActive, setIsActive] = useState(true)
+  const [fullName, setFullName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [department, setDepartment] = useState("")
+  const [role, setRole] = useState("viewer")
+  const [error, setError] = useState("")
+
+  const handleSubmit = () => {
+    setError("")
+    if (!fullName.trim()) {
+      setError("Full name is required")
+      return
+    }
+    if (!email.trim()) {
+      setError("Email is required")
+      return
+    }
+    if (!password) {
+      setError("Password is required")
+      return
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match")
+      return
+    }
+    if (!department) {
+      setError("Department is required")
+      return
+    }
+    onSuccess?.({ name: fullName, email, role, department })
+    onOpenChange(false)
+    setFullName("")
+    setEmail("")
+    setPassword("")
+    setConfirmPassword("")
+    setDepartment("")
+    setRole("viewer")
+    setIsActive(true)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -42,6 +83,11 @@ export function AddUserModal({ open, onOpenChange }: AddUserModalProps) {
         </DialogHeader>
 
         <div className="grid gap-5 py-4">
+          {error && (
+            <div className="text-[13px] text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+              {error}
+            </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="fullName" className="text-[13px] font-medium text-gray-700">
               Full Name <span className="text-red-500">*</span>
@@ -50,6 +96,8 @@ export function AddUserModal({ open, onOpenChange }: AddUserModalProps) {
               id="fullName"
               placeholder="Enter full name"
               className="h-10"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
             />
           </div>
 
@@ -62,6 +110,8 @@ export function AddUserModal({ open, onOpenChange }: AddUserModalProps) {
               type="email"
               placeholder="Enter email address"
               className="h-10"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
 
@@ -75,6 +125,8 @@ export function AddUserModal({ open, onOpenChange }: AddUserModalProps) {
                 type="password"
                 placeholder="Enter password"
                 className="h-10"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
@@ -86,6 +138,8 @@ export function AddUserModal({ open, onOpenChange }: AddUserModalProps) {
                 type="password"
                 placeholder="Confirm password"
                 className="h-10"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
               />
             </div>
           </div>
@@ -95,7 +149,7 @@ export function AddUserModal({ open, onOpenChange }: AddUserModalProps) {
               <Label className="text-[13px] font-medium text-gray-700">
                 Department <span className="text-red-500">*</span>
               </Label>
-              <Select>
+              <Select value={department} onValueChange={setDepartment}>
                 <SelectTrigger className="h-10">
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
@@ -113,7 +167,7 @@ export function AddUserModal({ open, onOpenChange }: AddUserModalProps) {
               <Label className="text-[13px] font-medium text-gray-700">
                 Role <span className="text-red-500">*</span>
               </Label>
-              <Select defaultValue="viewer">
+              <Select value={role} onValueChange={setRole}>
                 <SelectTrigger className="h-10">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
@@ -155,7 +209,7 @@ export function AddUserModal({ open, onOpenChange }: AddUserModalProps) {
             Cancel
           </Button>
           <Button
-            onClick={() => onOpenChange(false)}
+            onClick={handleSubmit}
             className="h-10 px-5 shadow-sm"
           >
             Create User

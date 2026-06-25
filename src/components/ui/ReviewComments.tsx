@@ -100,7 +100,7 @@ export function ReviewComments({ comments, onAddComment, className }: ReviewComm
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Add a comment or note..."
             rows={2}
-            className="flex-1 text-[13px] resize-none border border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-1.5 focus:ring-primary/20 focus:border-primary transition-all"
+            className="flex-1 text-[13px] resize-none border border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-1.5 focus:ring-primary/50 focus:border-primary transition-all"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault()

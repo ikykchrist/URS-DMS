@@ -69,6 +69,19 @@ const comments = [
 
 export function TaskDetailsModal({ open, onOpenChange, task, onUploadDocuments }: TaskDetailsModalProps) {
   const [newComment, setNewComment] = useState("")
+  const [commentsList, setCommentsList] = useState(comments)
+
+  const handleSendComment = () => {
+    if (!newComment.trim()) return
+    const newCommentObj = {
+      user: "You",
+      initials: "YO",
+      text: newComment,
+      time: new Date().toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+    }
+    setCommentsList([...commentsList, newCommentObj])
+    setNewComment("")
+  }
 
   if (!task) return null
 
@@ -157,7 +170,7 @@ export function TaskDetailsModal({ open, onOpenChange, task, onUploadDocuments }
               Comments
             </p>
             <div className="space-y-3 max-h-40 overflow-y-auto">
-              {comments.map((comment, i) => (
+              {commentsList.map((comment, i) => (
                 <div key={i} className="flex gap-3 p-3 rounded-lg bg-gray-50/50">
                   <Avatar className="h-8 w-8 flex-shrink-0">
                     <AvatarFallback className="text-[10px] bg-gray-200 text-gray-700">{comment.initials}</AvatarFallback>
@@ -179,7 +192,7 @@ export function TaskDetailsModal({ open, onOpenChange, task, onUploadDocuments }
                 onChange={(e) => setNewComment(e.target.value)}
                 className="min-h-[60px] resize-none text-[13px]"
               />
-              <Button size="sm" className="h-[60px] px-3 shadow-sm">
+              <Button size="sm" className="h-[60px] px-3 shadow-sm" onClick={handleSendComment}>
                 <Send className="w-4 h-4" />
               </Button>
             </div>

@@ -21,14 +21,44 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [error, setError] = useState("")
 
-  const passwordRequirements = [
-    { label: "At least 8 characters", met: true },
-    { label: "Contains uppercase letter", met: true },
-    { label: "Contains lowercase letter", met: false },
-    { label: "Contains number", met: false },
-    { label: "Contains special character", met: false },
+  const getPasswordRequirements = (pwd: string) => [
+    { label: "At least 8 characters", met: pwd.length >= 8 },
+    { label: "Contains uppercase letter", met: /[A-Z]/.test(pwd) },
+    { label: "Contains lowercase letter", met: /[a-z]/.test(pwd) },
+    { label: "Contains number", met: /[0-9]/.test(pwd) },
+    { label: "Contains special character", met: /[!@#$%^&*(),.?":{}|<>]/.test(pwd) },
   ]
+
+  const requirements = getPasswordRequirements(newPassword)
+
+  const handleSubmit = () => {
+    setError("")
+    if (!currentPassword) {
+      setError("Current password is required")
+      return
+    }
+    if (!newPassword) {
+      setError("New password is required")
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError("New passwords do not match")
+      return
+    }
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters")
+      return
+    }
+    onOpenChange(false)
+    setCurrentPassword("")
+    setNewPassword("")
+    setConfirmPassword("")
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -44,6 +74,11 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
         </DialogHeader>
 
         <div className="grid gap-5 py-4">
+          {error && (
+            <div className="text-[13px] text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+              {error}
+            </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="currentPassword" className="text-[13px] font-medium text-gray-700">
               Current Password
@@ -54,6 +89,8 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
                 type={showCurrentPassword ? "text" : "password"}
                 placeholder="Enter current password"
                 className="h-10 pr-10"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
               />
               <button
                 type="button"
@@ -79,6 +116,8 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
                 type={showNewPassword ? "text" : "password"}
                 placeholder="Enter new password"
                 className="h-10 pr-10"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
               />
               <button
                 type="button"
@@ -97,7 +136,7 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
           <div className="p-3 rounded-xl border border-gray-100 bg-gray-50/50">
             <p className="text-[12px] font-medium text-gray-700 mb-2">Password Requirements</p>
             <div className="space-y-1.5">
-              {passwordRequirements.map((req, i) => (
+              {requirements.map((req, i) => (
                 <div key={i} className="flex items-center gap-2">
                   {req.met ? (
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
@@ -126,6 +165,8 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="Confirm new password"
                 className="h-10 pr-10"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
               />
               <button
                 type="button"
@@ -151,7 +192,7 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
             Cancel
           </Button>
           <Button
-            onClick={() => onOpenChange(false)}
+            onClick={handleSubmit}
             className="h-10 px-5 shadow-sm"
           >
             Update Password
