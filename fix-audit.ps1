@@ -1,0 +1,2 @@
+$lines = Get-Content "C:\Users\cjbal\[01] Folder ng pogi\[01] Acads\URS-DMS\src\pages\AuditLogs.tsx"
+$lines[0..307] | Set-Content "C:\Users\cjbal\[01] Folder ng pogi\[01] Acads\URS-DMS\src\pages\AuditLogs.tsx" -NoNewline

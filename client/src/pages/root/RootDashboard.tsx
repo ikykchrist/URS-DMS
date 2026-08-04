@@ -1,0 +1,340 @@
+import { useEffect, useState, useCallback } from "react"
+import {
+  ServerCog,
+  Database,
+  HardDrive,
+  Network,
+  Mail,
+  RefreshCw,
+  Activity,
+  Settings2,
+  Lock,
+} from "lucide-react"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { StatCard } from "@/components/layout/StatCard"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
+import { Button } from "@/components/ui/Button"
+import { Badge } from "@/components/ui/Badge"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/Table"
+import { getOverview, formatConfigValue, type RootPlatformOverview } from "@/services/root"
+import { ApiRequestError } from "@/lib/http"
+
+function formatUptime(seconds: number): string {
+  const d = Math.floor(seconds / 86400)
+  const h = Math.floor((seconds % 86400) / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  if (d > 0) return `${d}d ${h}h ${m}m`
+  if (h > 0) return `${h}h ${m}m`
+  return `${m}m`
+}
+
+function formatBytes(raw: string): string {
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return raw
+  if (n === 0) return "0 B"
+  const units = ["B", "KB", "MB", "GB", "TB"]
+  const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1)
+  return `${(n / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
+}
+
+function StatusPill({ ok, okLabel = "Operational" }: { ok: boolean; okLabel?: string }) {
+  return ok ? <Badge variant="success">{okLabel}</Badge> : <Badge variant="danger">Down</Badge>
+}
+
+function actionBadgeVariant(action: string): "success" | "warning" | "danger" | "default" | "secondary" {
+  switch (action) {
+    case "CREATED":
+      return "success"
+    case "UPDATED":
+      return "warning"
+    case "ROLLED_BACK":
+      return "default"
+    case "DELETED":
+      return "danger"
+    default:
+      return "secondary"
+  }
+}
+
+export default function RootDashboard() {
+  const [overview, setOverview] = useState<RootPlatformOverview | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await getOverview()
+      setOverview(data)
+    } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 401) {
+        setError("No backend session. Log out and sign back in as the ROOT user to reconnect.")
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to load platform overview")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  if (loading && !overview) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8">
+        <PageHeader title="Platform Overview" description="System administrator console" />
+        <div className="min-h-[320px] flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    )
+  }
+
+  if (error && !overview) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8">
+        <PageHeader title="Platform Overview" description="System administrator console" />
+        <Card className="border-gray-200/60 shadow-sm">
+          <CardContent className="p-8 flex flex-col items-center text-center gap-4">
+            <Lock className="w-8 h-8 text-gray-400" />
+            <p className="text-[14px] text-gray-600 max-w-md">{error}</p>
+            <Button onClick={() => void load()} className="shadow-sm">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!overview) return null
+
+  const { platform, configuration, storage, database, minio, api, queue } = overview
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8">
+      <PageHeader
+        title="Platform Overview"
+        description={`System administrator console · ${platform.environment} · v${platform.version}`}
+        actions={
+          <Button variant="outline" size="sm" onClick={() => void load()} className="shadow-sm">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <StatCard
+          title="Platform Status"
+          value={platform.status === "ok" ? "Operational" : platform.status}
+          icon={<ServerCog className="w-5 h-5" />}
+        />
+        <StatCard
+          title="Uptime"
+          value={formatUptime(platform.uptimeSeconds)}
+          icon={<Activity className="w-5 h-5" />}
+        />
+        <StatCard
+          title="Configurations"
+          value={configuration.totalConfigs}
+          icon={<Settings2 className="w-5 h-5" />}
+        />
+        <StatCard
+          title="Config Versions"
+          value={configuration.totalVersions}
+          icon={<HardDrive className="w-5 h-5" />}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <Card className="border-gray-200/60 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[14px] flex items-center gap-2">
+              <Database className="w-4 h-4 text-gray-500" />
+              Database
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-gray-500">Latency</span>
+              <span className="text-[13px] font-medium text-gray-900">{database.latencyMs} ms</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-[13px] text-gray-500">Status</span>
+              <StatusPill ok={database.status === "up"} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gray-200/60 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[14px] flex items-center gap-2">
+              <HardDrive className="w-4 h-4 text-gray-500" />
+              Object Storage (MinIO)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-gray-500">Bucket</span>
+              <span className="text-[13px] font-medium text-gray-900">{minio.bucket}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-[13px] text-gray-500">Status</span>
+              <StatusPill ok={minio.status === "up" && minio.exists} okLabel="Ready" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gray-200/60 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[14px] flex items-center gap-2">
+              <Network className="w-4 h-4 text-gray-500" />
+              API + Email Queue
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-gray-500">API</span>
+              <StatusPill ok={api.status === "up"} />
+            </div>
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-[13px] text-gray-500">Emails pending / failed</span>
+              <span className="text-[13px] font-medium text-gray-900">
+                <Mail className="w-3.5 h-3.5 inline -mt-0.5 mr-1 text-gray-400" />
+                {queue.emailPending} / {queue.emailFailed}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <Card className="border-gray-200/60 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[14px]">Active Modules</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Module</TableHead>
+                  <TableHead className="text-right">Permissions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {overview.activeModules.map((m) => (
+                  <TableRow key={m.module}>
+                    <TableCell className="text-[13px] font-medium text-gray-900">{m.module}</TableCell>
+                    <TableCell className="text-right text-[13px] text-gray-600">
+                      {m.permissionCount}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gray-200/60 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[14px]">Storage</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Metric</TableHead>
+                  <TableHead className="text-right">Value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="text-[13px] text-gray-600">Total documents</TableCell>
+                  <TableCell className="text-right text-[13px] font-medium text-gray-900">
+                    {storage.totalDocuments}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="text-[13px] text-gray-600">Total size</TableCell>
+                  <TableCell className="text-right text-[13px] font-medium text-gray-900">
+                    {formatBytes(storage.totalBytes)}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="text-[13px] text-gray-600">Archived documents</TableCell>
+                  <TableCell className="text-right text-[13px] font-medium text-gray-900">
+                    {storage.archivedDocuments}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-gray-200/60 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-[14px]">Recent Configuration Changes</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {overview.recentChanges.length === 0 ? (
+            <div className="p-8 text-center text-[13px] text-gray-500">No changes recorded yet.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Configuration</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Value</TableHead>
+                  <TableHead>Version</TableHead>
+                  <TableHead>By</TableHead>
+                  <TableHead className="text-right">When</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {overview.recentChanges.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell>
+                      <div className="text-[13px] font-medium text-gray-900">{c.configurationKey}</div>
+                      <div className="text-[12px] text-gray-500">{c.configurationName}</div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={actionBadgeVariant(c.action)}>{c.action}</Badge>
+                    </TableCell>
+                    <TableCell className="text-[13px] text-gray-600 max-w-[220px] truncate">
+                      {formatConfigValue(c.newValue)}
+                    </TableCell>
+                    <TableCell className="text-[13px] text-gray-600">
+                      {c.versionFrom ?? "—"} → {c.versionTo ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-[13px] text-gray-600">{c.actorName ?? "System"}</TableCell>
+                    <TableCell className="text-right text-[12px] text-gray-500">
+                      {new Date(c.createdAt).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <p className="mt-6 text-center text-[11px] text-gray-400">
+        Last updated {new Date(platform.timestamp).toLocaleString()} · cache {configuration.cache.size} entries
+        (TTL {configuration.cache.ttlMs} ms)
+      </p>
+    </div>
+  )
+}

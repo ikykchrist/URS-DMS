@@ -1,0 +1,950 @@
+================================================================================
+URS-DMS — PROJECT STATUS REPORT
+================================================================================
+Generated as a static snapshot of the repository. Read-only inspection.
+No files were modified to produce this report (except writing this file).
+================================================================================
+
+
+================================================================================
+SECTION 1 — PROJECT OVERVIEW
+================================================================================
+
+ARCHITECTURE
+------------
+Layered, modular monolith. Backend = Express + Prisma + PostgreSQL + MinIO.
+Frontend = Vite + React + TypeScript + Tailwind. Every feature module follows
+the pattern: routes -> controller -> service -> repository -> Prisma. RBAC is
+permission-driven (no role-name hardcoding). Error envelope is a single global
+error handler. CORS, helmet, rate-limit, JWT auth, and request-context are
+mounted as middlewares.
+
+
+FOLDER STRUCTURE (verified)
+---------------------------
+
+URS-DMS/
+|-- client/src/
+|   |-- components/{auth,layout,modals,preview,ui,user}/
+|   |-- pages/{AACCUPManagement*, AuditLogs, DocumentRepository,
+|   |          Login, ForgotPassword, ResetPassword, Settings,
+|   |          Submissions, UserManagement, user/*}
+|   |-- context/AuthContext.tsx
+|   |-- data/{aaccupData, deadlineUtils, roles}
+|   |-- lib/{audit, db, http, permissions, toast, utils, validation}
+|   |-- services/{api, auth, notifications, reports, search, seed, storage}
+|   `-- types/domain.ts
+|-- server/src/
+|   |-- app.ts, server.ts, index.ts
+|   |-- config/{constants, env}
+|   |-- health/health.routes.ts
+|   |-- lib/{prisma, storage}
+|   |-- middlewares/{authenticate, authorize, errorHandler, rateLimiter,
+|   |                requestContext, validate}
+|   |-- modules/
+|   |   |-- audit/{audit.service}
+|   |   |-- auth/{controller, cookies, password, routes, service, tokens, validator}
+|   |   |-- documents/{controller, repository, routes, service, types, validator}
+|   |   |-- folders/{controller, repository, routes, service, types, validator}
+|   |   |-- permissions/{constants, repository, types}
+|   |   |-- requests/{controller, repository, routes, service, types, validator}
+|   |   |-- roles/{constants}
+|   |   `-- users/{controller, repository, routes, service, types, validator}
+|   |-- routes/index.ts
+|   |-- types/express.d.ts
+|   `-- utils/{apiResponse, asyncHandler, device, errors, hash, logger}
+`-- server/prisma/
+    |-- schema.prisma
+    |-- seed.ts
+    `-- migrations/20260815000000_init/migration.sql
+
+
+TECH STACK (verified from package.json files)
+---------------------------------------------
+
+| Layer            | Stack                                                       |
+|------------------|-------------------------------------------------------------|
+| Backend runtime  | Node >= 20                                                  |
+| Backend framework| Express 4.21                                                |
+| ORM              | Prisma 5.22 (PostgreSQL)                                    |
+| Auth             | jsonwebtoken 9, argon2 0.41                                 |
+| Validation       | zod 3.23                                                    |
+| Storage client   | minio ^8.0.1                                                |
+| Logging          | winston 3.15, morgan 1.10                                   |
+| Security         | helmet 7, cors 2.8, express-rate-limit 7.4                  |
+| Frontend         | React 18, Vite 5, TypeScript 5.2, Tailwind 3.4             |
+| Frontend libs    | react-router-dom 7, recharts 2.12, lucide-react, Radix UI  |
+
+
+DOCKER STATUS
+-------------
+docker-compose.yml defines postgres 16, MinIO latest, pgAdmin 4, and the
+server container. Postgres + MinIO have healthchecks; server has a
+wget-based healthcheck on /api/v1/health. Volumes: urs-postgres-data,
+urs-minio-data, urs-pgadmin-data, urs-server-logs. Network: urs-net (bridge).
+The server Dockerfile is multi-stage (deps -> build -> runtime), runs as
+non-root, Alpine + OpenSSL for Prisma. entrypoint.sh runs
+prisma migrate deploy + prisma seed before starting the app.
+
+
+POSTGRESQL STATUS
+-----------------
+Configured via DATABASE_URL env (validated by Zod on boot). Connection pooling
+via Prisma's default. Container healthchecked with pg_isready. Init script
+docker/postgres/init.sql exists. One consolidated migration
+20260815000000_init (Sprint 2+3) is applied at boot.
+
+
+PRISMA STATUS
+-------------
+schema.prisma declares 12 models (Role, Permission, RolePermission, User,
+Session, AuditLog, Department, Folder, Document, DocumentVersion,
+DocumentTag, DocumentShare, DocumentRequest). Wait - actually 13 models if
+you count Department separately. Client is generated for
+native + linux-musl-openssl-3.0.x. Seed is idempotent and re-runnable safely.
+
+
+MINIO STATUS
+------------
+server/src/lib/storage.ts provides: singleton client, ensureBucket() 
+(auto-creates bucket on first boot - wired into server.ts), presignUpload,
+presignDownload, statObject, deleteObject, getObjectStream,
+publicDownloadUrl, objectKeyFor. Object-key format:
+documents/{documentId}/v{versionNumber}/{safe-filename}. Public endpoint
+overrides supported. Health route probes MinIO via ensureBucket().
+
+
+AUTHENTICATION STATUS
+---------------------
+JWT access (15m) + refresh (7d) tokens, argon2id password hashing.
+authenticate middleware verifies access token, checks session is active,
+loads user + permissions into req.auth. Refresh-token rotation with reuse
+detection. Login lockout (5 attempts -> 15 min lock). Cookie + Bearer
+support. Password change endpoint exists. ALL Sprint 2 endpoints functional.
+
+
+RBAC STATUS
+-----------
+Catalog in server/src/modules/permissions/permissions.constants.ts lists
+~22 codes across modules: users.*, documents.*, folders.*, departments.*,
+request.*, audit.read, settings.manage, repository.manage, aaccup.manage,
+storage.manage. Default role matrix binds 6 roles (ADMINISTRATOR,
+QUALITY_ASSURANCE_OFFICER, DEPARTMENT_COORDINATOR, FACULTY, STAFF,
+READ_ONLY). requirePermission(...codes) middleware is DB-backed, dynamic,
+and writes PERMISSION_DENIED audit entries. No `if (role === "admin")`
+anywhere in the backend.
+
+
+================================================================================
+SECTION 2 — CURRENT SPRINT
+================================================================================
+
+| Item                       | Value                                                              |
+|----------------------------|--------------------------------------------------------------------|
+| Last completed sprint      | Sprint 4 - Document Requests + Approval workflow                   |
+| Current state              | Backend + client adapter for /api/v1/requests shipped and verified.|
+|                            | Sprint 5 scope (Departments + Audit Log read API) was proposed but |
+|                            | NOT executed because plan mode was activated.                      |
+| Repo state at this moment  | All Sprint 1-4 code is on disk and passes typecheck + lint + build.|
+| Sprint 5 completion        | 0% (planning only, no files written).                             |
+
+Overall project completion against the original brief: ~70%
+- auth/RBAC/users             100%
+- documents                    100%
+- folders                      100%
+- versioning                   100%
+- request workflow              100%
+- departments / audit read / AACCUP / server notifications / tag entity  still missing
+
+
+================================================================================
+SECTION 3 — FEATURE CHECKLIST
+================================================================================
+
+INFRASTRUCTURE
+--------------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Docker compose (PG + MinIO + pgAdmin)     | Complete | Healthchecks, volumes, network                     |
+| Dockerfile (multi-stage, non-root, Alpine)| Complete | OpenSSL for Prisma                                 |
+| Auto-migrate + seed on container start    | Complete | entrypoint.sh                                      |
+| MinIO bucket auto-create                  | Complete | ensureBucket() invoked in server.ts               |
+| Health endpoint                           | Complete | Probes Postgres + MinIO                           |
+| Logging (winston + morgan)                | Complete | JSON logs to logs/ in prod                         |
+| Rate limiting                             | Complete | Global + auth-specific                            |
+| Helmet + CORS + cookie-parser             | Complete | CLIENT_URL-controlled CORS                        |
+| Env validation                            | Complete | Zod at boot, fail-fast                            |
+| Tests (vitest)                            | Missing  | Configured but no test files written              |
+| Notification server model                 | Missing  | Client-only mock persists                          |
+| Backup / restore scripts                  | Partial  | scripts/reset-db.sh exists                        |
+
+
+AUTHENTICATION
+--------------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| JWT access + refresh                      | Complete | 15m / 7d                                          |
+| Argon2id password hashing                 | Complete | auth.password.ts                                  |
+| Login / refresh / logout / me             | Complete | /api/v1/auth/*                                    |
+| Change password                           | Complete | /api/v1/auth/change-password                       |
+| Account lockout (5 fails -> 15 min)       | Complete | users.service integrated                          |
+| Refresh-token rotation + reuse detection  | Complete | auth.tokens.ts                                    |
+| Session tracking                          | Complete | Session model + revocation                        |
+| Forgot/reset password                     | Missing  | Client has UI but no endpoints                    |
+
+
+RBAC
+----
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Permission catalog (22 codes)             | Complete | Single source of truth                            |
+| Default role matrix (6 roles)             | Complete | Idempotent seed                                   |
+| requirePermission(...) middleware         | Complete | DB-backed, audits denials                         |
+| requireRole(...) middleware               | Complete | Available, not the primary path                   |
+| req.auth typed (permissions + role)       | Complete | types/express.d.ts                                |
+| Dynamic perm checks (no role hardcoding)  | Complete | Verified across modules                           |
+
+
+USERS
+-----
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| CRUD endpoints                            | Complete | /api/v1/users                                     |
+| Pagination + filters                      | Complete | listUsersQuerySchema                              |
+| Audit logging on mutations                | Complete | USER_CREATED / UPDATED / STATUS / DELETE          |
+| Department association                    | Partial  | Field exists, no department-management endpoint  |
+| Profile / self-update endpoint            | Missing  | Client has updateProfile mock; no /users/me PATCH|
+| Avatar upload                             | Missing  | Client-side only                                  |
+
+
+ROLES
+-----
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| 6 system roles seeded                     | Complete |                                                    |
+| Permission bindings per role              | Complete | DEFAULT_ROLE_MATRIX                                |
+| Custom roles                              | Missing  | Role.isSystem=true hardcoded; no API              |
+| List-roles endpoint                       | Missing  | Permissions repo has listAllRoles; no HTTP route  |
+
+
+PERMISSIONS
+-----------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Catalog CRUD                              | Missing  | Seeded only; no runtime admin endpoint             |
+| List-roles-by-permission                  | Missing  |                                                    |
+
+
+SESSIONS
+--------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Session model + revocation                | Complete |                                                    |
+| Refresh-token rotation + reuse detection  | Complete |                                                    |
+| List / revoke sessions UI                 | Missing  | Client has SessionManagementModal mock            |
+| Forced logout (single session)            | Complete | Via session revocation                            |
+
+
+AUDIT LOGS
+----------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Audit table (immutable, append-only)      | Complete | AuditLog model                                    |
+| Writes from auth/users/docs/folders/req   | Complete | ~25 distinct actions                              |
+| Read API                                  | Missing  | Repo + model exist; no /api/v1/audit routes       |
+| CSV export                                | Missing  |                                                    |
+| Filters (user, action, entity, date)      | Missing  |                                                    |
+| Pagination                                | Missing  |                                                    |
+| Real-time tail / SSE                      | Missing  |                                                    |
+
+
+DOCUMENTS
+---------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| List (paginated, filtered, scoped by RBAC)| Complete | title/desc/filename search + folder/tag/uploader +|
+|                                           |          | status/visibility + sort                          |
+| Create (JSON metadata -> presigned PUT)   | Complete | Bucket-init via MinIO                             |
+| Read detail (incl. tags, shares, versions)| Complete |                                                    |
+| Update metadata                          | Complete |                                                    |
+| Soft delete + restore                    | Complete | Restore is manager-only                           |
+| Add new version (presigned PUT + dedupe)  | Complete | Rollback on mismatch                               |
+| List versions                            | Complete |                                                    |
+| Download URL (presigned GET, ?versionId)  | Complete |                                                    |
+| Preview URL                             | Complete |                                                    |
+| Share / unshare (READ/WRITE/OWNER + exp)  | Complete |                                                    |
+| Tag CRUD                                | Partial  | Inline strings only via setTags(); no Tag entity  |
+| Favorites                                | Missing  | No schema, no endpoints                          |
+| Recent documents                          | Missing  | Client uses local mock                           |
+| Retention enforcement                    | Missing  | Document.retentionUntil captured but no job      |
+
+
+FOLDERS
+-------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| CRUD endpoints                            | Complete | /api/v1/folders                                   |
+| Nested folders (parentId self-relation)   | Complete | Cascade via repo                                  |
+| Soft delete + restore (cascades)          | Complete |                                                    |
+| Move folder with circular-loop guard     | Complete | isDescendantOf()                                  |
+| List children / breadcrumb                | Partial  | Service uses parentId filter; no /children route  |
+| Folder-level permissions                  | Missing  | All folders share document-level RBAC             |
+
+
+TAGS
+----
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Tags inline on DocumentTag               | Complete | setTags() repo + Zod validator                    |
+| Standalone Tag entity                     | Missing  | Schema has none                                   |
+| Tag CRUD endpoints                       | Missing  |                                                    |
+| Assign / remove tag endpoint              | Missing  | Done implicitly via document PATCH                 |
+| Tag autocomplete / global list           | Missing  |                                                    |
+
+
+DOCUMENT VERSIONING
+-------------------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| New versions create new rows             | Complete | (documentId, versionNumber) unique                |
+| Object keys embed versionId -> never over| Complete |                                                    |
+| currentVersionId pointer updated atomic  | Complete |                                                    |
+| List version history                     | Complete |                                                    |
+| Download specific historical version     | Complete | ?versionId=                                       |
+| Restore historical version as current    | Missing  |                                                    |
+| Version diff / comparison                | Missing  |                                                    |
+| Checksum dedupe (per document)           | Complete |                                                    |
+| Checksum verify (MinIO etag)            | Complete | POST /:id/versions/:versionId/verify              |
+
+
+UPLOAD
+------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Presigned PUT (browser-direct to MinIO)   | Complete |                                                    |
+| MIME allow-list (PDF/DOC/XLS/PPT/PNG/JPG)| Complete |                                                    |
+| File size cap (100 MB)                   | Complete |                                                    |
+| Path-traversal protection on object key | Complete | Regex sanitization                                |
+| Multipart upload (large files)           | Missing  | Single-PUT only (<= 100 MB)                       |
+| Resumable / chunked uploads              | Missing  |                                                    |
+| Client-side hashing helper               | Missing  | UI computes SHA-256; backend trusts + verifies etag|
+
+
+DOWNLOAD
+--------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Presigned GET (10-min TTL)               | Complete |                                                    |
+| Server-side stream (passthrough)         | Partial  | getObjectStream() exists; no route uses it       |
+| Range requests / partial download        | Missing  |                                                    |
+
+
+PREVIEW
+-------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Preview URL endpoint                     | Complete |                                                    |
+| Inline renderer (PDF / image)            | Partial  | Client-side only                                  |
+| DOCX / XLSX preview                       | Missing  | Client has no renderer for these                  |
+
+
+SEARCH
+------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Title                                     | Complete |                                                    |
+| Description                               | Complete |                                                    |
+| Filename                                  | Complete | via versions.some                                 |
+| Folder                                    | Complete |                                                    |
+| Tags                                      | Complete |                                                    |
+| Uploader                                  | Complete | uploadedById                                      |
+| Status / classification                   | Complete |                                                    |
+| Visibility (RBAC scoping)                 | Complete | owner OR share OR manager                         |
+| Full-text across extracted content        | Missing  |                                                    |
+| Saved searches                            | Missing  |                                                    |
+
+
+PAGINATION
+----------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| All list endpoints paginated             | Complete | page, pageSize (max 100)                          |
+| Total + totalPages in meta               | Complete |                                                    |
+
+
+FILTERING
+---------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Per-module filters                        | Complete |                                                    |
+| Saved filter views                        | Missing  | Client-side component exists but unused           |
+
+
+SORTING
+-------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Documents: updatedAt/title/createdAt      | Complete | asc/desc                                          |
+| Users / folders / requests                | Partial  | Hard-coded default; no sort param accepted         |
+| Audit logs                                | Missing  | No list endpoint yet                              |
+
+
+METADATA UPDATE
+---------------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Document metadata                         | Complete | title/description/classification/status/folder/   |
+|                                           |          | department/retentionUntil                         |
+| Folder metadata                           | Complete | name/parentId/departmentId                        |
+| Department metadata                       | Missing  | No department endpoint                           |
+| User metadata                             | Complete |                                                    |
+
+
+SOFT DELETE
+----------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Documents                                 | Complete | deletedAt; visible-or-restored in service         |
+| Folders                                   | Complete | Cascades to children                              |
+| Departments                               | Missing  | No endpoint                                       |
+| Users                                     | Complete | users.delete                                       |
+| Audit logs                                | Missing  | Append-only by design (correct)                   |
+
+
+RESTORE
+-------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Documents                                 | Complete | Manager-only                                       |
+| Folders                                   | Complete | Cascades to children                              |
+| Users                                     | Missing  | Soft delete only                                  |
+| Departments                               | Missing  |                                                    |
+
+
+FAVORITES                                 : Missing  - No schema, no endpoint, no UI hook
+RECENT DOCUMENTS                          : Missing  - No schema, no endpoint. Client uses local mock
+
+
+DASHBOARD APIs
+--------------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Health (db + minio)                       | Complete |                                                    |
+| Per-user dashboard summary                | Missing  | Client getDashboardReport is local mock           |
+| Per-department activity                   | Missing  | Local mock                                         |
+| Reports / exports                         | Missing  | Client audit.exportCSV is local mock              |
+
+
+REQUEST WORKFLOW
+----------------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| List visible requests (RBAC-scoped)       | Complete |                                                    |
+| Create request                            | Complete | POST /api/v1/requests                              |
+| Approve / Reject / Fulfil                 | Complete | State machine enforced                            |
+| Cancel (requester)                        | Complete |                                                    |
+| Audit logging on transitions              | Complete | All 5 REQUEST_* actions                           |
+| Filters (status, requesterId, doc, q)     | Complete |                                                    |
+| Pagination                                | Partial  | Returns array, no meta envelope                   |
+| Sort                                      | Partial  | Hard-coded createdAt desc                         |
+| Cross-document requests (multi-doc)       | Missing  | Schema allows 1 documentId; client flattens extras|
+|                                           |          | into justification text                           |
+| Email notifications on transition         | Missing  | Client emits local notification as stopgap      |
+| Request comments                          | Missing  |                                                    |
+
+
+AACCUP
+------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| AACCUP Areas list / create / update       | Missing  | No schema, no module; client uses local mock +    |
+|                                           |          | AACCUP seed data file                             |
+| AACCUP Requirements / sub-areas           | Missing  |                                                    |
+| Assignees / tasks                         | Missing  |                                                    |
+| ISO sub-areas                              | Missing  |                                                    |
+| Cert sub-areas                             | Missing  |                                                    |
+| Areas CRUD endpoints                      | Missing  |                                                    |
+
+
+NOTIFICATIONS
+------------
+
+| Feature                                   | Status   | Notes                                              |
+|-------------------------------------------|----------|----------------------------------------------------|
+| Server-side notification model             | Missing  | No Prisma model                                   |
+| Server-side dispatch on document events   | Missing  |                                                    |
+| Server-side SSE / WebSocket push          | Missing  |                                                    |
+| Client-side notification center           | Complete | Local mock; real wiring deferred                  |
+
+
+================================================================================
+SECTION 4 — DATABASE
+================================================================================
+
+PRISMA MODELS (13)
+------------------
+
+| Model             | Purpose                  | Key fields                                        |
+|-------------------|--------------------------|---------------------------------------------------|
+| Role              | System + custom roles    | name RoleName @unique, isSystem                   |
+| Permission        | Permission catalog       | code @unique, module                              |
+| RolePermission    | many-to-many              | composite PK (roleId, permissionId)             |
+| User              | User accounts            | email @unique, employeeId @unique, status,      |
+|                   |                          | departmentId?, soft delete                        |
+| Session           | Refresh-token tracking   | refreshTokenHash @unique, revokedAt, expiresAt  |
+| AuditLog          | Append-only audit trail  | action, entity, entityId, oldValue JSONB,       |
+|                   |                          | newValue JSONB                                    |
+| Department        | Organizational unit      | code @unique, headId?, soft delete                |
+| Folder            | Nested document folders  | parentId? (self), ownerId?, departmentId?,       |
+|                   |                          | soft delete                                       |
+| Document          | Core document            | ownerId, departmentId?, folderId?,               |
+|                   |                          | currentVersionId? @unique, status, classification,|
+|                   |                          | soft delete                                       |
+| DocumentVersion   | Immutable version row    | (documentId, versionNumber) @unique,             |
+|                   |                          | objectKey @unique, checksum, sizeBytes BigInt    |
+| DocumentTag       | Inline tags per document | (documentId, tag) @unique                        |
+| DocumentShare     | Per-user share row       | (documentId, userId) @unique,                    |
+|                   |                          | permission SharePermission, expiresAt?           |
+| DocumentRequest   | Access/approval request  | requesterId, documentId?, status RequestStatus,  |
+|                   |                          | decidedById?, decisionNote?                       |
+
+
+RELATIONSHIPS
+-------------
+
+- Role 1—N User                       (User.roleId, onDelete Restrict)
+- Role N—N Permission                 via RolePermission (cascade)
+- User 1—N Session                    (cascade)
+- User 1—N AuditLog                   (SetNull)
+- User N—N Department                 via _UserDepartment (legacy join table, still present)
+- Department 1—N User (head)          (SetNull)
+- Department 1—N Folder               (SetNull)
+- Department 1—N Document            (SetNull)
+- Folder self-relation parentId       (cascade on hard delete)
+- Folder 1—N Document
+- Document 1—N DocumentVersion       (cascade)
+- Document 1—1 Document (current)     via currentVersionId (SetNull)
+- Document 1—N DocumentTag           (cascade)
+- Document 1—N DocumentShare         (cascade)
+- Document 1—N DocumentRequest       (SetNull)
+- User 1—N DocumentRequest (requester)(Restrict)
+- User 1—N DocumentRequest (decider)  (SetNull)
+
+
+ENUMS
+-----
+UserStatus, RoleName, DocumentStatus, DocumentClassification,
+SharePermission, RequestStatus.
+
+
+INDEXES
+-------
+All FKs + status/deletedAt fields are indexed. DocumentVersion has
+(documentId, versionNumber) unique + objectKey unique. DocumentTag has
+(documentId, tag) unique + tag index. DocumentShare has
+(documentId, userId) unique + userId index. DocumentRequest has
+requesterId / documentId / status indexes.
+
+
+MISSING MODELS (notable)
+-------------------------
+
+| Model                               | Reason missing                                  |
+|-------------------------------------|-------------------------------------------------|
+| Tag (standalone catalog)            | Tags stored as inline strings on DocumentTag    |
+| Notification                        | Server-side notifications not implemented       |
+| AACCUPArea                          | AACCUP management not implemented               |
+| AACCUPAreaRequirement               | Same                                             |
+| AACCUPTask                          | Same                                             |
+| Favorite / RecentDocument           | Not in scope yet                                |
+| DocumentComment                     | Comment threads not implemented                 |
+| ApprovalRecord (separate from audit)| Audit log already captures state transitions    |
+| SystemSetting                       | Settings still hardcoded                        |
+
+
+================================================================================
+SECTION 5 — API ENDPOINTS
+================================================================================
+
+All endpoints are mounted under /api/v1. All require authenticate except
+where noted.
+
+
+AUTH (/auth)
+------------
+
+| Method | Path              | Auth     | Permission             |
+|--------|-------------------|----------|------------------------|
+| POST   | /auth/login       | public   | -  (authLimiter)       |
+| POST   | /auth/refresh     | public   | -  (authLimiter)       |
+| POST   | /auth/logout      | public   | -                      |
+| GET    | /auth/me          | required | -                      |
+| POST   | /auth/change-password | required | users.self.update  |
+
+
+USERS (/users)
+--------------
+
+| Method | Path                  | Permission      |
+|--------|-----------------------|-----------------|
+| GET    | /users                | users.read      |
+| POST   | /users                | users.create    |
+| GET    | /users/:id            | users.read      |
+| PATCH  | /users/:id            | users.update    |
+| PATCH  | /users/:id/status     | users.update    |
+| POST   | /users/:id/reset-password | users.update |
+| DELETE | /users/:id            | users.delete    |
+
+
+DOCUMENTS (/documents)
+---------------------
+
+| Method | Path                                    | Permission                      |
+|--------|-----------------------------------------|---------------------------------|
+| GET    | /documents                              | documents.read                  |
+| POST   | /documents                              | documents.create                |
+| GET    | /documents/:id                          | documents.read (scoped)          |
+| PATCH  | /documents/:id                          | documents.update                |
+| DELETE | /documents/:id                          | documents.delete                |
+| GET    | /documents/:id/download                 | documents.read (scoped)         |
+| GET    | /documents/:id/preview                  | documents.read (scoped)         |
+| POST   | /documents/:id/version                  | documents.update                |
+| POST   | /documents/:id/versions/:versionId/verify | documents.update              |
+| GET    | /documents/:id/versions                 | documents.read (scoped)         |
+| POST   | /documents/:id/share                    | documents.update                |
+| DELETE | /documents/:id/share/:userId            | documents.update                |
+
+
+FOLDERS (/folders)
+------------------
+
+| Method | Path            | Permission      |
+|--------|-----------------|-----------------|
+| GET    | /folders        | folders.read    |
+| POST   | /folders        | folders.create  |
+| GET    | /folders/:id    | folders.read    |
+| PATCH  | /folders/:id    | folders.update  |
+| DELETE | /folders/:id    | folders.delete  |
+
+
+REQUESTS (/requests)
+--------------------
+
+| Method | Path                       | Permission                       |
+|--------|----------------------------|-----------------------------------|
+| GET    | /requests                  | request.create (managers see all) |
+| POST   | /requests                  | request.create                    |
+| GET    | /requests/:id              | request.create (scoped)           |
+| POST   | /requests/:id/approve      | request.manage                    |
+| POST   | /requests/:id/reject       | request.manage                    |
+| POST   | /requests/:id/fulfill      | request.manage                    |
+| POST   | /requests/:id/cancel       | request.create (requester only)   |
+
+
+HEALTH (/health)
+----------------
+
+| Method | Path     | Notes                                |
+|--------|----------|--------------------------------------|
+| GET    | /health  | public; reports { db, minio }        |
+
+
+NOT IMPLEMENTED
+---------------
+
+- /audit (read + CSV export)
+- /departments (CRUD + head assignment)
+- /aaccup, /areas, /tasks
+- /notifications
+- /tags
+- /me (self-update), /sessions (list/revoke)
+- /roles (list)
+- /auth/forgot-password, /auth/reset-password
+
+
+================================================================================
+SECTION 6 — KNOWN ISSUES
+================================================================================
+
+| #  | Sev | Issue                                                                                  | Files                                                                                  | Fix                                                                                          |
+|----|-----|----------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| 1  | Med | No department endpoint; User/Document/Folder.departmentId never writable              | server/src/routes/index.ts, missing module                                            | Add Departments module (Sprint 5)                                                            |
+| 2  | Med | No audit-log read endpoint - admins cannot query via API                               | server/src/routes/index.ts, missing module                                            | Add /audit GET + CSV export                                                                  |
+| 3  | Med | /folders/:id/children route missing; UI must filter list by parentId                   | server/src/modules/folders/folders.routes.ts                                         | Add children route or document ?parentId= pattern                                            |
+| 4  | Med | No CANCELLED on RequestStatus enum; cancel uses REJECTED + REQUEST_CANCELLED audit    | server/prisma/schema.prisma:174, requests.service.ts                                 | Either add CANCELLED enum (migration) or document the design                                |
+| 5  | Med | /requests list returns bare array, not {success,data,meta} envelope                   | server/src/modules/requests/requests.controller.ts, .service.ts                       | Return { items, meta } + total/totalPages                                                   |
+| 6  | Med | Notifications emit on client only; no server model + dispatch                         | client/src/services/api.ts:730, notifications.ts, server (missing)                    | Add Notification model + dispatch in service methods                                         |
+| 7  | Med | audit.list / audit.exportCSV still hit localStorage; no server read API               | client/src/services/api.ts:729-756                                                    | Replace with /api/v1/audit (Sprint 5)                                                       |
+| 8  | Med | AuditLog writes via raw prisma.auditLog.create (in authorize.ts) bypass writeAudit     | server/src/middlewares/authorize.ts:20,52                                             | Use writeAudit for consistency                                                              |
+| 9  | Low | No tests anywhere; vitest in devDeps but no *.test.ts files                           | repo-wide                                                                              | Add service-layer unit tests for docs/requests/auth                                         |
+| 10 | Low | AuditLog action/entity -> client module/category heuristics are fragile               | client/src/services/api.ts adapter                                                    | Document the action->module mapping or include module on the row                            |
+| 11 | Low | /documents create returns presigned URL but never persists a DocumentVersion row       | server/src/modules/documents/documents.service.ts:175-220                             | Create initial DocumentVersion (status PENDING_UPLOAD) or document two-step flow            |
+| 12 | Low | health.routes.ts calls ensureBucket() every check; harmless but wasteful               | server/src/health/health.routes.ts                                                    | Cache the result for N seconds                                                              |
+| 13 | Low | AuditLog.userId uses SetNull on delete - orphaned rows lose attribution                | server/prisma/schema.prisma:131                                                        | Consider Restrict or denormalize userName                                                   |
+| 14 | Low | documents.service.ts has stale cleanup-deferral NOTE comments; GC not implemented     | server/src/modules/documents/documents.service.ts                                    | Add soft-delete -> hard-delete scheduled job (later)                                        |
+| 15 | Low | client/src/lib/http.ts reads urs_dms_auth_state via localStorage directly; duplicates | client/src/lib/http.ts, client/src/services/auth.ts                                   | Centralize token reading in authService.getToken()                                          |
+| 16 | Low | DocumentRequest.priority on client accepts Normal/Urgent; backend stores in justificat | client/src/types/domain.ts:129, client/src/services/api.ts                             | Either add priority to backend schema or rename the client field                            |
+| 17 | Low | package.json server has minio ^8.0.1 (caret) vs @types/minio ^7.1.0 - type drift risk | server/package.json                                                                    | Pin minio to a specific minor                                                              |
+| 18 | Low | docs/storage.md and docs/architecture.md reference server/src/lib/minio.ts and        | docs/storage.md, docs/architecture.md                                                 | Update docs                                                                                  |
+|    |     | server/src/storage/buckets.ts; actual file is server/src/lib/storage.ts                |                                                                                        |                                                                                            |
+
+
+================================================================================
+SECTION 7 — TODO LIST (ordered by dependency)
+================================================================================
+
+| #  | Task                                                                | Depends on  | Notes                                              |
+|----|---------------------------------------------------------------------|-------------|----------------------------------------------------|
+| 1  | Departments module (CRUD + head assign + soft delete)              | -           | Schema exists. Unblocks user/department scoping.  |
+| 2  | Audit Log read API (/audit + CSV export)                           | -           | Schema exists. Required for compliance & admin UI.|
+| 3  | Client adapter rewires for departments.* and audit.*             | 1, 2        | Touches only client/src/services/api.ts.          |
+| 4  | Standardize /requests response envelope (items + meta)           | -           | Quick fix; consistency.                            |
+| 5  | Server-side Notification model + dispatch hooks in doc/req svc    | 4           | Requires Prisma migration.                         |
+| 6  | /me self-update endpoint + /sessions list/revoke                  | -           | Schema pieces exist (Session).                      |
+| 7  | /auth/forgot-password + /auth/reset-password endpoints            | -           | Client UI exists.                                  |
+| 8  | AACCUP Management module (Areas + sub-areas + Reqs + Tasks)       | 1           | Largest remaining feature; new Prisma models.     |
+| 9  | Standalone Tag entity + CRUD endpoints                            | -           | Schema change.                                     |
+| 10 | Document favorites + recent docs                                   | -           | New schema.                                        |
+| 11 | Comments / review threads on documents                             | 5           | New model.                                          |
+| 12 | Server-pushed notifications (SSE)                                  | 5           | Infra work.                                         |
+| 13 | Dashboard / report endpoints (per-user, per-department)           | 1, 2        | Aggregations.                                       |
+| 14 | Multipart / resumable upload for files >100 MB                     | -           | Replaces single-PUT.                               |
+| 15 | Vitest test suite (auth, users, documents, folders, requests)      | -           | Coverage.                                           |
+| 16 | Physical MinIO object GC for soft-deleted documents               | -           | Cron job.                                            |
+| 17 | Retention enforcement on Document.retentionUntil                   | -           | Cron job.                                            |
+| 18 | Documentation pass (fix stale paths in docs/)                      | -           | Cleanup.                                            |
+
+
+================================================================================
+SECTION 8 — NEXT RECOMMENDED TASK
+================================================================================
+
+Departments module + Audit Log read API (Sprint 5, combined)
+-------------------------------------------------------------
+
+WHY
+---
+1. Both have schema in place - zero migration risk; mirrors the precedent set
+   by Sprint 3 / Sprint 4.
+2. Both unblock downstream work: the audit read API feeds admin reporting and
+   compliance review; the departments module unblocks User.departmentId and
+   Folder.departmentId becoming first-class, which feeds AACCUP (Sprint 6)
+   and dashboard reports (later).
+3. Both have active UI surfaces (Settings.tsx department picker, AuditLogs.tsx
+   page) that today hit localStorage; cutting them over to real APIs is the
+   single largest remaining "fake" UX surface in the admin app.
+4. Scope is modest (~12 new files + 2 edits), parallel to what we just
+   shipped for Sprint 4, and won't destabilize anything because the existing
+   client adapters for departments and audit already use the same idioms as
+   the freshly-rewired requests block.
+
+
+DIFFICULTY ESTIMATE
+-------------------
+Medium. Pattern is identical to the Sprint 3/4 modules. The CSV export is
+the only new design choice (manual string builder; no new dep). Head-assignment
+edge cases are minor.
+
+
+AFFECTED FILES
+--------------
+
+Create (9):
+- server/src/modules/departments/{types,validator,repository,service,controller,routes}.ts
+- server/src/modules/audit/{validator,controller,routes}.ts
+
+Edit (2):
+- server/src/routes/index.ts
+- client/src/services/api.ts (replace departments.* + audit.* blocks with HTTP adapters)
+
+No changes to schema, migrations, seed, Docker, env, existing UI pages,
+or any other module.
+
+
+ESTIMATED EFFORT
+----------------
+~150-200 LOC backend + ~80 LOC client adapter + 2 verification runs.
+Comparable to a single Sprint 3 module (folders).
+
+
+================================================================================
+SECTION 9 — ARCHITECT NOTES
+================================================================================
+
+WHAT MUST NOT CHANGE
+--------------------
+
+1. Permission-driven RBAC. The codebase deliberately avoids
+   if (role === "admin"). Every authorization check goes through
+   requirePermission(...) or in-service permission lookups. New modules must
+   follow this pattern. Adding a new permission = one entry in
+   permissions.constants.ts and (optionally) a binding in roles.constants.ts.
+
+2. Layered module pattern. Every feature = types.ts, validator.ts,
+   repository.ts, service.ts, controller.ts, routes.ts. No exceptions, no
+   shortcuts. The Sprint 5 plan above adheres to this.
+
+3. Standard response envelope. All endpoints return {success:true,data} or
+   {success:true,data,meta} for paginated lists. Errors go through ApiError
+   subclasses -> errorHandler.ts. Do not return raw arrays or hand-roll
+   error JSON.
+
+4. Zod everywhere on input. Body / query / params all run through
+   validateBody / validateQuery / validateParams. Validators live next to
+   the module that owns them.
+
+5. Audit on every mutation. Use writeAudit() from
+   modules/audit/audit.service.ts. Action codes are constants in
+   config/constants.ts. The middlewares (authorize.ts) write their own
+   PERMISSION_DENIED entries directly - that's the only exception.
+
+6. Prisma migration discipline. Never edit an applied migration; add a new
+   one. The current setup uses a single consolidated init migration
+   20260815000000_init; future migrations are additive and idempotent.
+
+7. Idempotent seed. prisma/seed.ts upserts permissions, roles,
+   role-permissions, and the bootstrap admin. Safe to re-run on every boot.
+
+8. Soft delete by default. All business entities (User, Document, Folder,
+   Department) have deletedAt. Reads filter on deletedAt: null unless
+   explicitly overridden. Hard delete is a separate, audited operation.
+
+9. Env-driven config. Every configurable value comes from env.ts (validated
+   at boot). New env vars must extend the Zod schema; missing vars fail the
+   boot.
+
+10. Docker + compose as the deployment contract. docker-compose.yml and
+    server/Dockerfile together define what runs in production. Don't
+    introduce host-only paths or system dependencies.
+
+11. Frontend design language is locked. URS-DMS UNIVERSAL DEVELOPMENT RULES.txt
+    in the repo root is the source of truth. Reuse existing components
+    (Button, Card, Dialog, Badge, EmptyState, Skeleton, Tabs, Pagination,
+    Table, etc.) instead of inventing new ones.
+
+12. Sprint discipline. Each sprint ships one self-contained capability.
+    Sprint 1: foundation. Sprint 2: auth + users + RBAC. Sprint 3: documents
+    + folders + dedupe/verify. Sprint 4: requests workflow. Sprint 5
+    (proposed): departments + audit. Sprint 6+: AACCUP, notifications, etc.
+    Don't reorder.
+
+
+KEY DESIGN DECISIONS WORTH KNOWING
+----------------------------------
+
+- No role-name hardcoding. isManager(actor) is implemented as
+  actor.permissions.includes("documents.delete") (or analogous permission
+  code), not as a check against actor.roleName === "ADMINISTRATOR". This is
+  the single most important rule to preserve.
+
+- MinIO via presigned URLs. The backend never buffers file bytes. Uploads
+  and downloads go browser -> MinIO via signed URLs. Server-side
+  getObjectStream exists but is unused - preferred for future range-request
+  / proxy-download features.
+
+- Document version identity. Each new version mints a new DocumentVersion
+  row with a fresh UUID; the object key embeds v{versionNumber}/{filename}
+  so physical objects are never overwritten. Document.currentVersionId is
+  the pointer; it's @unique because one current per document.
+
+- Checksum verification. Sprint 3 ships checksum dedupe (per-document) and
+  etag verify via a separate POST /:id/versions/:versionId/verify endpoint.
+  The actual byte-level SHA-256 is not re-hashed server-side (etag is not
+  SHA-256); this is documented in the service code.
+
+- Folder cascade soft-delete. The Prisma onDelete: Cascade only fires on
+  HARD delete. Service explicitly traverses the subtree and stamps
+  deletedAt on each child during soft delete. Same for restore.
+
+- Client mock layer coexists. Every Sprint-N backend module ships with a
+  client adapter in client/src/services/api.ts. The localStorage mock
+  layer remains in place for features that haven't been wired yet (audit,
+  departments, AACCUP, notifications). This is per Rule #2 (do not break
+  the system).
+
+- /requests response envelope. Currently returns a bare array (deviation
+  from convention); flagged as Issue #5. Fix it next pass.
+
+- Document upload is a two-step flow. POST /documents creates the metadata
+  row and returns a presigned PUT URL for the FIRST version - but does not
+  create the DocumentVersion row until POST /documents/:id/version is
+  called. Document this clearly in API docs.
+
+
+THINGS THE NEW ARCHITECT SHOULD KNOW ABOUT STATE TODAY
+------------------------------------------------------
+
+- 4 sprints complete on disk; code compiles and lints clean.
+- dist/ on the server is up-to-date with src/ (verified after Sprint 4).
+- No production deployment, no staging env, no real users yet.
+- Test coverage: 0%. Treat all services as untested by automated means.
+- localStorage-driven client mock layer is the PRIMARY runtime for
+  features not yet wired to the backend. Don't assume calling
+  api.users.list() already hits the backend - verify.
+
+
+RISKS TO WATCH
+--------------
+
+- Authoritative source of truth: the server is becoming authoritative for
+  documents/folders/requests/users/auth/audit. The client mock layer must
+  not be silently diverging. Treat any UI page that still uses
+  getAll<...>("storeName") as a TODO.
+
+- Adapter drift: when the backend changes shape (e.g., adds priority to
+  DocumentRequest), the client adapter in api.ts must keep the legacy
+  DocumentRequest UI type stable. Centralize these mappings; don't scatter
+  them.
+
+- MinIO bucket: ensureBucket() is called at every health probe - fine in
+  dev, wasteful in prod. Cache the result before any traffic spike.
+
+- User.departmentId and Document.departmentId: exist in schema but have
+  no UI to manage them. Until Sprint 5 ships, those columns are inert.
+
+
+HAND-OFF CHECKLIST
+------------------
+
+[x] npm run typecheck passes (server).
+[x] npm run lint passes (server).
+[x] npm run build passes (server + client).
+[x] docker-compose up -d brings up Postgres + MinIO + pgAdmin + server healthy.
+[x] /api/v1/health returns {status:"ok", services:{database,minio}} (after bucket exists).
+[x] /api/v1/auth/login works against the seeded admin.
+[x] /api/v1/documents works (create + upload + version + verify + download + share).
+[x] /api/v1/folders works (CRUD + nested + soft-delete).
+[x] /api/v1/requests works (create + decide + cancel).
+[ ] /api/v1/audit (read + CSV) - pending Sprint 5.
+[ ] /api/v1/departments (CRUD + head) - pending Sprint 5.
+[ ] No Vitest tests yet.
+
+
+================================================================================
+END OF REPORT
+================================================================================

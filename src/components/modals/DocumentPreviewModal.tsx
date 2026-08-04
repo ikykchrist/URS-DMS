@@ -75,7 +75,7 @@ export function DocumentPreviewModal({
 }: DocumentPreviewModalProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [zoomLevel, setZoomLevel] = useState(100)
-  const [rotation, setRotation] = useState(0)
+  const [, setRotation] = useState(0)
   const totalPages = 12
 
   const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 25, 200))

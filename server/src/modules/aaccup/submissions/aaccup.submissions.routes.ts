@@ -1,0 +1,88 @@
+import { Router } from "express";
+import { asyncHandler } from "@/utils/asyncHandler";
+import { requirePermission } from "@/middlewares/authorize";
+import { validateBody, validateParams, validateQuery } from "@/middlewares/validate";
+import {
+  submissionIdParamSchema,
+  createSubmissionSchema,
+  listSubmissionsQuerySchema,
+  updateSubmissionSchema,
+  reviewSubmissionSchema,
+} from "@/modules/aaccup/submissions/aaccup.submissions.validator";
+import {
+  archiveSubmissionHandler,
+  createSubmissionHandler,
+  getSubmissionHandler,
+  listSubmissionsHandler,
+  restoreSubmissionHandler,
+  reviewSubmissionHandler,
+  updateSubmissionHandler,
+} from "@/modules/aaccup/submissions/aaccup.submissions.controller";
+
+// =============================================================================
+// URS-DMS — AACCUP submission routes
+// Mounted under /aaccup in aaccup.routes.ts. The parent authenticates, so
+// submission routes need only gate via the granular aaccup.submission.* codes.
+// Note: the sprint spec lists read / create / review / update / archive — the
+// restore endpoint reuses the archive permission.
+// =============================================================================
+
+export const aaccupSubmissionsRouter: Router = Router();
+
+// GET /aaccup/submissions
+aaccupSubmissionsRouter.get(
+  "/",
+  requirePermission("aaccup.submission.read"),
+  validateQuery(listSubmissionsQuerySchema),
+  asyncHandler(listSubmissionsHandler),
+);
+
+// POST /aaccup/submissions
+aaccupSubmissionsRouter.post(
+  "/",
+  requirePermission("aaccup.submission.create"),
+  validateBody(createSubmissionSchema),
+  asyncHandler(createSubmissionHandler),
+);
+
+// GET /aaccup/submissions/:id
+aaccupSubmissionsRouter.get(
+  "/:id",
+  requirePermission("aaccup.submission.read"),
+  validateParams(submissionIdParamSchema),
+  asyncHandler(getSubmissionHandler),
+);
+
+// PATCH /aaccup/submissions/:id
+aaccupSubmissionsRouter.patch(
+  "/:id",
+  requirePermission("aaccup.submission.update"),
+  validateParams(submissionIdParamSchema),
+  validateBody(updateSubmissionSchema),
+  asyncHandler(updateSubmissionHandler),
+);
+
+// POST /aaccup/submissions/:id/review
+aaccupSubmissionsRouter.post(
+  "/:id/review",
+  requirePermission("aaccup.submission.review"),
+  validateParams(submissionIdParamSchema),
+  validateBody(reviewSubmissionSchema),
+  asyncHandler(reviewSubmissionHandler),
+);
+
+// DELETE /aaccup/submissions/:id  (soft delete = archive)
+aaccupSubmissionsRouter.delete(
+  "/:id",
+  requirePermission("aaccup.submission.archive"),
+  validateParams(submissionIdParamSchema),
+  asyncHandler(archiveSubmissionHandler),
+);
+
+// POST /aaccup/submissions/:id/restore
+aaccupSubmissionsRouter.post(
+  "/:id/restore",
+  requirePermission("aaccup.submission.archive"),
+  validateParams(submissionIdParamSchema),
+  asyncHandler(restoreSubmissionHandler),
+);

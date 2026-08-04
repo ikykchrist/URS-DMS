@@ -81,7 +81,7 @@ const getStatusIcon = (status: string) => {
 export default function UserAACCUP() {
   const [activeTab, setActiveTab] = useState("area-2")
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
-  const [selectedRequirement, setSelectedRequirement] = useState<{ id: string; name: string } | null>(null)
+  const [, setSelectedRequirement] = useState<{ id: string; name: string } | null>(null)
   const [uploadTitle, setUploadTitle] = useState("")
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error', message: string } | null>(null)
 
@@ -249,11 +249,12 @@ export default function UserAACCUP() {
                 </div>
                 <span className="text-[14px] font-semibold text-orange-600">2</span>
               </div>
-</CardContent>
-      </Card>
-      </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
-      <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
+        <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Upload Document for {currentArea?.name}</DialogTitle>

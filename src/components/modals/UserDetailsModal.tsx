@@ -249,7 +249,7 @@ export function UserDetailsModal({
                     variant="destructive"
                     size="sm"
                     onClick={() => {
-                      onDelete()
+                      onDelete?.()
                       setIsDeleteConfirmOpen(false)
                       onOpenChange(false)
                     }}

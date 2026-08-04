@@ -1,0 +1,1533 @@
+// =============================================================================
+// URS-DMS — Prisma schema (Sprint 2)
+// =============================================================================
+// Models in this schema:
+//   - Role                  (system roles, future-proof for custom roles)
+//   - Permission            (independent, code-based permissions)
+//   - RolePermission        (many-to-many)
+//   - User                  (soft-delete, lockout fields)
+//   - Session               (refresh-token tracking, never stores raw token)
+//   - AuditLog              (append-only, immutable)
+// =============================================================================
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+  SUSPENDED
+}
+
+enum RoleName {
+  ROOT
+  ADMINISTRATOR
+  QUALITY_ASSURANCE_OFFICER
+  DEPARTMENT_COORDINATOR
+  FACULTY
+  STAFF
+  READ_ONLY
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        RoleName         @unique
+  description String?
+  isSystem    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+  users       User[]
+  permissions RolePermission[]
+
+  @@index([deletedAt])
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  code        String           @unique
+  description String?
+  module      String
+  createdAt   DateTime         @default(now())
+  roles       RolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id                            String                  @id @default(uuid())
+  employeeId                    String                  @unique
+  email                         String                  @unique
+  passwordHash                  String
+  firstName                     String
+  middleName                    String?
+  lastName                      String
+  suffix                        String?
+  status                        UserStatus              @default(ACTIVE)
+  roleId                        String
+  role                          Role                    @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  departmentId                  String?
+  mustChangePassword            Boolean                 @default(false)
+  failedAttempts                Int                     @default(0)
+  lockedUntil                   DateTime?
+  lastLogin                     DateTime?
+  createdAt                     DateTime                @default(now())
+  updatedAt                     DateTime                @updatedAt
+  deletedAt                     DateTime?
+  sessions                      Session[]
+  auditLogs                     AuditLog[]
+  departments                   Department[]            @relation("UserDepartment")
+  headedDepartments             Department[]            @relation("DepartmentHead")
+  folders                       Folder[]
+  documents                     Document[]              @relation("DocumentOwner")
+  versions                      DocumentVersion[]
+  documentShares                DocumentShare[]
+  requestsMade                  DocumentRequest[]       @relation("Requester")
+  requestsDecided               DocumentRequest[]       @relation("Decider")
+  aaccupAreasCreated            AaccupArea[]            @relation("AaccupAreaCreatedBy")
+  aaccupAreasUpdated            AaccupArea[]            @relation("AaccupAreaUpdatedBy")
+  aaccupRequirementsCreated     AaccupRequirement[]     @relation("AaccupRequirementCreatedBy")
+  aaccupRequirementsUpdated     AaccupRequirement[]     @relation("AaccupRequirementUpdatedBy")
+  aaccupSubmissionsSubmitted    AaccupSubmission[]      @relation("AaccupSubmissionSubmittedBy")
+  aaccupSubmissionsReviewed     AaccupSubmission[]      @relation("AaccupSubmissionReviewedBy")
+  systemSettingsUpdated         SystemSetting[]         @relation("SystemSettingUpdater")
+  notifications                 Notification[]
+  configCategoriesCreated       ConfigurationCategory[] @relation("ConfigCategoryCreatedBy")
+  configCategoriesUpdated       ConfigurationCategory[] @relation("ConfigCategoryUpdatedBy")
+  configurationsCreated         Configuration[]         @relation("ConfigurationCreatedBy")
+  configurationsUpdated         Configuration[]         @relation("ConfigurationUpdatedBy")
+  configurationVersions         ConfigurationVersion[]  @relation("ConfigurationVersionChangedBy")
+  configurationHistory          ConfigurationHistory[]  @relation("ConfigurationHistoryActor")
+  headedOffices                 Office[]                @relation("OfficeHead")
+  organizationVersions          OrganizationVersion[]   @relation("OrganizationVersionChangedBy")
+  folderTemplatesCreated        FolderTemplate[]        @relation("FolderTemplateCreatedBy")
+  folderTemplatesUpdated        FolderTemplate[]        @relation("FolderTemplateUpdatedBy")
+  folderNodesCreated            FolderNode[]            @relation("FolderNodeCreatedBy")
+  folderNodesUpdated            FolderNode[]            @relation("FolderNodeUpdatedBy")
+  folderVersionsChanged         FolderVersion[]         @relation("FolderVersionChangedBy")
+  folderHistory                 FolderHistory[]         @relation("FolderHistoryActor")
+  folderAssignmentsCreated      FolderAssignment[]      @relation("FolderAssignmentCreatedBy")
+  requirementTemplatesCreated   RequirementTemplate[]   @relation("RequirementTemplateCreatedBy")
+  requirementTemplatesUpdated   RequirementTemplate[]   @relation("RequirementTemplateUpdatedBy")
+  requirementNodesCreated       RequirementNode[]       @relation("RequirementNodeCreatedBy")
+  requirementNodesUpdated       RequirementNode[]       @relation("RequirementNodeUpdatedBy")
+  requirementValidationsCreated RequirementValidation[] @relation("RequirementValidationCreatedBy")
+  requirementValidationsUpdated RequirementValidation[] @relation("RequirementValidationUpdatedBy")
+  requirementAssignmentsCreated RequirementAssignment[] @relation("RequirementAssignmentCreatedBy")
+  requirementVersionsChanged    RequirementVersion[]    @relation("RequirementVersionChangedBy")
+  requirementHistory            RequirementHistory[]    @relation("RequirementHistoryActor")
+  accreditationCyclesCreated    AccreditationCycle[]    @relation("AccreditationCycleCreatedBy")
+  accreditationCyclesUpdated    AccreditationCycle[]    @relation("AccreditationCycleUpdatedBy")
+  workflowDefinitionsCreated    WorkflowDefinition[]    @relation("WorkflowDefinitionCreatedBy")
+  workflowDefinitionsUpdated    WorkflowDefinition[]    @relation("WorkflowDefinitionUpdatedBy")
+  workflowStepsCreated          WorkflowStep[]          @relation("WorkflowStepCreatedBy")
+  workflowStepsUpdated          WorkflowStep[]          @relation("WorkflowStepUpdatedBy")
+  workflowTransitionsCreated    WorkflowTransition[]    @relation("WorkflowTransitionCreatedBy")
+  workflowAssignmentsCreated    WorkflowAssignment[]    @relation("WorkflowAssignmentCreatedBy")
+  workflowVersionsChanged       WorkflowVersion[]       @relation("WorkflowVersionChangedBy")
+  workflowHistory               WorkflowHistory[]       @relation("WorkflowHistoryActor")
+  workflowInstancesStarted      WorkflowInstance[]      @relation("WorkflowInstanceStartedBy")
+  workflowStepInstancesActed    WorkflowStepInstance[]  @relation("WorkflowStepInstanceActor")
+  workflowActionsActed          WorkflowAction[]        @relation("WorkflowActionActor")
+
+  @@index([roleId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Session {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @unique
+  ipAddress        String?
+  device           String?
+  browser          String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("sessions")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String?
+  entityId  String?
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// =============================================================================
+// Sprint 3 — Document Management
+// =============================================================================
+
+enum DocumentStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum DocumentClassification {
+  PUBLIC
+  INTERNAL
+  RESTRICTED
+  CONFIDENTIAL
+}
+
+enum SharePermission {
+  READ
+  WRITE
+  OWNER
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FULFILLED
+}
+
+// =============================================================================
+// Sprint 5 — AACCUP Management
+// =============================================================================
+
+enum AreaStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RequirementStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Department {
+  id          String       @id @default(uuid())
+  name        String
+  code        String       @unique
+  description String?
+  headId      String?
+  head        User?        @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
+  collegeId   String?
+  college     College?     @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  users       User[]       @relation("UserDepartment")
+  documents   Document[]
+  folders     Folder[]
+  aaccupAreas AaccupArea[]
+  offices     Office[]
+  programs    Program[]
+
+  @@index([deletedAt])
+  @@index([collegeId])
+  @@map("departments")
+}
+
+model Folder {
+  id           String      @id @default(uuid())
+  name         String
+  parentId     String?
+  parent       Folder?     @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children     Folder[]    @relation("FolderTree")
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  ownerId      String?
+  owner        User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+  documents    Document[]
+
+  @@index([parentId])
+  @@index([departmentId])
+  @@index([ownerId])
+  @@index([deletedAt])
+  @@map("folders")
+}
+
+model Document {
+  id                String                 @id @default(uuid())
+  title             String
+  description       String?
+  status            DocumentStatus         @default(DRAFT)
+  classification    DocumentClassification @default(INTERNAL)
+  retentionUntil    DateTime?
+  metadata          Json?
+  ownerId           String
+  owner             User                   @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  departmentId      String?
+  department        Department?            @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  folderId          String?
+  folder            Folder?                @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  currentVersionId  String?                @unique
+  currentVersion    DocumentVersion?       @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions          DocumentVersion[]      @relation("DocumentVersions")
+  tags              DocumentTag[]
+  shares            DocumentShare[]
+  requests          DocumentRequest[]
+  aaccupSubmissions AaccupSubmission[]     @relation("AaccupSubmissionDocument")
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  deletedAt         DateTime?
+
+  @@index([ownerId])
+  @@index([departmentId])
+  @@index([folderId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id            String    @id @default(uuid())
+  documentId    String
+  document      Document  @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  objectKey     String    @unique
+  filename      String
+  mimeType      String
+  sizeBytes     BigInt
+  checksum      String
+  changeNote    String?
+  uploadedById  String
+  uploadedBy    User      @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  uploadedAt    DateTime  @default(now())
+  currentOf     Document? @relation("CurrentVersion")
+
+  @@unique([documentId, versionNumber])
+  @@index([documentId])
+  @@map("document_versions")
+}
+
+model DocumentTag {
+  id         String   @id @default(uuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag        String
+  createdAt  DateTime @default(now())
+
+  @@unique([documentId, tag])
+  @@index([tag])
+  @@map("document_tags")
+}
+
+model DocumentShare {
+  id         String          @id @default(uuid())
+  documentId String
+  document   Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission SharePermission @default(READ)
+  expiresAt  DateTime?
+  createdAt  DateTime        @default(now())
+
+  @@unique([documentId, userId])
+  @@index([userId])
+  @@map("document_shares")
+}
+
+model DocumentRequest {
+  id            String        @id @default(uuid())
+  requesterId   String
+  requester     User          @relation("Requester", fields: [requesterId], references: [id], onDelete: Restrict)
+  documentId    String?
+  document      Document?     @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  title         String
+  justification String
+  status        RequestStatus @default(PENDING)
+  decidedById   String?
+  decidedBy     User?         @relation("Decider", fields: [decidedById], references: [id], onDelete: SetNull)
+  decidedAt     DateTime?
+  decisionNote  String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([requesterId])
+  @@index([documentId])
+  @@index([status])
+  @@map("document_requests")
+}
+
+model AaccupArea {
+  id                   String              @id @default(uuid())
+  code                 String              @unique
+  name                 String
+  description          String?
+  departmentId         String
+  department           Department          @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  accreditationCycleId String?
+  accreditationCycle   AccreditationCycle? @relation(fields: [accreditationCycleId], references: [id], onDelete: SetNull)
+  status               AreaStatus          @default(ACTIVE)
+  createdBy            String
+  createdByUser        User                @relation("AaccupAreaCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updatedBy            String?
+  updatedByUser        User?               @relation("AaccupAreaUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  deletedAt            DateTime?
+  requirements         AaccupRequirement[]
+
+  @@index([departmentId])
+  @@index([accreditationCycleId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("aaccup_areas")
+}
+
+model AaccupRequirement {
+  id                    String                 @id @default(uuid())
+  areaId                String
+  area                  AaccupArea             @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  title                 String
+  description           String?
+  documentCode          String
+  category              String?
+  priority              String?
+  isRequired            Boolean                @default(true)
+  status                RequirementStatus      @default(ACTIVE)
+  displayOrder          Int                    @default(0)
+  createdBy             String
+  createdByUser         User                   @relation("AaccupRequirementCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updatedBy             String?
+  updatedByUser         User?                  @relation("AaccupRequirementUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
+  sourceNodeId          String?
+  sourceNode            RequirementNode?       @relation(fields: [sourceNodeId], references: [id], onDelete: SetNull)
+  sourceAssignmentId    String?
+  sourceAssignment      RequirementAssignment? @relation(fields: [sourceAssignmentId], references: [id], onDelete: SetNull)
+  sourceTemplateVersion Int?
+  submissions           AaccupSubmission[]
+
+  @@unique([areaId, documentCode])
+  @@unique([areaId, sourceNodeId])
+  @@index([areaId])
+  @@index([sourceNodeId])
+  @@index([sourceAssignmentId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([displayOrder])
+  @@index([deletedAt])
+  @@map("aaccup_requirements")
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_REVISION
+}
+
+model AaccupSubmission {
+  id              String            @id @default(uuid())
+  requirementId   String
+  requirement     AaccupRequirement @relation(fields: [requirementId], references: [id], onDelete: Restrict)
+  documentId      String
+  document        Document          @relation("AaccupSubmissionDocument", fields: [documentId], references: [id], onDelete: Restrict)
+  submittedBy     String
+  submittedByUser User              @relation("AaccupSubmissionSubmittedBy", fields: [submittedBy], references: [id], onDelete: Restrict)
+  reviewedBy      String?
+  reviewedByUser  User?             @relation("AaccupSubmissionReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  status          SubmissionStatus  @default(PENDING)
+  remarks         String?
+  isCurrent       Boolean           @default(false)
+  submittedAt     DateTime          @default(now())
+  reviewedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
+
+  @@index([requirementId])
+  @@index([documentId])
+  @@index([submittedBy])
+  @@index([reviewedBy])
+  @@index([status])
+  @@index([isCurrent])
+  @@index([deletedAt])
+  @@map("aaccup_submissions")
+}
+
+// =============================================================================
+// Sprint 7.3 — Notification & Email Service
+// =============================================================================
+// `Notification` is the per-user inbox row (one row per recipient event — no
+// fan-out aggregation). `readAt` distinguishes unread (NULL) from read
+// (timestamp) without a boolean; the composite (userId, readAt) index covers
+// the bell-badge "unread count" path. `deletedAt` is the recipient-owned soft
+// delete (mark-read / delete / clear-all flows own the row lifecycle); the
+// FK cascades on user hard-delete to keep the inbox tidy.
+//
+// The `type` enum is the closed event catalog — the exhaustive list of events
+// the system can emit. New event kinds land as a new enum value + a dispatch
+// branch in notifications/notifications.events.ts.
+//
+// `EmailMessage` is the durable outbound-email queue. Every send is persisted
+// FIRST (at-least-once): a row is claimed by a worker (PENDING → SENDING),
+// delivered by the configured provider, then settled as SENT or FAILED.
+// Transient failures retry with exponential backoff (`attempts` +
+// `nextAttemptAt`); a message that exhausts `maxAttempts` lands in terminal
+// FAILED and is surfaced via the email.failed audit action.
+// =============================================================================
+
+enum NotificationType {
+  DOCUMENT_UPLOADED
+  DOCUMENT_APPROVED
+  DOCUMENT_REJECTED
+  REQUEST_SUBMITTED
+  REQUEST_APPROVED
+  REQUEST_REJECTED
+  AACCUP_SUBMISSION_APPROVED
+  AACCUP_SUBMISSION_REJECTED
+  PASSWORD_RESET
+  ROLE_CHANGED
+  SYSTEM_ANNOUNCEMENT
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Notification {
+  id        String               @id @default(uuid())
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  priority  NotificationPriority @default(MEDIUM)
+  entity    String?
+  entityId  String?
+  actionUrl String?
+  metadata  Json?
+  readAt    DateTime?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId])
+  @@index([userId, readAt])
+  @@index([userId, deletedAt])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum EmailStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+}
+
+model EmailMessage {
+  id            String      @id @default(uuid())
+  to            String
+  subject       String
+  body          String
+  provider      String
+  status        EmailStatus @default(PENDING)
+  attempts      Int         @default(0)
+  maxAttempts   Int         @default(3)
+  nextAttemptAt DateTime    @default(now())
+  lastError     String?
+  createdAt     DateTime    @default(now())
+  sentAt        DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@index([createdAt])
+  @@map("email_messages")
+}
+
+// =============================================================================
+// Sprint 7.1 — Administration Backend
+// =============================================================================
+
+model College {
+  id          String       @id @default(uuid())
+  name        String
+  code        String       @unique
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  departments Department[]
+  offices     Office[]
+  programs    Program[]
+
+  @@index([deletedAt])
+  @@map("colleges")
+}
+
+model SystemSetting {
+  id                      String   @id @default("singleton")
+  applicationName         String   @default("URS Document Management System")
+  maxUploadSizeBytes      BigInt   @default(104857600) // 100 MB
+  allowedFileTypes        String[] @default([])
+  sessionTimeoutMinutes   Int      @default(60)
+  defaultPaginationSize   Int      @default(25)
+  maintenanceMode         Boolean  @default(false)
+  storageThresholdWarning Int      @default(80) // percent of quota
+  updatedById             String?
+  updatedBy               User?    @relation("SystemSettingUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedAt               DateTime @updatedAt
+  createdAt               DateTime @default(now())
+
+  @@map("system_settings")
+}
+
+// =============================================================================
+// Sprint 7.4.1 — System Administrator (ROOT) Foundation + Configuration Engine
+// -----------------------------------------------------------------------------
+// The Configuration Engine is the reusable, versioned configuration service:
+//   * ConfigurationCategory — grouping bucket (system, university, academic,
+//     security, upload, storage, pagination).
+//   * Configuration        — one configuration entry. `value` is stored as
+//     Json so STRING/NUMBER/BOOLEAN/LIST all fit one column; `version` is the
+//     current version number (monotonic per configuration); `isSystem` marks
+//     seed-owned entries that cannot be deleted; soft delete via `deletedAt`.
+//   * ConfigurationVersion — append-only snapshot of `value` per version.
+//     One row is created on every create/update/rollback; the (configurationId,
+//     version) composite key mirrors `Configuration.version`.
+//   * ConfigurationHistory — full audit trail of lifecycle actions (created /
+//     updated / deleted / restored / rolled_back) with before/after values and
+//     the acting user. This is a SECOND trail beside AuditLog — it answers
+//     "what changed in the engine" queries (Root Console History page).
+//
+// Conventions follow AI_CONTEXT §6: UUID PKs, `deletedAt` soft delete,
+// `createdBy`/`updatedBy` FKs with SetNull, an index on every FK/filter
+// column, and Restrict on the required category FK. The engine's values are
+// mirrored in the (unchanged, Sprint 7.1) SystemSetting singleton for the
+// legacy admin surface; the engine is the canonical store for new reads.
+// =============================================================================
+
+enum ConfigurationStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ConfigurationValueType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+  LIST
+}
+
+enum ConfigurationAction {
+  CREATED
+  UPDATED
+  DELETED
+  RESTORED
+  ROLLED_BACK
+}
+
+model ConfigurationCategory {
+  id             String          @id @default(uuid())
+  code           String          @unique
+  name           String
+  description    String?
+  displayOrder   Int             @default(0)
+  isSystem       Boolean         @default(false)
+  createdBy      String?
+  createdByUser  User?           @relation("ConfigCategoryCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedBy      String?
+  updatedByUser  User?           @relation("ConfigCategoryUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+  configurations Configuration[]
+
+  @@index([deletedAt])
+  @@index([displayOrder])
+  @@map("configuration_categories")
+}
+
+model Configuration {
+  id            String                 @id @default(uuid())
+  categoryId    String
+  category      ConfigurationCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  key           String
+  name          String
+  description   String?
+  value         Json
+  valueType     ConfigurationValueType @default(STRING)
+  status        ConfigurationStatus    @default(ACTIVE)
+  version       Int                    @default(1)
+  isSystem      Boolean                @default(false)
+  createdBy     String?
+  createdByUser User?                  @relation("ConfigurationCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedBy     String?
+  updatedByUser User?                  @relation("ConfigurationUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  deletedAt     DateTime?
+  versions      ConfigurationVersion[]
+  history       ConfigurationHistory[]
+
+  @@unique([categoryId, key])
+  @@index([categoryId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("configurations")
+}
+
+model ConfigurationVersion {
+  id              String        @id @default(uuid())
+  configurationId String
+  configuration   Configuration @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+  version         Int
+  value           Json
+  changeNote      String?
+  changedById     String?
+  changedBy       User?         @relation("ConfigurationVersionChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  createdAt       DateTime      @default(now())
+
+  @@unique([configurationId, version])
+  @@index([configurationId])
+  @@map("configuration_versions")
+}
+
+model ConfigurationHistory {
+  id              String              @id @default(uuid())
+  configurationId String
+  configuration   Configuration       @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+  action          ConfigurationAction
+  oldValue        Json?
+  newValue        Json?
+  versionFrom     Int?
+  versionTo       Int?
+  actorId         String?
+  actor           User?               @relation("ConfigurationHistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt       DateTime            @default(now())
+
+  @@index([configurationId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("configuration_histories")
+}
+
+// =============================================================================
+// Sprint 7.4.2 — Organization Management Engine (ROOT-only master data)
+// -----------------------------------------------------------------------------
+// The Root Console's organization builder manages the platform's org
+// structure: Colleges and Departments already existed as Sprint 7.1 admin
+// rows (same physical tables — the ROOT surface reuses them additively; the
+// ADMINISTRATOR admin surface keeps working on the same rows), while Offices
+// and Programs are new. Every one of the four entity types participates in
+// the versioning scheme:
+//
+//   * OrganizationVersion — append-only snapshot table (mirrors the
+//     ConfigurationVersion convention): one row per (entity, entityId,
+//     version); `data` is a Json snapshot of the record's editable fields
+//     (name/code/description/parent links/level). Create, update, archive and
+//     restore all append a new version; ROOT can roll a record back to any
+//     earlier snapshot (`changeType = ROLLED_BACK`). This is the
+//     Configuration Engine integration: the same version → history → rollback
+//     lifecycle the engine applies to configuration values.
+//
+// Program `level` is a closed enum (UNDERGRADUATE / GRADUATE / DOCTORAL /
+// CERTIFICATE / DIPLOMA). All FKs use SetNull so archiving a parent never
+// orphans children. Indexes follow AI_CONTEXT §6 (index on every FK and
+// filter column).
+// =============================================================================
+
+enum OrganizationEntity {
+  COLLEGE
+  DEPARTMENT
+  OFFICE
+  PROGRAM
+}
+
+enum OrganizationChangeType {
+  CREATED
+  UPDATED
+  ARCHIVED
+  RESTORED
+  ROLLED_BACK
+}
+
+enum ProgramLevel {
+  UNDERGRADUATE
+  GRADUATE
+  DOCTORAL
+  CERTIFICATE
+  DIPLOMA
+}
+
+model Office {
+  id           String      @id @default(uuid())
+  name         String
+  code         String      @unique
+  description  String?
+  headId       String?
+  head         User?       @relation("OfficeHead", fields: [headId], references: [id], onDelete: SetNull)
+  collegeId    String?
+  college      College?    @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+
+  @@index([deletedAt])
+  @@index([collegeId])
+  @@index([departmentId])
+  @@map("offices")
+}
+
+model Program {
+  id           String       @id @default(uuid())
+  name         String
+  code         String       @unique
+  description  String?
+  level        ProgramLevel @default(UNDERGRADUATE)
+  collegeId    String?
+  college      College?     @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  departmentId String?
+  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  @@index([deletedAt])
+  @@index([collegeId])
+  @@index([departmentId])
+  @@map("programs")
+}
+
+model OrganizationVersion {
+  id          String                 @id @default(uuid())
+  entity      OrganizationEntity     @default(COLLEGE)
+  entityId    String
+  version     Int
+  changeType  OrganizationChangeType @default(CREATED)
+  data        Json
+  changedById String?
+  changedBy   User?                  @relation("OrganizationVersionChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime               @default(now())
+
+  @@unique([entity, entityId, version])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("organization_versions")
+}
+
+// =============================================================================
+// Sprint 7.4.3 — Dynamic Folder Builder (ROOT-only folder structure engine)
+// -----------------------------------------------------------------------------
+// Replaces hardcoded folder structures with versioned, assignable folder
+// templates. Design mirrors the Sprint 7.4.1 Configuration Engine
+// (version + snapshot + history + rollback) and the Sprint 7.4.2 Organization
+// Engine (entity-config factory, soft delete, SetNull attribution FKs):
+//
+//   * FolderTemplate     — one versioned folder structure blueprint. `code` is
+//     globally unique; live names are unique among live templates (partial
+//     unique index in the migration). `version` is the current version number
+//     (monotonic per template). `icon` / `color` / `category` are presentation
+//     hints surfaced by the Root Console and the repository structure view.
+//   * FolderNode         — a node in the template tree. `parentId` self-FK
+//     (Cascade for hard deletes, which never fire — soft delete only); `level`
+//     is the denormalized depth (0 = root) so recursive queries can be
+//     bounded; `sortOrder` orders siblings; `metadata` is free-form Json;
+//     `visibility` (VISIBLE/HIDDEN) + `status` (ACTIVE/INACTIVE) control
+//     whether the node appears in repository structure views.
+//   * FolderAssignment   — binds one live template to a scope target
+//     (UNIVERSITY / COLLEGE / DEPARTMENT / PROGRAM / OFFICE / AACCUP_AREA).
+//     At most one live assignment per (targetType, targetId) — enforced by a
+//     partial unique index in the migration.
+//   * FolderVersion      — append-only snapshot of the WHOLE template
+//     (template fields + full node tree) per version. Create / update /
+//     assignment / every node mutation append one in the same transaction as
+//     the mutation (never drifts). Rollback replays a snapshot as a NEW
+//     version (changeType ROLLED_BACK).
+//   * FolderHistory      — second trail (besides AuditLog) answering "what
+//     changed in the engine": action, before/after, versionFrom/To, actor.
+//     Mirrors configuration_histories.
+// =============================================================================
+
+enum FolderTemplateStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum FolderNodeVisibility {
+  VISIBLE
+  HIDDEN
+}
+
+enum FolderNodeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum FolderAssignmentTargetType {
+  UNIVERSITY
+  COLLEGE
+  DEPARTMENT
+  PROGRAM
+  OFFICE
+  AACCUP_AREA
+}
+
+enum FolderTemplateChangeType {
+  CREATED
+  UPDATED
+  ASSIGNED
+  ARCHIVED
+  RESTORED
+  ROLLED_BACK
+}
+
+model FolderTemplate {
+  id            String               @id @default(uuid())
+  name          String
+  code          String               @unique
+  description   String?
+  category      String?
+  status        FolderTemplateStatus @default(ACTIVE)
+  version       Int                  @default(1)
+  icon          String?
+  color         String?
+  createdBy     String?
+  createdByUser User?                @relation("FolderTemplateCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedBy     String?
+  updatedByUser User?                @relation("FolderTemplateUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  deletedAt     DateTime?
+  nodes         FolderNode[]
+  assignments   FolderAssignment[]
+  versions      FolderVersion[]
+  history       FolderHistory[]
+
+  @@index([deletedAt])
+  @@index([status])
+  @@map("folder_templates")
+}
+
+model FolderNode {
+  id            String               @id @default(uuid())
+  templateId    String
+  template      FolderTemplate       @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  parentId      String?
+  parent        FolderNode?          @relation("FolderNodeTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children      FolderNode[]         @relation("FolderNodeTree")
+  name          String
+  description   String?
+  category      String?
+  metadata      Json?
+  sortOrder     Int                  @default(0)
+  icon          String?
+  color         String?
+  visibility    FolderNodeVisibility @default(VISIBLE)
+  status        FolderNodeStatus     @default(ACTIVE)
+  level         Int                  @default(0)
+  createdBy     String?
+  createdByUser User?                @relation("FolderNodeCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedBy     String?
+  updatedByUser User?                @relation("FolderNodeUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  deletedAt     DateTime?
+
+  @@index([templateId])
+  @@index([templateId, parentId])
+  @@index([templateId, level])
+  @@index([templateId, deletedAt])
+  @@map("folder_nodes")
+}
+
+model FolderAssignment {
+  id            String                     @id @default(uuid())
+  templateId    String
+  template      FolderTemplate             @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  targetType    FolderAssignmentTargetType
+  targetId      String?
+  createdBy     String?
+  createdByUser User?                      @relation("FolderAssignmentCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  deletedAt     DateTime?
+
+  @@unique([targetType, targetId])
+  @@index([templateId])
+  @@index([targetType])
+  @@map("folder_assignments")
+}
+
+model FolderVersion {
+  id          String                   @id @default(uuid())
+  templateId  String
+  template    FolderTemplate           @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  version     Int
+  changeType  FolderTemplateChangeType @default(CREATED)
+  data        Json
+  changeNote  String?
+  changedById String?
+  changedBy   User?                    @relation("FolderVersionChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime                 @default(now())
+
+  @@unique([templateId, version])
+  @@index([templateId])
+  @@index([createdAt])
+  @@map("folder_versions")
+}
+
+model FolderHistory {
+  id          String                   @id @default(uuid())
+  templateId  String
+  template    FolderTemplate           @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  action      FolderTemplateChangeType
+  oldValue    Json?
+  newValue    Json?
+  versionFrom Int?
+  versionTo   Int?
+  actorId     String?
+  actor       User?                    @relation("FolderHistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime                 @default(now())
+
+  @@index([templateId])
+  @@index([templateId, createdAt])
+  @@index([actorId])
+  @@map("folder_histories")
+}
+
+// =============================================================================
+// Sprint 7.4.4 — Dynamic Requirement Builder
+// =============================================================================
+
+enum RequirementTemplateStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RequirementNodeType {
+  SECTION
+  REQUIREMENT
+  SUB_REQUIREMENT
+  SUPPORTING_DOCUMENT
+}
+
+enum RequirementNodeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RequirementAssignmentTargetType {
+  UNIVERSITY
+  COLLEGE
+  DEPARTMENT
+  PROGRAM
+  OFFICE
+  AACCUP_AREA
+  ACCREDITATION_CYCLE
+}
+
+enum RequirementChangeType {
+  CREATED
+  UPDATED
+  ASSIGNED
+  ARCHIVED
+  RESTORED
+  ROLLED_BACK
+}
+
+enum RequirementValidationType {
+  FILE_TYPE
+  FILE_SIZE
+  PAGE_COUNT
+  EXPIRATION_DATE
+  NAMING_CONVENTION
+  METADATA
+}
+
+enum RequirementValidationSeverity {
+  ERROR
+  WARNING
+}
+
+enum AccreditationCycleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model AccreditationCycle {
+  id            String                   @id @default(uuid())
+  code          String                   @unique
+  name          String
+  description   String?
+  startDate     DateTime
+  endDate       DateTime
+  status        AccreditationCycleStatus @default(ACTIVE)
+  createdBy     String?
+  createdByUser User?                    @relation("AccreditationCycleCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedBy     String?
+  updatedByUser User?                    @relation("AccreditationCycleUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  deletedAt     DateTime?
+  aaccupAreas   AaccupArea[]
+
+  @@index([status])
+  @@index([startDate, endDate])
+  @@index([deletedAt])
+  @@map("accreditation_cycles")
+}
+
+model RequirementTemplate {
+  id            String                    @id @default(uuid())
+  name          String
+  code          String                    @unique
+  description   String?
+  category      String?
+  metadata      Json?
+  status        RequirementTemplateStatus @default(ACTIVE)
+  version       Int                       @default(1)
+  createdBy     String?
+  createdByUser User?                     @relation("RequirementTemplateCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedBy     String?
+  updatedByUser User?                     @relation("RequirementTemplateUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  deletedAt     DateTime?
+  nodes         RequirementNode[]
+  assignments   RequirementAssignment[]
+  versions      RequirementVersion[]
+  history       RequirementHistory[]
+
+  @@index([status])
+  @@index([category])
+  @@index([deletedAt])
+  @@map("requirement_templates")
+}
+
+model RequirementNode {
+  id                  String                  @id @default(uuid())
+  templateId          String
+  template            RequirementTemplate     @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  parentId            String?
+  parent              RequirementNode?        @relation("RequirementNodeTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children            RequirementNode[]       @relation("RequirementNodeTree")
+  code                String
+  name                String
+  description         String?
+  helpText            String?
+  type                RequirementNodeType     @default(REQUIREMENT)
+  metadata            Json?
+  isRequired          Boolean                 @default(true)
+  allowMultiple       Boolean                 @default(false)
+  sortOrder           Int                     @default(0)
+  level               Int                     @default(0)
+  status              RequirementNodeStatus   @default(ACTIVE)
+  createdBy           String?
+  createdByUser       User?                   @relation("RequirementNodeCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedBy           String?
+  updatedByUser       User?                   @relation("RequirementNodeUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  deletedAt           DateTime?
+  validations         RequirementValidation[]
+  runtimeRequirements AaccupRequirement[]
+
+  @@unique([templateId, code])
+  @@unique([templateId, parentId, name])
+  @@index([templateId])
+  @@index([templateId, parentId])
+  @@index([templateId, level])
+  @@index([templateId, type])
+  @@index([templateId, deletedAt])
+  @@map("requirement_nodes")
+}
+
+model RequirementValidation {
+  id            String                        @id @default(uuid())
+  nodeId        String
+  node          RequirementNode               @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  type          RequirementValidationType
+  config        Json
+  message       String?
+  severity      RequirementValidationSeverity @default(ERROR)
+  enabled       Boolean                       @default(true)
+  sortOrder     Int                           @default(0)
+  createdBy     String?
+  createdByUser User?                         @relation("RequirementValidationCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedBy     String?
+  updatedByUser User?                         @relation("RequirementValidationUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt     DateTime                      @default(now())
+  updatedAt     DateTime                      @updatedAt
+  deletedAt     DateTime?
+
+  @@unique([nodeId, type])
+  @@index([nodeId])
+  @@index([type])
+  @@index([nodeId, deletedAt])
+  @@map("requirement_validations")
+}
+
+model RequirementAssignment {
+  id                  String                          @id @default(uuid())
+  templateId          String
+  template            RequirementTemplate             @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  targetType          RequirementAssignmentTargetType
+  targetId            String?
+  createdBy           String?
+  createdByUser       User?                           @relation("RequirementAssignmentCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt           DateTime                        @default(now())
+  updatedAt           DateTime                        @updatedAt
+  deletedAt           DateTime?
+  runtimeRequirements AaccupRequirement[]
+
+  @@unique([targetType, targetId])
+  @@index([templateId])
+  @@index([targetType])
+  @@index([targetType, targetId, deletedAt])
+  @@map("requirement_assignments")
+}
+
+model RequirementVersion {
+  id          String                @id @default(uuid())
+  templateId  String
+  template    RequirementTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  version     Int
+  changeType  RequirementChangeType @default(CREATED)
+  data        Json
+  changeNote  String?
+  changedById String?
+  changedBy   User?                 @relation("RequirementVersionChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime              @default(now())
+
+  @@unique([templateId, version])
+  @@index([templateId])
+  @@index([createdAt])
+  @@map("requirement_versions")
+}
+
+model RequirementHistory {
+  id          String                @id @default(uuid())
+  templateId  String
+  template    RequirementTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  action      RequirementChangeType
+  oldValue    Json?
+  newValue    Json?
+  versionFrom Int?
+  versionTo   Int?
+  actorId     String?
+  actor       User?                 @relation("RequirementHistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime              @default(now())
+
+  @@index([templateId])
+  @@index([templateId, createdAt])
+  @@index([actorId])
+  @@map("requirement_histories")
+}
+
+// =============================================================================
+// Sprint 7.4.5 — Dynamic Workflow Builder
+// -----------------------------------------------------------------------------
+// ROOT-authored, versioned, validated/published workflow definitions that
+// control real runtime behavior (AACCUP submissions, document requests,
+// documents) via WorkflowInstance / WorkflowStepInstance / WorkflowAction.
+// Published versions are immutable snapshots; assignments resolve by
+// specificity → priority → newest effective (see workflow.engine.ts).
+// =============================================================================
+
+enum WorkflowDefinitionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum WorkflowEntityType {
+  DOCUMENT_REQUEST
+  AACCUP_SUBMISSION
+  DOCUMENT
+}
+
+enum WorkflowStepType {
+  START
+  TASK
+  REVIEW
+  APPROVAL
+  END
+}
+
+enum WorkflowStepStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum WorkflowChangeType {
+  CREATED
+  UPDATED
+  VALIDATED
+  PUBLISHED
+  ASSIGNED
+  UNASSIGNED
+  ARCHIVED
+  RESTORED
+  ROLLED_BACK
+}
+
+enum WorkflowInstanceStatus {
+  RUNNING
+  COMPLETED
+  TERMINATED
+}
+
+enum WorkflowStepInstanceStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  SKIPPED
+}
+
+model WorkflowDefinition {
+  id            String                    @id @default(uuid())
+  code          String                    @unique
+  name          String
+  description   String?
+  entityType    WorkflowEntityType
+  status        WorkflowDefinitionStatus  @default(DRAFT)
+  version       Int                       @default(1)
+  metadata      Json?
+  createdBy     String?
+  createdByUser User?                     @relation("WorkflowDefinitionCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedBy     String?
+  updatedByUser User?                     @relation("WorkflowDefinitionUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  deletedAt     DateTime?
+  steps         WorkflowStep[]
+  transitions   WorkflowTransition[]
+  assignments   WorkflowAssignment[]
+  versions      WorkflowVersion[]
+  history       WorkflowHistory[]
+  instances     WorkflowInstance[]
+
+  @@index([status])
+  @@index([entityType])
+  @@index([deletedAt])
+  @@map("workflow_definitions")
+}
+
+model WorkflowStep {
+  id                 String                 @id @default(uuid())
+  definitionId       String
+  definition         WorkflowDefinition     @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  code               String
+  name               String
+  description        String?
+  type               WorkflowStepType       @default(TASK)
+  roleName           String?
+  permissionCode     String?
+  sortOrder          Int                    @default(0)
+  metadata           Json?
+  status             WorkflowStepStatus     @default(ACTIVE)
+  createdBy          String?
+  createdByUser      User?                  @relation("WorkflowStepCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedBy          String?
+  updatedByUser      User?                  @relation("WorkflowStepUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  deletedAt          DateTime?
+  outgoingTransitions WorkflowTransition[]  @relation("WorkflowTransitionFrom")
+  incomingTransitions WorkflowTransition[]  @relation("WorkflowTransitionTo")
+
+  @@unique([definitionId, code])
+  @@index([definitionId])
+  @@index([definitionId, type])
+  @@index([definitionId, deletedAt])
+  @@map("workflow_steps")
+}
+
+model WorkflowTransition {
+  id                 String             @id @default(uuid())
+  definitionId       String
+  definition         WorkflowDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  fromStepId         String
+  fromStep           WorkflowStep       @relation("WorkflowTransitionFrom", fields: [fromStepId], references: [id], onDelete: Cascade)
+  toStepId           String
+  toStep             WorkflowStep       @relation("WorkflowTransitionTo", fields: [toStepId], references: [id], onDelete: Cascade)
+  actionCode         String
+  requiredPermission String?
+  metadata           Json?
+  sortOrder          Int                @default(0)
+  createdBy          String?
+  createdByUser      User?              @relation("WorkflowTransitionCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  deletedAt          DateTime?
+
+  @@unique([definitionId, fromStepId, actionCode])
+  @@index([definitionId])
+  @@index([definitionId, toStepId])
+  @@index([definitionId, deletedAt])
+  @@map("workflow_transitions")
+}
+
+model WorkflowAssignment {
+  id           String                          @id @default(uuid())
+  definitionId String
+  definition   WorkflowDefinition              @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  targetType   RequirementAssignmentTargetType
+  targetId     String?
+  priority     Int                             @default(0)
+  createdBy    String?
+  createdByUser User?                          @relation("WorkflowAssignmentCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt    DateTime                        @default(now())
+  updatedAt    DateTime                        @updatedAt
+  deletedAt    DateTime?
+
+  @@unique([definitionId, targetType, targetId])
+  @@index([targetType, targetId])
+  @@index([definitionId])
+  @@map("workflow_assignments")
+}
+
+model WorkflowVersion {
+  id           String             @id @default(uuid())
+  definitionId String
+  definition   WorkflowDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  version      Int
+  changeType   WorkflowChangeType @default(CREATED)
+  data         Json
+  changeNote   String?
+  changedById  String?
+  changedBy    User?              @relation("WorkflowVersionChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime           @default(now())
+  instances    WorkflowInstance[]
+
+  @@unique([definitionId, version])
+  @@index([definitionId])
+  @@index([createdAt])
+  @@map("workflow_versions")
+}
+
+model WorkflowHistory {
+  id           String             @id @default(uuid())
+  definitionId String
+  definition   WorkflowDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  action       WorkflowChangeType
+  oldValue     Json?
+  newValue     Json?
+  versionFrom  Int?
+  versionTo    Int?
+  actorId      String?
+  actor        User?              @relation("WorkflowHistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt    DateTime           @default(now())
+
+  @@index([definitionId])
+  @@index([definitionId, createdAt])
+  @@index([actorId])
+  @@map("workflow_histories")
+}
+
+model WorkflowInstance {
+  id              String                      @id @default(uuid())
+  definitionId    String
+  definition      WorkflowDefinition          @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  versionId       String
+  version         WorkflowVersion             @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  entityType      WorkflowEntityType
+  entityId        String
+  status          WorkflowInstanceStatus      @default(RUNNING)
+  currentStepCode String?
+  data            Json?
+  startedById     String?
+  startedBy       User?                       @relation("WorkflowInstanceStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
+  startedAt       DateTime                    @default(now())
+  completedAt     DateTime?
+  stepInstances   WorkflowStepInstance[]
+  actions         WorkflowAction[]
+
+  @@unique([entityType, entityId])
+  @@index([definitionId])
+  @@index([status])
+  @@map("workflow_instances")
+}
+
+model WorkflowStepInstance {
+  id          String                       @id @default(uuid())
+  instanceId  String
+  instance    WorkflowInstance             @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  stepCode    String
+  stepName    String
+  stepType    WorkflowStepType
+  status      WorkflowStepInstanceStatus   @default(PENDING)
+  activatedAt DateTime?
+  completedAt DateTime?
+  actorId     String?
+  actor       User?                        @relation("WorkflowStepInstanceActor", fields: [actorId], references: [id], onDelete: SetNull)
+  note        String?
+
+  @@unique([instanceId, stepCode])
+  @@index([instanceId])
+  @@map("workflow_step_instances")
+}
+
+model WorkflowAction {
+  id          String           @id @default(uuid())
+  instanceId  String
+  instance    WorkflowInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  stepCode    String
+  stepName    String
+  stepType    WorkflowStepType
+  actionCode  String
+  fromStepCode String?
+  toStepCode  String?
+  actorId     String?
+  actor       User?            @relation("WorkflowActionActor", fields: [actorId], references: [id], onDelete: SetNull)
+  note        String?
+  data        Json?
+  createdAt   DateTime         @default(now())
+
+  @@index([instanceId])
+  @@index([instanceId, createdAt])
+  @@index([actorId])
+  @@map("workflow_actions")
+}

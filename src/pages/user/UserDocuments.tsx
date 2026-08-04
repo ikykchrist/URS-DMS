@@ -104,7 +104,7 @@ interface UserDocumentsProps {
 }
 
 export default function UserDocuments({ onPreview }: UserDocumentsProps) {
-  const { user } = useAuth()
+  useAuth()
   const [viewMode, setViewMode] = useState<"grid" | "list">("list")
   const [selectedFolder, setSelectedFolder] = useState("all")
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)

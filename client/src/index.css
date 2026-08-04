@@ -1,0 +1,376 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #FAFAFA;
+  color: #111827;
+  line-height: 1.5;
+}
+
+::selection {
+  background-color: #6366F1;
+  color: white;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+@layer base {
+  input, button, textarea, select {
+    font: inherit;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Responsive sidebar margins */
+  .sidebar-margin {
+    margin-left: 260px;
+  }
+
+  .sidebar-margin-collapsed {
+    margin-left: 72px;
+  }
+
+  /* Large screen optimization */
+  @media (min-width: 1536px) {
+    .sidebar-margin {
+      margin-left: 280px;
+    }
+    .sidebar-margin-collapsed {
+      margin-left: 80px;
+    }
+  }
+
+  /* Tablet and below */
+  @media (max-width: 1024px) {
+    .sidebar-margin {
+      margin-left: 0;
+    }
+    .sidebar-margin-collapsed {
+      margin-left: 0;
+    }
+  }
+
+  /* Hide on mobile */
+  .hidden-mobile {
+    @media (max-width: 640px) {
+      display: none;
+    }
+  }
+
+  /* Show on mobile only */
+  .mobile-only {
+    @media (min-width: 641px) {
+      display: none;
+    }
+  }
+
+  /* Table responsive utilities */
+  .table-scroll-wrapper {
+    @apply overflow-x-auto;
+  }
+
+  .table-cell-truncate {
+    @apply max-w-[150px] truncate;
+  }
+
+  @media (min-width: 768px) {
+    .table-cell-truncate {
+      @apply max-w-[200px];
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .table-cell-truncate {
+      @apply max-w-[220px];
+    }
+  }
+
+  /* Grid gap responsive */
+  .responsive-gap {
+    @apply gap-4;
+  }
+
+  @media (min-width: 640px) {
+    .responsive-gap {
+      @apply gap-5;
+    }
+  }
+
+  /* Dialog responsive sizes */
+  .dialog-responsive {
+    @apply w-full max-w-lg p-4;
+  }
+
+  @media (max-width: 640px) {
+    .dialog-responsive {
+      @apply max-w-[calc(100%-1rem)] p-3;
+    }
+  }
+
+  /* Card responsive */
+  .card-responsive {
+    @apply p-4;
+  }
+
+  @media (min-width: 768px) {
+    .card-responsive {
+      @apply p-5;
+    }
+  }
+
+  /* Navbar responsive */
+  .navbar-responsive {
+    @apply px-4;
+  }
+
+  @media (min-width: 768px) {
+    .navbar-responsive {
+      @apply px-6;
+    }
+  }
+
+  /* Content padding responsive */
+  .content-padding {
+    @apply p-4;
+  }
+
+  @media (min-width: 640px) {
+    .content-padding {
+      @apply p-6;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .content-padding {
+      @apply p-8;
+    }
+  }
+
+  /* Prevent layout shift during sidebar transitions */
+  .sidebar-transition {
+    transition: margin-left 0.2s ease-in-out;
+  }
+
+  /* Responsive text sizes */
+  .text-responsive {
+    @apply text-sm;
+  }
+
+  @media (min-width: 768px) {
+    .text-responsive {
+      @apply text-base;
+    }
+  }
+}
+
+/* ============ Dark theme ============ */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Surfaces */
+.dark .bg-white,
+.dark .bg-\[\#FFFFFF\] {
+  background-color: #1e293b;
+}
+
+.dark .bg-\[\#FAFAFA\],
+.dark .bg-\[\#F5F7FB\],
+.dark .bg-\[\#F9FAFB\],
+.dark .bg-\[\#F5F5F5\] {
+  background-color: #0f172a;
+}
+
+.dark .bg-gray-50,
+.dark .bg-gray-50\/50,
+.dark .bg-gray-50\/70 {
+  background-color: #0f172a;
+}
+
+.dark .bg-gray-100 {
+  background-color: #1e293b;
+}
+
+.dark .bg-gray-100\/50,
+.dark .bg-gray-100\/60,
+.dark .bg-gray-100\/70 {
+  background-color: rgba(30, 41, 59, 0.6);
+}
+
+.dark .bg-gray-200 {
+  background-color: #334155;
+}
+
+.dark .bg-gray-200\/50,
+.dark .bg-gray-200\/60 {
+  background-color: rgba(51, 65, 85, 0.6);
+}
+
+.dark .bg-gray-900 {
+  background-color: #0b1220;
+}
+
+.dark .bg-gray-900\/90,
+.dark .bg-gray-900\/95 {
+  background-color: rgba(11, 18, 32, 0.92);
+}
+
+.dark .bg-gray-300 {
+  background-color: #475569;
+}
+
+.dark .bg-black\/5,
+.dark .bg-black\/10,
+.dark .bg-black\/20,
+.dark .bg-black\/40 {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.dark .bg-slate-50,
+.dark .bg-slate-100 {
+  background-color: #0f172a;
+}
+
+/* Text */
+.dark .text-gray-900 {
+  color: #f1f5f9;
+}
+
+.dark .text-gray-800 {
+  color: #e2e8f0;
+}
+
+.dark .text-gray-700 {
+  color: #cbd5e1;
+}
+
+.dark .text-gray-600 {
+  color: #94a3b8;
+}
+
+.dark .text-gray-500 {
+  color: #64748b;
+}
+
+.dark .text-gray-400 {
+  color: #475569;
+}
+
+.dark .text-gray-300 {
+  color: #334155;
+}
+
+.dark .text-slate-900,
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: #e2e8f0;
+}
+
+.dark .text-slate-500 {
+  color: #94a3b8;
+}
+
+.dark .text-slate-400 {
+  color: #64748b;
+}
+
+/* Borders & dividers */
+.dark .border-gray-50 {
+  border-color: #1e293b;
+}
+
+.dark .border-gray-100 {
+  border-color: #1e293b;
+}
+
+.dark .border-gray-200,
+.dark .border-gray-200\/60,
+.dark .border-gray-200\/70 {
+  border-color: #334155;
+}
+
+.dark .border-gray-300 {
+  border-color: #475569;
+}
+
+.dark .border-slate-100,
+.dark .border-slate-200 {
+  border-color: #334155;
+}
+
+.dark .divide-gray-100,
+.dark .divide-gray-200 > * + * {
+  border-color: #334155;
+}
+
+.dark .ring-gray-200,
+.dark .ring-gray-300 {
+  --tw-ring-color: #334155;
+}
+
+.dark .bg-gradient-to-br.from-gray-50,
+.dark .bg-gradient-to-br.from-gray-100 {
+  background-color: transparent;
+}
+
+.dark .bg-gradient-to-br.from-indigo-50,
+.dark .bg-gradient-to-br.from-indigo-100 {
+  background-color: transparent;
+}
+
+/* Scrollbars inside tables use lighter track */
+.dark ::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}

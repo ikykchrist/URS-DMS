@@ -1,13 +1,24 @@
 {
-  "name": "urs-dms",
-  "private": true,
+  "name": "urs-dms-monorepo",
   "version": "1.0.0",
-  "type": "module",
+  "private": true,
+  "description": "URS-DMS monorepo root (Sprint 1 client + Sprint 2 server)",
+  "workspaces": [
+    "server"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "dev:client": "npm --prefix client run dev",
+    "dev:server": "npm --workspace server run dev",
+    "build:client": "npm --prefix client run build",
+    "build:server": "npm --workspace server run build",
+    "lint:client": "npm --prefix client run lint",
+    "lint:server": "npm --workspace server run lint",
+    "typecheck:client": "npm --prefix client exec tsc -- --noEmit",
+    "typecheck:server": "npm --workspace server run typecheck",
+    "prisma:generate": "npm --workspace server run prisma:generate",
+    "prisma:migrate": "npm --workspace server run prisma:migrate",
+    "prisma:deploy": "npm --workspace server run prisma:deploy",
+    "prisma:seed": "npm --workspace server run prisma:seed"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.0.4",
@@ -41,5 +52,8 @@
     "tailwindcss": "^3.4.4",
     "typescript": "^5.2.2",
     "vite": "^5.3.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

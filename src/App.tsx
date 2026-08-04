@@ -15,7 +15,6 @@ import {
   CalendarClock,
   FileCheck,
   RotateCcw,
-  MoreVertical,
 } from "lucide-react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopNav } from "@/components/layout/TopNav"
@@ -207,6 +206,7 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [uploadTitle, setUploadTitle] = useState("")
   const [uploadDescription, setUploadDescription] = useState("")
+  void selectedSubmission; void isPreviewOpen; void uploadDescription
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error', message: string } | null>(null)
 
   const showToast = (type: 'success' | 'error', message: string) => {

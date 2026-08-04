@@ -1,0 +1,234 @@
+import { Router } from "express";
+import { requirePermission } from "@/middlewares/authorize";
+import { asyncHandler } from "@/utils/asyncHandler";
+import { validateBody, validateParams, validateQuery } from "@/middlewares/validate";
+import {
+  accreditationCycleIdParamSchema,
+  assignRequirementTemplateSchema,
+  createAccreditationCycleSchema,
+  createRequirementNodeSchema,
+  createRequirementTemplateSchema,
+  createRequirementValidationSchema,
+  listAccreditationCyclesQuerySchema,
+  listRequirementAssignmentsQuerySchema,
+  listRequirementHistoryQuerySchema,
+  listRequirementNodesQuerySchema,
+  listRequirementTemplatesQuerySchema,
+  moveRequirementNodeSchema,
+  requirementAssignmentIdParamSchema,
+  requirementNodeIdParamSchema,
+  requirementTemplateIdParamSchema,
+  requirementValidationIdParamSchema,
+  rollbackRequirementTemplateSchema,
+  updateAccreditationCycleSchema,
+  updateRequirementNodeSchema,
+  updateRequirementTemplateSchema,
+} from "@/modules/root/root.requirement.validator";
+import {
+  archiveCycleHandler,
+  archiveNodeHandler,
+  archiveTemplateHandler,
+  archiveValidationHandler,
+  assignTemplateHandler,
+  createCycleHandler,
+  createNodeHandler,
+  createTemplateHandler,
+  createValidationHandler,
+  getTemplateHandler,
+  listAssignmentsHandler,
+  listCyclesHandler,
+  listHistoryHandler,
+  listNodesHandler,
+  listTemplatesHandler,
+  listVersionsHandler,
+  moveNodeHandler,
+  restoreCycleHandler,
+  restoreNodeHandler,
+  restoreTemplateHandler,
+  restoreValidationHandler,
+  rollbackTemplateHandler,
+  unassignTemplateHandler,
+  updateCycleHandler,
+  updateNodeHandler,
+  updateTemplateHandler,
+  updateValidationHandler,
+} from "@/modules/root/root.requirement.controller";
+
+export const requirementRouter: Router = Router();
+
+requirementRouter.get(
+  "/history",
+  requirePermission("requirement.read"),
+  validateQuery(listRequirementHistoryQuerySchema),
+  asyncHandler(listHistoryHandler),
+);
+requirementRouter.get(
+  "/assignments",
+  requirePermission("requirement.read"),
+  validateQuery(listRequirementAssignmentsQuerySchema),
+  asyncHandler(listAssignmentsHandler),
+);
+requirementRouter.delete(
+  "/assignments/:id",
+  requirePermission("requirement.assign"),
+  validateParams(requirementAssignmentIdParamSchema),
+  asyncHandler(unassignTemplateHandler),
+);
+requirementRouter.post(
+  "/rollback",
+  requirePermission("requirement.rollback"),
+  validateBody(rollbackRequirementTemplateSchema),
+  asyncHandler(rollbackTemplateHandler),
+);
+
+requirementRouter.get(
+  "/cycles",
+  requirePermission("requirement.read"),
+  validateQuery(listAccreditationCyclesQuerySchema),
+  asyncHandler(listCyclesHandler),
+);
+requirementRouter.post(
+  "/cycles",
+  requirePermission("requirement.create"),
+  validateBody(createAccreditationCycleSchema),
+  asyncHandler(createCycleHandler),
+);
+requirementRouter.patch(
+  "/cycles/:id",
+  requirePermission("requirement.update"),
+  validateParams(accreditationCycleIdParamSchema),
+  validateBody(updateAccreditationCycleSchema),
+  asyncHandler(updateCycleHandler),
+);
+requirementRouter.delete(
+  "/cycles/:id",
+  requirePermission("requirement.archive"),
+  validateParams(accreditationCycleIdParamSchema),
+  asyncHandler(archiveCycleHandler),
+);
+requirementRouter.post(
+  "/cycles/:id/restore",
+  requirePermission("requirement.restore"),
+  validateParams(accreditationCycleIdParamSchema),
+  asyncHandler(restoreCycleHandler),
+);
+
+requirementRouter.get(
+  "/",
+  requirePermission("requirement.read"),
+  validateQuery(listRequirementTemplatesQuerySchema),
+  asyncHandler(listTemplatesHandler),
+);
+requirementRouter.post(
+  "/",
+  requirePermission("requirement.create"),
+  validateBody(createRequirementTemplateSchema),
+  asyncHandler(createTemplateHandler),
+);
+
+requirementRouter.get(
+  "/:id/versions",
+  requirePermission("requirement.read"),
+  validateParams(requirementTemplateIdParamSchema),
+  asyncHandler(listVersionsHandler),
+);
+requirementRouter.post(
+  "/:id/assignments",
+  requirePermission("requirement.assign"),
+  validateParams(requirementTemplateIdParamSchema),
+  validateBody(assignRequirementTemplateSchema),
+  asyncHandler(assignTemplateHandler),
+);
+requirementRouter.get(
+  "/:id/nodes",
+  requirePermission("requirement.read"),
+  validateParams(requirementTemplateIdParamSchema),
+  validateQuery(listRequirementNodesQuerySchema),
+  asyncHandler(listNodesHandler),
+);
+requirementRouter.post(
+  "/:id/nodes",
+  requirePermission("requirement.create"),
+  validateParams(requirementTemplateIdParamSchema),
+  validateBody(createRequirementNodeSchema),
+  asyncHandler(createNodeHandler),
+);
+requirementRouter.post(
+  "/:id/nodes/:nodeId/move",
+  requirePermission("requirement.update"),
+  validateParams(requirementNodeIdParamSchema),
+  validateBody(moveRequirementNodeSchema),
+  asyncHandler(moveNodeHandler),
+);
+requirementRouter.patch(
+  "/:id/nodes/:nodeId",
+  requirePermission("requirement.update"),
+  validateParams(requirementNodeIdParamSchema),
+  validateBody(updateRequirementNodeSchema),
+  asyncHandler(updateNodeHandler),
+);
+requirementRouter.delete(
+  "/:id/nodes/:nodeId",
+  requirePermission("requirement.archive"),
+  validateParams(requirementNodeIdParamSchema),
+  asyncHandler(archiveNodeHandler),
+);
+requirementRouter.post(
+  "/:id/nodes/:nodeId/restore",
+  requirePermission("requirement.restore"),
+  validateParams(requirementNodeIdParamSchema),
+  asyncHandler(restoreNodeHandler),
+);
+
+requirementRouter.post(
+  "/:id/nodes/:nodeId/validations",
+  requirePermission("requirement.create"),
+  validateParams(requirementNodeIdParamSchema),
+  validateBody(createRequirementValidationSchema),
+  asyncHandler(createValidationHandler),
+);
+requirementRouter.patch(
+  "/:id/nodes/:nodeId/validations/:validationId",
+  requirePermission("requirement.update"),
+  validateParams(requirementValidationIdParamSchema),
+  validateBody(createRequirementValidationSchema),
+  asyncHandler(updateValidationHandler),
+);
+requirementRouter.delete(
+  "/:id/nodes/:nodeId/validations/:validationId",
+  requirePermission("requirement.archive"),
+  validateParams(requirementValidationIdParamSchema),
+  asyncHandler(archiveValidationHandler),
+);
+requirementRouter.post(
+  "/:id/nodes/:nodeId/validations/:validationId/restore",
+  requirePermission("requirement.restore"),
+  validateParams(requirementValidationIdParamSchema),
+  asyncHandler(restoreValidationHandler),
+);
+
+requirementRouter.get(
+  "/:id",
+  requirePermission("requirement.read"),
+  validateParams(requirementTemplateIdParamSchema),
+  asyncHandler(getTemplateHandler),
+);
+requirementRouter.patch(
+  "/:id",
+  requirePermission("requirement.update"),
+  validateParams(requirementTemplateIdParamSchema),
+  validateBody(updateRequirementTemplateSchema),
+  asyncHandler(updateTemplateHandler),
+);
+requirementRouter.delete(
+  "/:id",
+  requirePermission("requirement.archive"),
+  validateParams(requirementTemplateIdParamSchema),
+  asyncHandler(archiveTemplateHandler),
+);
+requirementRouter.post(
+  "/:id/restore",
+  requirePermission("requirement.restore"),
+  validateParams(requirementTemplateIdParamSchema),
+  asyncHandler(restoreTemplateHandler),
+);

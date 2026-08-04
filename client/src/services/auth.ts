@@ -1,0 +1,197 @@
+import type { User, UserRole, ServerUser } from "@/types/domain"
+import { apiGet, apiPost, getAccessToken, clearServerToken, setServerToken } from "@/lib/http"
+
+interface AuthState {
+  isLoading: boolean
+  isAuthenticated: boolean
+  user: User | null
+  token: string | null
+}
+
+type AuthListener = (state: AuthState) => void
+
+const ROLE_MAP: Record<string, UserRole> = {
+  ROOT: "root",
+  ADMINISTRATOR: "super_admin",
+  QUALITY_ASSURANCE_OFFICER: "qa_office",
+  DEPARTMENT_COORDINATOR: "department_head",
+  FACULTY: "faculty",
+  STAFF: "staff",
+  READ_ONLY: "student",
+}
+
+export function toClientUser(server: ServerUser): User {
+  const role = ROLE_MAP[server.role] ?? "staff"
+  const createdAt = "createdAt" in server ? (server as unknown as { createdAt?: string }).createdAt : undefined
+  return {
+    id: server.id,
+    name: [server.firstName, server.middleName, server.lastName, server.suffix]
+      .filter(Boolean)
+      .join(" ")
+      .trim(),
+    email: server.email,
+    role,
+    department: server.departmentId ?? "",
+    departmentId: server.departmentId ?? undefined,
+    status: server.status === "ACTIVE" ? "Active" : "Inactive",
+    memberSince: createdAt ?? new Date().toISOString(),
+    createdAt: createdAt ?? new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    permissions: server.permissions,
+  }
+}
+
+class AuthService {
+  private state: AuthState = {
+    isLoading: true,
+    isAuthenticated: false,
+    user: null,
+    token: null,
+  }
+  private listeners: Set<AuthListener> = new Set()
+  private initialized = false
+
+  subscribe(fn: AuthListener): () => void {
+    this.listeners.add(fn)
+    fn(this.state)
+    return () => this.listeners.delete(fn)
+  }
+
+  private emit() {
+    this.listeners.forEach((l) => l(this.state))
+  }
+
+  private update(patch: Partial<AuthState>) {
+    this.state = { ...this.state, ...patch }
+    this.emit()
+  }
+
+  async init(): Promise<void> {
+    if (this.initialized) return
+    this.initialized = true
+
+    if (!getAccessToken()) {
+      this.update({ isLoading: false, isAuthenticated: false, user: null, token: null })
+      return
+    }
+
+    try {
+      const server = await apiGet<ServerUser>("/auth/me")
+      this.update({
+        isLoading: false,
+        isAuthenticated: true,
+        user: toClientUser(server),
+        token: getAccessToken(),
+      })
+    } catch {
+      clearServerToken()
+      this.update({ isLoading: false, isAuthenticated: false, user: null, token: null })
+    }
+  }
+
+  async login(email: string, password: string): Promise<{ success: boolean; user?: User; error?: string }> {
+    try {
+      const data = await apiPost<{ accessToken: string; user: ServerUser }>("/auth/login", {
+        identifier: email,
+        password,
+      })
+      setServerToken(data.accessToken)
+      const user = toClientUser(data.user)
+      this.update({ isAuthenticated: true, user, token: data.accessToken })
+      return { success: true, user }
+    } catch (err) {
+      this.update({ isAuthenticated: false, user: null, token: null })
+      return { success: false, error: "Invalid email or password" }
+    }
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await apiPost<{ success: true }>("/auth/logout", {})
+    } catch {
+      // Logout is idempotent; local token removal must still happen.
+    } finally {
+      clearServerToken()
+    }
+    this.update({ isAuthenticated: false, user: null, token: null })
+  }
+
+  async forgotPassword(email: string): Promise<{ success: boolean; message: string }> {
+    void email
+    return {
+      success: false,
+      message: "Password reset is not available yet. Contact your administrator.",
+    }
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+    void token
+    void newPassword
+    return { success: false, error: "Password reset is not available yet. Contact your administrator." }
+  }
+
+  async me(): Promise<User | null> {
+    if (!this.state.user) return null
+    try {
+      const server = await apiGet<ServerUser>("/auth/me")
+      const user = toClientUser(server)
+      this.update({ user })
+      return user
+    } catch {
+      return this.state.user
+    }
+  }
+
+  async updateProfile(): Promise<{ success: boolean; user?: User; error?: string }> {
+    return { success: false, error: "Profile editing is not available yet" }
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await apiPost<{ success: true }>("/auth/change-password", {
+        currentPassword,
+        newPassword,
+      })
+      return { success: true }
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Password change failed",
+      }
+    }
+  }
+
+  async uploadAvatar(): Promise<{ success: boolean; avatarSeed?: string; error?: string }> {
+    return { success: false, error: "Avatar upload is not available yet" }
+  }
+
+  getCurrentUser(): User | null {
+    return this.state.user
+  }
+
+  getState(): AuthState {
+    return this.state
+  }
+
+  async getUserSessions(): Promise<never[]> {
+    return []
+  }
+
+  async killSession(): Promise<void> {}
+
+  async killAllOtherSessions(): Promise<void> {}
+
+  async getSystemSettings(): Promise<null> {
+    return null
+  }
+
+  async updateSystemSettings(): Promise<null> {
+    return null
+  }
+
+  async updateUserSettings(): Promise<null> {
+    return null
+  }
+}
+
+export const authService = new AuthService()
