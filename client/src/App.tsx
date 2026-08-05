@@ -5,14 +5,11 @@ import {
   Users,
   CheckCircle,
   Clock,
-  Upload,
   Filter,
   MoreHorizontal,
   Eye,
   Download,
-  AlertTriangle,
   ArrowRight,
-  CalendarClock,
   FileCheck,
   RotateCcw,
 } from "lucide-react"
@@ -23,7 +20,6 @@ import { StatCard } from "@/components/layout/StatCard"
 import { ChartCard } from "@/components/layout/ChartCard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
-import { Input } from "@/components/ui/Input"
 import { Badge } from "@/components/ui/Badge"
 import { cn } from "@/lib/utils"
 import {
@@ -42,32 +38,11 @@ import {
   SelectValue,
 } from "@/components/ui/Select"
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/Pagination"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/Dialog"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu"
-import { Label } from "@/components/ui/Label"
-import { Dropzone } from "@/components/ui/Dropzone"
-import { Switch } from "@/components/ui/Switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import {
   AreaChart,
@@ -97,6 +72,9 @@ import { ThemeProvider } from "@/lib/theme"
 import { ToastContainer, toast } from "@/lib/toast"
 import { isAdminRole, isRootRole } from "@/lib/permissions"
 import { getDashboardOverview, type DashboardOverview } from "@/services/dashboard"
+import { getUploadsAnalytics, type UploadsAnalytics } from "@/services/analytics"
+import { listRequests } from "@/services/requests"
+import type { DocumentRequest } from "@/types/domain"
 import { notificationService } from "@/services/notifications"
 import { listOnlineDocuments, openOnlineDocument } from "@/services/documents"
 import LoginPage from "@/pages/Login"
@@ -122,21 +100,31 @@ import UserNotifications from "@/pages/user/UserNotifications"
 import UserProfile from "@/pages/user/UserProfile"
 import UserSettings from "@/pages/user/UserSettings"
 
-const submissionData = [
-  { name: "Jan", submissions: 45 },
-  { name: "Feb", submissions: 52 },
-  { name: "Mar", submissions: 78 },
-  { name: "Apr", submissions: 65 },
-  { name: "May", submissions: 89 },
-  { name: "Jun", submissions: 72 },
-]
+function shortBucketLabel(label: string): string {
+  const month = /^(\d{4})-(\d{2})$/.exec(label)
+  if (month) {
+    return new Date(Number(month[1]), Number(month[2]) - 1, 1).toLocaleString("en", { month: "short" })
+  }
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(label)
+  if (day) {
+    const d = new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3]))
+    return d.toLocaleString("en", { month: "short", day: "numeric" })
+  }
+  return label
+}
 
-const documentStatusData = [
-  { name: "Approved", value: 156, color: "#10B981" },
-  { name: "Pending", value: 89, color: "#F59E0B" },
-  { name: "Rejected", value: 23, color: "#EF4444" },
-  { name: "In Review", value: 45, color: "#6366F1" },
-]
+function formatDate(iso: string): string {
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+}
+
+function ChartEmpty({ label }: { label: string }) {
+  return (
+    <div className="h-full flex items-center justify-center">
+      <p className="text-[13px] text-gray-400">{label}</p>
+    </div>
+  )
+}
 
 interface ActionWidgetProps {
   icon: React.ReactNode
@@ -170,59 +158,24 @@ function ActionWidget({ icon, iconBg, iconColor, title, subtitle, badge, badgeVa
   )
 }
 
-const recentSubmissions = [
-  {
-    id: "SUB-001",
-    title: "Self-Study Report - College of Engineering",
-    category: "AACCUP Phase I",
-    submittedBy: "Dr. Maria Santos",
-    date: "2024-01-15",
-    status: "Pending",
-  },
-  {
-    id: "SUB-002",
-    title: "Faculty Credentials - Department of CS",
-    category: "Faculty Files",
-    submittedBy: "Prof. John Doe",
-    date: "2024-01-14",
-    status: "Approved",
-  },
-  {
-    id: "SUB-003",
-    title: "Infrastructure Assessment Report",
-    category: "Facility Documents",
-    submittedBy: "Engr. Sarah Cruz",
-    date: "2024-01-13",
-    status: "In Review",
-  },
-  {
-    id: "SUB-004",
-    title: "Curriculum Revision - BSIT",
-    category: "Curriculum",
-    submittedBy: "Dr. Peter Lim",
-    date: "2024-01-12",
-    status: "Rejected",
-  },
-  {
-    id: "SUB-005",
-    title: "Laboratory Equipment Inventory",
-    category: "Resources",
-    submittedBy: "Ms. Ana Reyes",
-    date: "2024-01-11",
-    status: "Pending",
-  },
-]
-
 function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const [filterStatus, setFilterStatus] = useState("all")
-  const [uploadTitle, setUploadTitle] = useState("")
   const [report, setReport] = useState<DashboardOverview | null>(null)
+  const [uploads, setUploads] = useState<UploadsAnalytics | null>(null)
+  const [recentRequests, setRecentRequests] = useState<DocumentRequest[]>([])
+  const [isLoadingRequests, setIsLoadingRequests] = useState(true)
 
   useEffect(() => {
     getDashboardOverview()
       .then(setReport)
       .catch(() => setReport(null))
+    getUploadsAnalytics({ granularity: "monthly" })
+      .then(setUploads)
+      .catch(() => setUploads(null))
+    listRequests()
+      .then(setRecentRequests)
+      .catch(() => setRecentRequests([]))
+      .finally(() => setIsLoadingRequests(false))
   }, [])
 
   const statusDistribution = report
@@ -232,19 +185,29 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
         { name: "Rejected", value: report.requests.rejected, color: "#EF4444" },
         { name: "Fulfilled", value: report.requests.fulfilled, color: "#6366F1" },
       ]
-    : documentStatusData
+    : []
 
-  const handleUpload = () => {
-    if (!uploadTitle.trim()) {
-      toast.error("Please enter a document title")
-      return
-    }
-    toast.success(`"${uploadTitle}" has been uploaded successfully`)
-    setUploadTitle("")
-    setIsUploadDialogOpen(false)
-  }
+  const submissionChartData = (uploads?.overTime ?? []).map((p) => ({
+    name: shortBucketLabel(p.label),
+    submissions: p.value,
+  }))
 
-  const handleDownload = async (submission: typeof recentSubmissions[0]) => {
+  const categoryChartData = (uploads?.perDepartment ?? []).map((b) => ({
+    category: b.label,
+    count: b.value,
+  }))
+
+  const share = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0)
+
+  const filteredRequests = recentRequests.filter((r) => {
+    if (filterStatus === "all") return true
+    const wanted = filterStatus === "review" ? "In Review" : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)
+    return r.status === wanted
+  })
+
+  const visibleRequests = filteredRequests.slice(0, 6)
+
+  const handleDownload = async (submission: DocumentRequest) => {
     try {
       const allDocs = await listOnlineDocuments({ search: submission.title.slice(0, 10) })
       const doc = allDocs.find((d) => d.name.toLowerCase().includes(submission.title.toLowerCase().slice(0, 10)))
@@ -279,66 +242,10 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
           title="Dashboard"
           description="Welcome back! Here's an overview of your document management system."
           actions={
-            <>
-              <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="shadow-sm">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload Document
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-[500px]">
-                <DialogHeader className="pb-2">
-                  <DialogTitle className="text-lg">Upload New Document</DialogTitle>
-                  <DialogDescription className="text-[14px]">
-                    Upload a new document to the repository. Supported formats: PDF, DOC, DOCX, JPG, PNG.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-5 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="title" className="text-[13px] font-medium">Document Title</Label>
-                    <Input id="title" placeholder="Enter document title" className="h-10" value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="category" className="text-[13px] font-medium">Category</Label>
-                    <Select>
-                      <SelectTrigger className="h-10">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="aaccup">AACCUP Documents</SelectItem>
-                        <SelectItem value="faculty">Faculty Files</SelectItem>
-                        <SelectItem value="curriculum">Curriculum</SelectItem>
-                        <SelectItem value="facility">Facility Documents</SelectItem>
-                        <SelectItem value="resources">Resources</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label className="text-[13px] font-medium">Upload File</Label>
-                    <Dropzone accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
-                  </div>
-                  <div className="flex items-center justify-between pt-2">
-                    <Label htmlFor="notify" className="flex flex-col gap-0.5">
-                      <span className="text-[14px] font-medium text-gray-700">Notify reviewers</span>
-                      <span className="text-[12px] font-normal text-gray-500">
-                        Send notification when upload is complete
-                      </span>
-                    </Label>
-                    <Switch id="notify" defaultChecked />
-                  </div>
-                </div>
-                <DialogFooter className="gap-2">
-                  <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)} className="h-9">
-                    Cancel
-                  </Button>
-                  <Button onClick={handleUpload} className="h-9 shadow-sm">
-                    Upload Document
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            </>
+            <Button className="shadow-sm" onClick={() => onNavigate('documents')}>
+              <FileText className="w-4 h-4 mr-2" />
+              Open Repository
+            </Button>
           }
         />
 
@@ -347,25 +254,44 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
             title="Total Documents"
             value={report ? String(report.documents.totalDocuments) : "—"}
             icon={<FileText className="w-5 h-5" />}
-            trend={{ value: 12, positive: true }}
+            trend={
+              report
+                ? {
+                    value: share(report.documents.uploadedThisMonth, report.documents.totalDocuments),
+                    positive: report.documents.uploadedThisMonth > 0,
+                  }
+                : undefined
+            }
           />
           <StatCard
             title="Pending Review"
             value={report ? String(report.requests.pending) : "—"}
             icon={<Clock className="w-5 h-5" />}
-            trend={{ value: 5, positive: false }}
+            trend={
+              report
+                ? { value: share(report.requests.pending, report.requests.totalRequests), positive: false }
+                : undefined
+            }
           />
           <StatCard
             title="Approved"
             value={report ? String(report.requests.approved) : "—"}
             icon={<CheckCircle className="w-5 h-5" />}
-            trend={{ value: 8, positive: true }}
+            trend={
+              report
+                ? { value: share(report.requests.approved, report.requests.totalRequests), positive: true }
+                : undefined
+            }
           />
           <StatCard
             title="Active Users"
             value={report ? String(report.users.activeUsers) : "—"}
             icon={<Users className="w-5 h-5" />}
-            trend={{ value: 3, positive: true }}
+            trend={
+              report
+                ? { value: share(report.users.activeUsers, report.users.totalUsers), positive: true }
+                : undefined
+            }
           />
         </div>
 
@@ -376,8 +302,9 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
             className="lg:col-span-2"
           >
             <div className="h-[200px] sm:h-[240px] lg:h-[280px]">
+              {submissionChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={submissionData}>
+                <AreaChart data={submissionChartData}>
                   <defs>
                     <linearGradient id="colorSubmissions" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#6366F1" stopOpacity={0.2} />
@@ -405,6 +332,9 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              ) : (
+                <ChartEmpty label="No upload activity recorded yet" />
+              )}
             </div>
           </ChartCard>
 
@@ -413,6 +343,7 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
             description="Current distribution"
           >
             <div className="h-[200px]">
+              {statusDistribution.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -438,6 +369,9 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                   />
                 </PieChart>
               </ResponsiveContainer>
+              ) : (
+                <ChartEmpty label="No requests recorded yet" />
+              )}
             </div>
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-2">
               {statusDistribution.map((item) => (
@@ -456,23 +390,18 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 mb-6 lg:mb-8">
-          <ChartCard title="Category Distribution" description="Documents by category">
+          <ChartCard title="Uploads by Department" description="Document uploads per department">
             <div className="h-[180px] sm:h-[200px] md:h-[220px]">
+              {categoryChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={[
-                    { category: "AACCUP", count: 345 },
-                    { category: "Faculty", count: 289 },
-                    { category: "Curriculum", count: 198 },
-                    { category: "Facility", count: 156 },
-                    { category: "Resources", count: 134 },
-                  ]}
+                  data={categoryChartData}
                   layout="vertical"
                   margin={{ left: 10, right: 10 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
                   <XAxis type="number" stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis dataKey="category" type="category" stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={false} width={65} />
+                  <YAxis dataKey="category" type="category" stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={false} width={110} />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "#fff",
@@ -484,29 +413,23 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                   <Bar dataKey="count" fill="#6366F1" radius={[0, 4, 4, 0]} barSize={20} />
                 </BarChart>
               </ResponsiveContainer>
+              ) : (
+                <ChartEmpty label="No uploads recorded yet" />
+              )}
             </div>
           </ChartCard>
 
           <ChartCard title="Action Center" description="Tasks needing your attention">
+            {report ? (
             <div className="space-y-3">
               <ActionWidget
                 icon={<Clock className="w-4 h-4" />}
                 iconBg="bg-amber-50"
                 iconColor="text-amber-600"
                 title="Pending Approvals"
-                subtitle="3 documents awaiting review"
-                badge="3"
+                subtitle={`${report.requests.pending} requests awaiting review`}
+                badge={String(report.requests.pending)}
                 badgeVariant="warning"
-                onClick={() => onNavigate('submissions')}
-              />
-              <ActionWidget
-                icon={<AlertTriangle className="w-4 h-4" />}
-                iconBg="bg-red-50"
-                iconColor="text-red-600"
-                title="Overdue Tasks"
-                subtitle="Area 6 is past due"
-                badge="1"
-                badgeVariant="danger"
                 onClick={() => onNavigate('submissions')}
               />
               <ActionWidget
@@ -514,32 +437,35 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                 iconBg="bg-orange-50"
                 iconColor="text-orange-600"
                 title="Needs Revision"
-                subtitle="2 submissions returned"
-                badge="2"
+                subtitle={`${report.aaccup.needsRevision} submissions returned for revision`}
+                badge={String(report.aaccup.needsRevision)}
                 badgeVariant="warning"
-                onClick={() => onNavigate('submissions')}
-              />
-              <ActionWidget
-                icon={<CalendarClock className="w-4 h-4" />}
-                iconBg="bg-blue-50"
-                iconColor="text-blue-600"
-                title="Upcoming Deadlines"
-                subtitle="3 deadlines this week"
-                badge="3"
-                badgeVariant="default"
-                onClick={() => onNavigate('submissions')}
+                onClick={() => onNavigate('aaccup')}
               />
               <ActionWidget
                 icon={<FileCheck className="w-4 h-4" />}
                 iconBg="bg-emerald-50"
                 iconColor="text-emerald-600"
                 title="Recent Uploads"
-                subtitle="5 new documents today"
-                badge="5"
+                subtitle={`${report.documents.uploadedToday} new documents today`}
+                badge={String(report.documents.uploadedToday)}
                 badgeVariant="success"
                 onClick={() => onNavigate('documents')}
               />
+              <ActionWidget
+                icon={<CheckCircle className="w-4 h-4" />}
+                iconBg="bg-blue-50"
+                iconColor="text-blue-600"
+                title="Compliance"
+                subtitle="Overall AACCUP compliance"
+                badge={`${report.aaccup.overallCompliancePercentage}%`}
+                badgeVariant="default"
+                onClick={() => onNavigate('aaccup')}
+              />
             </div>
+            ) : (
+              <p className="text-[13px] text-gray-500">Loading overview data…</p>
+            )}
           </ChartCard>
         </div>
 
@@ -584,29 +510,29 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recentSubmissions.map((submission) => (
+                {visibleRequests.map((submission) => (
                   <TableRow key={submission.id}>
-                    <TableCell className="font-medium text-gray-700 whitespace-nowrap">{submission.id}</TableCell>
+                    <TableCell className="font-medium text-gray-700 whitespace-nowrap">{submission.id.slice(0, 8).toUpperCase()}</TableCell>
                     <TableCell className="max-w-[150px] md:max-w-[220px] truncate font-medium text-gray-900">
                       {submission.title}
                     </TableCell>
-                    <TableCell className="text-gray-500 whitespace-nowrap hidden md:table-cell">{submission.category}</TableCell>
+                    <TableCell className="text-gray-500 whitespace-nowrap hidden md:table-cell">{submission.documents[0]?.documentName ?? "General Request"}</TableCell>
                     <TableCell className="hidden lg:table-cell">
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6 md:h-7 md:w-7">
-                          <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${submission.submittedBy}`} />
+                          <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${submission.submittedByName}`} />
                           <AvatarFallback className="text-[10px] bg-gray-100 text-gray-600">
-                            {submission.submittedBy.split(" ").map((n) => n[0]).join("")}
+                            {submission.submittedByName.split(" ").map((n) => n[0]).join("")}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-[13px] text-gray-700 whitespace-nowrap">{submission.submittedBy}</span>
+                        <span className="text-[13px] text-gray-700 whitespace-nowrap">{submission.submittedByName}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-gray-500 text-[13px] whitespace-nowrap hidden sm:table-cell">{submission.date}</TableCell>
+                    <TableCell className="text-gray-500 text-[13px] whitespace-nowrap hidden sm:table-cell">{formatDate(submission.dateSubmitted)}</TableCell>
                     <TableCell className="whitespace-nowrap">{getStatusBadge(submission.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-0.5">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900" onClick={() => {}}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900" onClick={() => onNavigate('submissions')}>
                           <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900" onClick={() => handleDownload(submission)}>
@@ -618,8 +544,8 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                               <MoreHorizontal className="w-3.5 h-3.5 md:w-4 md:h-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem onClick={() => {}}>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem onClick={() => onNavigate('submissions')}>
                               <Eye className="w-4 h-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
@@ -637,34 +563,27 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                     </TableCell>
                   </TableRow>
                 ))}
+                {!isLoadingRequests && visibleRequests.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-gray-500 text-[13px] py-8">
+                      No submissions match your filter.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
-            <div className="mt-4 px-4 md:px-5 pb-4 md:pb-5 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="mt-4 px-4 md:px-5 pb-4 md:pb-5 flex items-center justify-between gap-3">
               <p className="text-[12px] md:text-[13px] text-gray-500">
-                <span className="sm:hidden">5/89</span>
-                <span className="hidden sm:inline">Showing 5 of 89 submissions</span>
+                <span className="sm:hidden">{visibleRequests.length}/{recentRequests.length}</span>
+                <span className="hidden sm:inline">
+                  {isLoadingRequests
+                    ? "Loading submissions…"
+                    : `Showing ${visibleRequests.length} of ${recentRequests.length} submissions`}
+                </span>
               </p>
-              <Pagination>
-                <PaginationPrevious className="h-8" />
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationLink className="h-8 w-8">1</PaginationLink>
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationLink isActive className="h-8 w-8">
-                      2
-                    </PaginationLink>
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationLink className="h-8 w-8">3</PaginationLink>
-                  </PaginationItem>
-                  <PaginationEllipsis className="h-8 w-8" />
-                  <PaginationItem>
-                    <PaginationLink className="h-8 w-8">17</PaginationLink>
-                  </PaginationItem>
-                </PaginationContent>
-                <PaginationNext className="h-8" />
-              </Pagination>
+              <Button variant="outline" size="sm" className="h-8" onClick={() => onNavigate('submissions')}>
+                View All
+              </Button>
             </div>
           </CardContent>
         </Card>
