@@ -23,6 +23,7 @@ export interface AnalyticsFilter {
   to?: Date;
   departmentId?: string;
   areaId?: string;
+  ownerId?: string;
 }
 
 /**

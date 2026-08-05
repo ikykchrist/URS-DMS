@@ -9,6 +9,7 @@ import {
   Activity,
   Settings2,
   Lock,
+  Award,
 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { StatCard } from "@/components/layout/StatCard"
@@ -24,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/Table"
 import { getOverview, formatConfigValue, type RootPlatformOverview } from "@/services/root"
+import { getDashboardOverview, type DashboardOverview } from "@/services/dashboard"
 import { ApiRequestError } from "@/lib/http"
 
 function formatUptime(seconds: number): string {
@@ -65,6 +67,7 @@ function actionBadgeVariant(action: string): "success" | "warning" | "danger" | 
 
 export default function RootDashboard() {
   const [overview, setOverview] = useState<RootPlatformOverview | null>(null)
+  const [accreditation, setAccreditation] = useState<DashboardOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -85,9 +88,21 @@ export default function RootDashboard() {
     }
   }, [])
 
+  const loadAccreditation = useCallback(() => {
+    getDashboardOverview()
+      .then(setAccreditation)
+      .catch(() => setAccreditation((prev) => prev))
+  }, [])
+
   useEffect(() => {
     void load()
-  }, [load])
+    loadAccreditation()
+    const poll = setInterval(() => {
+      void load()
+      loadAccreditation()
+    }, 30000)
+    return () => clearInterval(poll)
+  }, [load, loadAccreditation])
 
   if (loading && !overview) {
     return (
@@ -156,6 +171,45 @@ export default function RootDashboard() {
           value={configuration.totalVersions}
           icon={<HardDrive className="w-5 h-5" />}
         />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+        {(
+          [
+            { key: "AACCUP", label: "AACCUP", bg: "bg-amber-50", text: "text-amber-600" },
+            { key: "ISO", label: "ISO", bg: "bg-blue-50", text: "text-blue-600" },
+            { key: "CERT", label: "Certification", bg: "bg-emerald-50", text: "text-emerald-600" },
+          ] as const
+        ).map(({ key, label, bg, text }) => {
+          const stats = accreditation?.aaccup.byAreaSet[key]
+          return (
+            <Card key={key} className="border-gray-200/60 shadow-sm">
+              <CardContent className="p-4 md:p-5">
+                <div className="flex items-center justify-between">
+                  <div className={`w-9 h-9 md:w-11 md:h-11 rounded-lg ${bg} flex items-center justify-center ${text}`}>
+                    <Award className="w-5 h-5" />
+                  </div>
+                  {stats && (
+                    <span className="text-[11px] md:text-[12px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
+                      {stats.overallCompliancePercentage}%
+                    </span>
+                  )}
+                </div>
+                <div className="mt-3 md:mt-4">
+                  <p className="text-[12px] md:text-[13px] text-gray-500 font-medium">{label} Accreditation</p>
+                  <p className="text-[18px] md:text-[22px] font-semibold text-gray-900 mt-0.5 tracking-tight">
+                    {stats ? `${stats.totalAreas} areas` : "—"}
+                  </p>
+                  <p className="text-[12px] text-gray-500 mt-0.5">
+                    {stats
+                      ? `${stats.totalRequirements} requirements · ${stats.totalSubmissions} submissions · ${stats.approved} approved`
+                      : "Loading…"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">

@@ -11,6 +11,7 @@ export interface AaccupAreaListItem {
   departmentName: string;
   accreditationCycleId: string | null;
   accreditationCycleName: string | null;
+  areaSet: string;
   status: string;
   createdAt: Date;
   updatedAt: Date;

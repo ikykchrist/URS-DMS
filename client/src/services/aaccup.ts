@@ -1,5 +1,7 @@
 import { apiGetPage, apiPost, apiPatch, apiDelete, apiGet } from "@/lib/http"
 
+export type AreaSet = "AACCUP" | "ISO" | "CERT"
+
 export interface OnlineAaccupArea {
   id: string
   code: string
@@ -9,6 +11,7 @@ export interface OnlineAaccupArea {
   departmentName: string
   accreditationCycleId: string | null
   accreditationCycleName: string | null
+  areaSet: AreaSet
   status: "ACTIVE" | "INACTIVE"
   createdAt: string
   updatedAt: string
@@ -96,19 +99,22 @@ async function everyPage<T>(path: string, pageSize = 100): Promise<T[]> {
   return [...first.items, ...remaining.flatMap((page) => page.items)]
 }
 
-export async function listOnlineAaccupAreas(): Promise<OnlineAaccupArea[]> {
-  return everyPage<OnlineAaccupArea>("/aaccup/areas?status=ACTIVE")
+export async function listOnlineAaccupAreas(areaSet?: AreaSet): Promise<OnlineAaccupArea[]> {
+  const qs = areaSet ? `&areaSet=${encodeURIComponent(areaSet)}` : ""
+  return everyPage<OnlineAaccupArea>(`/aaccup/areas?status=ACTIVE${qs}`)
 }
 
 export async function listAllOnlineAaccupAreas(query?: {
   q?: string
   departmentId?: string
   status?: "ACTIVE" | "INACTIVE"
+  areaSet?: AreaSet
 }): Promise<OnlineAaccupArea[]> {
   const params = new URLSearchParams()
   if (query?.q) params.set("q", query.q)
   if (query?.departmentId) params.set("departmentId", query.departmentId)
   if (query?.status) params.set("status", query.status)
+  if (query?.areaSet) params.set("areaSet", query.areaSet)
   const qs = params.size > 0 ? `?${params.toString()}` : ""
   return everyPage<OnlineAaccupArea>(`/aaccup/areas${qs}`)
 }
@@ -119,6 +125,7 @@ export interface CreateOnlineAreaInput {
   description?: string
   departmentId: string
   accreditationCycleId?: string | null
+  areaSet?: AreaSet
   status?: "ACTIVE" | "INACTIVE"
 }
 
@@ -166,12 +173,14 @@ export interface OnlineSubmissionListItem {
 export async function listAllOnlineSubmissions(query?: {
   areaId?: string
   requirementId?: string
+  areaSet?: AreaSet
   status?: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_REVISION"
   q?: string
 }): Promise<OnlineSubmissionListItem[]> {
   const params = new URLSearchParams()
   if (query?.areaId) params.set("areaId", query.areaId)
   if (query?.requirementId) params.set("requirementId", query.requirementId)
+  if (query?.areaSet) params.set("areaSet", query.areaSet)
   if (query?.status) params.set("status", query.status)
   if (query?.q) params.set("q", query.q)
   const qs = params.size > 0 ? `?${params.toString()}` : ""
@@ -192,6 +201,43 @@ export async function getOnlineArea(id: string): Promise<OnlineAaccupArea> {
   return apiGet<OnlineAaccupArea>(`/aaccup/areas/${encodeURIComponent(id)}`)
 }
 
+// ── Analytics (/aaccup/analytics) ────────────────────────────────────────────
+
+export interface OnlineComplianceOverview {
+  totalDepartments: number
+  totalAreas: number
+  totalRequirements: number
+  requirementStatusCounts: Record<string, number>
+  totalApproved: number
+  totalPending: number
+  totalMissing: number
+  pendingReviews: number
+  compliancePercentage: number
+  areaBreakdown: Array<{
+    areaId: string
+    areaCode: string
+    areaName: string
+    departmentId: string
+    requirementCounts: Record<string, number>
+    totalRequirements: number
+    completedRequirements: number
+    compliancePercentage: number
+  }>
+}
+
+export async function getOnlineComplianceOverview(query?: {
+  areaSet?: AreaSet
+  departmentId?: string
+  areaId?: string
+}): Promise<OnlineComplianceOverview> {
+  const params = new URLSearchParams()
+  if (query?.areaSet) params.set("areaSet", query.areaSet)
+  if (query?.departmentId) params.set("departmentId", query.departmentId)
+  if (query?.areaId) params.set("areaId", query.areaId)
+  const qs = params.size > 0 ? `?${params.toString()}` : ""
+  return apiGet<OnlineComplianceOverview>(`/aaccup/analytics/overview${qs}`)
+}
+
 export async function listOnlineRequirements(areaId: string): Promise<OnlineAaccupRequirement[]> {
   return everyPage<OnlineAaccupRequirement>(
     `/aaccup/requirements?areaId=${encodeURIComponent(areaId)}&status=ACTIVE&sort=displayOrder&order=asc`,
@@ -202,6 +248,61 @@ export async function listMyAaccupSubmissions(areaId: string): Promise<OnlineAac
   return everyPage<OnlineAaccupSubmission>(
     `/aaccup/submissions?areaId=${encodeURIComponent(areaId)}&isCurrent=true&sort=submittedAt&order=desc`,
   )
+}
+
+// ── Tasks (/aaccup/tasks) ────────────────────────────────────────────────────
+
+export type OnlineTaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT"
+export type OnlineTaskStatus = "OPEN" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
+
+export interface OnlineAaccupTask {
+  id: string
+  areaId: string
+  areaCode: string
+  areaName: string
+  areaSet: AreaSet
+  title: string
+  description: string | null
+  category: string | null
+  priority: OnlineTaskPriority
+  status: OnlineTaskStatus
+  dueDate: string | null
+  requirementId: string | null
+  requirementTitle: string | null
+  requirementCode: string | null
+  assigneeType: "USER" | "DEPARTMENT"
+  assigneeId: string | null
+  assigneeLabel: string | null
+  createdByName: string
+  completedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateOnlineTaskInput {
+  areaId: string
+  title: string
+  description?: string | null
+  category?: string | null
+  priority?: OnlineTaskPriority
+  dueDate?: string | null
+  requirementId?: string | null
+  assigneeType: "USER" | "DEPARTMENT"
+  assigneeId: string
+}
+
+export async function createOnlineTask(input: CreateOnlineTaskInput): Promise<OnlineAaccupTask> {
+  return apiPost<OnlineAaccupTask>("/aaccup/tasks", input)
+}
+
+export async function listOnlineAreaTasks(
+  areaId: string,
+  query?: { status?: OnlineTaskStatus; q?: string },
+): Promise<OnlineAaccupTask[]> {
+  const params = new URLSearchParams({ areaId })
+  if (query?.status) params.set("status", query.status)
+  if (query?.q) params.set("q", query.q)
+  return everyPage<OnlineAaccupTask>(`/aaccup/tasks?${params.toString()}`)
 }
 
 function inferredMimeType(file: File): string {

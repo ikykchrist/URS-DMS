@@ -1,7 +1,7 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 
 // =============================================================================
-// URS-DMS — Root · Organization Management Engine validators (Sprint 7.4.2)
+// URS-DMS â€” Root Â· Organization Management Engine validators (Sprint 7.4.2)
 // -----------------------------------------------------------------------------
 // Per-entity create/update schemas (colleges/departments share the Sprint 7.1
 // rows; offices add parent/head links; programs add `level`). Query params
@@ -17,6 +17,7 @@ const codeSchema = z
   .max(20)
   .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, "Code must be alphanumeric with dots/underscores/hyphens");
 const descriptionSchema = z.string().trim().max(500).nullable().optional();
+const displayOrderSchema = z.number().int().min(0).max(9999).optional();
 const optionalIdSchema = z.string().uuid().nullable().optional();
 
 export const programLevelSchema = z.enum([
@@ -48,6 +49,7 @@ export const createCollegeSchema = z
     name: nameSchema,
     code: codeSchema,
     description: descriptionSchema,
+    displayOrder: displayOrderSchema,
   })
   .strict();
 export type CreateCollegeBody = z.infer<typeof createCollegeSchema>;
@@ -57,6 +59,7 @@ export const createDepartmentSchema = z
     name: nameSchema,
     code: codeSchema,
     description: descriptionSchema,
+    displayOrder: displayOrderSchema,
     collegeId: optionalIdSchema,
   })
   .strict();
@@ -67,6 +70,7 @@ export const createOfficeSchema = z
     name: nameSchema,
     code: codeSchema,
     description: descriptionSchema,
+    displayOrder: displayOrderSchema,
     collegeId: optionalIdSchema,
     departmentId: optionalIdSchema,
     headId: optionalIdSchema,
@@ -79,6 +83,7 @@ export const createProgramSchema = z
     name: nameSchema,
     code: codeSchema,
     description: descriptionSchema,
+    displayOrder: displayOrderSchema,
     level: programLevelSchema.optional(),
     collegeId: optionalIdSchema,
     departmentId: optionalIdSchema,
@@ -94,6 +99,7 @@ export const updateCollegeSchema = z
     name: nameSchema.optional(),
     code: codeSchema.optional(),
     description: descriptionSchema,
+    displayOrder: displayOrderSchema,
   })
   .strict();
 export type UpdateCollegeBody = z.infer<typeof updateCollegeSchema>;
@@ -103,6 +109,7 @@ export const updateDepartmentSchema = z
     name: nameSchema.optional(),
     code: codeSchema.optional(),
     description: descriptionSchema,
+    displayOrder: displayOrderSchema,
     collegeId: optionalIdSchema,
   })
   .strict();
@@ -113,6 +120,7 @@ export const updateOfficeSchema = z
     name: nameSchema.optional(),
     code: codeSchema.optional(),
     description: descriptionSchema,
+    displayOrder: displayOrderSchema,
     collegeId: optionalIdSchema,
     departmentId: optionalIdSchema,
     headId: optionalIdSchema,
@@ -125,6 +133,7 @@ export const updateProgramSchema = z
     name: nameSchema.optional(),
     code: codeSchema.optional(),
     description: descriptionSchema,
+    displayOrder: displayOrderSchema,
     level: programLevelSchema.optional(),
     collegeId: optionalIdSchema,
     departmentId: optionalIdSchema,

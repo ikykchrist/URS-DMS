@@ -3,6 +3,8 @@ import {
   FolderOpen,
   FileText,
   GraduationCap,
+  Shield,
+  BadgeCheck,
   Bell,
   User,
   Settings,
@@ -11,6 +13,7 @@ import {
   LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import { Button } from "@/components/ui/Button"
 import { useAuth } from "@/context/AuthContext"
 
@@ -25,6 +28,8 @@ const sidebarItems: SidebarItem[] = [
   { id: "documents", icon: FolderOpen, label: "My Documents" },
   { id: "requests", icon: FileText, label: "My Requests" },
   { id: "aaccup", icon: GraduationCap, label: "AACCUP" },
+  { id: "iso", icon: Shield, label: "ISO" },
+  { id: "certification", icon: BadgeCheck, label: "Certification" },
   { id: "notifications", icon: Bell, label: "Notifications" },
   { id: "profile", icon: User, label: "Profile" },
   { id: "settings", icon: Settings, label: "Settings" },
@@ -49,7 +54,14 @@ export function UserSidebar({
 }: UserSidebarProps) {
   const { logout } = useAuth()
 
+  // Rule 6: warn before navigating away while uploads are active.
+  const handleNavigate = (page: string) => {
+    if (!confirmLeaveIfUploading()) return
+    onNavigate?.(page)
+  }
+
   const handleLogout = () => {
+    if (!confirmLeaveIfUploading()) return
     logout()
     onLogout?.()
   }
@@ -68,7 +80,7 @@ export function UserSidebar({
         )}>
           {!collapsed && (
             <button
-              onClick={() => onNavigate?.("dashboard")}
+              onClick={() => handleNavigate("dashboard")}
               className="flex items-center gap-3 hover:opacity-80 transition-opacity"
             >
               <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shadow-sm">
@@ -82,7 +94,7 @@ export function UserSidebar({
           )}
           {collapsed && (
             <button
-              onClick={() => onNavigate?.("dashboard")}
+              onClick={() => handleNavigate("dashboard")}
               className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shadow-sm hover:opacity-80 transition-opacity"
             >
               <FileText className="w-5 h-5 text-white" />
@@ -100,7 +112,7 @@ export function UserSidebar({
               return (
                 <button
                   key={item.id}
-                  onClick={() => onNavigate?.(item.id)}
+                  onClick={() => handleNavigate(item.id)}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150 relative",
                     isActive
@@ -154,9 +166,8 @@ export function UserSidebar({
               collapsed && "justify-center px-2"
             )}
           >
-            <LogOut className="w-[18px] h-[18px] mr-2.5" />
+            <LogOut className={cn("w-[18px] h-[18px] flex-shrink-0", !collapsed && "mr-2.5")} />
             {!collapsed && <span className="text-[13px]">Logout</span>}
-            {collapsed && <LogOut className="w-[18px] h-[18px]" />}
           </Button>
         </div>
       </div>

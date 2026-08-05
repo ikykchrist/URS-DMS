@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Plus } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Plus, User, Building2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -19,35 +19,106 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/Select"
+import { createOnlineTask, listOnlineRequirements } from "@/services/aaccup"
+import { listSystemUsers, listSystemDepartments } from "@/services/admin"
+import { cn } from "@/lib/utils"
 
 interface CreateTaskModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   areaId?: string
   areaTitle?: string
-  onSuccess?: (taskData: { name: string; description: string; assignTo: string; priority: string; dueDate: string; category: string }) => void
+  onSuccess?: () => void
 }
 
-export function CreateTaskModal({ open, onOpenChange, areaId: _areaId, areaTitle, onSuccess }: CreateTaskModalProps) {
+type AssigneeKind = "USER" | "DEPARTMENT"
+
+export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSuccess }: CreateTaskModalProps) {
   const [taskName, setTaskName] = useState("")
   const [taskDescription, setTaskDescription] = useState("")
-  const [assignTo, setAssignTo] = useState("")
-  const [priority, setPriority] = useState("medium")
+  const [assigneeKind, setAssigneeKind] = useState<AssigneeKind>("USER")
+  const [assigneeId, setAssigneeId] = useState("")
+  const [requirementId, setRequirementId] = useState("")
+  const [requirements, setRequirements] = useState<Array<{ id: string; title: string; documentCode: string }>>([])
+  const [priority, setPriority] = useState<"LOW" | "MEDIUM" | "HIGH" | "URGENT">("MEDIUM")
   const [dueDate, setDueDate] = useState("")
   const [category, setCategory] = useState("documentation")
+  const [activeUsers, setActiveUsers] = useState<Array<{ id: string; label: string }>>([])
+  const [departments, setDepartments] = useState<Array<{ id: string; label: string }>>([])
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    if (!open) return
+    setError("")
+    setSaving(false)
+    setRequirementId("")
+    Promise.all([
+      listSystemUsers({ status: "ACTIVE", pageSize: 100 }).then((page) =>
+        page.items.map((user) => ({
+          id: user.id,
+          label: [user.firstName, user.middleName, user.lastName].filter(Boolean).join(" ").trim(),
+        })),
+      ),
+      listSystemDepartments({ pageSize: 100 }).then((page) =>
+        page.items.map((department) => ({ id: department.id, label: department.name })),
+      ),
+      areaId
+        ? listOnlineRequirements(areaId).then((items) =>
+            items.map((item) => ({ id: item.id, title: item.title, documentCode: item.documentCode })),
+          )
+        : Promise.resolve([]),
+    ])
+      .then(([users, depts, reqs]) => {
+        setActiveUsers(users)
+        setDepartments(depts)
+        setRequirements(reqs)
+      })
+      .catch(() => {
+        setActiveUsers([])
+        setDepartments([])
+        setRequirements([])
+      })
+  }, [open])
+
+  const handleClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      setTaskName(""); setTaskDescription(""); setAssigneeId(""); setDueDate(""); setRequirementId("")
+      setPriority("MEDIUM"); setCategory("documentation"); setAssigneeKind("USER"); setError("")
+    }
+    onOpenChange(isOpen)
+  }
+
+  const handleSubmit = async () => {
     setError("")
     if (!taskName.trim()) { setError("Task name is required"); return }
-    if (!assignTo) { setError("Please select a user to assign"); return }
-    onSuccess?.({ name: taskName, description: taskDescription, assignTo, priority, dueDate, category })
-    onOpenChange(false)
-    setTaskName(""); setTaskDescription(""); setAssignTo(""); setPriority("medium"); setDueDate(""); setCategory("documentation")
+    if (!areaId) { setError("No area selected"); return }
+    if (!assigneeId) { setError("Please select an assignee"); return }
+
+    setSaving(true)
+    try {
+      await createOnlineTask({
+        areaId,
+        title: taskName,
+        description: taskDescription,
+        category,
+        priority,
+        dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+        requirementId: requirementId || null,
+        assigneeType: assigneeKind,
+        assigneeId,
+      })
+      onSuccess?.()
+      handleClose(false)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to create task. Please try again.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader className="pb-2">
           <DialogTitle className="text-lg flex items-center gap-2">
@@ -71,6 +142,7 @@ export function CreateTaskModal({ open, onOpenChange, areaId: _areaId, areaTitle
             </Label>
             <Input
               id="taskName"
+              autoFocus
               placeholder="Enter task name"
               className="h-10"
               value={taskName}
@@ -91,36 +163,82 @@ export function CreateTaskModal({ open, onOpenChange, areaId: _areaId, areaTitle
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label className="text-[13px] font-medium text-gray-700">
-                Assign To <span className="text-red-500">*</span>
-              </Label>
-              <Select value={assignTo} onValueChange={setAssignTo}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Select user" />
+          <div className="grid gap-2">
+            <Label className="text-[13px] font-medium text-gray-700">
+              Related Requirement
+            </Label>
+            <Select value={requirementId} onValueChange={setRequirementId}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="None (area-level task)" />
+              </SelectTrigger>
+              <SelectContent>
+                {requirements.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.documentCode} — {item.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-gray-500">
+              Optionally link this task to one of the area's requirements
+            </p>
+          </div>
+
+          <div className="grid gap-2">
+            <Label className="text-[13px] font-medium text-gray-700">
+              Assign To <span className="text-red-500">*</span>
+            </Label>
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50/50">
+                <button
+                  type="button"
+                  onClick={() => { setAssigneeKind("USER"); setAssigneeId("") }}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+                    assigneeKind === "USER" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  )}
+                >
+                  <User className="w-3.5 h-3.5" />
+                  Active User
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAssigneeKind("DEPARTMENT"); setAssigneeId("") }}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+                    assigneeKind === "DEPARTMENT" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  )}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  Department
+                </button>
+              </div>
+              <Select
+                value={assigneeId}
+                onValueChange={setAssigneeId}
+                disabled={(assigneeKind === "USER" ? activeUsers : departments).length === 0}
+              >
+                <SelectTrigger className="h-10 flex-1">
+                  <SelectValue
+                    placeholder={
+                      assigneeKind === "USER"
+                        ? "Select active user"
+                        : "Select department"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="maria">Dr. Maria Santos</SelectItem>
-                  <SelectItem value="john">Prof. John Doe</SelectItem>
-                  <SelectItem value="sarah">Engr. Sarah Cruz</SelectItem>
-                  <SelectItem value="peter">Dr. Peter Lim</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label className="text-[13px] font-medium text-gray-700">
-                Priority
-              </Label>
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
+                  {assigneeKind === "USER"
+                    ? activeUsers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.label}
+                        </SelectItem>
+                      ))
+                    : departments.map((department) => (
+                        <SelectItem key={department.id} value={department.id}>
+                          {department.label}
+                        </SelectItem>
+                      ))}
                 </SelectContent>
               </Select>
             </div>
@@ -129,9 +247,19 @@ export function CreateTaskModal({ open, onOpenChange, areaId: _areaId, areaTitle
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label className="text-[13px] font-medium text-gray-700">
-                Due Date
+                Priority
               </Label>
-              <Input type="date" className="h-10" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <Select value={priority} onValueChange={(v) => setPriority(v as typeof priority)}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LOW">Low</SelectItem>
+                  <SelectItem value="MEDIUM">Medium</SelectItem>
+                  <SelectItem value="HIGH">High</SelectItem>
+                  <SelectItem value="URGENT">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label className="text-[13px] font-medium text-gray-700">
@@ -153,25 +281,18 @@ export function CreateTaskModal({ open, onOpenChange, areaId: _areaId, areaTitle
 
           <div className="grid gap-2">
             <Label className="text-[13px] font-medium text-gray-700">
-              Required Documents
+              Due Date
             </Label>
-            <div className="flex flex-wrap gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
-              {["Annual Report", "Supporting Docs", "Evidence Files", "Statistics"].map((doc) => (
-                <label key={doc} className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white border border-gray-200 cursor-pointer hover:bg-gray-50">
-                  <input type="checkbox" className="rounded" />
-                  <span className="text-[12px] text-gray-700">{doc}</span>
-                </label>
-              ))}
-            </div>
+            <Input type="date" className="h-10" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
         </div>
 
         <DialogFooter className="gap-2 pt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="h-10 px-5">
+          <Button variant="outline" onClick={() => handleClose(false)} className="h-10 px-5">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} className="h-10 px-5 shadow-sm">
-            Create Task
+          <Button onClick={handleSubmit} disabled={saving} className="h-10 px-5 shadow-sm">
+            {saving ? "Creating..." : "Create Task"}
           </Button>
         </DialogFooter>
       </DialogContent>

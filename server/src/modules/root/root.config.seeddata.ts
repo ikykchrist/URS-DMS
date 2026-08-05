@@ -1,13 +1,13 @@
-// =============================================================================
-// URS-DMS — Root · Configuration Engine seed data (Sprint 7.4.1)
+﻿// =============================================================================
+// URS-DMS â€” Root Â· Configuration Engine seed data (Sprint 7.4.1)
 // -----------------------------------------------------------------------------
 // The canonical default set the engine is seeded with. The Sprint 7.4.1 spec
 // mandates that the platform-level settings below come from the Configuration
-// Service (never hardcoded in consumers) — these defaults mirror the
+// Service (never hardcoded in consumers) â€” these defaults mirror the
 // SystemSetting singleton (Sprint 7.1) so the legacy admin surface and the
 // engine agree out of the box.
 //
-// All seed entries are `isSystem: true` → the engine refuses to delete them
+// All seed entries are `isSystem: true` â†’ the engine refuses to delete them
 // (config tampering prevention); the Root Console can still change their
 // VALUE, which goes through the versioning + history + cache invalidation
 // pipeline.
@@ -115,6 +115,38 @@ export const SEED_CONFIGURATIONS: SeedConfiguration[] = [
     name: "Semester",
     description: "Current academic term",
     value: "1st Semester",
+    valueType: "STRING",
+  },
+  {
+    categoryCode: "university",
+    key: "university.primary_color",
+    name: "Primary Color",
+    description: "Primary brand color (hex) used across the platform",
+    value: "#2563EB",
+    valueType: "STRING",
+  },
+  {
+    categoryCode: "university",
+    key: "university.secondary_color",
+    name: "Secondary Color",
+    description: "Secondary brand color (hex) used across the platform",
+    value: "#10B981",
+    valueType: "STRING",
+  },
+  {
+    categoryCode: "university",
+    key: "university.timezone",
+    name: "Timezone",
+    description: "Platform timezone (IANA name)",
+    value: "Asia/Manila",
+    valueType: "STRING",
+  },
+  {
+    categoryCode: "university",
+    key: "university.language",
+    name: "Language",
+    description: "Default platform language code",
+    value: "en",
     valueType: "STRING",
   },
   {

@@ -3359,3 +3359,57 @@ results, publish confirmation, version comparison + rollback, assignment
 dialog with live target options (`GET /root/organization/...` resolved target
 lists), and instance detail with perform-action and COMPLETE/TERMINATE
 override. Client services live in `client/src/services/root.ts`.
+
+---
+
+## Repository Rules 1–30 — endpoint additions (2026-08-05)
+
+### Documents
+
+| Endpoint | Method | Permission | Notes |
+|---|---|---|---|
+| `/documents/:id/restore` | POST | `documents.update` | Body `{ targetFolderId?: uuid\|null, conflictMode?: keep_both\|replace\|cancel }`. Omit `targetFolderId` to restore to the original location. keep_both suffixes the title on conflict; replace soft-deletes the clashing file. |
+| `/documents/:id/activity` | GET | `documents.read` | Returns `{ downloadCount, events: [{ id, action, status, timestamp, actorName, actorEmail, details }] }` — the file's own audit timeline (read-only, no audit write). |
+| `/documents` list rows | GET | `documents.read` | Rows now include `currentChecksum` and `submissionStatus` (latest non-deleted AACCUP submission status or null). Deleted rows include `deletedAt`. |
+
+### Folders
+
+| Endpoint | Method | Permission | Notes |
+|---|---|---|---|
+| `/folders/:id/restore` | POST | `folders.update` | Body `{ targetParentId?: uuid\|null, conflictMode?: keep_both\|replace\|cancel }`. Restore to original location when omitted. |
+| `/folders/:id/copy` | POST | `folders.create` | Body `{ targetParentId?: uuid\|null, conflictMode?: merge\|keep_both\|cancel }`. Response `{ folder }` for small copies, `{ job }` for copies ≥ 1000 items (background job). |
+| `/folders/:id/info` | GET | `folders.read` | `{ folderId, documentCount, childCount, recursiveDocumentCount, recursiveSizeBytes, depth }` (rule 12). |
+| `/folders/:id/zip` | GET | `folders.read` | Streaming ZIP of the active subtree; `application/zip`; `Content-Disposition` attachment (rule 14). |
+| `/folders/jobs` | GET | `folders.read` | Owner's background copy jobs (rule 9). |
+| `/folders/jobs/:id` | GET | `folders.read` | One job: `{ id, sourceFolderName, status, totalItems, processedItems, error, resultFolderId, ... }`. |
+
+### Repositories
+
+| Endpoint | Method | Permission | Notes |
+|---|---|---|---|
+| `/repositories/storage` | GET | authenticated | `{ usedBytes, availableBytes: null, totalBytes: null, minioStatus: online\|offline, bucket }` — honest storage display (rule 13). |
+
+### Access model (D-019)
+
+- Document/folder reads and writes are OWNERSHIP-BASED for every role;
+  foreign direct-ID access returns 404 (no existence leak).
+- AACCUP submission reviewers (`aaccup.submission.review`) and
+  document-request managers (`request.manage`) may READ documents that are
+  the subject of a submission/request (controlled transfer, rule 22) — never
+  write.
+- Document/folder list endpoints are always owner-scoped (documents:
+  owner-or-shared; folders: owner-or-department-scoped).
+
+### Notifications (rule 19)
+
+- New `NotificationType` values: `DOCUMENT_UPLOAD_FAILED`, `DOCUMENT_DELIVERED`,
+  `DOCUMENT_RETURNED`, `AACCUP_SUBMISSION_RETURNED`, `RECYCLE_BIN_CLEANUP`,
+  `STORAGE_WARNING` (added via migration `20260829000000_repository_rules`).
+- Emitters: upload verified → `DOCUMENT_UPLOADED` (owner); verify failure →
+  `DOCUMENT_UPLOAD_FAILED` (owner) + audit `document.upload_failed`; request
+  approved/rejected → `REQUEST_APPROVED`/`REQUEST_REJECTED`; fulfilled →
+  `DOCUMENT_DELIVERED` (requester); submission review →
+  `AACCUP_SUBMISSION_APPROVED`/`AACCUP_SUBMISSION_RETURNED`/
+  `AACCUP_SUBMISSION_REJECTED` (submitter); retention sweep →
+  `RECYCLE_BIN_CLEANUP` (owner); storage threshold crossed →
+  `STORAGE_WARNING` (admins, throttled 24h).

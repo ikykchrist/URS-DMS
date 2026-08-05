@@ -1,5 +1,6 @@
 import { AUDIT_ACTIONS } from "@/config/constants";
 import { writeAudit } from "@/modules/audit/audit.service";
+import { notifyUser } from "@/modules/notifications/notifications.service";
 import { prisma } from "@/lib/prisma";
 import {
   bindWorkflowInstance,
@@ -23,11 +24,11 @@ import type {
 import type { RequestDetail, RequestListItem } from "@/modules/requests/requests.types";
 
 // =============================================================================
-// URS-DMS — requests service
+// URS-DMS â€” requests service
 // RBAC model:
 //   - "managers" = users holding request.manage (admins + QAOs + dept coords).
 //   - otherwise: requester sees only their own requests.
-// No `if (role === "admin")` anywhere — every check routes through permissions.
+// No `if (role === "admin")` anywhere â€” every check routes through permissions.
 // =============================================================================
 
 export interface ListResult {
@@ -98,7 +99,7 @@ export async function createRequest(
 
   if (input.documentId) {
     // Optional: validate document exists and is not soft-deleted. We rely on
-    // schema FK SetNull semantics — a missing document would just null out
+    // schema FK SetNull semantics â€” a missing document would just null out
     // the field. To keep behavior explicit, we surface a clear error.
     const { prisma } = await import("@/lib/prisma");
     const doc = await prisma.document.findFirst({
@@ -119,8 +120,8 @@ export async function createRequest(
       tx,
     );
 
-    // Sprint 7.4.5 — bind a published workflow instance (if one is assigned
-    // to the requester's scope) inside the same transaction. No assignment →
+    // Sprint 7.4.5 â€” bind a published workflow instance (if one is assigned
+    // to the requester's scope) inside the same transaction. No assignment â†’
     // legacy flow unchanged.
     const scopes = await scopesForDocumentRequest(actor.id, tx);
     await bindWorkflowInstance({
@@ -152,6 +153,70 @@ export async function createRequest(
 // -----------------------------------------------------------------------------
 // decideRequest (approve / reject / fulfill)
 // -----------------------------------------------------------------------------
+
+// Deliver a requester-owned copy of the source document into the requester's
+// Requested Documents. The copy links to the request via metadata.requestId
+// and references the same immutable version object (shared blob); later
+// source rename/move/delete never breaks the delivered file.
+async function deliverRequestedDocument(
+  tx: Prisma.TransactionClient,
+  existing: RequestDetail,
+  actor: Actor,
+): Promise<void> {
+  const source = await tx.document.findFirst({
+    where: { id: existing.documentId ?? undefined },
+    include: { currentVersion: true },
+  });
+  if (!source?.currentVersion) {
+    throw new ConflictError("The source document has no version to deliver");
+  }
+
+  const repository = await tx.repository.findUnique({ where: { ownerId: existing.requesterId } });
+  const repositoryId = repository?.id ?? null;
+
+  const delivered = await tx.document.create({
+    data: {
+      title: `[Delivered] ${source.title}`,
+      description: source.description,
+      classification: "INTERNAL",
+      metadata: {
+        ...(source.metadata && typeof source.metadata === "object" ? source.metadata : {}),
+        requestId: existing.id,
+        delivered: true,
+      },
+      ownerId: existing.requesterId,
+      departmentId: null,
+      repositoryId,
+    },
+  });
+  const version = await tx.documentVersion.create({
+    data: {
+      documentId: delivered.id,
+      versionNumber: 1,
+      objectKey: source.currentVersion.objectKey,
+      filename: source.currentVersion.filename,
+      mimeType: source.currentVersion.mimeType,
+      sizeBytes: source.currentVersion.sizeBytes,
+      checksum: source.currentVersion.checksum,
+      changeNote: "Delivered via document request",
+      uploadedById: actor.id,
+    },
+  });
+  await tx.document.update({
+    where: { id: delivered.id },
+    data: { currentVersionId: version.id },
+  });
+
+  await writeAudit({
+    action: AUDIT_ACTIONS.REQUEST_FULFILLED_DELIVERED,
+    userId: actor.id,
+    entity: "request",
+    entityId: existing.id,
+    newValue: { deliveredDocumentId: delivered.id, requesterId: existing.requesterId },
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+  });
+}
 export async function decideRequest(
   id: string,
   decision: "APPROVED" | "REJECTED" | "FULFILLED",
@@ -181,7 +246,7 @@ export async function decideRequest(
   }
 
   const updated = await prisma.$transaction(async (tx) => {
-    // Sprint 7.4.5 — workflow gate: if a published workflow controls this
+    // Sprint 7.4.5 â€” workflow gate: if a published workflow controls this
     // request, the decision must be an allowed action from the current step
     // (legacy fallback when no instance is bound).
     const evaluation = await evaluateWorkflowAction(
@@ -200,6 +265,15 @@ export async function decideRequest(
       },
       tx,
     );
+
+    // Delivery: when a request is fulfilled, deliver a requester-owned copy
+    // into their Requested Documents (linked via metadata.requestId). The
+    // source document's privacy and ownership are preserved; the delivered
+    // copy references the same immutable version object.
+    if (decision === "FULFILLED" && existing.documentId) {
+      await deliverRequestedDocument(tx, existing, actor);
+    }
+
     if (evaluation) {
       await recordWorkflowAction(tx, evaluation, actor, input.decisionNote ?? undefined);
     }
@@ -226,7 +300,44 @@ export async function decideRequest(
     userAgent: actor.userAgent,
   });
 
+  // Rule 19: notify the requester (backend-authoritative, best-effort).
+  await safeNotifyRequester(existing.requesterId, decision, id);
+
   return updated;
+}
+
+/** Best-effort requester notification — never fails the business operation. */
+async function safeNotifyRequester(
+  requesterId: string,
+  decision: "APPROVED" | "REJECTED" | "FULFILLED",
+  requestId: string,
+): Promise<void> {
+  try {
+    if (decision === "APPROVED") {
+      await notifyUser(requesterId, "REQUEST_APPROVED", {
+        title: "Request approved",
+        message: "Your document access request has been approved.",
+        entity: "request",
+        entityId: requestId,
+      });
+    } else if (decision === "REJECTED") {
+      await notifyUser(requesterId, "REQUEST_REJECTED", {
+        title: "Request rejected",
+        message: "Your document access request has been rejected.",
+        entity: "request",
+        entityId: requestId,
+      });
+    } else {
+      await notifyUser(requesterId, "DOCUMENT_DELIVERED", {
+        title: "Document delivered",
+        message: "A requested document has been delivered to your Requested Documents.",
+        entity: "request",
+        entityId: requestId,
+      });
+    }
+  } catch {
+    // notifications must never break the request operation
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -284,7 +395,7 @@ export async function cancelRequest(id: string, actor: Actor): Promise<RequestDe
   return updated;
 }
 
-// Sprint 7.4.5 — request status → workflow action adapter (glue convention,
+// Sprint 7.4.5 â€” request status â†’ workflow action adapter (glue convention,
 // not workflow data: the action names themselves are authored by ROOT).
 const REQUEST_DECISION_ACTIONS: Record<"APPROVED" | "REJECTED" | "FULFILLED", string> = {
   APPROVED: "APPROVE",

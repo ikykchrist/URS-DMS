@@ -101,6 +101,7 @@ async function assertAreaInScope(actor: Actor, departmentId: string): Promise<vo
 export async function listAreas(query: ListAreasQuery, actor: Actor): Promise<ListResult> {
   assertCanRead(actor);
   const where: Prisma.AaccupAreaWhereInput = { deletedAt: null };
+  if (query.areaSet) where.areaSet = query.areaSet;
   if (query.status) where.status = query.status;
   if (query.departmentId) where.departmentId = query.departmentId;
   if (query.accreditationCycleId) where.accreditationCycleId = query.accreditationCycleId;
@@ -169,6 +170,7 @@ export async function createArea(input: CreateAreaInput, actor: Actor): Promise<
     description: input.description ?? null,
     departmentId: input.departmentId,
     accreditationCycleId: input.accreditationCycleId ?? null,
+    areaSet: input.areaSet ?? "AACCUP",
     createdBy: actor.id,
     status: input.status ?? "ACTIVE",
   });
@@ -226,6 +228,7 @@ export async function updateArea(
       description: input.description,
       departmentId: input.departmentId,
       accreditationCycleId: input.accreditationCycleId,
+      areaSet: input.areaSet,
       status: input.status,
       updatedBy: actor.id,
     },

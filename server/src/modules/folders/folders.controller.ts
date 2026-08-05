@@ -8,7 +8,7 @@ import type {
 } from "@/modules/folders/folders.validator";
 
 // =============================================================================
-// URS-DMS — folders controller (thin)
+// URS-DMS â€” folders controller (thin)
 // =============================================================================
 
 function toActor(req: Request): service.Actor {
@@ -54,4 +54,73 @@ export async function deleteFolderHandler(req: Request, res: Response): Promise<
   const { id } = req.params as { id: string };
   await service.softDeleteFolder(id, toActor(req));
   sendNoContent(res);
+}
+export async function listDeletedFoldersHandler(req: Request, res: Response): Promise<void> {
+  const result = await service.listDeletedFolders(toActor(req));
+  sendSuccess(res, result.items);
+}
+
+export async function restoreFolderHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  const folder = await service.restoreFolder(id, req.body as service.RestoreFolderInput, toActor(req));
+  sendSuccess(res, folder);
+}
+
+export async function copyFolderHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  const body = req.body as service.CopyFolderInput;
+  const result = await service.copyFolder(id, body, toActor(req));
+  sendCreated(res, result);
+}
+
+export async function getFolderInfoHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  const info = await service.getFolderInfo(id, toActor(req));
+  sendSuccess(res, info);
+}
+
+export async function downloadFolderZipHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  const { filename, stream } = await service.downloadFolderZip(id, toActor(req));
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+  stream.on("error", () => {
+    if (!res.headersSent) res.status(500).end();
+    else res.end();
+  });
+  stream.pipe(res);
+}
+
+export async function listCopyJobsHandler(req: Request, res: Response): Promise<void> {
+  const jobs = await service.listCopyJobs(toActor(req));
+  sendSuccess(res, jobs);
+}
+
+export async function getCopyJobHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  const job = await service.getCopyJob(id, toActor(req));
+  sendSuccess(res, job);
+}
+
+export async function permanentDeleteFolderHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  await service.permanentDeleteFolder(id, toActor(req));
+  sendNoContent(res);
+}
+
+export async function pinFolderHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  await service.pinFolder(id, toActor(req));
+  sendSuccess(res, { pinned: true });
+}
+
+export async function unpinFolderHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  await service.unpinFolder(id, toActor(req));
+  sendSuccess(res, { pinned: false });
+}
+
+export async function listPinnedFoldersHandler(req: Request, res: Response): Promise<void> {
+  const result = await service.listPinnedFolders(toActor(req));
+  sendSuccess(res, result.items);
 }

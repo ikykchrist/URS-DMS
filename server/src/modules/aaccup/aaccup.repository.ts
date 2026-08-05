@@ -31,6 +31,7 @@ function toListItem(row: AreaWithRelations): AaccupAreaListItem {
     departmentName: row.department?.name ?? "",
     accreditationCycleId: row.accreditationCycleId,
     accreditationCycleName: row.accreditationCycle?.name ?? null,
+    areaSet: row.areaSet,
     status: row.status,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -92,6 +93,7 @@ export interface CreateArgs {
   description: string | null;
   departmentId: string;
   accreditationCycleId: string | null;
+  areaSet: "AACCUP" | "ISO" | "CERT";
   createdBy: string;
   status?: "ACTIVE" | "INACTIVE";
 }
@@ -104,6 +106,7 @@ export async function create(args: CreateArgs): Promise<AaccupAreaDetail> {
       description: args.description,
       departmentId: args.departmentId,
       accreditationCycleId: args.accreditationCycleId,
+      areaSet: args.areaSet,
       status: args.status ?? "ACTIVE",
       createdBy: args.createdBy,
     },
@@ -120,6 +123,7 @@ export interface UpdateArgs {
     description?: string | null;
     departmentId?: string;
     accreditationCycleId?: string | null;
+    areaSet?: "AACCUP" | "ISO" | "CERT";
     status?: "ACTIVE" | "INACTIVE";
     updatedBy?: string;
   };
@@ -136,6 +140,7 @@ export async function update(args: UpdateArgs): Promise<AaccupAreaDetail> {
       ...(args.data.accreditationCycleId !== undefined
         ? { accreditationCycleId: args.data.accreditationCycleId }
         : {}),
+      ...(args.data.areaSet !== undefined ? { areaSet: args.data.areaSet } : {}),
       ...(args.data.status !== undefined ? { status: args.data.status } : {}),
       ...(args.data.updatedBy !== undefined ? { updatedBy: args.data.updatedBy } : {}),
       updatedAt: new Date(),

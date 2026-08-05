@@ -23,7 +23,7 @@ export const authLimiter: RateLimitRequestHandler = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true,
+  skip: (_req, res) => res.statusCode < 400,
   message: {
     success: false,
     error: { code: "RATE_LIMITED", message: "Too many auth attempts, please try again later." },

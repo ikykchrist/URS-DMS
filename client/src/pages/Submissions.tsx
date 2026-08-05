@@ -50,6 +50,7 @@ import {
   type OnlineSubmissionListItem,
 } from "@/services/aaccup"
 import { deleteOnlineDocument, openOnlineDocument } from "@/services/documents"
+import { listSystemDepartments } from "@/services/admin"
 import type { Document, DocumentStatus } from "@/types/domain"
 import { BulkActionsToolbar, SelectAllCheckbox, RowCheckbox } from "@/components/ui/BulkActionsToolbar"
 import { SavedFilterViews } from "@/components/ui/SavedFilterViews"
@@ -117,12 +118,16 @@ export default function Submissions({ sidebarCollapsed: _sidebarCollapsed = fals
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [currentFilters, setCurrentFilters] = useState<Record<string, string>>({})
   const [searchQuery, setSearchQuery] = useState("")
+  const [systemDepartments, setSystemDepartments] = useState<Array<{ id: string; name: string }>>([])
   const { user } = useAuth()
 
   useEffect(() => {
     listAllOnlineSubmissions().then((items) => {
       setSubmissions(items.map(toSubmissionDocument))
     })
+    listSystemDepartments({ pageSize: 100 })
+      .then((page) => setSystemDepartments(page.items.map((d) => ({ id: d.id, name: d.name }))))
+      .catch(() => setSystemDepartments([]))
   }, [])
 
   const refresh = () => {
@@ -207,13 +212,19 @@ export default function Submissions({ sidebarCollapsed: _sidebarCollapsed = fals
           title="Pending"
           value={String(pendingCount)}
           icon={<Clock className="w-5 h-5" />}
-          trend={{ value: 5, positive: false }}
+          trend={{
+            value: submissions.length > 0 ? Math.round((pendingCount / submissions.length) * 100) : 0,
+            positive: false,
+          }}
         />
         <StatCard
           title="Approved"
           value={String(approvedCount)}
           icon={<CheckCircle className="w-5 h-5" />}
-          trend={{ value: 12, positive: true }}
+          trend={{
+            value: submissions.length > 0 ? Math.round((approvedCount / submissions.length) * 100) : 0,
+            positive: approvedCount > 0,
+          }}
         />
         <StatCard
           title="Returned"
@@ -244,16 +255,11 @@ export default function Submissions({ sidebarCollapsed: _sidebarCollapsed = fals
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All AACCUP Areas</SelectItem>
-                  <SelectItem value="Vision & Mission">Area 1: Vision & Mission</SelectItem>
-                  <SelectItem value="Faculty">Area 2: Faculty</SelectItem>
-                  <SelectItem value="Curriculum">Area 3: Curriculum</SelectItem>
-                  <SelectItem value="Support Services">Area 4: Support Services</SelectItem>
-                  <SelectItem value="Library">Area 5: Library</SelectItem>
-                  <SelectItem value="Physical Plant">Area 6: Physical Plant</SelectItem>
-                  <SelectItem value="Laboratory">Area 7: Laboratory</SelectItem>
-                  <SelectItem value="Research">Area 8: Research</SelectItem>
-                  <SelectItem value="Community">Area 9: Community</SelectItem>
-                  <SelectItem value="Finance">Area 10: Finance</SelectItem>
+                  {[...new Set(submissions.map((s) => s.area).filter(Boolean))].map((area) => (
+                    <SelectItem key={area} value={area}>
+                      {area}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Select value={currentFilters.status || "all"} onValueChange={(v) => handleFilterChange("status", v)}>
@@ -280,16 +286,11 @@ export default function Submissions({ sidebarCollapsed: _sidebarCollapsed = fals
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Departments</SelectItem>
-                  <SelectItem value="College of Information Sciences">College of Info Sciences</SelectItem>
-                  <SelectItem value="College of Engineering">College of Engineering</SelectItem>
-                  <SelectItem value="College of Arts & Sciences">College of Arts & Sciences</SelectItem>
-                  <SelectItem value="Library Services">Library Services</SelectItem>
-                  <SelectItem value="Facilities Management">Facilities Management</SelectItem>
-                  <SelectItem value="Dean's Office">Dean Office</SelectItem>
-                  <SelectItem value="Student Affairs">Student Affairs</SelectItem>
-                  <SelectItem value="Quality Assurance Office">QA Office</SelectItem>
-                  <SelectItem value="Extension Office">Extension Office</SelectItem>
-                  <SelectItem value="Research Center">Research Center</SelectItem>
+                  {systemDepartments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.name}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Select defaultValue="all">

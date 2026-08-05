@@ -57,6 +57,7 @@ import { UserDetailsModal } from "@/components/modals/UserDetailsModal"
 import { ResetPasswordModal } from "@/components/modals/ResetPasswordModal"
 import {
   listSystemUsers,
+  listSystemDepartments,
   archiveSystemUser,
   updateUserStatus,
   type SystemUser,
@@ -87,6 +88,19 @@ function roleKey(roleName: string): User["role"] {
     case "STAFF": return "staff"
     case "READ_ONLY": return "student"
     default: return "staff"
+  }
+}
+
+function roleKeyLabel(role: string): string {
+  switch (role) {
+    case "root": return "Root"
+    case "super_admin": return "Administrator"
+    case "qa_office": return "Quality Assurance Officer"
+    case "department_head": return "Department Coordinator"
+    case "faculty": return "Faculty"
+    case "staff": return "Staff"
+    case "student": return "Read Only"
+    default: return role
   }
 }
 
@@ -134,10 +148,14 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
   const [searchQuery, setSearchQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
   const [deptFilter, setDeptFilter] = useState("all")
+  const [systemDepartments, setSystemDepartments] = useState<Array<{ id: string; name: string }>>([])
   const [statusFilter, setStatusFilter] = useState("all")
 
   useEffect(() => {
     listSystemUsers({ pageSize: 100 }).then((page) => setUsers(page.items.map(toDomainUser)))
+    listSystemDepartments({ pageSize: 100 })
+      .then((page) => setSystemDepartments(page.items.map((d) => ({ id: d.id, name: d.name }))))
+      .catch(() => setSystemDepartments([]))
   }, [])
 
   const refresh = () => listSystemUsers({ pageSize: 100 }).then((page) => setUsers(page.items.map(toDomainUser)))
@@ -210,13 +228,19 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
               title="Active Users"
               value={String(activeCount)}
               icon={<UserCheck className="w-5 h-5" />}
-              trend={{ value: 8, positive: true }}
+              trend={{
+                value: users.length > 0 ? Math.round((activeCount / users.length) * 100) : 0,
+                positive: activeCount > 0,
+              }}
             />
             <StatCard
               title="Inactive Users"
               value={String(inactiveCount)}
               icon={<UserX className="w-5 h-5" />}
-              trend={{ value: 2, positive: false }}
+              trend={{
+                value: users.length > 0 ? Math.round((inactiveCount / users.length) * 100) : 0,
+                positive: false,
+              }}
             />
             <StatCard
               title="User Roles"
@@ -247,12 +271,11 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Roles</SelectItem>
-                      <SelectItem value="super_admin">Super Admin</SelectItem>
-                      <SelectItem value="qa_office">QA Office</SelectItem>
-                      <SelectItem value="department_head">Department Head</SelectItem>
-                      <SelectItem value="faculty">Faculty</SelectItem>
-                      <SelectItem value="staff">Staff</SelectItem>
-                      <SelectItem value="student">Student</SelectItem>
+                      {[...new Set(users.map((u) => u.role))].map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {roleKeyLabel(role)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Select value={deptFilter} onValueChange={setDeptFilter}>
@@ -261,18 +284,11 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Departments</SelectItem>
-                      <SelectItem value="College of Information Sciences">College of Info Sciences</SelectItem>
-                      <SelectItem value="College of Engineering">College of Engineering</SelectItem>
-                      <SelectItem value="College of Arts & Sciences">College of Arts & Sciences</SelectItem>
-                      <SelectItem value="College of Business Administration">College of Business Admin</SelectItem>
-                      <SelectItem value="College of Nursing">College of Nursing</SelectItem>
-                      <SelectItem value="Dean's Office">Dean Office</SelectItem>
-                      <SelectItem value="Student Affairs">Student Affairs</SelectItem>
-                      <SelectItem value="Library Services">Library Services</SelectItem>
-                      <SelectItem value="Quality Assurance Office">QA Office</SelectItem>
-                      <SelectItem value="Facilities Management">Facilities Management</SelectItem>
-                      <SelectItem value="Extension Office">Extension Office</SelectItem>
-                      <SelectItem value="Research Center">Research Center</SelectItem>
+                      {systemDepartments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.name}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>

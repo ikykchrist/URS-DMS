@@ -9,6 +9,7 @@ const idParam = z.object({ id: z.string().uuid() });
 export const areaIdParamSchema = idParam;
 
 export const listAreasQuerySchema = z.object({
+  areaSet: z.enum(["AACCUP", "ISO", "CERT"]).optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
   departmentId: z.string().uuid().optional(),
   accreditationCycleId: z.string().uuid().optional(),
@@ -34,6 +35,7 @@ export const createAreaSchema = z.object({
   description: z.string().trim().max(2000).optional(),
   departmentId: z.string().uuid(),
   accreditationCycleId: z.string().uuid().nullable().optional(),
+  areaSet: z.enum(["AACCUP", "ISO", "CERT"]).default("AACCUP"),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
 });
 export type CreateAreaInput = z.infer<typeof createAreaSchema>;
@@ -54,6 +56,7 @@ export const updateAreaSchema = z
     description: z.string().trim().max(2000).optional(),
     departmentId: z.string().uuid().optional(),
     accreditationCycleId: z.string().uuid().nullable().optional(),
+    areaSet: z.enum(["AACCUP", "ISO", "CERT"]).optional(),
     status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
   })
   .strict();

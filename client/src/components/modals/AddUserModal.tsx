@@ -19,7 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/Select"
-import { createSystemUser, listSystemRoles, listSystemDepartments, type SystemRole, type SystemDepartment } from "@/services/admin"
+import { createSystemUser, listSystemRoles, listSystemDepartments, listSystemColleges, type SystemRole, type SystemDepartment } from "@/services/admin"
+
+const CATEGORIZED_COLLEGES = [
+  "College of Science",
+  "College of Engineering",
+  "College of Industrial Technology",
+  "College of Education",
+]
 
 interface AddUserModalProps {
   open: boolean
@@ -48,8 +55,18 @@ export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProp
         if (page.items.length > 0 && !role) setRole(page.items[0].id)
       })
       .catch(() => setRoles([]))
-    listSystemDepartments({ pageSize: 100 })
-      .then((page) => setDepartments(page.items))
+    Promise.all([
+      listSystemDepartments({ pageSize: 100 }).then((page) => page.items),
+      listSystemColleges({ pageSize: 100 }).then((page) => page.items),
+    ])
+      .then(([depts, colleges]) => {
+        const categorized = new Set(
+          colleges
+            .filter((c) => CATEGORIZED_COLLEGES.includes(c.name))
+            .map((c) => c.id),
+        )
+        setDepartments(depts.filter((d) => d.collegeId && categorized.has(d.collegeId)))
+      })
       .catch(() => setDepartments([]))
   }, [open])
 
@@ -113,6 +130,7 @@ export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProp
             </Label>
             <Input
               id="fullName"
+              autoFocus
               placeholder="Enter full name"
               className="h-10"
               value={fullName}
@@ -166,11 +184,11 @@ export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProp
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label className="text-[13px] font-medium text-gray-700">
-                Department <span className="text-red-500">*</span>
+                College / Department <span className="text-red-500">*</span>
               </Label>
               <Select value={department} onValueChange={setDepartment}>
                 <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Select department" />
+                  <SelectValue placeholder="Select college" />
                 </SelectTrigger>
                 <SelectContent>
                   {departments.map((dept) => (

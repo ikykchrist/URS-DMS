@@ -20,6 +20,7 @@ import {
 import { aaccupRequirementsRouter } from "@/modules/aaccup/requirements/aaccup.requirements.routes";
 import { aaccupSubmissionsRouter } from "@/modules/aaccup/submissions/aaccup.submissions.routes";
 import { aaccupAnalyticsRouter } from "@/modules/aaccup/analytics/aaccup.analytics.routes";
+import { aaccupTasksRouter } from "@/modules/aaccup/tasks/aaccup.tasks.routes";
 
 // =============================================================================
 // URS-DMS — AACCUP routes
@@ -92,3 +93,8 @@ aaccupRouter.use("/submissions", aaccupSubmissionsRouter);
 // AACCUP compliance analytics (Sprint 5.4). Read-only; gates via
 // aaccup.analytics.read. No audit entries per spec.
 aaccupRouter.use("/analytics", aaccupAnalyticsRouter);
+
+// AACCUP assignable tasks. Mutations gate via aaccup.manage (admins + QAOs);
+// reads require aaccup.read (managers hold it). Assignee targets are validated
+// against ACTIVE users or existing departments at write time.
+aaccupRouter.use("/tasks", aaccupTasksRouter);

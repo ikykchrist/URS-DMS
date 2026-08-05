@@ -14,9 +14,10 @@ import { adminRouter } from "@/modules/admin/admin.routes";
 import { notificationsRouter } from "@/modules/notifications/notifications.routes";
 import { rootRouter } from "@/modules/root/root.routes";
 import { workflowRuntimeRouter } from "@/modules/workflow/workflow.routes";
+import { repositoryRouter } from "@/modules/repositories/repository.routes";
 
 // =============================================================================
-// URS-DMS — route registry. Mounted under /api/v1 in app.ts.
+// URS-DMS â€” route registry. Mounted under /api/v1 in app.ts.
 // =============================================================================
 
 export const apiRouter: Router = Router();
@@ -35,4 +36,5 @@ apiRouter.use("/reports", reportsRouter);
 apiRouter.use("/admin", adminRouter);
 apiRouter.use("/notifications", notificationsRouter);
 apiRouter.use("/workflows", workflowRuntimeRouter);
+apiRouter.use("/repositories", repositoryRouter);
 apiRouter.use("/root", rootRouter);

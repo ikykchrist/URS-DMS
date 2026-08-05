@@ -10,6 +10,7 @@ export interface DocumentStats {
   uploadedToday: number;
   uploadedThisWeek: number;
   uploadedThisMonth: number;
+  totalFolders: number;
 }
 
 export interface UserStats {
@@ -27,6 +28,17 @@ export interface RequestStats {
   fulfilled: number;
 }
 
+export interface AaccupSetStats {
+  totalAreas: number;
+  totalRequirements: number;
+  totalSubmissions: number;
+  approved: number;
+  pending: number;
+  needsRevision: number;
+  rejected: number;
+  overallCompliancePercentage: number;
+}
+
 export interface AaccupStats {
   totalAreas: number;
   totalRequirements: number;
@@ -36,6 +48,9 @@ export interface AaccupStats {
   needsRevision: number;
   rejected: number;
   overallCompliancePercentage: number;
+  // Per-accreditation-set breakdown (AACCUP / ISO / Certification) so tabs and
+  // dashboards can report each set's live content independently.
+  byAreaSet: Record<"AACCUP" | "ISO" | "CERT", AaccupSetStats>;
 }
 
 export interface StorageStats {

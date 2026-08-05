@@ -370,6 +370,75 @@ export const PERMISSIONS = [
     module: "root",
     description: "Override or terminate a workflow instance",
   },
+
+  // Sprint 7.4.6 — Dynamic Form Builder. The singular form.* codes gate only
+  // the ROOT authoring engine (/root/forms). They live in ROOT_ONLY_CODES
+  // (roles.constants.ts) so no other role can ever acquire them — Root-only
+  // by construction, on top of the hard requireRole("ROOT") router gate.
+  {
+    code: "form.read",
+    module: "root",
+    description: "Read form templates, fields, assignments, versions and history",
+  },
+  {
+    code: "form.create",
+    module: "root",
+    description: "Create form templates and fields",
+  },
+  {
+    code: "form.update",
+    module: "root",
+    description: "Update form templates and fields",
+  },
+  {
+    code: "form.archive",
+    module: "root",
+    description: "Archive / restore form templates and fields",
+  },
+  {
+    code: "form.restore",
+    module: "root",
+    description: "Restore archived form templates",
+  },
+  {
+    code: "form.publish",
+    module: "root",
+    description: "Publish a validated form template",
+  },
+  {
+    code: "form.assign",
+    module: "root",
+    description: "Assign form templates to requirements, workflow steps, AACCUP areas, folder templates or future scopes",
+  },
+  {
+    code: "form.rollback",
+    module: "root",
+    description: "Roll a form template back to a previous version",
+  },
+
+  // Sprint 7.4.8 — Platform Setup Wizard. setup.* codes gate the /root/setup
+  // surface (wizard state, logo upload, summary). ROOT-only by construction
+  // (ROOT_ONLY_CODES) on top of the hard requireRole("ROOT") router gate; all
+  // business data the wizard creates flows through the existing engines.
+  {
+    code: "setup.read",
+    module: "root",
+    description: "Read the platform setup wizard state and summary",
+  },
+  {
+    code: "setup.manage",
+    module: "root",
+    description: "Run the platform setup wizard (start, save progress, complete, reopen, upload logo)",
+  },
+
+  // Personal Document Repository & File Lifecycle. Emergency repository
+  // access is ROOT-granted, time-limited, reason-required and audited at
+  // high severity. ROOT-only by construction.
+  {
+    code: "repository.emergency_access",
+    module: "repository",
+    description: "Grant time-limited emergency access to another account's repository",
+  },
 ] as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[number]["code"];

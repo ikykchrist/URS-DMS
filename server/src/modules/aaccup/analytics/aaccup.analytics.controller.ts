@@ -22,6 +22,7 @@ export async function overviewAnalyticsHandler(
   const filter: AnalyticsFilter = {
     departmentId: query.departmentId,
     areaId: query.areaId,
+    areaSet: query.areaSet,
     areaStatus: query.areaStatus,
     minCompliance: query.minCompliance,
     maxCompliance: query.maxCompliance,

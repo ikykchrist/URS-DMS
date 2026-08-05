@@ -1,16 +1,16 @@
 // =============================================================================
-// URS-DMS — Root Console service (Sprint 7.4.1)
+// URS-DMS Ã¢â‚¬â€ Root Console service (Sprint 7.4.1)
 // -----------------------------------------------------------------------------
 // Follows the Sprint 4 precedent (requests module): the Root Console talks to
 // the REAL /api/v1/root endpoints through the shared http.ts client. The
-// client-side prototype auth (IndexedDB) is untouched — a ROOT user gets a
+// client-side prototype auth (IndexedDB) is untouched Ã¢â‚¬â€ a ROOT user gets a
 // real JWT via the server login bridge (see `login` below) so the /root/*
 // endpoints can be called with a valid Bearer token.
 // =============================================================================
 
 import { apiGet, apiGetPage, apiPatch, apiPost, apiDelete, ApiRequestError, clearServerToken } from "@/lib/http"
 
-// ── Wire shapes (mirror of server root.config.types.ts) ─────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Wire shapes (mirror of server root.config.types.ts) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export type ConfigValueType = "STRING" | "NUMBER" | "BOOLEAN" | "JSON" | "LIST"
 
@@ -151,7 +151,7 @@ export interface RootAuditEntry {
   userAgent: string | null
 }
 
-// ── Server session bridge (Sprint 7.4.1) ────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Server session bridge (Sprint 7.4.1) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // The prototype client authenticates locally (IndexedDB); the /root/*
 // endpoints require a real server JWT. When a ROOT user logs in through the
 // UI we exchange credentials with the backend once and store the JWT in
@@ -189,10 +189,10 @@ export async function closeServerSession(): Promise<void> {
   }
 }
 
-// ── Value helpers ────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Value helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export function formatConfigValue(value: unknown): string {
-  if (value === null || value === undefined) return "—"
+  if (value === null || value === undefined) return "Ã¢â‚¬â€"
   if (Array.isArray(value)) return value.join(", ")
   if (typeof value === "object") return JSON.stringify(value)
   return String(value)
@@ -223,13 +223,13 @@ export function parseConfigValue(raw: string, valueType: ConfigValueType): unkno
   }
 }
 
-// ── Platform Overview ────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Platform Overview Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export async function getOverview(): Promise<RootPlatformOverview> {
   return apiGet<RootPlatformOverview>("/root/overview")
 }
 
-// ── Configuration Engine ─────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Configuration Engine Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export async function listConfigurations(query?: {
   page?: number
@@ -301,7 +301,7 @@ export async function listHistory(query?: {
   return apiGetPage<RootConfigHistoryEntry>(`/root/config/history${qs}`)
 }
 
-// ── System Users (ROOT has full access; reuses the admin users surface) ─────
+// Ã¢â€â‚¬Ã¢â€â‚¬ System Users (ROOT has full access; reuses the admin users surface) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export async function listSystemUsers(query?: {
   page?: number
@@ -320,7 +320,7 @@ export async function listSystemUsers(query?: {
   return apiGetPage<RootSystemUser>(`/admin/users${qs}`)
 }
 
-// ── System Audit (ROOT has audit.read; reuses the shared audit surface) ─────
+// Ã¢â€â‚¬Ã¢â€â‚¬ System Audit (ROOT has audit.read; reuses the shared audit surface) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export async function listSystemAudit(query?: {
   page?: number
@@ -341,7 +341,7 @@ export async function listSystemAudit(query?: {
   return apiGetPage<RootAuditEntry>(`/audit${qs}`)
 }
 
-// ── Organization Management Engine (Sprint 7.4.2) ───────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Organization Management Engine (Sprint 7.4.2) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // ROOT-only master data: colleges / departments (Sprint 7.1 rows) + offices /
 // programs (7.4.2 tables). Every mutation versions the record; ROOT can roll
 // back to any earlier snapshot. Routes live at /root/organization/<collection>
@@ -375,6 +375,7 @@ export interface OrgRecord {
   name: string
   code: string
   description: string | null
+  displayOrder: number
   collegeId: string | null
   collegeName: string | null
   departmentId: string | null
@@ -420,6 +421,7 @@ export interface OrgWriteInput {
   name?: string
   code?: string
   description?: string | null
+  displayOrder?: number
   collegeId?: string | null
   departmentId?: string | null
   headId?: string | null
@@ -500,7 +502,7 @@ export async function getOrganizationTree(): Promise<OrganizationTree> {
   return apiGet<OrganizationTree>("/root/organization/tree")
 }
 
-// ── Dynamic Folder Builder (Sprint 7.4.3) ───────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Dynamic Folder Builder (Sprint 7.4.3) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export type FolderTemplateStatus = "ACTIVE" | "INACTIVE"
 export type FolderNodeVisibility = "VISIBLE" | "HIDDEN"
@@ -847,7 +849,7 @@ export async function listFolderAssignmentTargets(
   return result.items.map((record) => ({ id: record.id, name: record.name, code: record.code }))
 }
 
-// ── Dynamic Requirement Builder (Sprint 7.4.4) ──────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Dynamic Requirement Builder (Sprint 7.4.4) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export type RequirementTemplateStatus = "ACTIVE" | "INACTIVE"
 export type RequirementNodeType =
@@ -1306,7 +1308,7 @@ export async function listRequirementTargetOptions(
   return result.items.map((record) => ({ id: record.id, name: record.name, code: record.code }))
 }
 
-// ── Dynamic Workflow Builder (Sprint 7.4.5) ─────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Dynamic Workflow Builder (Sprint 7.4.5) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export type WorkflowDefinitionStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED"
 export type WorkflowEntityType = "DOCUMENT_REQUEST" | "AACCUP_SUBMISSION" | "DOCUMENT"
@@ -1772,4 +1774,343 @@ export async function listWorkflowTargetOptions(
         : "office"
   const result = await listOrgRecords(entity, { pageSize: 200 })
   return result.items.map((record) => ({ id: record.id, name: record.name, code: record.code }))
+}
+
+// =============================================================================
+// Sprint 7.4.6 â€” Dynamic Form Builder (ROOT authoring)
+// Mirrors server modules/root/root.form.*
+// =============================================================================
+
+const FORM_PATH = "/root/forms"
+
+export type FormStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED"
+
+export type FormFieldType =
+  | "TEXT"
+  | "TEXTAREA"
+  | "NUMBER"
+  | "EMAIL"
+  | "DATE"
+  | "TIME"
+  | "DROPDOWN"
+  | "RADIO"
+  | "CHECKBOX"
+  | "MULTI_SELECT"
+  | "FILE"
+  | "SECTION"
+
+export type FormAssignmentTargetType =
+  | "REQUIREMENT_TEMPLATE"
+  | "WORKFLOW_STEP"
+  | "AACCUP_AREA"
+  | "FOLDER_TEMPLATE"
+  | "UNIVERSITY"
+
+export interface FormOption {
+  label: string
+  value: string
+}
+
+export interface FormFieldValidation {
+  min?: number
+  max?: number
+  minLength?: number
+  maxLength?: number
+  pattern?: string
+  minDate?: string
+  maxDate?: string
+  minItems?: number
+  maxItems?: number
+  maxSizeBytes?: number
+  allowedTypes?: string[]
+}
+
+export interface FormFieldView {
+  id: string
+  key: string
+  label: string
+  type: FormFieldType
+  description: string | null
+  placeholder: string | null
+  required: boolean
+  defaultValue: unknown
+  options: FormOption[]
+  validation: FormFieldValidation | null
+  helpText: string | null
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FormAssignmentView {
+  id: string
+  targetType: FormAssignmentTargetType
+  targetId: string | null
+  targetLabel: string | null
+  priority: number
+  createdAt: string
+}
+
+export interface FormTemplateListItem {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  status: FormStatus
+  version: number
+  fieldCount: number
+  assignmentCount: number
+  createdByName: string
+  updatedByName: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FormTemplateDetail extends FormTemplateListItem {
+  fields: FormFieldView[]
+  assignments: FormAssignmentView[]
+  deletedAt: string | null
+}
+
+export interface FormVersionView {
+  id: string
+  version: number
+  changeType: string
+  changeNote: string | null
+  changedByName: string | null
+  createdAt: string
+}
+
+export interface FormHistoryView {
+  id: string
+  action: string
+  oldValue: unknown
+  newValue: unknown
+  versionFrom: number | null
+  versionTo: number | null
+  actorName: string | null
+  createdAt: string
+}
+
+export interface FormPreviewView {
+  template: { id: string; code: string; name: string; description: string | null; version: number }
+  fields: FormFieldView[]
+  assignments: FormAssignmentView[]
+}
+
+export interface FormFieldInput {
+  key?: string
+  label: string
+  type: FormFieldType
+  description?: string
+  placeholder?: string
+  required?: boolean
+  defaultValue?: unknown
+  options?: FormOption[]
+  validation?: FormFieldValidation
+  helpText?: string
+  sortOrder?: number
+}
+
+export async function listForms(query?: {
+  q?: string
+  status?: FormStatus
+  includeArchived?: boolean
+  page?: number
+  pageSize?: number
+  sort?: string
+  order?: "asc" | "desc"
+}): Promise<RootListResult<FormTemplateListItem>> {
+  const params = new URLSearchParams()
+  if (query?.q) params.set("q", query.q)
+  if (query?.status) params.set("status", query.status)
+  if (query?.includeArchived) params.set("includeArchived", "true")
+  if (query?.page) params.set("page", String(query.page))
+  if (query?.pageSize) params.set("pageSize", String(query.pageSize))
+  if (query?.sort) params.set("sort", query.sort)
+  if (query?.order) params.set("order", query.order)
+  const qs = params.size > 0 ? `?${params.toString()}` : ""
+  return apiGetPage<FormTemplateListItem>(`${FORM_PATH}${qs}`)
+}
+
+export async function getForm(id: string): Promise<FormTemplateDetail> {
+  return apiGet<FormTemplateDetail>(`${FORM_PATH}/${encodeURIComponent(id)}`)
+}
+
+export async function createForm(input: { code: string; name: string; description?: string }): Promise<FormTemplateDetail> {
+  return apiPost<FormTemplateDetail>(FORM_PATH, input)
+}
+
+export async function updateForm(
+  id: string,
+  input: { name?: string; description?: string | null },
+): Promise<FormTemplateDetail> {
+  return apiPatch<FormTemplateDetail>(`${FORM_PATH}/${encodeURIComponent(id)}`, input)
+}
+
+export async function archiveForm(id: string): Promise<void> {
+  await apiDelete<{ archived: true }>(`${FORM_PATH}/${encodeURIComponent(id)}`)
+}
+
+export async function restoreForm(id: string): Promise<FormTemplateDetail> {
+  return apiPost<FormTemplateDetail>(`${FORM_PATH}/${encodeURIComponent(id)}/restore`)
+}
+
+export async function duplicateForm(id: string): Promise<FormTemplateDetail> {
+  return apiPost<FormTemplateDetail>(`${FORM_PATH}/${encodeURIComponent(id)}/duplicate`)
+}
+
+export async function saveFormDraft(id: string, changeNote?: string): Promise<{ templateId: string; version: number }> {
+  return apiPost<{ templateId: string; version: number }>(
+    `${FORM_PATH}/${encodeURIComponent(id)}/save-draft`,
+    { changeNote },
+  )
+}
+
+export async function publishForm(id: string, changeNote?: string): Promise<FormTemplateDetail> {
+  return apiPost<FormTemplateDetail>(`${FORM_PATH}/${encodeURIComponent(id)}/publish`, { changeNote })
+}
+
+export async function getFormPreview(id: string): Promise<FormPreviewView> {
+  return apiGet<FormPreviewView>(`${FORM_PATH}/${encodeURIComponent(id)}/preview`)
+}
+
+export async function createFormField(id: string, input: FormFieldInput): Promise<FormTemplateDetail> {
+  return apiPost<FormTemplateDetail>(`${FORM_PATH}/${encodeURIComponent(id)}/fields`, input)
+}
+
+export async function updateFormField(
+  id: string,
+  fieldId: string,
+  input: Partial<FormFieldInput>,
+): Promise<FormTemplateDetail> {
+  return apiPatch<FormTemplateDetail>(
+    `${FORM_PATH}/${encodeURIComponent(id)}/fields/${encodeURIComponent(fieldId)}`,
+    input,
+  )
+}
+
+export async function removeFormField(id: string, fieldId: string): Promise<FormTemplateDetail> {
+  return apiDelete<FormTemplateDetail>(
+    `${FORM_PATH}/${encodeURIComponent(id)}/fields/${encodeURIComponent(fieldId)}`,
+  )
+}
+
+export async function reorderFormFields(id: string, fieldIds: string[]): Promise<FormTemplateDetail> {
+  return apiPost<FormTemplateDetail>(`${FORM_PATH}/${encodeURIComponent(id)}/fields/reorder`, { fieldIds })
+}
+
+export async function listFormVersions(id: string): Promise<FormVersionView[]> {
+  return apiGet<FormVersionView[]>(`${FORM_PATH}/${encodeURIComponent(id)}/versions`)
+}
+
+export async function rollbackForm(id: string, version: number): Promise<FormTemplateDetail> {
+  return apiPost<FormTemplateDetail>(`${FORM_PATH}/${encodeURIComponent(id)}/rollback`, { version })
+}
+
+export async function listFormHistory(id: string): Promise<FormHistoryView[]> {
+  return apiGet<FormHistoryView[]>(`${FORM_PATH}/${encodeURIComponent(id)}/history`)
+}
+
+export async function assignForm(
+  id: string,
+  input: { targetType: FormAssignmentTargetType; targetId?: string | null; priority?: number },
+): Promise<FormTemplateDetail> {
+  return apiPost<FormTemplateDetail>(`${FORM_PATH}/${encodeURIComponent(id)}/assignments`, input)
+}
+
+export async function unassignForm(id: string, assignmentId: string): Promise<FormTemplateDetail> {
+  return apiDelete<FormTemplateDetail>(
+    `${FORM_PATH}/${encodeURIComponent(id)}/assignments/${encodeURIComponent(assignmentId)}`,
+  )
+}
+
+export async function listFormAssignmentTargetOptions(
+  targetType: Exclude<FormAssignmentTargetType, "UNIVERSITY">,
+): Promise<Array<{ id: string; label: string }>> {
+  return apiGet<Array<{ id: string; label: string }>>(
+    `${FORM_PATH}/assignment-targets/${encodeURIComponent(targetType)}`,
+  )
+}
+
+// =============================================================================
+// Sprint 7.4.8 — Platform Setup Wizard (ROOT)
+// Mirrors server modules/root/root.setup.*
+// =============================================================================
+
+const SETUP_PATH = "/root/setup"
+
+export type SetupStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"
+
+export interface SetupSummary {
+  organizations: { colleges: number; departments: number; offices: number; programs: number }
+  folderTemplates: number
+  requirementTemplates: number
+  workflows: number
+  forms: number
+  administrators: number
+  configKeysConfigured: number
+}
+
+export interface SetupStateView {
+  id: string
+  status: SetupStatus
+  currentStep: number
+  completedSteps: number[]
+  logoObjectKey: string | null
+  startedAt: string | null
+  completedAt: string | null
+  updatedAt: string
+  summary: SetupSummary
+}
+
+export async function getSetupState(): Promise<SetupStateView> {
+  return apiGet<SetupStateView>(SETUP_PATH)
+}
+
+export async function startSetup(): Promise<SetupStateView> {
+  return apiPost<SetupStateView>(`${SETUP_PATH}/start`)
+}
+
+export async function saveSetupProgress(
+  currentStep: number,
+  completedSteps: number[],
+): Promise<SetupStateView> {
+  return apiPatch<SetupStateView>(`${SETUP_PATH}/state`, { currentStep, completedSteps })
+}
+
+export async function uploadSetupLogo(input: {
+  filename: string
+  mimeType: string
+  sizeBytes: number
+}): Promise<{ uploadUrl: string; objectKey: string; headers: Record<string, string>; expiresInSeconds: number }> {
+  return apiPost<{ uploadUrl: string; objectKey: string; headers: Record<string, string>; expiresInSeconds: number }>(
+    `${SETUP_PATH}/logo`,
+    input,
+  )
+}
+
+export async function getSetupLogoUrl(): Promise<{ url: string; objectKey: string } | null> {
+  return apiGet<{ url: string; objectKey: string } | null>(`${SETUP_PATH}/logo`)
+}
+
+export async function completeSetup(): Promise<SetupStateView> {
+  return apiPost<SetupStateView>(`${SETUP_PATH}/complete`)
+}
+
+export async function reopenSetup(): Promise<SetupStateView> {
+  return apiPost<SetupStateView>(`${SETUP_PATH}/reopen`)
+}
+
+export async function getSetupSummary(): Promise<SetupSummary> {
+  return apiGet<SetupSummary>(`${SETUP_PATH}/summary`)
+}
+
+export async function sendSetupCredentials(input: {
+  email: string
+  name: string
+  password: string
+  roleName: string
+}): Promise<{ sent: boolean }> {
+  return apiPost<{ sent: boolean }>(`${SETUP_PATH}/send-credentials`, input)
 }

@@ -9,9 +9,13 @@ const idParam = z.object({ id: z.string().uuid() });
 export const folderIdParamSchema = idParam;
 
 export const listFoldersQuerySchema = z.object({
-  parentId: z.string().uuid().nullable().optional(),
+  parentId: z.preprocess(
+    (value) => (value === "null" ? null : value),
+    z.string().uuid().nullable().optional(),
+  ),
   departmentId: z.string().uuid().optional(),
   ownerId: z.string().uuid().optional(),
+  q: z.string().trim().max(200).optional(),
   includeDeleted: z.coerce.boolean().default(false),
 });
 export type ListFoldersQuery = z.infer<typeof listFoldersQuerySchema>;
@@ -31,3 +35,23 @@ export const updateFolderSchema = z
   })
   .strict();
 export type UpdateFolderInput = z.infer<typeof updateFolderSchema>;
+
+export const copyFolderSchema = z
+  .object({
+    targetParentId: z.string().uuid().nullable().optional(),
+    // Rule 8: folder conflicts on copy — merge into the existing folder,
+    // keep_both (suffix the name), or cancel (409).
+    conflictMode: z.enum(["merge", "keep_both", "cancel"]).default("keep_both"),
+  })
+  .strict();
+export type CopyFolderInput = z.infer<typeof copyFolderSchema>;
+
+// Restore from recycle bin: explicit destination (null = root), name-conflict
+// handling (keep_both suffix / replace existing / cancel) (rule 8/10).
+export const restoreFolderSchema = z
+  .object({
+    targetParentId: z.string().uuid().nullable().optional(),
+    conflictMode: z.enum(["keep_both", "replace", "cancel"]).default("keep_both"),
+  })
+  .strict();
+export type RestoreFolderInput = z.infer<typeof restoreFolderSchema>;

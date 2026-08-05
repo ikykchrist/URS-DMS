@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from "react"
-import { FileText, Clock, CheckCircle, HardDrive, Upload, FilePlus, GraduationCap, ArrowRight } from "lucide-react"
+import { FileText, Clock, CheckCircle, HardDrive, Upload, FilePlus, GraduationCap, ArrowRight, Award } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { StatCard } from "@/components/layout/StatCard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
 import { useAuth } from "@/context/AuthContext"
-import { listOnlineAaccupAreas } from "@/services/aaccup"
+import { listOnlineAaccupAreas, listAllOnlineAaccupAreas, listAllOnlineSubmissions } from "@/services/aaccup"
 import { listOnlineDocuments } from "@/services/documents"
 import { listRequests } from "@/services/requests"
 import type { Document, DocumentRequest } from "@/types/domain"
@@ -21,6 +21,13 @@ interface DeadlineArea {
   title: string
   dueDate: string
   status: string
+}
+
+interface SetStats {
+  areas: number
+  submissions: number
+  approved: number
+  pending: number
 }
 
 const formatBytes = (bytes: number): string => {
@@ -41,16 +48,27 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
   const [requests, setRequests] = useState<DocumentRequest[]>([])
   const [areas, setAreas] = useState<DeadlineArea[]>([])
   const [myStats, setMyStats] = useState({ total: 0, pending: 0, approved: 0, storageUsed: 0, storageReadable: "0 B" })
+  const [setStats, setSetStats] = useState<Record<"AACCUP" | "ISO" | "CERT", SetStats>>({
+    AACCUP: { areas: 0, submissions: 0, approved: 0, pending: 0 },
+    ISO: { areas: 0, submissions: 0, approved: 0, pending: 0 },
+    CERT: { areas: 0, submissions: 0, approved: 0, pending: 0 },
+  })
   const [loading, setLoading] = useState(true)
 
   const fetchData = useCallback(async () => {
     if (!user) return
     setLoading(true)
     try {
-      const [docsData, reqData, areasData] = await Promise.all([
+      const [docsData, reqData, areasData, ...setData] = await Promise.all([
         listOnlineDocuments({ ownerId: user.id, archived: false }),
         listRequests({ submittedBy: user.id }),
         listOnlineAaccupAreas(),
+        ...(["AACCUP", "ISO", "CERT"] as const).map((areaSet) =>
+          Promise.all([
+            listAllOnlineAaccupAreas({ areaSet }),
+            listAllOnlineSubmissions({ areaSet }),
+          ]),
+        ),
       ])
       const storage = docsData.reduce((sum, doc) => sum + (Number(doc.size) || 0), 0)
       setDocs(docsData)
@@ -62,6 +80,17 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
         dueDate: "",
         status: "",
       })))
+      const nextSetStats = { ...setStats }
+      ;(["AACCUP", "ISO", "CERT"] as const).forEach((areaSet, index) => {
+        const [setAreas, setSubs] = setData[index]
+        nextSetStats[areaSet] = {
+          areas: setAreas.length,
+          submissions: setSubs.length,
+          approved: setSubs.filter((s) => s.status === "APPROVED").length,
+          pending: setSubs.filter((s) => s.status === "PENDING" || s.status === "NEEDS_REVISION").length,
+        }
+      })
+      setSetStats(nextSetStats)
       setMyStats({
         total: docsData.length,
         pending: docsData.filter((doc) => ["Pending", "Department Review", "QA Review"].includes(doc.status)).length,
@@ -74,7 +103,11 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
     }
   }, [user])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    fetchData()
+    const poll = setInterval(fetchData, 20000)
+    return () => clearInterval(poll)
+  }, [fetchData])
 
   const getFirstName = (name: string) => name.split(" ")[0]
 
@@ -126,10 +159,67 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
-        <StatCard title="My Documents" value={loading ? "..." : myStats.total.toString()} icon={<FileText className="w-5 h-5" />} trend={{ value: 2, positive: true }} />
+        <StatCard
+          title="My Documents"
+          value={loading ? "..." : myStats.total.toString()}
+          icon={<FileText className="w-5 h-5" />}
+          trend={{
+            value: myStats.total > 0 ? Math.round((myStats.approved / myStats.total) * 100) : 0,
+            positive: myStats.approved > 0,
+          }}
+        />
         <StatCard title="Pending Requests" value={loading ? "..." : pendingCount.toString()} icon={<Clock className="w-5 h-5" />} />
-        <StatCard title="Approved Requests" value={loading ? "..." : approvedCount.toString()} icon={<CheckCircle className="w-5 h-5" />} trend={{ value: 15, positive: true }} />
-        <StatCard title="Storage Used" value={loading ? "..." : myStats.storageReadable} icon={<HardDrive className="w-5 h-5" />} trend={{ value: 5, positive: false }} />
+        <StatCard
+          title="Approved Requests"
+          value={loading ? "..." : approvedCount.toString()}
+          icon={<CheckCircle className="w-5 h-5" />}
+          trend={{
+            value: requests.length > 0 ? Math.round((approvedCount / requests.length) * 100) : 0,
+            positive: approvedCount > 0,
+          }}
+        />
+        <StatCard title="Storage Used" value={loading ? "..." : myStats.storageReadable} icon={<HardDrive className="w-5 h-5" />} />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+        {(
+          [
+            { key: "AACCUP", label: "AACCUP", bg: "bg-amber-50", text: "text-amber-600" },
+            { key: "ISO", label: "ISO", bg: "bg-blue-50", text: "text-blue-600" },
+            { key: "CERT", label: "Certification", bg: "bg-emerald-50", text: "text-emerald-600" },
+          ] as const
+        ).map(({ key, label, bg, text }) => {
+          const stats = setStats[key]
+          return (
+            <Card
+              key={key}
+              className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => onNavigate?.("aaccup")}
+            >
+              <CardContent className="p-4 md:p-5">
+                <div className="flex items-center justify-between">
+                  <div className={`w-9 h-9 md:w-11 md:h-11 rounded-lg ${bg} flex items-center justify-center ${text}`}>
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <span className="text-[11px] md:text-[12px] font-medium px-2 py-0.5 rounded-full bg-gray-50 text-gray-600">
+                    My contributions
+                  </span>
+                </div>
+                <div className="mt-3 md:mt-4">
+                  <p className="text-[12px] md:text-[13px] text-gray-500 font-medium">{label} Accreditation</p>
+                  <p className="text-[18px] md:text-[22px] font-semibold text-gray-900 mt-0.5 tracking-tight">
+                    {loading ? "..." : `${stats.areas} areas`}
+                  </p>
+                  <p className="text-[12px] text-gray-500 mt-0.5">
+                    {loading
+                      ? "Loading…"
+                      : `${stats.submissions} submissions · ${stats.approved} approved`}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 mb-6 lg:mb-8">

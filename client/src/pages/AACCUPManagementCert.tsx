@@ -12,6 +12,7 @@ import {
   FileText,
   Calendar,
   Plus,
+  Trash2,
 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { StatCard } from "@/components/layout/StatCard"
@@ -29,11 +30,12 @@ import {
 } from "@/components/ui/Select"
 import { AACCUPAreaDetailsModal } from "@/components/modals/AACCUPAreaDetailsModal"
 import { CreateTaskModal } from "@/components/modals/CreateTaskModal"
-import { UploadDocumentsModal } from "@/components/modals/UploadDocumentsModal"
+import { AddSubmissionModal } from "@/components/modals/AddSubmissionModal"
 import { AddAreaModal } from "@/components/modals/AddAreaModal"
 import {
   listAllOnlineAaccupAreas,
   listAllOnlineSubmissions,
+  archiveOnlineArea,
   type OnlineAaccupArea,
   type OnlineSubmissionListItem,
 } from "@/services/aaccup"
@@ -74,20 +76,26 @@ export default function AACCUPManagementCert({ sidebarCollapsed: _sidebarCollaps
   const [selectedArea, setSelectedArea] = useState<AACCUPArea | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(() => searchParams.get("modal") === "create-task")
-  const [isUploadDocumentsOpen, setIsUploadDocumentsOpen] = useState(() => searchParams.get("modal") === "assign-area")
+  const [isAddSubmissionOpen, setIsAddSubmissionOpen] = useState(false)
   const [isAddAreaModalOpen, setIsAddAreaModalOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [detailsReloadKey, setDetailsReloadKey] = useState(0)
 
   useEffect(() => {
-    const fetchData = async () => {
-      const [areasData, submissionsData] = await Promise.all([
-        listAllOnlineAaccupAreas(),
-        listAllOnlineSubmissions()
-      ])
-      setAreas(areasData)
-      setSubmissions(submissionsData)
-    }
     fetchData()
+    const poll = setInterval(fetchData, 20000)
+    return () => clearInterval(poll)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const fetchData = async () => {
+    const [areasData, submissionsData] = await Promise.all([
+      listAllOnlineAaccupAreas({ areaSet: "CERT" }),
+      listAllOnlineSubmissions({ areaSet: "CERT" })
+    ])
+    setAreas(areasData)
+    setSubmissions(submissionsData)
+  }
 
   const handleCloseCreateTaskModal = (open: boolean) => {
     setIsCreateTaskOpen(open)
@@ -97,12 +105,50 @@ export default function AACCUPManagementCert({ sidebarCollapsed: _sidebarCollaps
     }
   }
 
-  const handleCloseUploadDocumentsModal = (open: boolean) => {
-    setIsUploadDocumentsOpen(open)
-    if (!open) {
-      searchParams.delete("modal")
-      setSearchParams(searchParams)
+  const handleRemoveArea = async (id: string, title: string) => {
+    if (!window.confirm(`Remove area "${title}"? Its tasks and submissions stay in the archive but it will no longer appear.`)) return
+    try {
+      await archiveOnlineArea(id)
+      setSelectedIds((prev) => prev.filter((selected) => selected !== id))
+      fetchData()
+    } catch {
+      window.alert("Failed to remove area. Please try again.")
     }
+  }
+
+  const handleRemoveSelected = async () => {
+    if (selectedIds.length === 0) return
+    if (!window.confirm(`Remove ${selectedIds.length} selected area(s)?`)) return
+    try {
+      await Promise.all(selectedIds.map((id) => archiveOnlineArea(id)))
+      setSelectedIds([])
+      fetchData()
+    } catch {
+      window.alert("Failed to remove one or more areas.")
+    }
+  }
+
+  const handleExport = () => {
+    const header = ["Area", "Status", "Completion %", "Submissions", "Approved", "Pending"]
+    const rows = localAreas.map((area) => {
+      const areaSubs = submissions.filter((s) => s.areaId === area.serverId)
+      return [
+        `"${area.title}"`,
+        area.status,
+        area.completion,
+        areaSubs.length,
+        areaSubs.filter((s) => s.status === "APPROVED").length,
+        areaSubs.filter((s) => s.status === "PENDING" || s.status === "NEEDS_REVISION").length,
+      ].join(",")
+    })
+    const csv = [header.join(","), ...rows].join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `certification-areas-${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   const toLocalArea = (area: OnlineAaccupArea, index: number): AACCUPArea => {
@@ -168,19 +214,24 @@ export default function AACCUPManagementCert({ sidebarCollapsed: _sidebarCollaps
               title="Approved"
               value={completedSubmissions.toString()}
               icon={<CheckCircle className="w-5 h-5" />}
-              trend={{ value: 12, positive: true }}
+              trend={{
+                value: totalSubmissions > 0 ? Math.round((completedSubmissions / totalSubmissions) * 100) : 0,
+                positive: completedSubmissions > 0,
+              }}
             />
             <StatCard
               title="Pending Review"
               value={pendingSubmissions.toString()}
               icon={<Clock className="w-5 h-5" />}
-              trend={{ value: 8, positive: false }}
+              trend={{
+                value: totalSubmissions > 0 ? Math.round((pendingSubmissions / totalSubmissions) * 100) : 0,
+                positive: false,
+              }}
             />
             <StatCard
               title="Compliance Rate"
               value={`${calculateOverallCompliance()}%`}
               icon={<TrendingUp className="w-5 h-5" />}
-              trend={{ value: 5, positive: true }}
             />
           </div>
 
@@ -234,10 +285,21 @@ export default function AACCUPManagementCert({ sidebarCollapsed: _sidebarCollaps
                       <SelectItem value="returned">Returned</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button variant="outline" size="sm" className="h-9">
+                  <Button variant="outline" size="sm" className="h-9" onClick={handleExport}>
                     <Download className="w-4 h-4 mr-2" />
                     Export
                   </Button>
+                  {selectedIds.length > 0 && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-9"
+                      onClick={handleRemoveSelected}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Remove Selected ({selectedIds.length})
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -256,12 +318,29 @@ export default function AACCUPManagementCert({ sidebarCollapsed: _sidebarCollaps
               return (
                 <Card
                   key={area.id}
-                  className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  className={cn(
+                    "border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer",
+                    selectedIds.includes(area.serverId) && "ring-2 ring-primary/40"
+                  )}
                   onClick={() => handleViewArea(area)}
                 >
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-gray-300 accent-primary cursor-pointer"
+                          checked={selectedIds.includes(area.serverId)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            const { checked } = e.target
+                            setSelectedIds((prev) =>
+                              checked
+                                ? [...prev, area.serverId]
+                                : prev.filter((id) => id !== area.serverId)
+                            )
+                          }}
+                        />
                         <div className={cn(
                           "w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-[14px]",
                           statusColors[area.status]
@@ -273,9 +352,22 @@ export default function AACCUPManagementCert({ sidebarCollapsed: _sidebarCollaps
                           <p className="text-[12px] text-gray-500 line-clamp-1">{area.title}</p>
                         </div>
                       </div>
-                      <Badge variant={statusBadge[area.status]} className="text-[10px]">
-                        {area.status}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant={statusBadge[area.status]} className="text-[10px]">
+                          {area.status}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRemoveArea(area.serverId, area.title)
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="mb-4">
@@ -340,11 +432,27 @@ export default function AACCUPManagementCert({ sidebarCollapsed: _sidebarCollaps
 </div>
 
       <AACCUPAreaDetailsModal
+        key={detailsReloadKey}
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
         area={selectedArea}
+        areaSet="CERT"
+        onAddSubmission={() => setIsAddSubmissionOpen(true)}
         onCreateTask={() => setIsCreateTaskOpen(true)}
-        onUploadDocuments={() => setIsUploadDocumentsOpen(true)}
+      />
+
+      <AddSubmissionModal
+        open={isAddSubmissionOpen}
+        onOpenChange={setIsAddSubmissionOpen}
+        areaId={selectedArea?.serverId}
+        areaTitle={selectedArea?.title}
+        areaSet="CERT"
+        departmentId={areas.find((a) => a.id === selectedArea?.serverId)?.departmentId}
+        onSuccess={() => {
+          setIsAddSubmissionOpen(false)
+          setDetailsReloadKey((k) => k + 1)
+          fetchData()
+        }}
       />
 
       <CreateTaskModal
@@ -352,17 +460,18 @@ export default function AACCUPManagementCert({ sidebarCollapsed: _sidebarCollaps
         onOpenChange={handleCloseCreateTaskModal}
         areaId={selectedArea?.serverId}
         areaTitle={selectedArea?.title}
-      />
-
-      <UploadDocumentsModal
-        open={isUploadDocumentsOpen}
-        onOpenChange={handleCloseUploadDocumentsModal}
+        onSuccess={() => {
+          handleCloseCreateTaskModal(false)
+          setDetailsReloadKey((k) => k + 1)
+          fetchData()
+        }}
       />
 
       <AddAreaModal
         open={isAddAreaModalOpen}
         onOpenChange={setIsAddAreaModalOpen}
         areaSet="cert"
+        onSuccess={() => fetchData()}
       />
     </>
   )

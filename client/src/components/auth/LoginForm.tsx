@@ -79,6 +79,7 @@ export function LoginForm() {
           <Input
             id="email"
             type="email"
+            autoFocus
             placeholder="you@urs.edu.ph"
             value={email}
             onChange={(e) => setEmail(e.target.value)}

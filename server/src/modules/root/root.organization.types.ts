@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   OrganizationChangeType,
   OrganizationEntity,
   ProgramLevel,
@@ -6,7 +6,7 @@ import type {
 import { AUDIT_ACTIONS, type AuditAction } from "@/config/constants";
 
 // =============================================================================
-// URS-DMS — Root · Organization Management Engine types (Sprint 7.4.2)
+// URS-DMS â€” Root Â· Organization Management Engine types (Sprint 7.4.2)
 // -----------------------------------------------------------------------------
 // One entity config per master-data record type. Colleges and departments
 // reuse the Sprint 7.1 physical tables (`colleges`, `departments`); offices
@@ -102,6 +102,7 @@ export interface OrganizationRecordRow {
   name: string;
   code: string;
   description: string | null;
+  displayOrder: number;
   collegeId: string | null;
   collegeName: string | null;
   departmentId: string | null;
@@ -120,6 +121,7 @@ export interface OrgSnapshotData {
   name: string;
   code: string;
   description: string | null;
+  displayOrder: number;
   collegeId: string | null;
   departmentId: string | null;
   headId: string | null;

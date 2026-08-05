@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS } from "@/config/constants";
 import { writeAudit } from "@/modules/audit/audit.service";
+import { notifyUser } from "@/modules/notifications/notifications.service";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "@/utils/errors";
 import * as repo from "@/modules/aaccup/submissions/aaccup.submissions.repository";
 import type { Prisma } from "@prisma/client";
@@ -111,6 +112,7 @@ interface RequirementContext {
   id: string;
   areaDepartmentId: string;
   dynamic: boolean;
+  area: { id: string; name: string; areaSet: string; departmentId: string };
 }
 
 async function assertRequirementUsable(requirementId: string): Promise<RequirementContext> {
@@ -120,7 +122,9 @@ async function assertRequirementUsable(requirementId: string): Promise<Requireme
       id: true,
       status: true,
       sourceNodeId: true,
-      area: { select: { id: true, deletedAt: true, departmentId: true, status: true } },
+      area: {
+        select: { id: true, name: true, areaSet: true, deletedAt: true, departmentId: true, status: true },
+      },
     },
   });
   if (!requirement) {
@@ -139,6 +143,12 @@ async function assertRequirementUsable(requirementId: string): Promise<Requireme
     id: requirement.id,
     areaDepartmentId: requirement.area.departmentId,
     dynamic: requirement.sourceNodeId !== null,
+    area: {
+      id: requirement.area.id,
+      name: requirement.area.name,
+      areaSet: requirement.area.areaSet,
+      departmentId: requirement.area.departmentId,
+    },
   };
 }
 
@@ -153,6 +163,7 @@ interface DocumentContext {
     filename: string;
     mimeType: string;
     sizeBytes: bigint;
+    checksum: string;
   } | null;
 }
 
@@ -166,7 +177,7 @@ async function assertDocumentUsable(documentId: string, actor: Actor): Promise<D
       deletedAt: true,
       status: true,
       metadata: true,
-      currentVersion: { select: { filename: true, mimeType: true, sizeBytes: true } },
+      currentVersion: { select: { filename: true, mimeType: true, sizeBytes: true, checksum: true } },
     },
   });
   if (!document) {
@@ -252,8 +263,11 @@ export async function listSubmissions(
   if (typeof query.isCurrent !== "undefined") {
     where.isCurrent = query.isCurrent === "true";
   }
-  if (query.areaId) {
-    where.requirement = { areaId: query.areaId };
+  if (query.areaId || query.areaSet) {
+    const requirementFilter: Prisma.AaccupRequirementWhereInput = {};
+    if (query.areaId) requirementFilter.areaId = query.areaId;
+    if (query.areaSet) requirementFilter.area = { areaSet: query.areaSet };
+    where.requirement = requirementFilter;
   }
 
   // Scoping: non-reviewers / non-managers see only their own submissions.
@@ -298,6 +312,37 @@ export async function getSubmission(id: string, actor: Actor): Promise<AaccupSub
 }
 
 // -----------------------------------------------------------------------------
+// Archive folder management
+// -----------------------------------------------------------------------------
+// Every submitted document is filed into the repository under a per-set root
+// folder (AACCUP / ISO / CERT) with a per-area subfolder named after the area:
+//   <areaSet>/<area name>/<document>
+// Folders are created lazily on first submission, scoped to the area's
+// department so they surface in that department's File Archive.
+// -----------------------------------------------------------------------------
+
+async function ensureAreaArchiveFolder(
+  tx: Prisma.TransactionClient,
+  area: { id: string; name: string; areaSet: string; departmentId: string },
+) {
+  const setFolder =
+    (await tx.folder.findFirst({
+      where: { parentId: null, name: area.areaSet, deletedAt: null },
+    })) ??
+    (await tx.folder.create({
+      data: { name: area.areaSet, departmentId: area.departmentId },
+    }));
+  const areaFolder =
+    (await tx.folder.findFirst({
+      where: { parentId: setFolder.id, name: area.name, deletedAt: null },
+    })) ??
+    (await tx.folder.create({
+      data: { name: area.name, parentId: setFolder.id, departmentId: area.departmentId },
+    }));
+  return areaFolder;
+}
+
+// -----------------------------------------------------------------------------
 // createSubmission
 // -----------------------------------------------------------------------------
 export async function createSubmission(
@@ -313,7 +358,9 @@ export async function createSubmission(
 
   // Create the submission + demote any prior "current" submissions for this
   // requirement in a single transaction so history is preserved but exactly
-  // one current pointer exists at a time.
+  // one current pointer exists at a time. The submitted document is also
+  // filed into the area's archive folder (created lazily) in the same
+  // transaction.
   const submission = await prisma.$transaction(async (tx) => {
     const created = await tx.aaccupSubmission.create({
       data: {
@@ -323,7 +370,17 @@ export async function createSubmission(
         remarks: input.remarks ?? null,
         status: "PENDING",
         isCurrent: true,
+        // Immutable evidence snapshot captured at submission time.
+        snapshotFilename: document.currentVersion?.filename ?? null,
+        snapshotMimeType: document.currentVersion?.mimeType ?? null,
+        snapshotSizeBytes: document.currentVersion?.sizeBytes ?? null,
+        snapshotChecksum: document.currentVersion?.checksum ?? null,
       },
+    });
+    const archiveFolder = await ensureAreaArchiveFolder(tx, requirement.area);
+    await tx.document.update({
+      where: { id: input.documentId },
+      data: { folderId: archiveFolder.id },
     });
     await tx.aaccupSubmission.updateMany({
       where: {
@@ -486,7 +543,44 @@ export async function reviewSubmission(
     userAgent: actor.userAgent,
   });
 
+  // Rule 19: notify the submitter of the review outcome (best-effort, once).
+  await safeNotifySubmitter(existing.submittedById, input.decision, id);
+
   return detail;
+}
+
+/** Best-effort submission-review notification — never fails the review. */
+async function safeNotifySubmitter(
+  submitterId: string,
+  decision: "APPROVED" | "REJECTED" | "NEEDS_REVISION",
+  submissionId: string,
+): Promise<void> {
+  try {
+    if (decision === "APPROVED") {
+      await notifyUser(submitterId, "AACCUP_SUBMISSION_APPROVED", {
+        title: "Submission approved",
+        message: "Your document submission has been approved.",
+        entity: "aaccup_submission",
+        entityId: submissionId,
+      });
+    } else if (decision === "NEEDS_REVISION") {
+      await notifyUser(submitterId, "AACCUP_SUBMISSION_RETURNED", {
+        title: "Submission returned",
+        message: "Your document submission was returned for revision. Please review the remarks and resubmit.",
+        entity: "aaccup_submission",
+        entityId: submissionId,
+      });
+    } else {
+      await notifyUser(submitterId, "AACCUP_SUBMISSION_REJECTED", {
+        title: "Submission rejected",
+        message: "Your document submission has been rejected. Please review the remarks.",
+        entity: "aaccup_submission",
+        entityId: submissionId,
+      });
+    }
+  } catch {
+    // notifications must never break the review operation
+  }
 }
 
 // -----------------------------------------------------------------------------

@@ -126,8 +126,15 @@ export interface Document {
   dateCreated: string
   mimeType: string
   tags: string[]
+  folderId?: string | null
   createdAt: string
   updatedAt: string
+  /** SHA-256 of the current version's bytes (rule 7 duplicate detection). */
+  checksum?: string | null
+  /** Latest AACCUP submission status of this file (rule 17 badges). */
+  submissionStatus?: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_REVISION" | null
+  /** Soft-delete timestamp (recycle bin rows). */
+  deletedAt?: string | null
 }
 
 export type RequestStatus =

@@ -112,6 +112,11 @@ export const AUDIT_ACTIONS = {
   AACCUP_SUBMISSION_ARCHIVED: "aaccup_submission.archived",
   AACCUP_SUBMISSION_RESTORED: "aaccup_submission.restored",
 
+  AACCUP_TASK_CREATED: "aaccup_task.created",
+  AACCUP_TASK_UPDATED: "aaccup_task.updated",
+  AACCUP_TASK_ARCHIVED: "aaccup_task.archived",
+  AACCUP_TASK_RESTORED: "aaccup_task.restored",
+
   // Sprint 7.3 — Notification & Email Service. `notification.read` is skipped
   // for programmatic (system-generated) notifications — they are not actor
   // actions and would flood the log; the admin announcement surface writes
@@ -218,6 +223,50 @@ export const AUDIT_ACTIONS = {
   WORKFLOW_INSTANCE_TRANSITIONED: "workflow_instance.transitioned",
   WORKFLOW_INSTANCE_COMPLETED: "workflow_instance.completed",
   WORKFLOW_INSTANCE_OVERRIDDEN: "workflow_instance.overridden",
+
+  // Sprint 7.4.6 — Dynamic Form Builder. Template lifecycle + field actions
+  // are written by the root form service on every mutation; version rows are
+  // snapshotted inside the same transaction that bumps the template version.
+  FORM_CREATED: "form.created",
+  FORM_UPDATED: "form.updated",
+  FORM_SAVED: "form.saved",
+  FORM_PUBLISHED: "form.published",
+  FORM_ARCHIVED: "form.archived",
+  FORM_RESTORED: "form.restored",
+  FORM_DELETED: "form.deleted",
+  FORM_DUPLICATED: "form.duplicated",
+  FORM_ASSIGNED: "form.assigned",
+  FORM_UNASSIGNED: "form.unassigned",
+  FORM_VERSION_CREATED: "form.version.created",
+  FORM_ROLLED_BACK: "form.rolled_back",
+
+  // Sprint 7.4.8 — Platform Setup Wizard. The six content actions the spec
+  // lists (Organization Created, Folder Templates Created, Requirements
+  // Created, Workflow Assigned, Forms Assigned, Administrator Created) are
+  // already emitted by their own modules' services — the setup module only
+  // adds the wizard lifecycle actions below.
+  SETUP_STARTED: "setup.started",
+  SETUP_UPDATED: "setup.updated",
+  SETUP_COMPLETED: "setup.completed",
+  SETUP_LOGO_UPLOADED: "setup.logo_uploaded",
+
+  // Sprint: Personal Document Repository & File Lifecycle
+  REPOSITORY_PROVISIONED: "repository.provisioned",
+  REPOSITORY_EMERGENCY_GRANTED: "repository.emergency.granted",
+  REPOSITORY_EMERGENCY_REVOKED: "repository.emergency.revoked",
+  DOCUMENT_COPIED: "document.copied",
+  DOCUMENT_PERMANENTLY_DELETED: "document.permanently_deleted",
+  DOCUMENT_FAVORITED: "document.favorited",
+  DOCUMENT_UNFAVORITED: "document.unfavorited",
+  DOCUMENT_PREVIEWED: "document.previewed",
+  DOCUMENT_UPLOAD_FAILED: "document.upload_failed",
+  FOLDER_RESTORED: "folder.restored",
+  FOLDER_COPIED: "folder.copied",
+  FOLDER_PERMANENTLY_DELETED: "folder.permanently_deleted",
+  FOLDER_PINNED: "folder.pinned",
+  FOLDER_UNPINNED: "folder.unpinned",
+  RECYCLE_BIN_EMPTIED: "recycle_bin.emptied",
+  REQUEST_FULFILLED_DELIVERED: "request.fulfilled.delivered",
 
   AUDIT_LOGS_CLEARED: "audit.cleared",
 } as const;

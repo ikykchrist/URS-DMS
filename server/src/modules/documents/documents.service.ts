@@ -1,18 +1,24 @@
-import { presignDownload, presignUpload, statObject, getObjectStream } from "@/lib/storage";
+import { presignDownload, presignUpload, statObject, getObjectStream, deleteObject } from "@/lib/storage";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS } from "@/config/constants";
 import { writeAudit } from "@/modules/audit/audit.service";
+import { notifyUser, notifyUsers } from "@/modules/notifications/notifications.service";
+import type { NotificationType } from "@prisma/client";
+import { getConfigValue } from "@/modules/root/root.config.service";
+import { ensureRepository } from "@/modules/repositories/repository.repository";
 import {
   bindWorkflowInstance,
   evaluateWorkflowAction,
   recordWorkflowAction,
   scopesForDocument,
 } from "@/modules/workflow/workflow.engine";
-import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "@/utils/errors";
+import { BadRequestError, ConflictError, NotFoundError } from "@/utils/errors";
 import * as repo from "@/modules/documents/documents.repository";
 import type { Prisma } from "@prisma/client";
 import type { ListDocumentsQuery } from "@/modules/documents/documents.validator";
+import type { CopyDocumentInput } from "@/modules/documents/documents.validator";
+import { documentSelect } from "@/modules/documents/documents.types";
 import type {
   AddVersionInput,
   CreateDocumentInput,
@@ -27,14 +33,14 @@ import type {
 import type { DocumentStatus } from "@prisma/client";
 
 // =============================================================================
-// URS-DMS — documents service
+// URS-DMS â€” documents service
 // RBAC model:
 //   - "managers" = users holding documents.delete (admins + QAOs).
 //   - otherwise: owner OR active share OR folder/department scope.
-// No `if (role === "admin")` anywhere — every check routes through permissions.
+// No `if (role === "admin")` anywhere â€” every check routes through permissions.
 // =============================================================================
 
-// Sprint 7.4.5 — document status → workflow action adapter (glue convention,
+// Sprint 7.4.5 â€” document status â†’ workflow action adapter (glue convention,
 // not workflow data: the action names themselves are authored by ROOT).
 const DOCUMENT_STATUS_ACTIONS: Record<DocumentStatus, string> = {
   DRAFT: "RESET_TO_DRAFT",
@@ -78,36 +84,64 @@ export interface Actor {
 const SHARE_PERMISSIONS = ["READ", "WRITE", "OWNER"] as const;
 type SharePermissionValue = (typeof SHARE_PERMISSIONS)[number];
 
-function isManager(actor: Actor): boolean {
-  return actor.permissions.includes("documents.delete");
-}
-
+// Rule 1 / D-002: repository access is OWNERSHIP-BASED. Member roles hold
+// documents.delete for their own repository, so a permission-based "manager"
+// shortcut would let any account bypass ownership. Managers see other
+// accounts' records only through explicit management surfaces (reports,
+// submission review), never through the documents API.
 function canReadWrite(actor: Actor, ownerId: string): boolean {
   if (actor.id === ownerId) return true;
-  if (isManager(actor)) return true;
-  return actor.permissions.includes("documents.update");
+  return false;
 }
 
 async function assertCanRead(actor: Actor, doc: { ownerId: string; id: string }): Promise<void> {
   if (canReadWrite(actor, doc.ownerId)) return;
   const share = await repo.findActiveShare(doc.id, actor.id);
   if (share) return;
-  throw new ForbiddenError("You do not have access to this document");
+  // Rule 22: AACCUP submission review and document-request management are the
+  // CONTROLLED transfer mechanisms — an authorized reviewer/manager may READ
+  // a document that is the subject of a submission/request (never write).
+  if (await hasManagedReadAccess(actor, doc.id)) return;
+  // Rule 1: direct-ID access to another account's item must NOT reveal
+  // existence — always 404.
+  throw new NotFoundError("Document not found");
+}
+
+/** Controlled-transfer read access (rule 22) — review/request surfaces only. */
+async function hasManagedReadAccess(actor: Actor, documentId: string): Promise<boolean> {
+  try {
+    if (actor.permissions.includes("aaccup.submission.review")) {
+      const submission = await prisma.aaccupSubmission.findFirst({
+        where: { documentId, deletedAt: null },
+        select: { id: true },
+      });
+      if (submission) return true;
+    }
+    if (actor.permissions.includes("request.manage")) {
+      const request = await prisma.documentRequest.findFirst({
+        where: { documentId },
+        select: { id: true },
+      });
+      if (request) return true;
+    }
+  } catch {
+    // best-effort; ownership checks above are authoritative
+  }
+  return false;
 }
 
 async function assertCanWrite(actor: Actor, doc: { ownerId: string; id: string }): Promise<void> {
   if (actor.id === doc.ownerId) return;
-  if (isManager(actor)) return;
+  // Rule 1: only the owner may modify a repository document. An active
+  // WRITE/OWNER share grants write access to the shared copy.
   const share = await repo.findActiveShare(doc.id, actor.id);
   if (share && (share.permission === "WRITE" || share.permission === "OWNER")) return;
-  if (actor.permissions.includes("documents.update")) return;
-  throw new ForbiddenError("You cannot modify this document");
+  throw new NotFoundError("Document not found");
 }
 
 async function assertCanManage(actor: Actor, doc: { ownerId: string; id: string }): Promise<void> {
   if (actor.id === doc.ownerId) return;
-  if (isManager(actor)) return;
-  throw new ForbiddenError("Only the owner or a manager can perform this action");
+  throw new NotFoundError("Document not found");
 }
 
 // -----------------------------------------------------------------------------
@@ -121,17 +155,19 @@ export async function listDocuments(query: ListDocumentsQuery, actor: Actor): Pr
   if (query.status) where.status = query.status;
   if (query.classification) where.classification = query.classification;
   if (query.departmentId) where.departmentId = query.departmentId;
-  if (query.folderId) where.folderId = query.folderId;
+  if (query.folderId !== undefined) {
+    where.folderId = query.folderId; // null => root-level documents (no folder)
+  }
   if (query.ownerId) where.ownerId = query.ownerId;
   if (query.uploadedById) {
     where.versions = { some: { uploadedById: query.uploadedById } };
   }
   if (query.tag) where.tags = { some: { tag: query.tag } };
 
-  // Scope: managers see everything; everyone else sees owned + shared.
-  if (!isManager(actor)) {
-    where.OR = [{ ownerId: actor.id }, { shares: { some: { userId: actor.id } } }];
-  }
+  // Rule 1 / D-002: lists are ALWAYS owner-or-shared scoped — the manager
+  // bypass was removed because member roles legitimately hold
+  // documents.delete for their own repository.
+  where.OR = [{ ownerId: actor.id }, { shares: { some: { userId: actor.id } } }];
 
   if (query.q) {
     const qFilter: Prisma.DocumentWhereInput = {
@@ -155,7 +191,7 @@ export async function listDocuments(query: ListDocumentsQuery, actor: Actor): Pr
 
   const r = await repo.list(where, page, pageSize, orderBy);
   return {
-    items: r.items,
+    items: await enrichSubmissionStatuses(r.items),
     meta: {
       page: r.page,
       pageSize: r.pageSize,
@@ -198,9 +234,9 @@ export async function createDocument(
       tx,
     );
 
-    // Sprint 7.4.5 — bind a published workflow instance (if one is assigned
+    // Sprint 7.4.5 â€” bind a published workflow instance (if one is assigned
     // to the document's folder/department scope) inside the same transaction.
-    // No assignment → legacy flow unchanged.
+    // No assignment â†’ legacy flow unchanged.
     const scopes = await scopesForDocument(created.id, tx);
     await bindWorkflowInstance({
       entityType: "DOCUMENT",
@@ -275,7 +311,7 @@ export async function updateDocument(
   let updated: DocumentDetail | undefined;
   let evaluation: Awaited<ReturnType<typeof evaluateWorkflowAction>> = null;
   await prisma.$transaction(async (tx) => {
-    // Sprint 7.4.5 — workflow gate on status transitions: if a published
+    // Sprint 7.4.5 â€” workflow gate on status transitions: if a published
     // workflow controls this document, the status change must be an allowed
     // action from the current step (legacy fallback when no instance is
     // bound). Non-status edits skip the gate entirely.
@@ -359,33 +395,87 @@ export async function softDeleteDocument(id: string, actor: Actor): Promise<void
     userAgent: actor.userAgent,
   });
 
-  // NOTE: physical MinIO object cleanup is intentionally deferred — soft-deleted
+  // NOTE: physical MinIO object cleanup is intentionally deferred â€” soft-deleted
   // documents may be restored. A scheduled job should purge objects once the
   // document row is permanently destroyed (out of Sprint 3 scope).
 }
 
 // -----------------------------------------------------------------------------
-// restoreDocument
+// restoreDocument (recycle bin) — owner-only, conflict-aware (rule 10/8)
 // -----------------------------------------------------------------------------
-export async function restoreDocument(id: string, actor: Actor): Promise<DocumentDetail> {
+export interface RestoreDocumentInput {
+  targetFolderId?: string | null;
+  conflictMode?: "keep_both" | "replace" | "cancel";
+}
+
+export async function restoreDocument(
+  id: string,
+  input: RestoreDocumentInput,
+  actor: Actor,
+): Promise<DocumentDetail> {
   const existing = await repo.findByIdIncludingDeleted(id);
   if (!existing) throw new NotFoundError("Document not found");
-  if (!isManager(actor)) {
-    throw new ForbiddenError("Only managers can restore deleted documents");
+  if (existing.ownerId !== actor.id) throw new NotFoundError("Document not found");
+
+  // Resolve the destination folder: explicit target, else original parent if
+  // it still exists and is owned + active, else repository root.
+  let targetFolderId: string | null = existing.folderId;
+  if (input.targetFolderId !== undefined) targetFolderId = input.targetFolderId;
+  if (targetFolderId) {
+    const target = await prisma.folder.findFirst({
+      where: { id: targetFolderId, ownerId: actor.id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!target) targetFolderId = null;
+  }
+
+  // Name-conflict handling against ACTIVE files in the destination.
+  const conflictMode = input.conflictMode ?? "keep_both";
+  let restoredTitle = existing.title;
+  if (targetFolderId) {
+    const clash = await prisma.document.findFirst({
+      where: {
+        ownerId: actor.id,
+        folderId: targetFolderId,
+        deletedAt: null,
+        title: existing.title,
+      },
+      select: { id: true, title: true },
+    });
+    if (clash) {
+      if (conflictMode === "cancel") {
+        throw new ConflictError(
+          `A file named "${existing.title}" already exists in the destination`,
+          { existingId: clash.id },
+        );
+      }
+      if (conflictMode === "replace") {
+        await prisma.document.update({ where: { id: clash.id }, data: { deletedAt: new Date() } });
+      } else {
+        // keep_both: suffix the restored file's title.
+        restoredTitle = await uniqueCopyTitle(actor.id, targetFolderId, existing.title);
+      }
+    }
   }
 
   const restored = await repo.restore(id);
+  if (restored.folderId !== targetFolderId || restoredTitle !== existing.title) {
+    await prisma.document.update({ where: { id }, data: { folderId: targetFolderId, title: restoredTitle } });
+    restored.folderId = targetFolderId;
+    restored.title = restoredTitle;
+  }
 
   await writeAudit({
     action: AUDIT_ACTIONS.DOCUMENT_RESTORED,
     userId: actor.id,
     entity: "document",
     entityId: id,
+    newValue: { folderId: targetFolderId, conflictMode },
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
   });
 
-  return restored;
+  return (await repo.findByIdIncludingDeleted(id)) ?? restored;
 }
 
 // -----------------------------------------------------------------------------
@@ -415,6 +505,9 @@ export async function getDownloadUrl(
 
   const dl = await presignDownload(version.objectKey);
 
+  // Record the file in the owner's recents (best-effort).
+  await recordRecent(actor, "FILE", id);
+
   await writeAudit({
     action: AUDIT_ACTIONS.DOCUMENT_DOWNLOADED,
     userId: actor.id,
@@ -436,11 +529,422 @@ export async function getDownloadUrl(
 }
 
 // -----------------------------------------------------------------------------
-// getPreviewUrl — same as download, distinct audit context omitted on purpose
+// getPreviewUrl â€” same as download, distinct audit context omitted on purpose
 // (preview is a read of the latest version rendered inline).
 // -----------------------------------------------------------------------------
 export async function getPreviewUrl(id: string, actor: Actor): Promise<DownloadResult> {
-  return getDownloadUrl(id, actor);
+  const result = await getDownloadUrl(id, actor);
+  await writeAudit({
+    action: AUDIT_ACTIONS.DOCUMENT_PREVIEWED,
+    userId: actor.id,
+    entity: "document",
+    entityId: id,
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+  });
+  return result;
+}
+
+// -----------------------------------------------------------------------------
+// Personal repository document lifecycle (copy, recycle bin, favorites)
+// -----------------------------------------------------------------------------
+
+/**
+ * Attach the latest AACCUP submission status to list items (badges). One
+ * batched query per list — never N+1. Submission state is the authoritative
+ * source; status is never inferred.
+ */
+async function enrichSubmissionStatuses(items: DocumentListItem[]): Promise<DocumentListItem[]> {
+  if (items.length === 0) return items;
+  const ids = items.map((item) => item.id);
+  const submissions = await prisma.aaccupSubmission.findMany({
+    where: { documentId: { in: ids }, deletedAt: null },
+    orderBy: { submittedAt: "desc" },
+    select: { documentId: true, status: true },
+  });
+  const latest = new Map<string, NonNullable<DocumentListItem["submissionStatus"]>>();
+  for (const submission of submissions) {
+    if (!latest.has(submission.documentId)) latest.set(submission.documentId, submission.status);
+  }
+  return items.map((item) => ({ ...item, submissionStatus: latest.get(item.id) ?? null }));
+}
+
+/** List the owner's deleted documents (recycle bin). */
+export async function listDeletedDocuments(actor: Actor): Promise<DocumentListItem[]> {
+  const rows = await prisma.document.findMany({
+    where: { ownerId: actor.id, deletedAt: { not: null } },
+    select: documentSelect,
+    orderBy: { updatedAt: "desc" },
+  });
+  return enrichSubmissionStatuses(rows.map((row) => repo.toListItemPublic(row)));
+}
+
+/**
+ * List the owner's Requested Documents — documents delivered through approved
+ * document requests. Delivery creates an owner-owned copy flagged with
+ * metadata.delivered = true (requests module), so this is a pure owner-scoped
+ * read; access, never ownership of the source document (spec §10.2).
+ */
+export async function listRequestedDocuments(actor: Actor): Promise<DocumentListItem[]> {
+  const rows = await prisma.document.findMany({
+    where: {
+      ownerId: actor.id,
+      deletedAt: null,
+      metadata: { path: ["delivered"], equals: true },
+    },
+    select: documentSelect,
+    orderBy: { updatedAt: "desc" },
+  });
+  return rows.map((row) => repo.toListItemPublic(row));
+}
+
+/**
+ * Copy a document into a folder (or root). The copy is a fresh record
+ * referencing the same immutable version object(s); replacing one copy never
+ * alters the other. Name conflicts: keep_both auto-suffixes "(n)".
+ */
+export async function copyDocument(
+  id: string,
+  input: CopyDocumentInput,
+  actor: Actor,
+): Promise<DocumentDetail> {
+  const source = await repo.findById(id);
+  if (!source) throw new NotFoundError("Document not found");
+  await assertCanWrite(actor, source);
+
+  if (input.targetFolderId) {
+    const target = await prisma.folder.findFirst({
+      where: { id: input.targetFolderId, ownerId: actor.id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!target) throw new NotFoundError("Destination folder not found");
+  }
+
+  const repositoryId = await ensureRepository(actor.id);
+  let title = source.title;
+  if (input.conflictMode === "keep_both" || input.conflictMode === "cancel") {
+    const conflict = await prisma.document.findFirst({
+      where: { ownerId: actor.id, folderId: input.targetFolderId ?? null, title, deletedAt: null },
+      select: { id: true },
+    });
+    if (conflict && input.conflictMode === "cancel") {
+      throw new ConflictError("A file with this name already exists in the destination");
+    }
+    if (conflict) {
+      title = await uniqueCopyTitle(actor.id, input.targetFolderId ?? null, source.title);
+    }
+  }
+
+  const copied = await prisma.document.create({
+    data: {
+      title,
+      description: source.description,
+      classification: source.classification,
+      metadata: source.metadata as Prisma.InputJsonValue | undefined,
+      ownerId: actor.id,
+      folderId: input.targetFolderId ?? null,
+      repositoryId,
+    },
+  });
+
+  // Copy current version as a shared immutable blob reference.
+  const current = await prisma.documentVersion.findFirst({
+    where: { documentId: id, id: source.currentVersionId ?? undefined },
+    orderBy: { versionNumber: "desc" },
+  });
+  if (current) {
+    const newVersion = await prisma.documentVersion.create({
+      data: {
+        documentId: copied.id,
+        versionNumber: 1,
+        objectKey: current.objectKey,
+        filename: current.filename,
+        mimeType: current.mimeType,
+        sizeBytes: current.sizeBytes,
+        checksum: current.checksum,
+        changeNote: "Copied file",
+        uploadedById: actor.id,
+      },
+    });
+    await prisma.document.update({ where: { id: copied.id }, data: { currentVersionId: newVersion.id } });
+  }
+
+  await writeAudit({
+    action: AUDIT_ACTIONS.DOCUMENT_COPIED,
+    userId: actor.id,
+    entity: "document",
+    entityId: copied.id,
+    newValue: { source: id, targetFolderId: input.targetFolderId ?? null, title },
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+  });
+
+  const detail = await repo.findById(copied.id);
+  if (!detail) throw new NotFoundError("Copied document not found");
+  return detail;
+}
+
+async function uniqueCopyTitle(ownerId: string, folderId: string | null, base: string): Promise<string> {
+  const dot = base.lastIndexOf(".");
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  const ext = dot > 0 ? base.slice(dot) : "";
+  let n = 1;
+  while (true) {
+    const candidate = `${stem} (${n})${ext}`;
+    const clash = await prisma.document.findFirst({
+      where: { ownerId, folderId, title: candidate, deletedAt: null },
+      select: { id: true },
+    });
+    if (!clash) return candidate;
+    n += 1;
+  }
+}
+
+/**
+ * Permanently delete a document (recycle-bin permanent delete). Guarded: a
+ * submission snapshot that still references this document blocks deletion.
+ * Physical objects are removed only when no remaining version row references
+ * them (shared immutable blobs from copies must survive).
+ */
+export async function permanentDeleteDocument(id: string, actor: Actor): Promise<void> {
+  const doc = await prisma.document.findUnique({ where: { id } });
+  if (!doc) throw new NotFoundError("Document not found");
+  if (doc.ownerId !== actor.id) throw new NotFoundError("Document not found");
+
+  const snapshotRefs = await prisma.aaccupSubmission.count({ where: { documentId: id } });
+  if (snapshotRefs > 0) {
+    throw new ConflictError(
+      "This file is referenced by an accreditation submission snapshot and cannot be permanently deleted",
+    );
+  }
+
+  const objectKeys = await prisma.documentVersion.findMany({
+    where: { documentId: id },
+    select: { objectKey: true },
+  });
+  const keysToDelete: string[] = [];
+  for (const { objectKey } of objectKeys) {
+    const otherRefs = await prisma.documentVersion.count({
+      where: { objectKey, documentId: { not: id } },
+    });
+    if (otherRefs === 0) keysToDelete.push(objectKey);
+  }
+
+  await prisma.document.delete({ where: { id } });
+
+  for (const objectKey of keysToDelete) {
+    try {
+      await deleteObject(objectKey);
+    } catch {
+      // orphan cleanup is best-effort; row removal is authoritative
+    }
+  }
+
+  await writeAudit({
+    action: AUDIT_ACTIONS.DOCUMENT_PERMANENTLY_DELETED,
+    userId: actor.id,
+    entity: "document",
+    entityId: id,
+    oldValue: { title: doc.title },
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+  });
+}
+
+// â”€â”€ Favorites â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+export async function favoriteDocument(id: string, actor: Actor): Promise<void> {
+  const doc = await repo.findById(id);
+  if (!doc) throw new NotFoundError("Document not found");
+  await assertCanRead(actor, doc);
+  await prisma.repositoryFavorite.upsert({
+    where: { ownerId_documentId: { ownerId: actor.id, documentId: id } },
+    create: { ownerId: actor.id, documentId: id },
+    update: {},
+  });
+  await writeAudit({
+    action: AUDIT_ACTIONS.DOCUMENT_FAVORITED,
+    userId: actor.id,
+    entity: "document",
+    entityId: id,
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+  });
+}
+
+export async function unfavoriteDocument(id: string, actor: Actor): Promise<void> {
+  await prisma.repositoryFavorite.deleteMany({ where: { ownerId: actor.id, documentId: id } });
+  await writeAudit({
+    action: AUDIT_ACTIONS.DOCUMENT_UNFAVORITED,
+    userId: actor.id,
+    entity: "document",
+    entityId: id,
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+  });
+}
+
+export async function listFavoriteDocuments(actor: Actor): Promise<DocumentListItem[]> {
+  const rows = await prisma.document.findMany({
+    where: {
+      ownerId: actor.id,
+      deletedAt: null,
+      favorites: { some: { ownerId: actor.id } },
+    },
+    select: documentSelect,
+    orderBy: { updatedAt: "desc" },
+  });
+  return enrichSubmissionStatuses(rows.map((row) => repo.toListItemPublic(row)));
+}
+
+// â”€â”€ Recents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+export async function recordRecent(
+  actor: Actor,
+  itemType: "FILE" | "FOLDER",
+  itemId: string,
+): Promise<void> {
+  await prisma.repositoryRecent.upsert({
+    where: { ownerId_itemType_itemId: { ownerId: actor.id, itemType, itemId } },
+    create: { ownerId: actor.id, itemType, itemId, lastOpenedAt: new Date() },
+    update: { lastOpenedAt: new Date() },
+  });
+  // Keep the recent list bounded (50 per type).
+  const stale = await prisma.repositoryRecent.findMany({
+    where: { ownerId: actor.id, itemType },
+    orderBy: { lastOpenedAt: "desc" },
+    skip: 50,
+    select: { id: true },
+  });
+  if (stale.length > 0) {
+    await prisma.repositoryRecent.deleteMany({ where: { id: { in: stale.map((s) => s.id) } } });
+  }
+}
+
+export interface RecentItem {
+  itemType: "FILE" | "FOLDER";
+  itemId: string;
+  name: string;
+  lastOpenedAt: string;
+}
+
+export interface DocumentActivityEvent {
+  id: string;
+  action: string;
+  status: string;
+  timestamp: string;
+  actorName: string | null;
+  actorEmail: string | null;
+  details: Prisma.JsonValue;
+}
+
+export interface DocumentActivity {
+  downloadCount: number;
+  events: DocumentActivityEvent[];
+}
+
+/**
+ * Per-file Details / Activity view (rule 18). The authoritative source is the
+ * global AuditLog — events are filtered to this document, never duplicated.
+ * Read-only; no audit entry is written.
+ */
+export async function getDocumentActivity(id: string, actor: Actor): Promise<DocumentActivity> {
+  const doc = await repo.findById(id);
+  if (!doc) throw new NotFoundError("Document not found");
+  await assertCanRead(actor, doc);
+
+  const [auditRows, downloadCount] = await Promise.all([
+    prisma.auditLog.findMany({
+      where: { entity: "document", entityId: id },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        action: true,
+        createdAt: true,
+        userId: true,
+        newValue: true,
+        user: { select: { firstName: true, lastName: true, email: true } },
+      },
+    }),
+    prisma.auditLog.count({
+      where: { entity: "document", entityId: id, action: AUDIT_ACTIONS.DOCUMENT_DOWNLOADED },
+    }),
+  ]);
+
+  return {
+    downloadCount,
+    events: auditRows.map((row) => ({
+      id: row.id,
+      action: row.action,
+      status: row.action.includes("failed") || row.action.includes("denied") ? "FAILURE" : "SUCCESS",
+      timestamp: row.createdAt.toISOString(),
+      actorName: row.user ? `${row.user.firstName} ${row.user.lastName}`.trim() : null,
+      actorEmail: row.user?.email ?? null,
+      details: row.newValue,
+    })),
+  };
+}
+
+export async function listRecents(actor: Actor): Promise<RecentItem[]> {
+  const rows = await prisma.repositoryRecent.findMany({
+    where: { ownerId: actor.id },
+    orderBy: { lastOpenedAt: "desc" },
+    take: 50,
+  });
+  const items: RecentItem[] = [];
+  for (const row of rows) {
+    const name = row.itemType === "FILE"
+      ? (await prisma.document.findUnique({ where: { id: row.itemId }, select: { title: true } }))?.title
+      : (await prisma.folder.findUnique({ where: { id: row.itemId }, select: { name: true } }))?.name;
+    if (name) {
+      items.push({
+        itemType: row.itemType as "FILE" | "FOLDER",
+        itemId: row.itemId,
+        name,
+        lastOpenedAt: row.lastOpenedAt.toISOString(),
+      });
+    }
+  }
+  return items;
+}
+
+// -----------------------------------------------------------------------------
+// Upload policy (Configuration Engine integration â€” Sprint 7.5)
+// -----------------------------------------------------------------------------
+// Reads the live platform policy instead of duplicating constants. Both keys
+// are seeded by the Configuration Engine (Sprint 7.4.1):
+//   upload.max_size_bytes     â€” max bytes per uploaded file (100 MB default)
+//   upload.allowed_file_types â€” extensions (e.g. ["pdf","docx"]) allowed;
+//                               empty/absent => everything allowed
+// -----------------------------------------------------------------------------
+async function assertUploadPolicy(
+  filename: string,
+  mimeType: string,
+  sizeBytes: bigint,
+): Promise<void> {
+  const [maxSizeValue, allowedTypesValue] = await Promise.all([
+    getConfigValue("upload.max_size_bytes"),
+    getConfigValue("upload.allowed_file_types"),
+  ]);
+
+  const maxSize = Number(maxSizeValue ?? 104857600);
+  if (sizeBytes > BigInt(maxSize)) {
+    throw new BadRequestError(
+      `File exceeds the configured maximum size of ${maxSize} bytes`,
+    );
+  }
+
+  const allowed = Array.isArray(allowedTypesValue) ? allowedTypesValue : [];
+  if (allowed.length > 0) {
+    const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+    if (!allowed.map((item) => String(item).toLowerCase()).includes(ext)) {
+      throw new BadRequestError(
+        `File type ".${ext}" is not allowed (allowed: ${allowed.join(", ")})`,
+      );
+    }
+  }
+  void mimeType;
 }
 
 // -----------------------------------------------------------------------------
@@ -463,7 +967,14 @@ export async function addVersion(
   if (!doc) throw new NotFoundError("Document not found");
   await assertCanWrite(actor, doc);
 
-  // ── Dedupe: reject if a version with this checksum already exists for this
+  // â”€â”€ Configuration Engine enforcement (Sprint 7.5 integration): upload size
+  // and allowed file types come from the Configuration Engine keys
+  // (upload.max_size_bytes, upload.allowed_file_types) so ROOT can tune them
+  // without code changes. Fallbacks preserve the pre-integration defaults:
+  // 100 MB cap and no type restriction.
+  await assertUploadPolicy(input.filename, input.mimeType, input.sizeBytes);
+
+  // â”€â”€ Dedupe: reject if a version with this checksum already exists for this
   // document. Avoids storing identical bytes twice under different version
   // numbers. Checked BEFORE creating the version row so we don't leave
   // orphaned rows on the rejection path.
@@ -544,7 +1055,7 @@ export async function listVersions(
 }
 
 // -----------------------------------------------------------------------------
-// verifyUpload — called by the controller after the client completes the
+// verifyUpload â€” called by the controller after the client completes the
 // presigned PUT to MinIO. ETags are MD5/multipart identifiers, not SHA-256, so
 // verification streams the stored object through Node's SHA-256 hasher. The
 // version becomes current only after both size and digest checks succeed.
@@ -569,10 +1080,11 @@ export async function verifyUpload(
     storedSize = stat.size;
   } catch {
     // Object not yet uploaded (client hasn't completed the PUT) or storage
-    // is unavailable. Surface as a 400 — caller behavior: client should retry
+    // is unavailable. Surface as a 400 â€" caller behavior: client should retry
     // the upload then call verify again.
+    await recordUploadFailure(actor, doc, version, "object not yet available in storage");
     throw new BadRequestError(
-      "Object is not yet available in storage — complete the upload before verifying",
+      "Object is not yet available in storage - complete the upload before verifying",
     );
   }
 
@@ -588,6 +1100,7 @@ export async function verifyUpload(
     if (doc.currentVersionId === versionId) {
       await repo.update({ id: documentId, data: { currentVersionId: null } });
     }
+    await recordUploadFailure(actor, doc, version, "size or checksum mismatch");
     throw new BadRequestError(
       "Uploaded file size or checksum does not match the declared values - version rolled back",
       {
@@ -610,6 +1123,89 @@ export async function verifyUpload(
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
   });
+
+  // Rule 19: upload-completed notification (backend-authoritative, single write).
+  await safeNotify(actor.id, "DOCUMENT_UPLOADED", {
+    title: "Upload completed",
+    message: `"${doc.title}" was uploaded successfully.`,
+    entity: "document",
+    entityId: documentId,
+  });
+
+  // Rule 19: storage warning when a verified threshold is crossed (best-effort,
+  // throttled to one warning per 24h).
+  await maybeEmitStorageWarning();
+}
+
+/**
+ * Single authoritative upload-failure audit + notification (rules 19/23).
+ * Called ONLY from verifyUpload so each failed upload is recorded exactly once.
+ */
+async function recordUploadFailure(
+  actor: Actor,
+  doc: { id: string; title: string },
+  version: { versionNumber: number; checksum: string },
+  reason: string,
+): Promise<void> {
+  await writeAudit({
+    action: AUDIT_ACTIONS.DOCUMENT_UPLOAD_FAILED,
+    userId: actor.id,
+    entity: "document",
+    entityId: doc.id,
+    newValue: { versionNumber: version.versionNumber, checksum: version.checksum, failureReason: reason },
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+  });
+  await safeNotify(actor.id, "DOCUMENT_UPLOAD_FAILED", {
+    title: "Upload failed",
+    message: `"${doc.title}" could not be verified (${reason}). Please retry.`,
+    entity: "document",
+    entityId: doc.id,
+  });
+}
+
+/** Best-effort notification emit — never fails the business operation. */
+async function safeNotify(
+  userId: string,
+  type: NotificationType,
+  input: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await notifyUser(userId, type, input);
+  } catch {
+    // notifications must never break the document operation
+  }
+}
+
+/** Storage-warning emitter (rule 19): throttled to one warning per 24h. */
+async function maybeEmitStorageWarning(): Promise<void> {
+  try {
+    const thresholdValue = await getConfigValue("storage.warning_threshold");
+    if (thresholdValue === null || thresholdValue === undefined) return;
+    const thresholdBytes = Number(thresholdValue);
+    if (!Number.isFinite(thresholdBytes) || thresholdBytes <= 0) return;
+
+    const used = await prisma.documentVersion.aggregate({ _sum: { sizeBytes: true } });
+    const usedBytes = Number(used._sum.sizeBytes ?? 0n);
+    if (usedBytes < thresholdBytes) return;
+
+    const recent = await prisma.notification.findFirst({
+      where: { type: "STORAGE_WARNING", createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+      select: { id: true },
+    });
+    if (recent) return;
+
+    const targets = await prisma.user.findMany({
+      where: { deletedAt: null, status: "ACTIVE", role: { name: { in: ["ROOT", "ADMINISTRATOR"] } } },
+      select: { id: true },
+    });
+    await notifyUsers(targets.map((t) => t.id), "STORAGE_WARNING", {
+      title: "Storage warning",
+      message: `Platform storage usage (${Math.round(usedBytes / 1048576)} MB) exceeds the configured warning threshold.`,
+    });
+  } catch {
+    // storage warnings are advisory
+  }
 }
 
 // -----------------------------------------------------------------------------

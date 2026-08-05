@@ -10,7 +10,7 @@ import type {
 } from "@/modules/documents/documents.validator";
 
 // =============================================================================
-// URS-DMS — documents controller (thin)
+// URS-DMS â€” documents controller (thin)
 // All handlers expect req.auth (set by authenticate) and req.context (set by
 // requestContext). Each handler maps request data into the service actor.
 // =============================================================================
@@ -53,6 +53,18 @@ export async function deleteDocumentHandler(req: Request, res: Response): Promis
   const { id } = req.params as { id: string };
   await service.softDeleteDocument(id, toActor(req));
   sendNoContent(res);
+}
+
+export async function restoreDocumentHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  const document = await service.restoreDocument(id, req.body as service.RestoreDocumentInput, toActor(req));
+  sendSuccess(res, document);
+}
+
+export async function getDocumentActivityHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  const activity = await service.getDocumentActivity(id, toActor(req));
+  sendSuccess(res, activity);
 }
 
 export async function downloadDocumentHandler(req: Request, res: Response): Promise<void> {
@@ -98,4 +110,47 @@ export async function unshareDocumentHandler(req: Request, res: Response): Promi
   const { id, userId } = req.params as { id: string; userId: string };
   await service.unshareDocument(id, userId, toActor(req));
   sendNoContent(res);
+}
+export async function listDeletedDocumentsHandler(req: Request, res: Response): Promise<void> {
+  const items = await service.listDeletedDocuments(toActor(req));
+  sendSuccess(res, items);
+}
+
+export async function listRequestedDocumentsHandler(req: Request, res: Response): Promise<void> {
+  const items = await service.listRequestedDocuments(toActor(req));
+  sendSuccess(res, items);
+}
+
+export async function copyDocumentHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  const document = await service.copyDocument(id, req.body as never, toActor(req));
+  sendCreated(res, document);
+}
+
+export async function permanentDeleteDocumentHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  await service.permanentDeleteDocument(id, toActor(req));
+  sendNoContent(res);
+}
+
+export async function favoriteDocumentHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  await service.favoriteDocument(id, toActor(req));
+  sendSuccess(res, { favorited: true });
+}
+
+export async function unfavoriteDocumentHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  await service.unfavoriteDocument(id, toActor(req));
+  sendSuccess(res, { favorited: false });
+}
+
+export async function listFavoriteDocumentsHandler(req: Request, res: Response): Promise<void> {
+  const items = await service.listFavoriteDocuments(toActor(req));
+  sendSuccess(res, items);
+}
+
+export async function listRecentsHandler(req: Request, res: Response): Promise<void> {
+  const items = await service.listRecents(toActor(req));
+  sendSuccess(res, items);
 }

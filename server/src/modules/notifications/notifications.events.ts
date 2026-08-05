@@ -15,6 +15,9 @@ import type { NotificationPriority, NotificationType } from "@prisma/client";
 
 export const NOTIFICATION_TYPE_VALUES = [
   "DOCUMENT_UPLOADED",
+  "DOCUMENT_UPLOAD_FAILED",
+  "DOCUMENT_DELIVERED",
+  "DOCUMENT_RETURNED",
   "DOCUMENT_APPROVED",
   "DOCUMENT_REJECTED",
   "REQUEST_SUBMITTED",
@@ -22,6 +25,9 @@ export const NOTIFICATION_TYPE_VALUES = [
   "REQUEST_REJECTED",
   "AACCUP_SUBMISSION_APPROVED",
   "AACCUP_SUBMISSION_REJECTED",
+  "AACCUP_SUBMISSION_RETURNED",
+  "RECYCLE_BIN_CLEANUP",
+  "STORAGE_WARNING",
   "PASSWORD_RESET",
   "ROLE_CHANGED",
   "SYSTEM_ANNOUNCEMENT",
@@ -47,9 +53,27 @@ export const NOTIFICATION_EVENTS: Record<NotificationType, NotificationEventSpec
     defaultMessage: "A document has been uploaded to the document repository.",
     defaultPriority: "MEDIUM",
     email: {
-      subject: "URS-DMS — Document uploaded",
+      subject: "URS-DMS - Document uploaded",
       body: "<p>A document has been uploaded to the URS document repository.</p>",
     },
+  },
+  DOCUMENT_UPLOAD_FAILED: {
+    type: "DOCUMENT_UPLOAD_FAILED",
+    defaultTitle: "Upload failed",
+    defaultMessage: "A document upload could not be verified and was rolled back.",
+    defaultPriority: "HIGH",
+  },
+  DOCUMENT_DELIVERED: {
+    type: "DOCUMENT_DELIVERED",
+    defaultTitle: "Document delivered",
+    defaultMessage: "A requested document has been delivered to your Requested Documents.",
+    defaultPriority: "MEDIUM",
+  },
+  DOCUMENT_RETURNED: {
+    type: "DOCUMENT_RETURNED",
+    defaultTitle: "Document returned",
+    defaultMessage: "A document was returned for revision.",
+    defaultPriority: "HIGH",
   },
   DOCUMENT_APPROVED: {
     type: "DOCUMENT_APPROVED",
@@ -103,10 +127,28 @@ export const NOTIFICATION_EVENTS: Record<NotificationType, NotificationEventSpec
     defaultMessage: "Your AACCUP document submission has been approved.",
     defaultPriority: "MEDIUM",
   },
+  AACCUP_SUBMISSION_RETURNED: {
+    type: "AACCUP_SUBMISSION_RETURNED",
+    defaultTitle: "Submission returned",
+    defaultMessage: "Your AACCUP document submission was returned for revision.",
+    defaultPriority: "HIGH",
+  },
   AACCUP_SUBMISSION_REJECTED: {
     type: "AACCUP_SUBMISSION_REJECTED",
     defaultTitle: "Submission rejected",
     defaultMessage: "Your AACCUP document submission has been rejected.",
+    defaultPriority: "HIGH",
+  },
+  RECYCLE_BIN_CLEANUP: {
+    type: "RECYCLE_BIN_CLEANUP",
+    defaultTitle: "Recycle Bin cleanup",
+    defaultMessage: "An item in your Recycle Bin was permanently removed after the 30-day retention period.",
+    defaultPriority: "LOW",
+  },
+  STORAGE_WARNING: {
+    type: "STORAGE_WARNING",
+    defaultTitle: "Storage warning",
+    defaultMessage: "Platform storage usage exceeds the configured warning threshold.",
     defaultPriority: "HIGH",
   },
   PASSWORD_RESET: {

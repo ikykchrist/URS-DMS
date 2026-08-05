@@ -4,9 +4,11 @@ import { authenticate } from "@/middlewares/authenticate";
 import { requirePermission } from "@/middlewares/authorize";
 import { validateBody, validateParams, validateQuery } from "@/middlewares/validate";
 import {
+  copyFolderSchema,
   createFolderSchema,
   folderIdParamSchema,
   listFoldersQuerySchema,
+  restoreFolderSchema,
   updateFolderSchema,
 } from "@/modules/folders/folders.validator";
 import {
@@ -16,6 +18,19 @@ import {
   listFoldersHandler,
   resolveMyFolderStructureHandler,
   updateFolderHandler,
+} from "@/modules/folders/folders.controller";
+import {
+  copyFolderHandler,
+  downloadFolderZipHandler,
+  getCopyJobHandler,
+  getFolderInfoHandler,
+  listCopyJobsHandler,
+  listDeletedFoldersHandler,
+  listPinnedFoldersHandler,
+  permanentDeleteFolderHandler,
+  pinFolderHandler,
+  restoreFolderHandler,
+  unpinFolderHandler,
 } from "@/modules/folders/folders.controller";
 
 // =============================================================================
@@ -37,6 +52,18 @@ foldersRouter.get(
   requirePermission("folders.read"),
   asyncHandler(resolveMyFolderStructureHandler),
 );
+
+// GET /folders/deleted — owner's recycle bin (fixed segment before /:id)
+foldersRouter.get("/deleted", requirePermission("folders.read"), asyncHandler(listDeletedFoldersHandler));
+
+// GET /folders/pins — quick access list (fixed segment before /:id)
+foldersRouter.get("/pins", requirePermission("folders.read"), asyncHandler(listPinnedFoldersHandler));
+
+// GET /folders/jobs — persisted background copy jobs (fixed segment before /:id)
+foldersRouter.get("/jobs", requirePermission("folders.read"), asyncHandler(listCopyJobsHandler));
+
+// GET /folders/jobs/:id — copy-job progress (fixed segment before /:id)
+foldersRouter.get("/jobs/:id", requirePermission("folders.read"), asyncHandler(getCopyJobHandler));
 
 // GET /folders
 foldersRouter.get(
@@ -77,4 +104,62 @@ foldersRouter.delete(
   requirePermission("folders.delete"),
   validateParams(folderIdParamSchema),
   asyncHandler(deleteFolderHandler),
+);
+
+// POST /folders/:id/restore — restore from recycle bin (conflict-aware)
+foldersRouter.post(
+  "/:id/restore",
+  requirePermission("folders.update"),
+  validateParams(folderIdParamSchema),
+  validateBody(restoreFolderSchema),
+  asyncHandler(restoreFolderHandler),
+);
+
+// POST /folders/:id/copy — copy subtree (merge/keep_both/cancel; background job for large copies)
+foldersRouter.post(
+  "/:id/copy",
+  requirePermission("folders.create"),
+  validateParams(folderIdParamSchema),
+  validateBody(copyFolderSchema),
+  asyncHandler(copyFolderHandler),
+);
+
+// GET /folders/:id/info — recursive counts + size (rule 12)
+foldersRouter.get(
+  "/:id/info",
+  requirePermission("folders.read"),
+  validateParams(folderIdParamSchema),
+  asyncHandler(getFolderInfoHandler),
+);
+
+// GET /folders/:id/zip — streaming ZIP of the active subtree (rule 14)
+foldersRouter.get(
+  "/:id/zip",
+  requirePermission("folders.read"),
+  validateParams(folderIdParamSchema),
+  asyncHandler(downloadFolderZipHandler),
+);
+
+// DELETE /folders/:id/permanent — hard delete the subtree
+foldersRouter.delete(
+  "/:id/permanent",
+  requirePermission("folders.delete"),
+  validateParams(folderIdParamSchema),
+  asyncHandler(permanentDeleteFolderHandler),
+);
+
+// POST /folders/:id/pin — quick access
+foldersRouter.post(
+  "/:id/pin",
+  requirePermission("folders.update"),
+  validateParams(folderIdParamSchema),
+  asyncHandler(pinFolderHandler),
+);
+
+// DELETE /folders/:id/pin — remove from quick access
+foldersRouter.delete(
+  "/:id/pin",
+  requirePermission("folders.update"),
+  validateParams(folderIdParamSchema),
+  asyncHandler(unpinFolderHandler),
 );

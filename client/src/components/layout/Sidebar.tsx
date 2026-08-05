@@ -12,6 +12,7 @@ import {
   BadgeCheck,
   ServerCog,
   SlidersHorizontal,
+  Rocket,
   ScrollText,
   Network,
   FolderTree,
@@ -19,6 +20,7 @@ import {
   Workflow,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import { Button } from "@/components/ui/Button"
 
 interface SidebarItem {
@@ -45,6 +47,8 @@ const rootConsoleItems: SidebarItem[] = [
   { id: "root-folder-builder", icon: FolderTree, label: "Folder Builder" },
   { id: "root-requirement-builder", icon: FileCheck2, label: "Requirement Builder" },
   { id: "root-workflow-builder", icon: Workflow, label: "Workflow Builder" },
+  { id: "root-form-builder", icon: ClipboardList, label: "Form Builder" },
+  { id: "root-setup-wizard", icon: Rocket, label: "Setup Wizard" },
   { id: "root-config", icon: SlidersHorizontal, label: "Configuration Engine" },
   { id: "root-audit", icon: ScrollText, label: "System Audit" },
   { id: "root-users", icon: Users, label: "System Users" },
@@ -59,6 +63,11 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard", onNavigate, showRoot = false }: SidebarProps) {
+  // Rule 6: warn before navigating away while uploads are active.
+  const handleNavigate = (page: string) => {
+    if (!confirmLeaveIfUploading()) return
+    onNavigate?.(page)
+  }
   return (
     <aside
       className={cn(
@@ -73,7 +82,7 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
         )}>
           {!collapsed && (
             <button
-              onClick={() => onNavigate?.("dashboard")}
+              onClick={() => handleNavigate("dashboard")}
               className="flex items-center gap-3 hover:opacity-80 transition-opacity"
             >
               <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shadow-sm">
@@ -87,7 +96,7 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
           )}
           {collapsed && (
             <button
-              onClick={() => onNavigate?.("dashboard")}
+              onClick={() => handleNavigate("dashboard")}
               className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shadow-sm hover:opacity-80 transition-opacity"
             >
               <FileText className="w-5 h-5 text-white" />
@@ -103,7 +112,7 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
               return (
                 <button
                   key={item.id}
-                  onClick={() => onNavigate?.(item.id)}
+                  onClick={() => handleNavigate(item.id)}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150",
                     isActive
@@ -129,7 +138,7 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                 return (
                   <button
                     key={item.id}
-                    onClick={() => onNavigate?.(item.id)}
+                    onClick={() => handleNavigate(item.id)}
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150",
                       isActive

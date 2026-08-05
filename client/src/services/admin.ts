@@ -180,6 +180,33 @@ export async function createSystemDepartment(input: {
   return apiPost<SystemDepartment>("/admin/departments", input)
 }
 
+// ── Colleges (/admin/colleges) ───────────────────────────────────────────────
+
+export interface SystemCollege {
+  id: string
+  name: string
+  code: string
+  description: string | null
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+}
+
+export async function listSystemColleges(query?: {
+  page?: number
+  pageSize?: number
+  q?: string
+  includeArchived?: boolean
+}): Promise<ApiPage<SystemCollege>> {
+  const params = new URLSearchParams()
+  if (query?.page) params.set("page", String(query.page))
+  if (query?.pageSize) params.set("pageSize", String(query.pageSize))
+  if (query?.q) params.set("q", query.q)
+  if (query?.includeArchived) params.set("includeArchived", "true")
+  const qs = params.size > 0 ? `?${params.toString()}` : ""
+  return apiGetPage<SystemCollege>(`/admin/colleges${qs}`)
+}
+
 // ── System Settings (/admin/settings) ────────────────────────────────────────
 
 export interface SystemSettingsView {

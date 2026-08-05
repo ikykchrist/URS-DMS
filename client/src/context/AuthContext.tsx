@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react"
 import { authService } from "@/services/auth"
+import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import type { User, UserRole } from "@/types/domain"
 
 interface AuthContextType {
@@ -48,7 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(state.isLoading)
       setUser(state.user as User | null)
     })
-    return unsub
+    // Expired session (refresh failed): force local logout so protected
+    // routes redirect to the login screen (Sprint 7.8 acceptance).
+    const onSessionExpired = () => {
+      void authService.logout()
+    }
+    window.addEventListener("urs:session-expired", onSessionExpired)
+    return () => {
+      unsub()
+      window.removeEventListener("urs:session-expired", onSessionExpired)
+    }
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
@@ -63,6 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [rememberMe])
 
   const logout = useCallback(async () => {
+    // Rule 6: warn when uploads are still active before logging out.
+    if (!confirmLeaveIfUploading()) return
     await authService.logout()
     if (!rememberMe) {
       localStorage.removeItem(REMEMBER_ME_KEY)

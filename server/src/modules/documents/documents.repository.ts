@@ -15,6 +15,11 @@ function fullName(firstName: string, lastName: string): string {
   return `${firstName} ${lastName}`.trim();
 }
 
+/** Public list-item mapper for rows selected with `documentSelect`. */
+export function toListItemPublic(row: DocumentWithRelations): DocumentListItem {
+  return toListItem(row);
+}
+
 function toListItem(d: DocumentWithRelations): DocumentListItem {
   return {
     id: d.id,
@@ -32,16 +37,18 @@ function toListItem(d: DocumentWithRelations): DocumentListItem {
     currentFilename: d.currentVersion?.filename ?? null,
     currentMimeType: d.currentVersion?.mimeType ?? null,
     currentSizeBytes: d.currentVersion?.sizeBytes.toString() ?? null,
+    currentChecksum: d.currentVersion?.checksum ?? null,
+    submissionStatus: null,
     retentionUntil: d.retentionUntil,
     metadata: d.metadata,
     tags: d.tags.map((tag) => tag.tag),
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
+    deletedAt: d.deletedAt,
   };
 }
 
-function toDetail(d: DocumentWithRelations): DocumentDetail {
-  return {
+function toDetail(d: DocumentWithRelations): DocumentDetail {  return {
     ...toListItem(d),
     shares: d.shares.map((s) => ({
       id: s.id,

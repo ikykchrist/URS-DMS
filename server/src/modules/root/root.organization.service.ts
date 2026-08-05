@@ -1,4 +1,4 @@
-import { writeAudit } from "@/modules/audit/audit.service";
+﻿import { writeAudit } from "@/modules/audit/audit.service";
 import {
   BadRequestError,
   ConflictError,
@@ -17,25 +17,25 @@ import {
 import type { ListOrganizationQuery } from "@/modules/root/root.organization.validator";
 
 // =============================================================================
-// URS-DMS — Root · Organization Management Engine service (Sprint 7.4.2)
+// URS-DMS â€” Root Â· Organization Management Engine service (Sprint 7.4.2)
 // -----------------------------------------------------------------------------
-// Business logic + RBAC re-checks (defence in depth — the route layer's
+// Business logic + RBAC re-checks (defence in depth â€” the route layer's
 // requirePermission(...) is the first gate; the service re-asserts the same
-// permission so a wiring mistake can never bypass RBAC). No role checks —
+// permission so a wiring mistake can never bypass RBAC). No role checks â€”
 // only permission codes.
 //
 // RBAC model (matches the catalog in permissions.constants.ts):
-//   - organization.read     → list / detail / tree / versions
-//   - organization.create   → create
-//   - organization.update   → update
-//   - organization.archive  → archive + restore
-//   - organization.rollback → roll back to a version snapshot
+//   - organization.read     â†’ list / detail / tree / versions
+//   - organization.create   â†’ create
+//   - organization.update   â†’ update
+//   - organization.archive  â†’ archive + restore
+//   - organization.rollback â†’ roll back to a version snapshot
 // All codes are ROOT-only by construction (ROOT_ONLY_CODES in
 // roles.constants.ts), and the router additionally requires role ROOT.
 //
 // Configuration Engine integration: every mutation writes a version snapshot
-// (organization_versions) inside the same transaction as the record write —
-// the same version → rollback lifecycle the engine applies to configuration
+// (organization_versions) inside the same transaction as the record write â€”
+// the same version â†’ rollback lifecycle the engine applies to configuration
 // values. Rollback replays an older snapshot's fields onto the record and
 // appends a ROLLED_BACK snapshot.
 // =============================================================================
@@ -53,6 +53,7 @@ export interface OrgCreateInput {
   name: string;
   code: string;
   description?: string | null;
+  displayOrder?: number;
   collegeId?: string | null;
   departmentId?: string | null;
   headId?: string | null;
@@ -63,6 +64,7 @@ export interface OrgUpdateInput {
   name?: string;
   code?: string;
   description?: string | null;
+  displayOrder?: number;
   collegeId?: string | null;
   departmentId?: string | null;
   headId?: string | null;
@@ -100,7 +102,7 @@ function assertCanRollback(actor: Actor): void {
 }
 
 // -----------------------------------------------------------------------------
-// Parent validation — a parent must exist AND be live (archived parents are
+// Parent validation â€” a parent must exist AND be live (archived parents are
 // rejected with a friendly message rather than a FK error).
 // -----------------------------------------------------------------------------
 interface ParentRefs {
@@ -192,6 +194,7 @@ export async function createRecord(
       name: input.name,
       code: input.code,
       description: input.description ?? null,
+      displayOrder: input.displayOrder ?? 0,
       collegeId: input.collegeId ?? null,
       departmentId: input.departmentId ?? null,
       headId: input.headId ?? null,
@@ -249,6 +252,7 @@ export async function updateRecord(
       code: nextCode,
       description:
         input.description !== undefined ? input.description : existing.description,
+      displayOrder: input.displayOrder ?? existing.displayOrder,
       collegeId: input.collegeId !== undefined ? input.collegeId : existing.collegeId,
       departmentId:
         input.departmentId !== undefined ? input.departmentId : existing.departmentId,
@@ -331,7 +335,7 @@ export async function restoreRecord(
 }
 
 // -----------------------------------------------------------------------------
-// listVersions / rollbackRecord — Configuration Engine integration
+// listVersions / rollbackRecord â€” Configuration Engine integration
 // -----------------------------------------------------------------------------
 export async function listVersions(
   entity: OrgEntityName,
@@ -386,7 +390,7 @@ export async function rollbackRecord(
 }
 
 // -----------------------------------------------------------------------------
-// getOrganizationTree — colleges → departments → offices/programs (+ orphans)
+// getOrganizationTree â€” colleges â†’ departments â†’ offices/programs (+ orphans)
 // -----------------------------------------------------------------------------
 export async function getOrganizationTree(actor: Actor): Promise<OrganizationTree> {
   assertCanRead(actor);
@@ -429,7 +433,7 @@ export async function getOrganizationTree(actor: Actor): Promise<OrganizationTre
     allDeptNodes.push(node);
   }
 
-  // 2. Offices / programs → department node, else college node, else Unassigned.
+  // 2. Offices / programs â†’ department node, else college node, else Unassigned.
   for (const o of raw.offices) {
     if (o.departmentId && deptNodes.has(o.departmentId)) {
       deptNodes.get(o.departmentId)!.offices.push(officeNode(o));
@@ -449,7 +453,7 @@ export async function getOrganizationTree(actor: Actor): Promise<OrganizationTre
     }
   }
 
-  // 3. Department nodes → their live college, else Unassigned.
+  // 3. Department nodes â†’ their live college, else Unassigned.
   for (const node of allDeptNodes) {
     const d = raw.departments.find((x) => x.id === node.id)!;
     if (d.collegeId && collegeMap.has(d.collegeId)) {

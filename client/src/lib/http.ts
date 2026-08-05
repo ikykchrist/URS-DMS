@@ -131,6 +131,9 @@ async function requestEnvelope<T>(
       return requestEnvelope<T>(method, path, body, true);
     }
     clearServerToken();
+    // Expired session: notify the auth layer so the UI returns to the login
+    // screen instead of showing broken pages (Sprint 7.8 acceptance).
+    window.dispatchEvent(new CustomEvent("urs:session-expired"));
   }
 
   if (res.status === 204) {

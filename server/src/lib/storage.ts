@@ -54,6 +54,12 @@ function publicEndpoint(): string {
   return `${proto}://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}`;
 }
 
+function publicizePresignedUrl(url: string): string {
+  if (!env.MINIO_PUBLIC_ENDPOINT) return url;
+  const localBase = `${env.MINIO_USE_SSL ? "https" : "http"}://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}`;
+  return url.startsWith(localBase) ? env.MINIO_PUBLIC_ENDPOINT + url.slice(localBase.length) : url;
+}
+
 function buildObjectKey(documentId: string, versionId: string, filename: string): string {
   const safe = filename.replace(/[^A-Za-z0-9._-]+/g, "_");
   return `documents/${documentId}/${versionId}/${safe}`;
@@ -72,7 +78,7 @@ export async function presignUpload(
   try {
     const url = await c.presignedPutObject(env.MINIO_BUCKET, objectKey, expiresInSeconds);
     return {
-      url,
+      url: publicizePresignedUrl(url),
       objectKey,
       headers: {
         "Content-Type": mimeType,
@@ -92,7 +98,7 @@ export async function presignDownload(objectKey: string): Promise<PresignedDownl
   const expiresInSeconds = 10 * 60;
   try {
     const url = await c.presignedGetObject(env.MINIO_BUCKET, objectKey, expiresInSeconds);
-    return { url, objectKey, expiresInSeconds };
+    return { url: publicizePresignedUrl(url), objectKey, expiresInSeconds };
   } catch (err) {
     throw new ServiceUnavailableError("Storage unavailable", {
       reason: err instanceof Error ? err.message : String(err),

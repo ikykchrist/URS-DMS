@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/Table"
-import { listAllOnlineSubmissions, type OnlineSubmissionListItem } from "@/services/aaccup"
+import { listAllOnlineSubmissions, listOnlineAreaTasks, type OnlineAaccupTask, type OnlineSubmissionListItem } from "@/services/aaccup"
 import { cn } from "@/lib/utils"
 
 interface AACCUPArea {
@@ -42,8 +42,9 @@ interface AACCUPAreaDetailsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   area: AACCUPArea | null
+  areaSet?: "AACCUP" | "ISO" | "CERT"
+  onAddSubmission: () => void
   onCreateTask: () => void
-  onUploadDocuments: () => void
 }
 
 interface AreaSubmission {
@@ -101,19 +102,23 @@ export function AACCUPAreaDetailsModal({
   open,
   onOpenChange,
   area,
+  areaSet = "AACCUP",
+  onAddSubmission,
   onCreateTask,
-  onUploadDocuments,
 }: AACCUPAreaDetailsModalProps) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
+  const [view, setView] = useState<"submissions" | "tasks">("submissions")
   const [submissions, setSubmissions] = useState<AreaSubmission[]>([])
+  const [tasks, setTasks] = useState<OnlineAaccupTask[]>([])
   const [stats, setStats] = useState({ completed: 0, pending: 0, returned: 0, total: 0 })
 
   useEffect(() => {
     if (!open || !area) return
     setSubmissions([])
     setStats({ completed: 0, pending: 0, returned: 0, total: 0 })
-    listAllOnlineSubmissions({ areaId: area.serverId })
+    setTasks([])
+    listAllOnlineSubmissions({ areaId: area.serverId, areaSet })
       .then((items) => {
         const mapped: AreaSubmission[] = items.map((submission) => ({
           id: submission.id,
@@ -137,6 +142,9 @@ export function AACCUPAreaDetailsModal({
         setSubmissions([])
         setStats({ completed: 0, pending: 0, returned: 0, total: 0 })
       })
+    listOnlineAreaTasks(area.serverId)
+      .then(setTasks)
+      .catch(() => setTasks([]))
   }, [open, area])
 
   if (!area) return null
@@ -175,12 +183,12 @@ export function AACCUPAreaDetailsModal({
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Button variant="outline" size="sm" className="h-9" onClick={onUploadDocuments}>
-                <Upload className="w-4 h-4 mr-2" />
-                Upload
-              </Button>
-              <Button size="sm" className="h-9 shadow-sm" onClick={onCreateTask}>
+              <Button variant="outline" size="sm" className="h-9" onClick={onCreateTask}>
                 <Plus className="w-4 h-4 mr-2" />
+                New Task
+              </Button>
+              <Button size="sm" className="h-9 shadow-sm" onClick={onAddSubmission}>
+                <Upload className="w-4 h-4 mr-2" />
                 Add Submission
               </Button>
             </div>
@@ -196,6 +204,32 @@ export function AACCUPAreaDetailsModal({
         <div className="flex-1 flex overflow-hidden bg-gray-50/50">
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="px-6 py-3 bg-white border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center gap-4 mb-3">
+                <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50/50">
+                  <button
+                    type="button"
+                    onClick={() => setView("submissions")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+                      view === "submissions" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    )}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Submissions ({submissions.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setView("tasks")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+                      view === "tasks" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    )}
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Tasks ({tasks.length})
+                  </button>
+                </div>
+              </div>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50/70 border border-emerald-100">
                   <CheckCircle className="w-4 h-4 text-emerald-600" />
@@ -213,7 +247,86 @@ export function AACCUPAreaDetailsModal({
             </div>
 
             <div className="flex-1 overflow-auto p-6">
-              <div className="bg-white rounded-lg border border-gray-200">
+              {view === "tasks" ? (
+                <div className="bg-white rounded-lg border border-gray-200">
+                  <Table>
+                      <TableHeader>
+                      <TableRow className="hover:bg-transparent bg-gray-50/50">
+                        <TableHead>Task</TableHead>
+                        <TableHead>Requirement</TableHead>
+                        <TableHead>Assigned To</TableHead>
+                        <TableHead>Priority</TableHead>
+                        <TableHead>Due Date</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tasks.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6}>
+                            <EmptyState icon={CheckCircle} message="No tasks for this area yet" />
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        tasks.map((task) => (
+                          <TableRow key={task.id} className="border-b border-gray-100">
+                            <TableCell>
+                              <p className="text-[14px] font-medium text-gray-900">{task.title}</p>
+                              {task.description && (
+                                <p className="text-[12px] text-gray-500 mt-0.5 line-clamp-1">{task.description}</p>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {task.requirementTitle ? (
+                                <div>
+                                  <p className="text-[13px] text-gray-700">{task.requirementTitle}</p>
+                                  <p className="text-[11px] text-gray-500">{task.requirementCode}</p>
+                                </div>
+                              ) : (
+                                <span className="text-[12px] text-gray-400">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-7 w-7">
+                                  <AvatarFallback className="text-[11px] bg-gray-100 text-gray-700">
+                                    {(task.assigneeLabel ?? "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="text-[13px] text-gray-700">{task.assigneeLabel ?? "Unassigned"}</p>
+                                  <p className="text-[11px] text-gray-500">{task.assigneeType === "DEPARTMENT" ? "Department" : "User"}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={task.priority === "URGENT" || task.priority === "HIGH" ? "warning" : "secondary"} className="text-[11px]">
+                                {task.priority.charAt(0) + task.priority.slice(1).toLowerCase()}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-[13px] text-gray-600">
+                              {task.dueDate ? formatDate(task.dueDate) : "—"}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  task.status === "COMPLETED" ? "success" :
+                                  task.status === "IN_PROGRESS" ? "default" :
+                                  task.status === "CANCELLED" ? "danger" : "warning"
+                                }
+                                className="text-[11px]"
+                              >
+                                {task.status.replace("_", " ")}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg border border-gray-200">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent bg-gray-50/50">
@@ -365,6 +478,7 @@ export function AACCUPAreaDetailsModal({
                   </TableBody>
                 </Table>
               </div>
+              )}
             </div>
           </div>
 

@@ -226,6 +226,7 @@ export async function getUploadsAnalytics(filter: AnalyticsFilter): Promise<Uplo
     deletedAt: null,
     createdAt: { gte: from, lte: to },
     ...(filter.departmentId ? { departmentId: filter.departmentId } : {}),
+    ...(filter.ownerId ? { ownerId: filter.ownerId } : {}),
   };
 
   const [dates, deptRows] = await Promise.all([
@@ -236,7 +237,7 @@ export async function getUploadsAnalytics(filter: AnalyticsFilter): Promise<Uplo
     prisma.document.groupBy({
       by: ["departmentId"],
       _count: { _all: true },
-      where: { deletedAt: null },
+      where: { deletedAt: null, ...(filter.ownerId ? { ownerId: filter.ownerId } : {}) },
       orderBy: { _count: { departmentId: "desc" } },
     }),
   ]);

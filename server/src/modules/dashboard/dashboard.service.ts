@@ -73,20 +73,36 @@ const SUBMISSION_STATUSES = ["PENDING", "APPROVED", "REJECTED", "NEEDS_REVISION"
 // -----------------------------------------------------------------------------
 // getDocumentStats
 // -----------------------------------------------------------------------------
-export async function getDocumentStats(): Promise<DocumentStats> {
+export interface Actor {
+  id: string;
+  permissions: string[];
+}
+
+// Platform-wide visibility is granted to the System Administrator (Root) only;
+// every other account sees its own repository's figures (owner-scoped).
+function isPlatformWide(actor: Actor): boolean {
+  return actor.permissions.includes("root.access");
+}
+
+function docScope(actor: Actor): { ownerId: string } | Record<string, never> {
+  return isPlatformWide(actor) ? {} : { ownerId: actor.id };
+}
+
+export async function getDocumentStats(actor: Actor): Promise<DocumentStats> {
   const now = new Date();
   const todayStart = startOfDay(now);
   const weekStart = startOfWeek(now);
   const monthStart = startOfMonth(now);
 
-  // All four counts run in parallel — one round-trip batch.
-  const [totalDocuments, archivedDocuments, uploadedToday, uploadedThisWeek, uploadedThisMonth] =
+  // All counts run in parallel — one round-trip batch.
+  const [totalDocuments, archivedDocuments, uploadedToday, uploadedThisWeek, uploadedThisMonth, totalFolders] =
     await Promise.all([
-      prisma.document.count({ where: { deletedAt: null } }),
-      prisma.document.count({ where: { deletedAt: { not: null } } }),
-      prisma.document.count({ where: { createdAt: { gte: todayStart } } }),
-      prisma.document.count({ where: { createdAt: { gte: weekStart } } }),
-      prisma.document.count({ where: { createdAt: { gte: monthStart } } }),
+      prisma.document.count({ where: { deletedAt: null, ...docScope(actor) } }),
+      prisma.document.count({ where: { deletedAt: { not: null }, ...docScope(actor) } }),
+      prisma.document.count({ where: { createdAt: { gte: todayStart }, ...docScope(actor) } }),
+      prisma.document.count({ where: { createdAt: { gte: weekStart }, ...docScope(actor) } }),
+      prisma.document.count({ where: { createdAt: { gte: monthStart }, ...docScope(actor) } }),
+      prisma.folder.count({ where: { deletedAt: null, ...docScope(actor) } }),
     ]);
 
   // "Active" = non-archived (logical lifecycle), independent of soft-delete.
@@ -101,6 +117,7 @@ export async function getDocumentStats(): Promise<DocumentStats> {
     uploadedToday,
     uploadedThisWeek,
     uploadedThisMonth,
+    totalFolders,
   };
 }
 
@@ -170,14 +187,55 @@ export async function getRequestStats(): Promise<RequestStats> {
   };
 }
 
+const AACCUP_SETS = ["AACCUP", "ISO", "CERT"] as const;
+
+async function getAaccupSetStats(areaSet: (typeof AACCUP_SETS)[number]) {
+  const [overall, totalAreas, totalRequirements, submissionStatusRows, totalSubmissions] =
+    await Promise.all([
+      calculateOverallCompliance({ areaSet }),
+      prisma.aaccupArea.count({ where: { deletedAt: null, areaSet } }),
+      prisma.aaccupRequirement.count({
+        where: { deletedAt: null, area: { areaSet } },
+      }),
+      prisma.aaccupSubmission.groupBy({
+        by: ["status"],
+        _count: { _all: true },
+        where: { deletedAt: null, requirement: { area: { areaSet } } },
+      }),
+      prisma.aaccupSubmission.count({
+        where: { deletedAt: null, requirement: { area: { areaSet } } },
+      }),
+    ]);
+
+  const buckets = bucketByStatus(
+    submissionStatusRows as {
+      status: (typeof SUBMISSION_STATUSES)[number];
+      _count?: Record<string, number>;
+    }[],
+    SUBMISSION_STATUSES,
+  );
+
+  return {
+    totalAreas,
+    totalRequirements,
+    totalSubmissions,
+    approved: buckets.APPROVED,
+    pending: buckets.PENDING,
+    needsRevision: buckets.NEEDS_REVISION,
+    rejected: buckets.REJECTED,
+    overallCompliancePercentage: overall.compliancePercentage,
+  };
+}
+
 // -----------------------------------------------------------------------------
 // getAaccupStats
 // Reuses the compliance service (single source of truth) for the compliance
 // percentage + requirement-status counts. Submissions counts come from a
-// single groupBy on the submission table.
+// single groupBy on the submission table. The per-set breakdown (AACCUP / ISO
+// / Certification) lets every tab and dashboard report its own live content.
 // -----------------------------------------------------------------------------
 export async function getAaccupStats(): Promise<AaccupStats> {
-  const [overall, totalAreas, totalRequirements, submissionStatusRows, totalSubmissions] =
+  const [overall, totalAreas, totalRequirements, submissionStatusRows, totalSubmissions, ...sets] =
     await Promise.all([
       // Single source of truth for compliance numbers — never reimplemented.
       calculateOverallCompliance(),
@@ -189,6 +247,7 @@ export async function getAaccupStats(): Promise<AaccupStats> {
         where: { deletedAt: null },
       }),
       prisma.aaccupSubmission.count({ where: { deletedAt: null } }),
+      ...AACCUP_SETS.map((areaSet) => getAaccupSetStats(areaSet)),
     ]);
 
   const buckets = bucketByStatus(
@@ -210,6 +269,11 @@ export async function getAaccupStats(): Promise<AaccupStats> {
     // High-level compliance percentage comes from the compliance service so the
     // dashboard always reports the same number as /aaccup/analytics/overview.
     overallCompliancePercentage: overall.compliancePercentage,
+    byAreaSet: {
+      AACCUP: sets[0]!,
+      ISO: sets[1]!,
+      CERT: sets[2]!,
+    },
   };
 }
 
@@ -220,15 +284,19 @@ export async function getAaccupStats(): Promise<AaccupStats> {
 // NULL because MinIO has no configured quota — see known issue in the sprint
 // report. numberOfFiles counts individual object versions.
 // -----------------------------------------------------------------------------
-export async function getStorageStats(): Promise<StorageStats> {
+export async function getStorageStats(actor: Actor): Promise<StorageStats> {
   const [sizeAggregate, numberOfFiles] = await Promise.all([
     prisma.documentVersion.aggregate({
       _sum: { sizeBytes: true },
-      // Exclude versions of soft-deleted documents? No — physical object still
-      // consumes storage until a GC pass removes it (GC not yet implemented,
-      // repo known issue #14). So we sum ALL versions for an accurate total.
+      where: isPlatformWide(actor)
+        ? undefined
+        : { document: { ownerId: actor.id } },
     }),
-    prisma.documentVersion.count(),
+    prisma.documentVersion.count({
+      where: isPlatformWide(actor)
+        ? undefined
+        : { document: { ownerId: actor.id } },
+    }),
   ]);
 
   const totalBytes = sizeAggregate._sum.sizeBytes ?? BigInt(0);
@@ -242,15 +310,16 @@ export async function getStorageStats(): Promise<StorageStats> {
 
 // -----------------------------------------------------------------------------
 // getOverview
-// Aggregates the five sub-sections in parallel.
+// Aggregates the five sub-sections in parallel. Document/storage figures are
+// owner-scoped for non-ROOT actors (personal-repository dashboard rule).
 // -----------------------------------------------------------------------------
-export async function getOverview(): Promise<DashboardOverview> {
+export async function getOverview(actor: Actor): Promise<DashboardOverview> {
   const [documents, users, requests, aaccup, storage] = await Promise.all([
-    getDocumentStats(),
+    getDocumentStats(actor),
     getUserStats(),
     getRequestStats(),
     getAaccupStats(),
-    getStorageStats(),
+    getStorageStats(actor),
   ]);
 
   return { documents, users, requests, aaccup, storage };

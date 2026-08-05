@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, lazy, Suspense } from "react"
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom"
 import {
   FileText,
@@ -12,6 +12,9 @@ import {
   ArrowRight,
   FileCheck,
   RotateCcw,
+  Folder,
+  HardDrive,
+  Award,
 } from "lucide-react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopNav } from "@/components/layout/TopNav"
@@ -80,14 +83,16 @@ import { listOnlineDocuments, openOnlineDocument } from "@/services/documents"
 import LoginPage from "@/pages/Login"
 import ForgotPasswordPage from "@/pages/ForgotPassword"
 import ResetPasswordPage from "@/pages/ResetPassword"
-import RootDashboard from "@/pages/root/RootDashboard"
-import RootConfigurations from "@/pages/root/RootConfigurations"
-import RootAudit from "@/pages/root/RootAudit"
-import RootUsers from "@/pages/root/RootUsers"
-import RootOrganization from "@/pages/root/RootOrganization"
-import RootFolderBuilder from "@/pages/root/RootFolderBuilder"
-import RootRequirementBuilder from "@/pages/root/RootRequirementBuilder"
-import RootWorkflowBuilder from "@/pages/root/RootWorkflowBuilder"
+const RootDashboard = lazy(() => import("@/pages/root/RootDashboard"))
+const RootConfigurations = lazy(() => import("@/pages/root/RootConfigurations"))
+const RootAudit = lazy(() => import("@/pages/root/RootAudit"))
+const RootUsers = lazy(() => import("@/pages/root/RootUsers"))
+const RootOrganization = lazy(() => import("@/pages/root/RootOrganization"))
+const RootFolderBuilder = lazy(() => import("@/pages/root/RootFolderBuilder"))
+const RootRequirementBuilder = lazy(() => import("@/pages/root/RootRequirementBuilder"))
+const RootWorkflowBuilder = lazy(() => import("@/pages/root/RootWorkflowBuilder"))
+const RootFormBuilder = lazy(() => import("@/pages/root/RootFormBuilder"))
+const RootSetupWizard = lazy(() => import("@/pages/root/RootSetupWizard"))
 import { UserSidebar } from "@/components/user/UserSidebar"
 import { UserTopNav } from "@/components/user/UserTopNav"
 import UserDashboard from "@/pages/user/UserDashboard"
@@ -96,6 +101,8 @@ import UserRequests from "@/pages/user/UserRequests"
 import UserBrowseArchive from "@/pages/user/UserBrowseArchive"
 import UserSubmitRequest from "@/pages/user/UserSubmitRequest"
 import UserAACCUP from "@/pages/user/UserAACCUP"
+import UserAACCUPISO from "@/pages/user/UserAACCUPISO"
+import UserAACCUPCert from "@/pages/user/UserAACCUPCert"
 import UserNotifications from "@/pages/user/UserNotifications"
 import UserProfile from "@/pages/user/UserProfile"
 import UserSettings from "@/pages/user/UserSettings"
@@ -116,6 +123,13 @@ function shortBucketLabel(label: string): string {
 function formatDate(iso: string): string {
   const d = new Date(iso)
   return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return "0 B"
+  const units = ["B", "KB", "MB", "GB", "TB"]
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  return `${(bytes / Math.pow(1024, i)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} ${units[i]}`
 }
 
 function ChartEmpty({ label }: { label: string }) {
@@ -249,10 +263,15 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
           }
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+          <StatCard
+            title="Total Folders"
+            value={report ? String(report.documents.totalFolders) : "â€”"}
+            icon={<Folder className="w-5 h-5" />}
+          />
           <StatCard
             title="Total Documents"
-            value={report ? String(report.documents.totalDocuments) : "—"}
+            value={report ? String(report.documents.totalDocuments) : "â€”"}
             icon={<FileText className="w-5 h-5" />}
             trend={
               report
@@ -264,8 +283,13 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
             }
           />
           <StatCard
+            title="Storage Used"
+            value={report ? formatBytes(Number(report.storage.totalStorageUsedBytes)) : "â€”"}
+            icon={<HardDrive className="w-5 h-5" />}
+          />
+          <StatCard
             title="Pending Review"
-            value={report ? String(report.requests.pending) : "—"}
+            value={report ? String(report.requests.pending) : "â€”"}
             icon={<Clock className="w-5 h-5" />}
             trend={
               report
@@ -275,7 +299,7 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
           />
           <StatCard
             title="Approved"
-            value={report ? String(report.requests.approved) : "—"}
+            value={report ? String(report.requests.approved) : "â€”"}
             icon={<CheckCircle className="w-5 h-5" />}
             trend={
               report
@@ -285,7 +309,7 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
           />
           <StatCard
             title="Active Users"
-            value={report ? String(report.users.activeUsers) : "—"}
+            value={report ? String(report.users.activeUsers) : "â€”"}
             icon={<Users className="w-5 h-5" />}
             trend={
               report
@@ -293,6 +317,49 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                 : undefined
             }
           />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+          {(
+            [
+              { key: "AACCUP", label: "AACCUP Compliance", bg: "bg-amber-50", text: "text-amber-600" },
+              { key: "ISO", label: "ISO Compliance", bg: "bg-blue-50", text: "text-blue-600" },
+              { key: "CERT", label: "Certification Compliance", bg: "bg-emerald-50", text: "text-emerald-600" },
+            ] as const
+          ).map(({ key, label, bg, text }) => {
+            const stats = report?.aaccup.byAreaSet[key]
+            return (
+              <Card
+                key={key}
+                className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => onNavigate(key === "AACCUP" ? "aaccup" : key === "ISO" ? "iso" : "certification")}
+              >
+                <CardContent className="p-4 md:p-5">
+                  <div className="flex items-center justify-between">
+                    <div className={`w-9 h-9 md:w-11 md:h-11 rounded-lg ${bg} flex items-center justify-center ${text}`}>
+                      <Award className="w-5 h-5" />
+                    </div>
+                    {stats && (
+                      <span className="text-[11px] md:text-[12px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
+                        {stats.overallCompliancePercentage}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-3 md:mt-4">
+                    <p className="text-[12px] md:text-[13px] text-gray-500 font-medium truncate">{label}</p>
+                    <p className="text-[18px] md:text-[22px] font-semibold text-gray-900 mt-0.5 tracking-tight">
+                      {stats ? `${stats.totalAreas} areas` : "â€”"}
+                    </p>
+                    <p className="text-[12px] text-gray-500 mt-0.5">
+                      {stats
+                        ? `${stats.totalSubmissions} submissions Â· ${stats.approved} approved`
+                        : "Loadingâ€¦"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 mb-6 lg:mb-8">
@@ -464,7 +531,7 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
               />
             </div>
             ) : (
-              <p className="text-[13px] text-gray-500">Loading overview data…</p>
+              <p className="text-[13px] text-gray-500">Loading overview dataâ€¦</p>
             )}
           </ChartCard>
         </div>
@@ -577,7 +644,7 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                 <span className="sm:hidden">{visibleRequests.length}/{recentRequests.length}</span>
                 <span className="hidden sm:inline">
                   {isLoadingRequests
-                    ? "Loading submissions…"
+                    ? "Loading submissionsâ€¦"
                     : `Showing ${visibleRequests.length} of ${recentRequests.length} submissions`}
                 </span>
               </p>
@@ -623,6 +690,8 @@ function AppContent() {
     "/root-organization": "root-organization",
     "/root-folder-builder": "root-folder-builder",
     "/root-requirement-builder": "root-requirement-builder",
+    "/root-form-builder": "root-form-builder",
+    "/root-setup-wizard": "root-setup-wizard",
     "/root-config": "root-config",
     "/root-audit": "root-audit",
     "/root-users": "root-users",
@@ -648,6 +717,33 @@ function AppContent() {
     }
   }, [])
 
+  const pageTitles: Record<string, string> = {
+    dashboard: "Dashboard",
+    documents: "Document Repository",
+    submissions: "Submissions",
+    users: "User Management",
+    audit: "Audit Logs",
+    settings: "Settings",
+    aaccup: "AACCUP Management",
+    iso: "ISO Management",
+    certification: "Certification Management",
+    root: "Platform Overview",
+    "root-organization": "Organization",
+    "root-folder-builder": "Folder Builder",
+    "root-requirement-builder": "Requirement Builder",
+    "root-form-builder": "Form Builder",
+    "root-setup-wizard": "Setup Wizard",
+    "root-config": "Configuration Engine",
+    "root-audit": "System Audit",
+    "root-users": "System Users",
+  }
+
+  useEffect(() => {
+    document.title = pageTitles[activePage]
+      ? `${pageTitles[activePage]} · URS-DMS`
+      : "URS-DMS"
+  }, [activePage])
+
   const handleNavigate = (page: string) => {
     setActivePage(page)
     localStorage.setItem("activePage", page)
@@ -665,6 +761,8 @@ function AppContent() {
       "root-organization": "/root-organization",
       "root-folder-builder": "/root-folder-builder",
       "root-requirement-builder": "/root-requirement-builder",
+      "root-form-builder": "/root-form-builder",
+      "root-setup-wizard": "/root-setup-wizard",
       "root-config": "/root-config",
       "root-audit": "/root-audit",
       "root-users": "/root-users",
@@ -695,7 +793,7 @@ function AppContent() {
     return null
   }
 
-  // AppContent return — admin sees this
+  // AppContent return â€” admin sees this
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#FAFAFA]">
@@ -718,11 +816,20 @@ function AppContent() {
           onNavigate={handleNavigate}
         />
         <main className="flex-1 overflow-y-auto">
+          <Suspense
+            fallback={
+              <div className="min-h-[320px] flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+              </div>
+            }
+          >
           {activePage === "root" && <RootDashboard />}
           {activePage === "root-organization" && <RootOrganization />}
           {activePage === "root-folder-builder" && <RootFolderBuilder />}
           {activePage === "root-requirement-builder" && <RootRequirementBuilder />}
           {activePage === "root-workflow-builder" && <RootWorkflowBuilder />}
+          {activePage === "root-form-builder" && <RootFormBuilder />}
+          {activePage === "root-setup-wizard" && <RootSetupWizard />}
           {activePage === "root-config" && <RootConfigurations />}
           {activePage === "root-audit" && <RootAudit />}
           {activePage === "root-users" && <RootUsers />}
@@ -735,6 +842,7 @@ function AppContent() {
           {activePage === "aaccup" && <AACCUPManagement />}
           {activePage === "iso" && <AACCUPManagementISO />}
           {activePage === "certification" && <AACCUPManagementCert />}
+          </Suspense>
         </main>
       </div>
     </div>
@@ -766,6 +874,8 @@ function UserAppContent() {
     "/user/documents": "documents",
     "/user/requests": "requests",
     "/user/aaccup": "aaccup",
+    "/user/iso": "iso",
+    "/user/certification": "certification",
     "/user/notifications": "notifications",
     "/user/profile": "profile",
     "/user/settings": "settings",
@@ -788,12 +898,32 @@ function UserAppContent() {
       documents: "/user/documents",
       requests: "/user/requests",
       aaccup: "/user/aaccup",
+      iso: "/user/iso",
+      certification: "/user/certification",
       notifications: "/user/notifications",
       profile: "/user/profile",
       settings: "/user/settings",
     }
     navigate(pageToRouteMap[page] || "/user/dashboard")
   }
+
+  const userPageTitles: Record<string, string> = {
+    dashboard: "My Dashboard",
+    documents: "My Documents",
+    requests: "My Requests",
+    aaccup: "AACCUP",
+    iso: "ISO",
+    certification: "Certification",
+    notifications: "Notifications",
+    profile: "My Profile",
+    settings: "Settings",
+  }
+
+  useEffect(() => {
+    document.title = userPageTitles[activePage]
+      ? `${userPageTitles[activePage]} · URS-DMS`
+      : "URS-DMS"
+  }, [activePage])
 
   const handleToggleSidebar = () => {
     const newValue = !sidebarCollapsed
@@ -845,7 +975,7 @@ function UserAppContent() {
     return null
   }
 
-  // UserAppContent return — non-admin sees this
+  // UserAppContent return â€” non-admin sees this
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#FAFAFA]">
@@ -886,6 +1016,8 @@ function UserAppContent() {
             />
           )}
           {activePage === "aaccup" && <UserAACCUP />}
+          {activePage === "iso" && <UserAACCUPISO />}
+          {activePage === "certification" && <UserAACCUPCert />}
           {activePage === "notifications" && <UserNotifications />}
           {activePage === "profile" && <UserProfile />}
           {activePage === "settings" && <UserSettings />}

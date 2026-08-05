@@ -19,6 +19,20 @@ export const ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "text/csv",
   "text/plain",
+  // Audio (rule 6: supported audio uploads)
+  "audio/mpeg",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/ogg",
+  "audio/mp4",
+  "audio/x-m4a",
+  "audio/aac",
+  // Video (rule 6: video uploads, native preview playback)
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+  "video/x-msvideo",
+  "video/x-matroska",
 ] as const;
 export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 
@@ -49,7 +63,10 @@ export const listDocumentsQuerySchema = z.object({
   status: z.enum(["DRAFT", "UNDER_REVIEW", "APPROVED", "PUBLISHED", "ARCHIVED"]).optional(),
   classification: z.enum(["PUBLIC", "INTERNAL", "RESTRICTED", "CONFIDENTIAL"]).optional(),
   departmentId: z.string().uuid().optional(),
-  folderId: z.string().uuid().optional(),
+  folderId: z.preprocess(
+    (value) => (value === "null" ? null : value),
+    z.string().uuid().nullable().optional(),
+  ),
   ownerId: z.string().uuid().optional(),
   uploadedById: z.string().uuid().optional(),
   tag: tagSchema.optional(),
@@ -108,9 +125,27 @@ export type AddVersionInput = z.infer<typeof addVersionSchema>;
 
 export const shareDocumentSchema = z.object({
   userId: z.string().uuid(),
-  permission: z.enum(["READ", "WRITE", "OWNER"]).default("READ"),
-  expiresAt: z.coerce.date().optional(),
+  permission: z.enum(["READ", "WRITE"]).default("READ"),
+  expiresAt: z.coerce.date().nullable().optional(),
 });
 export type ShareDocumentInput = z.infer<typeof shareDocumentSchema>;
+
+export const copyDocumentSchema = z
+  .object({
+    targetFolderId: z.string().uuid().nullable().optional(),
+    conflictMode: z.enum(["keep_both", "replace", "cancel"]).default("keep_both"),
+  })
+  .strict();
+export type CopyDocumentInput = z.infer<typeof copyDocumentSchema>;
+
+// Restore from recycle bin: explicit destination folder (null = root),
+// name-conflict handling, and original-location fallback (rule 10/8).
+export const restoreDocumentSchema = z
+  .object({
+    targetFolderId: z.string().uuid().nullable().optional(),
+    conflictMode: z.enum(["keep_both", "replace", "cancel"]).default("keep_both"),
+  })
+  .strict();
+export type RestoreDocumentInput = z.infer<typeof restoreDocumentSchema>;
 
 export const shareUserParamSchema = shareUserIdParam;

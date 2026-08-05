@@ -11,6 +11,7 @@ export const submissionIdParamSchema = idParam;
 export const listSubmissionsQuerySchema = z.object({
   requirementId: z.string().uuid().optional(),
   areaId: z.string().uuid().optional(),
+  areaSet: z.enum(["AACCUP", "ISO", "CERT"]).optional(),
   documentId: z.string().uuid().optional(),
   submittedById: z.string().uuid().optional(),
   reviewedById: z.string().uuid().optional(),

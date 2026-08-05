@@ -1,5 +1,5 @@
 // =============================================================================
-// URS-DMS — Prisma schema (Sprint 2)
+// URS-DMS â€” Prisma schema (Sprint 2)
 // =============================================================================
 // Models in this schema:
 //   - Role                  (system roles, future-proof for custom roles)
@@ -112,6 +112,22 @@ model User {
   aaccupRequirementsUpdated     AaccupRequirement[]     @relation("AaccupRequirementUpdatedBy")
   aaccupSubmissionsSubmitted    AaccupSubmission[]      @relation("AaccupSubmissionSubmittedBy")
   aaccupSubmissionsReviewed     AaccupSubmission[]      @relation("AaccupSubmissionReviewedBy")
+  aaccupTasksCreated            AaccupTask[]            @relation("AaccupTaskCreatedBy")
+  aaccupTasksUpdated            AaccupTask[]            @relation("AaccupTaskUpdatedBy")
+  formTemplatesCreated          FormTemplate[]          @relation("FormTemplateCreatedBy")
+  formTemplatesUpdated          FormTemplate[]          @relation("FormTemplateUpdatedBy")
+  formAssignmentsCreated        FormAssignment[]        @relation("FormAssignmentCreatedBy")
+  formVersionsChangedBy         FormVersion[]           @relation("FormVersionChangedBy")
+  formHistoriesActor            FormHistory[]           @relation("FormHistoryActor")
+  setupStateUpdated             SetupState[]            @relation("SetupStateUpdatedBy")
+  repository                    Repository[]            @relation("RepositoryOwner")
+  repositoryCopyJobs            RepositoryCopyJob[]     @relation("CopyJobOwner")
+  repositoryFavorites           RepositoryFavorite[]    @relation("FavoriteOwner")
+  repositoryRecents             RepositoryRecent[]      @relation("RecentOwner")
+  repositoryPins                RepositoryPin[]         @relation("PinOwner")
+  emergencyAccessGranted        EmergencyAccess[]       @relation("EmergencyAdmin")
+  emergencyAccessTarget         EmergencyAccess[]       @relation("EmergencyTarget")
+  emergencyAccessGrantedBy      EmergencyAccess[]       @relation("EmergencyGrantor")
   systemSettingsUpdated         SystemSetting[]         @relation("SystemSettingUpdater")
   notifications                 Notification[]
   configCategoriesCreated       ConfigurationCategory[] @relation("ConfigCategoryCreatedBy")
@@ -196,7 +212,7 @@ model AuditLog {
 }
 
 // =============================================================================
-// Sprint 3 — Document Management
+// Sprint 3 â€” Document Management
 // =============================================================================
 
 enum DocumentStatus {
@@ -228,12 +244,18 @@ enum RequestStatus {
 }
 
 // =============================================================================
-// Sprint 5 — AACCUP Management
+// Sprint 5 â€” AACCUP Management
 // =============================================================================
 
 enum AreaStatus {
   ACTIVE
   INACTIVE
+}
+
+enum AreaSet {
+  AACCUP
+  ISO
+  CERT
 }
 
 enum RequirementStatus {
@@ -242,45 +264,53 @@ enum RequirementStatus {
 }
 
 model Department {
-  id          String       @id @default(uuid())
-  name        String
-  code        String       @unique
-  description String?
-  headId      String?
-  head        User?        @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
-  collegeId   String?
-  college     College?     @relation(fields: [collegeId], references: [id], onDelete: SetNull)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  deletedAt   DateTime?
-  users       User[]       @relation("UserDepartment")
-  documents   Document[]
-  folders     Folder[]
-  aaccupAreas AaccupArea[]
-  offices     Office[]
-  programs    Program[]
+  id            String       @id @default(uuid())
+  name          String
+  code          String       @unique
+  description   String?
+  displayOrder  Int          @default(0)
+  headId        String?
+  head          User?        @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
+  collegeId     String?
+  college       College?     @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+  users         User[]       @relation("UserDepartment")
+  documents     Document[]
+  folders       Folder[]
+  aaccupAreas   AaccupArea[]
+  offices       Office[]
+  programs      Program[]
 
   @@index([deletedAt])
   @@index([collegeId])
+  @@index([displayOrder])
   @@map("departments")
 }
 
 model Folder {
-  id           String      @id @default(uuid())
-  name         String
-  parentId     String?
-  parent       Folder?     @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
-  children     Folder[]    @relation("FolderTree")
-  departmentId String?
-  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  ownerId      String?
-  owner        User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  deletedAt    DateTime?
-  documents    Document[]
+  id            String      @id @default(uuid())
+  name          String
+  parentId      String?
+  parent        Folder?     @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children      Folder[]    @relation("FolderTree")
+  repositoryId  String?
+  repository    Repository? @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  ownerId       String?
+  owner         User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+  documents     Document[]
+  pins          RepositoryPin[] @relation("PinnedFolder")
+  copyJobsSource RepositoryCopyJob[] @relation("CopyJobSource")
+  copyJobsTarget RepositoryCopyJob[] @relation("CopyJobTarget")
 
   @@index([parentId])
+  @@index([repositoryId])
   @@index([departmentId])
   @@index([ownerId])
   @@index([deletedAt])
@@ -301,10 +331,13 @@ model Document {
   department        Department?            @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   folderId          String?
   folder            Folder?                @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  repositoryId      String?
+  repository        Repository?            @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
   currentVersionId  String?                @unique
   currentVersion    DocumentVersion?       @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
   versions          DocumentVersion[]      @relation("DocumentVersions")
   tags              DocumentTag[]
+  favorites         RepositoryFavorite[] @relation("FavoriteDocument")
   shares            DocumentShare[]
   requests          DocumentRequest[]
   aaccupSubmissions AaccupSubmission[]     @relation("AaccupSubmissionDocument")
@@ -325,7 +358,7 @@ model DocumentVersion {
   documentId    String
   document      Document  @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Cascade)
   versionNumber Int
-  objectKey     String    @unique
+  objectKey     String
   filename      String
   mimeType      String
   sizeBytes     BigInt
@@ -338,6 +371,7 @@ model DocumentVersion {
 
   @@unique([documentId, versionNumber])
   @@index([documentId])
+  @@index([objectKey])
   @@map("document_versions")
 }
 
@@ -399,6 +433,7 @@ model AaccupArea {
   department           Department          @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   accreditationCycleId String?
   accreditationCycle   AccreditationCycle? @relation(fields: [accreditationCycleId], references: [id], onDelete: SetNull)
+  areaSet              AreaSet             @default(AACCUP)
   status               AreaStatus          @default(ACTIVE)
   createdBy            String
   createdByUser        User                @relation("AaccupAreaCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
@@ -408,9 +443,11 @@ model AaccupArea {
   updatedAt            DateTime            @updatedAt
   deletedAt            DateTime?
   requirements         AaccupRequirement[]
+  tasks                AaccupTask[]
 
   @@index([departmentId])
   @@index([accreditationCycleId])
+  @@index([areaSet])
   @@index([status])
   @@index([deletedAt])
   @@map("aaccup_areas")
@@ -441,6 +478,7 @@ model AaccupRequirement {
   sourceAssignment      RequirementAssignment? @relation(fields: [sourceAssignmentId], references: [id], onDelete: SetNull)
   sourceTemplateVersion Int?
   submissions           AaccupSubmission[]
+  tasks                 AaccupTask[]
 
   @@unique([areaId, documentCode])
   @@unique([areaId, sourceNodeId])
@@ -474,6 +512,10 @@ model AaccupSubmission {
   reviewedByUser  User?             @relation("AaccupSubmissionReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
   status          SubmissionStatus  @default(PENDING)
   remarks         String?
+  snapshotFilename String?
+  snapshotMimeType String?
+  snapshotSizeBytes BigInt?
+  snapshotChecksum String?
   isCurrent       Boolean           @default(false)
   submittedAt     DateTime          @default(now())
   reviewedAt      DateTime?
@@ -492,21 +534,80 @@ model AaccupSubmission {
 }
 
 // =============================================================================
-// Sprint 7.3 — Notification & Email Service
+// Sprint 7.2 â€” AACCUP tasks
 // =============================================================================
-// `Notification` is the per-user inbox row (one row per recipient event — no
+// `AaccupTask` is the assignable work item attached to an accreditation area.
+// An admin / QAO creates a task and assigns it to either an ACTIVE user
+// (`assigneeType = USER`, `assigneeId` = user id) or a whole department
+// (`assigneeType = DEPARTMENT`). `assigneeLabel` is a denormalized display
+// snapshot (full name / department name) so the list stays readable even if
+// the assignee is later archived. `status` is the lifecycle state; `completedAt`
+// is stamped when the task moves to COMPLETED.
+// =============================================================================
+
+enum AaccupTaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AaccupTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model AaccupTask {
+  id            String             @id @default(uuid())
+  areaId        String
+  area          AaccupArea         @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  category      String?            @default("documentation")
+  priority      AaccupTaskPriority @default(MEDIUM)
+  status        AaccupTaskStatus   @default(OPEN)
+  dueDate       DateTime?
+  requirementId String?
+  requirement   AaccupRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  assigneeType  String             @default("USER")
+  assigneeId    String?
+  assigneeLabel String?
+  createdBy     String
+  createdByUser User               @relation("AaccupTaskCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updatedBy     String?
+  updatedByUser User?              @relation("AaccupTaskUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  completedAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  deletedAt     DateTime?
+
+  @@index([areaId])
+  @@index([requirementId])
+  @@index([assigneeType, assigneeId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([deletedAt])
+  @@map("aaccup_tasks")
+}
+
+// =============================================================================
+// Sprint 7.3 â€” Notification & Email Service
+// =============================================================================
+// `Notification` is the per-user inbox row (one row per recipient event â€” no
 // fan-out aggregation). `readAt` distinguishes unread (NULL) from read
 // (timestamp) without a boolean; the composite (userId, readAt) index covers
 // the bell-badge "unread count" path. `deletedAt` is the recipient-owned soft
 // delete (mark-read / delete / clear-all flows own the row lifecycle); the
 // FK cascades on user hard-delete to keep the inbox tidy.
 //
-// The `type` enum is the closed event catalog — the exhaustive list of events
+// The `type` enum is the closed event catalog â€” the exhaustive list of events
 // the system can emit. New event kinds land as a new enum value + a dispatch
 // branch in notifications/notifications.events.ts.
 //
 // `EmailMessage` is the durable outbound-email queue. Every send is persisted
-// FIRST (at-least-once): a row is claimed by a worker (PENDING → SENDING),
+// FIRST (at-least-once): a row is claimed by a worker (PENDING â†’ SENDING),
 // delivered by the configured provider, then settled as SENT or FAILED.
 // Transient failures retry with exponential backoff (`attempts` +
 // `nextAttemptAt`); a message that exhausts `maxAttempts` lands in terminal
@@ -515,6 +616,9 @@ model AaccupSubmission {
 
 enum NotificationType {
   DOCUMENT_UPLOADED
+  DOCUMENT_UPLOAD_FAILED
+  DOCUMENT_DELIVERED
+  DOCUMENT_RETURNED
   DOCUMENT_APPROVED
   DOCUMENT_REJECTED
   REQUEST_SUBMITTED
@@ -522,6 +626,9 @@ enum NotificationType {
   REQUEST_REJECTED
   AACCUP_SUBMISSION_APPROVED
   AACCUP_SUBMISSION_REJECTED
+  AACCUP_SUBMISSION_RETURNED
+  RECYCLE_BIN_CLEANUP
+  STORAGE_WARNING
   PASSWORD_RESET
   ROLE_CHANGED
   SYSTEM_ANNOUNCEMENT
@@ -584,22 +691,24 @@ model EmailMessage {
 }
 
 // =============================================================================
-// Sprint 7.1 — Administration Backend
+// Sprint 7.1 â€” Administration Backend
 // =============================================================================
 
 model College {
-  id          String       @id @default(uuid())
-  name        String
-  code        String       @unique
-  description String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  deletedAt   DateTime?
-  departments Department[]
-  offices     Office[]
-  programs    Program[]
+  id            String       @id @default(uuid())
+  name          String
+  code          String       @unique
+  description   String?
+  displayOrder  Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+  departments   Department[]
+  offices       Office[]
+  programs      Program[]
 
   @@index([deletedAt])
+  @@index([displayOrder])
   @@map("colleges")
 }
 
@@ -621,24 +730,24 @@ model SystemSetting {
 }
 
 // =============================================================================
-// Sprint 7.4.1 — System Administrator (ROOT) Foundation + Configuration Engine
+// Sprint 7.4.1 â€” System Administrator (ROOT) Foundation + Configuration Engine
 // -----------------------------------------------------------------------------
 // The Configuration Engine is the reusable, versioned configuration service:
-//   * ConfigurationCategory — grouping bucket (system, university, academic,
+//   * ConfigurationCategory â€” grouping bucket (system, university, academic,
 //     security, upload, storage, pagination).
-//   * Configuration        — one configuration entry. `value` is stored as
+//   * Configuration        â€” one configuration entry. `value` is stored as
 //     Json so STRING/NUMBER/BOOLEAN/LIST all fit one column; `version` is the
 //     current version number (monotonic per configuration); `isSystem` marks
 //     seed-owned entries that cannot be deleted; soft delete via `deletedAt`.
-//   * ConfigurationVersion — append-only snapshot of `value` per version.
+//   * ConfigurationVersion â€” append-only snapshot of `value` per version.
 //     One row is created on every create/update/rollback; the (configurationId,
 //     version) composite key mirrors `Configuration.version`.
-//   * ConfigurationHistory — full audit trail of lifecycle actions (created /
+//   * ConfigurationHistory â€” full audit trail of lifecycle actions (created /
 //     updated / deleted / restored / rolled_back) with before/after values and
-//     the acting user. This is a SECOND trail beside AuditLog — it answers
+//     the acting user. This is a SECOND trail beside AuditLog â€” it answers
 //     "what changed in the engine" queries (Root Console History page).
 //
-// Conventions follow AI_CONTEXT §6: UUID PKs, `deletedAt` soft delete,
+// Conventions follow AI_CONTEXT Â§6: UUID PKs, `deletedAt` soft delete,
 // `createdBy`/`updatedBy` FKs with SetNull, an index on every FK/filter
 // column, and Restrict on the required category FK. The engine's values are
 // mirrored in the (unchanged, Sprint 7.1) SystemSetting singleton for the
@@ -752,27 +861,27 @@ model ConfigurationHistory {
 }
 
 // =============================================================================
-// Sprint 7.4.2 — Organization Management Engine (ROOT-only master data)
+// Sprint 7.4.2 â€” Organization Management Engine (ROOT-only master data)
 // -----------------------------------------------------------------------------
 // The Root Console's organization builder manages the platform's org
 // structure: Colleges and Departments already existed as Sprint 7.1 admin
-// rows (same physical tables — the ROOT surface reuses them additively; the
+// rows (same physical tables â€” the ROOT surface reuses them additively; the
 // ADMINISTRATOR admin surface keeps working on the same rows), while Offices
 // and Programs are new. Every one of the four entity types participates in
 // the versioning scheme:
 //
-//   * OrganizationVersion — append-only snapshot table (mirrors the
+//   * OrganizationVersion â€” append-only snapshot table (mirrors the
 //     ConfigurationVersion convention): one row per (entity, entityId,
 //     version); `data` is a Json snapshot of the record's editable fields
 //     (name/code/description/parent links/level). Create, update, archive and
 //     restore all append a new version; ROOT can roll a record back to any
 //     earlier snapshot (`changeType = ROLLED_BACK`). This is the
-//     Configuration Engine integration: the same version → history → rollback
+//     Configuration Engine integration: the same version â†’ history â†’ rollback
 //     lifecycle the engine applies to configuration values.
 //
 // Program `level` is a closed enum (UNDERGRADUATE / GRADUATE / DOCTORAL /
 // CERTIFICATE / DIPLOMA). All FKs use SetNull so archiving a parent never
-// orphans children. Indexes follow AI_CONTEXT §6 (index on every FK and
+// orphans children. Indexes follow AI_CONTEXT Â§6 (index on every FK and
 // filter column).
 // =============================================================================
 
@@ -800,43 +909,47 @@ enum ProgramLevel {
 }
 
 model Office {
-  id           String      @id @default(uuid())
-  name         String
-  code         String      @unique
-  description  String?
-  headId       String?
-  head         User?       @relation("OfficeHead", fields: [headId], references: [id], onDelete: SetNull)
-  collegeId    String?
-  college      College?    @relation(fields: [collegeId], references: [id], onDelete: SetNull)
-  departmentId String?
-  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  deletedAt    DateTime?
+  id            String      @id @default(uuid())
+  name          String
+  code          String      @unique
+  description   String?
+  displayOrder  Int         @default(0)
+  headId        String?
+  head          User?       @relation("OfficeHead", fields: [headId], references: [id], onDelete: SetNull)
+  collegeId     String?
+  college       College?    @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
 
   @@index([deletedAt])
   @@index([collegeId])
   @@index([departmentId])
+  @@index([displayOrder])
   @@map("offices")
 }
 
 model Program {
-  id           String       @id @default(uuid())
-  name         String
-  code         String       @unique
-  description  String?
-  level        ProgramLevel @default(UNDERGRADUATE)
-  collegeId    String?
-  college      College?     @relation(fields: [collegeId], references: [id], onDelete: SetNull)
-  departmentId String?
-  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  deletedAt    DateTime?
+  id            String       @id @default(uuid())
+  name          String
+  code          String       @unique
+  description   String?
+  displayOrder  Int          @default(0)
+  level         ProgramLevel @default(UNDERGRADUATE)
+  collegeId     String?
+  college       College?     @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  departmentId  String?
+  department    Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
 
   @@index([deletedAt])
   @@index([collegeId])
   @@index([departmentId])
+  @@index([displayOrder])
   @@map("programs")
 }
 
@@ -858,34 +971,34 @@ model OrganizationVersion {
 }
 
 // =============================================================================
-// Sprint 7.4.3 — Dynamic Folder Builder (ROOT-only folder structure engine)
+// Sprint 7.4.3 â€” Dynamic Folder Builder (ROOT-only folder structure engine)
 // -----------------------------------------------------------------------------
 // Replaces hardcoded folder structures with versioned, assignable folder
 // templates. Design mirrors the Sprint 7.4.1 Configuration Engine
 // (version + snapshot + history + rollback) and the Sprint 7.4.2 Organization
 // Engine (entity-config factory, soft delete, SetNull attribution FKs):
 //
-//   * FolderTemplate     — one versioned folder structure blueprint. `code` is
+//   * FolderTemplate     â€” one versioned folder structure blueprint. `code` is
 //     globally unique; live names are unique among live templates (partial
 //     unique index in the migration). `version` is the current version number
 //     (monotonic per template). `icon` / `color` / `category` are presentation
 //     hints surfaced by the Root Console and the repository structure view.
-//   * FolderNode         — a node in the template tree. `parentId` self-FK
-//     (Cascade for hard deletes, which never fire — soft delete only); `level`
+//   * FolderNode         â€” a node in the template tree. `parentId` self-FK
+//     (Cascade for hard deletes, which never fire â€” soft delete only); `level`
 //     is the denormalized depth (0 = root) so recursive queries can be
 //     bounded; `sortOrder` orders siblings; `metadata` is free-form Json;
 //     `visibility` (VISIBLE/HIDDEN) + `status` (ACTIVE/INACTIVE) control
 //     whether the node appears in repository structure views.
-//   * FolderAssignment   — binds one live template to a scope target
+//   * FolderAssignment   â€” binds one live template to a scope target
 //     (UNIVERSITY / COLLEGE / DEPARTMENT / PROGRAM / OFFICE / AACCUP_AREA).
-//     At most one live assignment per (targetType, targetId) — enforced by a
+//     At most one live assignment per (targetType, targetId) â€” enforced by a
 //     partial unique index in the migration.
-//   * FolderVersion      — append-only snapshot of the WHOLE template
+//   * FolderVersion      â€” append-only snapshot of the WHOLE template
 //     (template fields + full node tree) per version. Create / update /
 //     assignment / every node mutation append one in the same transaction as
 //     the mutation (never drifts). Rollback replays a snapshot as a NEW
 //     version (changeType ROLLED_BACK).
-//   * FolderHistory      — second trail (besides AuditLog) answering "what
+//   * FolderHistory      â€” second trail (besides AuditLog) answering "what
 //     changed in the engine": action, before/after, versionFrom/To, actor.
 //     Mirrors configuration_histories.
 // =============================================================================
@@ -1038,7 +1151,7 @@ model FolderHistory {
 }
 
 // =============================================================================
-// Sprint 7.4.4 — Dynamic Requirement Builder
+// Sprint 7.4.4 â€” Dynamic Requirement Builder
 // =============================================================================
 
 enum RequirementTemplateStatus {
@@ -1267,13 +1380,13 @@ model RequirementHistory {
 }
 
 // =============================================================================
-// Sprint 7.4.5 — Dynamic Workflow Builder
+// Sprint 7.4.5 â€” Dynamic Workflow Builder
 // -----------------------------------------------------------------------------
 // ROOT-authored, versioned, validated/published workflow definitions that
 // control real runtime behavior (AACCUP submissions, document requests,
 // documents) via WorkflowInstance / WorkflowStepInstance / WorkflowAction.
 // Published versions are immutable snapshots; assignments resolve by
-// specificity → priority → newest effective (see workflow.engine.ts).
+// specificity â†’ priority â†’ newest effective (see workflow.engine.ts).
 // =============================================================================
 
 enum WorkflowDefinitionStatus {
@@ -1530,4 +1643,326 @@ model WorkflowAction {
   @@index([instanceId, createdAt])
   @@index([actorId])
   @@map("workflow_actions")
+}
+
+// =============================================================================
+// Sprint 7.4.6 â€” Dynamic Form Builder
+// -----------------------------------------------------------------------------
+// ROOT-only authoring engine for reusable, completely dynamic form templates.
+// A FormTemplate holds an ordered list of FormField definitions (12 field
+// types, none hardcoded into consumers). Mutations are versioned: every
+// mutation atomically bumps `version`, writes a complete immutable snapshot
+// into `form_versions.data`, and appends a `form_histories` row. Published
+// templates are immutable; editing a PUBLISHED template returns 409 until
+// rollback replays an older snapshot as a NEW draft version. FormAssignment
+// links a template to a REQUIREMENT_TEMPLATE, WORKFLOW_STEP, AACCUP_AREA,
+// FOLDER_TEMPLATE or UNIVERSITY scope (future modules can add target types by
+// extending the enum).
+// =============================================================================
+
+enum FormStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum FormFieldType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  EMAIL
+  DATE
+  TIME
+  DROPDOWN
+  RADIO
+  CHECKBOX
+  MULTI_SELECT
+  FILE
+  SECTION
+}
+
+enum FormAssignmentTargetType {
+  REQUIREMENT_TEMPLATE
+  WORKFLOW_STEP
+  AACCUP_AREA
+  FOLDER_TEMPLATE
+  UNIVERSITY
+}
+
+enum FormChangeType {
+  CREATED
+  UPDATED
+  SAVED
+  PUBLISHED
+  DUPLICATED
+  ASSIGNED
+  UNASSIGNED
+  ARCHIVED
+  RESTORED
+  DELETED
+  ROLLED_BACK
+}
+
+model FormTemplate {
+  id            String            @id @default(uuid())
+  code          String            @unique
+  name          String
+  description   String?
+  status        FormStatus        @default(DRAFT)
+  version       Int               @default(1)
+  metadata      Json?
+  createdBy     String?
+  createdByUser User?             @relation("FormTemplateCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedBy     String?
+  updatedByUser User?             @relation("FormTemplateUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  deletedAt     DateTime?
+  fields        FormField[]
+  assignments   FormAssignment[]
+  versions      FormVersion[]
+  history       FormHistory[]
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("form_templates")
+}
+
+model FormField {
+  id            String            @id @default(uuid())
+  templateId    String
+  template      FormTemplate      @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  key           String
+  label         String
+  type          FormFieldType
+  description   String?
+  placeholder   String?
+  required      Boolean           @default(false)
+  defaultValue  Json?
+  options       Json?
+  validation    Json?
+  helpText      String?
+  sortOrder     Int               @default(0)
+  metadata      Json?
+  createdBy     String?
+  updatedBy     String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  deletedAt     DateTime?
+
+  @@unique([templateId, key])
+  @@index([templateId])
+  @@index([templateId, sortOrder])
+  @@index([templateId, deletedAt])
+  @@map("form_fields")
+}
+
+model FormAssignment {
+  id            String                      @id @default(uuid())
+  templateId    String
+  template      FormTemplate                @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  targetType    FormAssignmentTargetType
+  targetId      String?
+  priority      Int                         @default(0)
+  createdBy     String?
+  createdByUser User?                       @relation("FormAssignmentCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt     DateTime                    @default(now())
+  updatedAt     DateTime                    @updatedAt
+  deletedAt     DateTime?
+
+  @@unique([templateId, targetType, targetId])
+  @@index([targetType, targetId])
+  @@index([templateId])
+  @@map("form_assignments")
+}
+
+model FormVersion {
+  id            String         @id @default(uuid())
+  templateId    String
+  template      FormTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  version       Int
+  changeType    FormChangeType @default(CREATED)
+  data          Json
+  changeNote    String?
+  changedById   String?
+  changedBy     User?          @relation("FormVersionChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime       @default(now())
+
+  @@unique([templateId, version])
+  @@index([templateId])
+  @@index([createdAt])
+  @@map("form_versions")
+}
+
+model FormHistory {
+  id          String         @id @default(uuid())
+  templateId  String
+  template    FormTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  action      FormChangeType
+  oldValue    Json?
+  newValue    Json?
+  versionFrom Int?
+  versionTo   Int?
+  actorId     String?
+  actor       User?          @relation("FormHistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now())
+
+  @@index([templateId])
+  @@index([templateId, createdAt])
+  @@index([actorId])
+  @@map("form_histories")
+}
+
+// =============================================================================
+// Sprint 7.4.8 — Platform Setup Wizard
+// -----------------------------------------------------------------------------
+// Singleton row tracking wizard lifecycle. Nothing about the setup itself is
+// stored client-side: progress (currentStep + completedSteps), status and the
+// MinIO logo object key all live in PostgreSQL so a refresh / logout / server
+// or Docker restart resumes exactly where the wizard left off. All business
+// data the wizard creates (organization records, folder / requirement / form
+// templates, workflow assignments, administrators) is written through the
+// existing engines — this table only orchestrates state + audit.
+// =============================================================================
+
+enum SetupStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// =============================================================================
+// Personal Document Repository & File Lifecycle
+// -----------------------------------------------------------------------------
+// One idempotently provisioned repository per owner (Users and
+// Administrators). Folders and documents carry a repositoryId ownership key;
+// all repository access is ownership-based (or Root-granted time-limited
+// emergency access). Favorites / recents / quick-access pins are
+// schema-backed per account. AACCUP submissions capture immutable evidence
+// snapshot columns at submission time.
+// =============================================================================
+
+model Repository {
+  id        String   @id @default(uuid())
+  ownerId   String   @unique
+  owner     User     @relation("RepositoryOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  folders   Folder[]
+  documents Document[]
+  copyJobs  RepositoryCopyJob[]
+
+  @@map("repositories")
+}
+
+// =============================================================================
+// Repository rules sprint — persisted background copy jobs.
+// Large folder copies (>= COPY_JOB_THRESHOLD_ITEMS) run as an async job so a
+// copy never freezes the API request or the browser. The job row is the
+// progress/state contract; the service loops copySubtree and updates
+// processedItems as it goes. Jobs never outlive their owner.
+// =============================================================================
+
+enum RepositoryCopyJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model RepositoryCopyJob {
+  id              String                  @id @default(uuid())
+  ownerId         String
+  owner           User                    @relation("CopyJobOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  repositoryId    String?
+  repository      Repository?             @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  sourceFolderId  String?
+  sourceFolder    Folder?                 @relation("CopyJobSource", fields: [sourceFolderId], references: [id], onDelete: SetNull)
+  targetParentId  String?
+  targetParent    Folder?                 @relation("CopyJobTarget", fields: [targetParentId], references: [id], onDelete: SetNull)
+  conflictMode    String                  @default("keep_both")
+  status          RepositoryCopyJobStatus @default(PENDING)
+  totalItems      Int                     @default(0)
+  processedItems  Int                     @default(0)
+  error           String?
+  resultFolderId  String?
+  createdAt       DateTime                @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+
+  @@index([ownerId, status])
+  @@map("repository_copy_jobs")
+}
+
+model RepositoryFavorite {
+  id         String   @id @default(uuid())
+  ownerId    String
+  owner      User     @relation("FavoriteOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  documentId String
+  document   Document @relation("FavoriteDocument", fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([ownerId, documentId])
+  @@index([ownerId])
+  @@map("repository_favorites")
+}
+
+model RepositoryRecent {
+  id           String   @id @default(uuid())
+  ownerId      String
+  owner        User     @relation("RecentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  itemType     String
+  itemId       String
+  lastOpenedAt DateTime @default(now())
+
+  @@unique([ownerId, itemType, itemId])
+  @@index([ownerId, lastOpenedAt(sort: Desc)])
+  @@map("repository_recents")
+}
+
+model RepositoryPin {
+  id        String   @id @default(uuid())
+  ownerId   String
+  owner     User     @relation("PinOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  folderId  String
+  folder    Folder   @relation("PinnedFolder", fields: [folderId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([ownerId, folderId])
+  @@index([ownerId])
+  @@map("repository_pins")
+}
+
+model EmergencyAccess {
+  id        String    @id @default(uuid())
+  adminId   String
+  admin     User      @relation("EmergencyAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+  ownerId   String
+  owner     User      @relation("EmergencyTarget", fields: [ownerId], references: [id], onDelete: Cascade)
+  reason    String
+  grantedBy String
+  grantor   User      @relation("EmergencyGrantor", fields: [grantedBy], references: [id], onDelete: Restrict)
+  grantedAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  @@index([adminId, ownerId])
+  @@index([expiresAt])
+  @@map("emergency_access")
+}
+
+model SetupState {
+  id             String      @id @default("setup")
+  status         SetupStatus @default(NOT_STARTED)
+  currentStep    Int         @default(0)
+  completedSteps Json        @default("[]")
+  logoObjectKey  String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  updatedBy      String?
+  updatedByUser  User?       @relation("SetupStateUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@map("setup_states")
 }

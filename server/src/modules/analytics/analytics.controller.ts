@@ -49,11 +49,15 @@ export async function storageHandler(req: Request, res: Response): Promise<void>
 
 function toFilter(req: Request): AnalyticsFilter {
   const q = req.query as unknown as AnalyticsQuery;
+  // Personal-repository analytics: non-ROOT actors see only their own
+  // repository's uploads (platform-wide values belong to the Root Console).
+  const permissions = req.auth!.permissions ?? [];
   return {
     granularity: q.granularity,
     from: q.from,
     to: q.to,
     departmentId: q.departmentId,
     areaId: q.areaId,
+    ownerId: permissions.includes("root.access") ? undefined : req.auth!.userId,
   };
 }

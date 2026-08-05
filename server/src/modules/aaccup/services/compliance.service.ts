@@ -323,8 +323,17 @@ export async function calculateOverallCompliance(
   // `areaBreakdown`, in contrast, is the FILTERED view (incl. the
   // compliance-range filter), so it may have fewer entries than totalAreas.
   // This is by design: totals == global metrics, breakdown == visible rows.
+  // Departments are included even when archived IF they still own live areas
+  // (Sprint 7.5 integration fix): a live area must never disappear from
+  // compliance just because its parent department was archived. Only
+  // departments with no live areas at all are excluded.
   const departments = (await prisma.department.findMany({
-    where: { deletedAt: null },
+    where: {
+      OR: [
+        { deletedAt: null },
+        { aaccupAreas: { some: { deletedAt: null } } },
+      ],
+    },
     include: DEPARTMENT_GRAPH,
   })) as RawDepartment[];
 
@@ -344,6 +353,8 @@ export async function calculateOverallCompliance(
       if (filter?.areaId && area.id !== filter.areaId) continue;
       // Optional status filter (area-level derived status).
       if (filter?.areaStatus && area.status !== filter.areaStatus) continue;
+      // Optional accreditation set filter (AACCUP / ISO / Certification).
+      if (filter?.areaSet && area.areaSet !== filter.areaSet) continue;
 
       const rolled = rollupArea(area);
       totalAreas += 1;
@@ -386,6 +397,7 @@ export async function calculateOverallCompliance(
 export interface AnalyticsFilter {
   departmentId?: string;
   areaId?: string;
+  areaSet?: "AACCUP" | "ISO" | "CERT";
   areaStatus?: "ACTIVE" | "INACTIVE";
   minCompliance?: number;
   maxCompliance?: number;

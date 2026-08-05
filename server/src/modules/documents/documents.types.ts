@@ -25,11 +25,15 @@ export interface DocumentListItem {
   currentFilename: string | null;
   currentMimeType: string | null;
   currentSizeBytes: string | null;
+  currentChecksum: string | null;
+  /** Latest non-deleted AACCUP submission status for this document, if any. */
+  submissionStatus: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_REVISION" | null;
   retentionUntil: Date | null;
   metadata: Prisma.JsonValue;
   tags: string[];
   createdAt: Date;
   updatedAt: Date;
+  deletedAt: Date | null;
 }
 
 export interface DocumentDetail extends DocumentListItem {
