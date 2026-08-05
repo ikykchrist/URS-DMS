@@ -7,10 +7,13 @@ import { authLimiter } from "@/middlewares/rateLimiter";
 import { changePasswordSchema, loginSchema, refreshSchema } from "@/modules/auth/auth.validator";
 import {
   changePasswordHandler,
+  listSessionsHandler,
   loginHandler,
   logoutHandler,
   meHandler,
   refreshHandler,
+  revokeOtherSessionsHandler,
+  revokeSessionHandler,
 } from "@/modules/auth/auth.controller";
 
 // =============================================================================
@@ -38,4 +41,18 @@ authRouter.post(
   requirePermission("users.self.update"),
   validateBody(changePasswordSchema),
   asyncHandler(changePasswordHandler),
+);
+
+authRouter.get("/sessions", authenticate, asyncHandler(listSessionsHandler));
+
+authRouter.post(
+  "/sessions/:sessionId/kill",
+  authenticate,
+  asyncHandler(revokeSessionHandler),
+);
+
+authRouter.post(
+  "/sessions/kill-all",
+  authenticate,
+  asyncHandler(revokeOtherSessionsHandler),
 );

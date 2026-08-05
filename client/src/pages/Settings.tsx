@@ -69,6 +69,7 @@ export default function Settings() {
   const [profilePhone, setProfilePhone] = useState(user?.phone ?? "")
   const [profileDept, setProfileDept] = useState(user?.department ?? "")
   const [language, setLanguage] = useState<"en" | "fil">("en")
+  const [newFileType, setNewFileType] = useState("")
   const [timezone, setTimezone] = useState("Asia/Manila")
   const [dateFormat, setDateFormat] = useState<"mdy" | "dmy" | "ymd">("mdy")
   const [dashboardView, setDashboardView] = useState<"overview" | "submissions" | "documents">("overview")
@@ -105,7 +106,32 @@ export default function Settings() {
   const handleSaveSettings = async (patch: Partial<Omit<SystemSettingsView, "updatedAt" | "updatedById">>) => {
     const updated = settings ? { ...settings, ...patch } : null
     setSettings(updated)
-    if (updated) await updateSystemSettings(patch)
+    if (!updated) return
+    try {
+      const saved = await updateSystemSettings(patch)
+      setSettings(saved)
+      toast.success("Settings saved")
+    } catch (err) {
+      setSettings(settings)
+      toast.error(err instanceof Error ? err.message : "Failed to save settings")
+    }
+  }
+
+  const handleAddFileType = async () => {
+    const type = newFileType.trim().replace(/^\./, "").toLowerCase()
+    if (!type) return
+    const current = settings?.allowedFileTypes ?? []
+    if (current.includes(type)) {
+      toast.error("That file type is already allowed")
+      return
+    }
+    setNewFileType("")
+    await handleSaveSettings({ allowedFileTypes: [...current, type] })
+  }
+
+  const handleRemoveFileType = async (type: string) => {
+    const current = settings?.allowedFileTypes ?? []
+    await handleSaveSettings({ allowedFileTypes: current.filter((t) => t !== type) })
   }
 
   const handleSaveNotifications = async () => {}
@@ -489,16 +515,19 @@ export default function Settings() {
                         </Select>
                       </div>
                       <div className="grid gap-2">
-                        <Label className="text-[13px] font-medium text-gray-700">File Retention Period</Label>
-                        <Select defaultValue="365">
+                        <Label className="text-[13px] font-medium text-gray-700">Storage Threshold Warning</Label>
+                        <Select
+                          value={String(settings?.storageThresholdWarning ?? 80)}
+                          onValueChange={(v) => handleSaveSettings({ storageThresholdWarning: Number(v) })}
+                        >
                           <SelectTrigger className="h-10">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="90">90 Days</SelectItem>
-                            <SelectItem value="180">180 Days</SelectItem>
-                            <SelectItem value="365">1 Year</SelectItem>
-                            <SelectItem value="forever">Forever</SelectItem>
+                            <SelectItem value="60">60%</SelectItem>
+                            <SelectItem value="70">70%</SelectItem>
+                            <SelectItem value="80">80%</SelectItem>
+                            <SelectItem value="90">90%</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -509,13 +538,36 @@ export default function Settings() {
                       <div className="flex flex-wrap gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
                         {(settings?.allowedFileTypes?.length
                           ? settings.allowedFileTypes
-                          : ["PDF", "DOC", "DOCX", "XLS", "XLSX", "PPT", "PPTX", "JPG", "PNG", "ZIP"]
+                          : ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "jpg", "png", "zip"]
                         ).map((type) => (
-                          <span key={type} className="px-2.5 py-1 rounded-md bg-white border border-gray-200 text-[12px] font-medium text-gray-600">
+                          <span key={type} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-gray-200 text-[12px] font-medium text-gray-600">
                             .{type.replace(/^\./, "").toUpperCase()}
+                            <button
+                              type="button"
+                              className="text-gray-400 hover:text-red-500 transition-colors"
+                              onClick={() => handleRemoveFileType(type.replace(/^\./, "").toLowerCase())}
+                              title="Remove file type"
+                            >
+                              ×
+                            </button>
                           </span>
                         ))}
                       </div>
+                      <div className="flex gap-2">
+                        <Input
+                          value={newFileType}
+                          onChange={(e) => setNewFileType(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleAddFileType() } }}
+                          placeholder="e.g. pdf, docx"
+                          className="h-9 w-48"
+                        />
+                        <Button variant="outline" size="sm" className="h-9" onClick={() => void handleAddFileType()}>
+                          Add
+                        </Button>
+                      </div>
+                      <p className="text-[12px] text-gray-500">
+                        {settings?.allowedFileTypes?.length ? `${settings.allowedFileTypes.length} file type(s) allowed` : "All file types are currently allowed"}
+                      </p>
                     </div>
 
                     <div className="grid gap-2">

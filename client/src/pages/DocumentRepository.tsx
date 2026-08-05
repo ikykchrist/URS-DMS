@@ -22,6 +22,7 @@ import {
   Presentation,
   LayoutGrid,
   List,
+  Trash2,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -63,9 +64,18 @@ import {
 } from "@/components/ui/Dialog";
 import { Label } from "@/components/ui/Label";
 import { Dropzone } from "@/components/ui/Dropzone";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/DropdownMenu";
 import { cn } from "@/lib/utils";
 import {
   createRepositoryFolder,
+  deleteOnlineDocument,
+  getOnlineDocumentUrl,
   listOnlineDocuments,
   openOnlineDocument,
   resolveRepositoryStructure,
@@ -360,12 +370,24 @@ export default function DocumentRepository() {
 
   const folderOptions = flattenFolders(folderTree);
 
+  const selectedFolderName =
+    flattenFolders(folderTree).find((f) => f.id === selectedFolder)?.name ??
+    null;
+
   useEffect(() => {
+    setPage(1);
     fetchDocuments();
   }, [fetchDocuments]);
 
   useEffect(() => {
     let filtered = [...allDocuments];
+    if (selectedFolderName && selectedFolder !== "root") {
+      filtered = filtered.filter(
+        (d) =>
+          d.area === selectedFolderName ||
+          d.categoryName === selectedFolderName,
+      );
+    }
     if (filterArea !== "all")
       filtered = filtered.filter((d) => d.area === filterArea);
     if (filterDept !== "all")
@@ -394,7 +416,7 @@ export default function DocumentRepository() {
         filtered.sort((a, b) => b.dateModified.localeCompare(a.dateModified));
     }
     setDocuments(filtered);
-  }, [allDocuments, filterArea, filterDept, filterType, sortOrder]);
+  }, [allDocuments, filterArea, filterDept, filterType, sortOrder, selectedFolder, selectedFolderName]);
 
   const handleCloseUploadModal = (open: boolean) => {
     setIsUploadModalOpen(open);
@@ -450,7 +472,37 @@ export default function DocumentRepository() {
   const handleDownload = async (doc: Document) => {
     try {
       await openOnlineDocument(doc);
-    } catch {}
+    } catch {
+      toast.error("Could not generate download link");
+    }
+  };
+
+  const handleShare = async (doc: Document) => {
+    try {
+      const url = await getOnlineDocumentUrl(doc);
+      await navigator.clipboard.writeText(url);
+      toast.success("Download link copied to clipboard");
+    } catch {
+      toast.error("Could not generate share link");
+    }
+  };
+
+  const [docToDelete, setDocToDelete] = useState<Document | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    if (!docToDelete) return;
+    setDeleting(true);
+    try {
+      await deleteOnlineDocument(docToDelete.id);
+      toast.success("Document deleted");
+      setDocToDelete(null);
+      await fetchDocuments();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete document");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handlePreview = async (doc: Document) => {
@@ -465,11 +517,16 @@ export default function DocumentRepository() {
 
   const ITEMS_PER_PAGE = 10;
   const [page, setPage] = useState(1);
-  const totalPages = Math.ceil(documents.length / ITEMS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(documents.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(page, totalPages);
   const paginatedDocs = documents.slice(
-    (page - 1) * ITEMS_PER_PAGE,
-    page * ITEMS_PER_PAGE,
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE,
   );
+  const pageWindow = Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+    const start = Math.max(1, Math.min(safePage - 2, totalPages - 4));
+    return start + i;
+  });
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -721,7 +778,10 @@ export default function DocumentRepository() {
                   item={item}
                   level={0}
                   selectedFolder={selectedFolder}
-                  onSelectFolder={setSelectedFolder}
+                  onSelectFolder={(id) => {
+                    setSelectedFolder(id);
+                    setPage(1);
+                  }}
                   expandedFolders={expandedFolders}
                   onToggleExpand={toggleExpand}
                 />
@@ -869,6 +929,7 @@ export default function DocumentRepository() {
                 <Card
                   key={doc.id}
                   className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
+                  onClick={() => void handlePreview(doc)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3 mb-3">
@@ -914,17 +975,58 @@ export default function DocumentRepository() {
                         className="h-7 w-7"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDownload(doc);
+                          void handleDownload(doc);
                         }}
                       >
                         <Download className="w-3.5 h-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleShare(doc);
+                        }}
+                      >
                         <Share2 className="w-3.5 h-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7">
-                        <MoreHorizontal className="w-3.5 h-3.5" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="w-3.5 h-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem
+                            className="text-[13px]"
+                            onClick={() => void handlePreview(doc)}
+                          >
+                            <Eye className="mr-2 w-4 h-4" />
+                            Preview
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-[13px]"
+                            onClick={() => void handleDownload(doc)}
+                          >
+                            <Download className="mr-2 w-4 h-4" />
+                            Download
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-[13px] text-red-600"
+                            onClick={() => setDocToDelete(doc)}
+                          >
+                            <Trash2 className="mr-2 w-4 h-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </CardContent>
                 </Card>
@@ -1012,16 +1114,45 @@ export default function DocumentRepository() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-gray-500 hover:text-gray-900"
+                              onClick={() => void handleShare(doc)}
                             >
                               <Share2 className="w-4 h-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-gray-500 hover:text-gray-900"
-                            >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-gray-500 hover:text-gray-900"
+                                >
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                <DropdownMenuItem
+                                  className="text-[13px]"
+                                  onClick={() => void handlePreview(doc)}
+                                >
+                                  <Eye className="mr-2 w-4 h-4" />
+                                  Preview
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-[13px]"
+                                  onClick={() => void handleDownload(doc)}
+                                >
+                                  <Download className="mr-2 w-4 h-4" />
+                                  Download
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-[13px] text-red-600"
+                                  onClick={() => setDocToDelete(doc)}
+                                >
+                                  <Trash2 className="mr-2 w-4 h-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1040,24 +1171,18 @@ export default function DocumentRepository() {
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                       />
                       <PaginationContent>
-                        {Array.from(
-                          { length: Math.min(totalPages, 5) },
-                          (_, i) => {
-                            const p = i + 1;
-                            return (
-                              <PaginationItem key={p}>
-                                <PaginationLink
-                                  isActive={p === page}
-                                  className="h-8 w-8"
-                                  onClick={() => setPage(p)}
-                                >
-                                  {p}
-                                </PaginationLink>
-                              </PaginationItem>
-                            );
-                          },
-                        )}
-                        {totalPages > 5 && (
+                        {pageWindow.map((p) => (
+                          <PaginationItem key={p}>
+                            <PaginationLink
+                              isActive={p === safePage}
+                              className="h-8 w-8"
+                              onClick={() => setPage(p)}
+                            >
+                              {p}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        {totalPages > 5 && safePage < totalPages - 2 && (
                           <PaginationEllipsis className="h-8 w-8" />
                         )}
                       </PaginationContent>
@@ -1083,6 +1208,31 @@ export default function DocumentRepository() {
         allFiles={allFiles}
         onSelectFile={(f) => setPreviewDocId(f.id)}
       />
+
+      <Dialog open={docToDelete !== null} onOpenChange={(open) => !open && setDocToDelete(null)}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Delete Document</DialogTitle>
+            <DialogDescription className="text-[14px]">
+              Are you sure you want to delete "{docToDelete?.name}"? This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 pt-2">
+            <Button variant="outline" className="h-9" onClick={() => setDocToDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="h-9"
+              disabled={deleting}
+              onClick={() => void handleConfirmDelete()}
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

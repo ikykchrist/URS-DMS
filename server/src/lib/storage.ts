@@ -77,7 +77,6 @@ export async function presignUpload(
       headers: {
         "Content-Type": mimeType,
         "Content-Length": String(sizeBytes),
-        "x-amz-meta-original-filename": encodeURIComponent(filename),
       },
       expiresInSeconds,
     };

@@ -1,4 +1,4 @@
-import type { User, UserRole, ServerUser } from "@/types/domain"
+import type { User, UserRole, ServerUser, UserSession } from "@/types/domain"
 import { apiGet, apiPost, getAccessToken, clearServerToken, setServerToken } from "@/lib/http"
 
 interface AuthState {
@@ -160,37 +160,44 @@ class AuthService {
       }
     }
   }
-
-  async uploadAvatar(): Promise<{ success: boolean; avatarSeed?: string; error?: string }> {
-    return { success: false, error: "Avatar upload is not available yet" }
-  }
-
   getCurrentUser(): User | null {
     return this.state.user
   }
-
   getState(): AuthState {
     return this.state
   }
 
-  async getUserSessions(): Promise<never[]> {
-    return []
+  async getUserSessions(): Promise<UserSession[]> {
+    const data = await apiGet<{ sessions: Array<{
+      id: string
+      device: string | null
+      browser: string | null
+      ipAddress: string | null
+      createdAt: string
+      expiresAt: string
+      current: boolean
+    }> }>("/auth/sessions")
+    return data.sessions.map((s) => ({
+      id: s.id,
+      userId: this.state.user?.id ?? "",
+      token: "",
+      device: s.device ?? "Unknown device",
+      browser: s.browser ?? "Unknown browser",
+      os: "",
+      ipAddress: s.ipAddress ?? "",
+      location: "",
+      lastActive: s.createdAt,
+      createdAt: s.createdAt,
+      current: s.current,
+    }))
   }
 
-  async killSession(): Promise<void> {}
-
-  async killAllOtherSessions(): Promise<void> {}
-
-  async getSystemSettings(): Promise<null> {
-    return null
+  async killSession(sessionId: string): Promise<void> {
+    await apiPost<{ success: true }>(`/auth/sessions/${encodeURIComponent(sessionId)}/kill`)
   }
 
-  async updateSystemSettings(): Promise<null> {
-    return null
-  }
-
-  async updateUserSettings(): Promise<null> {
-    return null
+  async killAllOtherSessions(): Promise<void> {
+    await apiPost<{ success: true }>("/auth/sessions/kill-all")
   }
 }
 

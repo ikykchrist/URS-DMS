@@ -69,3 +69,19 @@ export async function changePasswordHandler(req: Request, res: Response): Promis
   clearRefreshCookie(res);
   sendSuccess(res, { success: true });
 }
+
+export async function listSessionsHandler(req: Request, res: Response): Promise<void> {
+  const sessions = await service.listSessions(req.auth!.userId, req.auth!.sessionId);
+  sendSuccess(res, { sessions });
+}
+
+export async function revokeSessionHandler(req: Request, res: Response): Promise<void> {
+  const { sessionId } = req.params as { sessionId: string };
+  await service.revokeSession(req.auth!.userId, sessionId, req.auth!.sessionId);
+  sendSuccess(res, { success: true });
+}
+
+export async function revokeOtherSessionsHandler(req: Request, res: Response): Promise<void> {
+  const revoked = await service.revokeOtherSessions(req.auth!.userId, req.auth!.sessionId);
+  sendSuccess(res, { success: true, revoked });
+}

@@ -7,6 +7,7 @@ import { parseUserAgent } from "@/utils/device";
 import {
   AccountInactiveError,
   AccountLockedError,
+  BadRequestError,
   InvalidCredentialsError,
   NotFoundError,
   PasswordTooWeakError,
@@ -369,4 +370,65 @@ export async function changePassword(
     ipAddress,
     userAgent,
   });
+}
+
+// ── Session management ───────────────────────────────────────────────────────
+
+export interface SessionView {
+  id: string;
+  device: string | null;
+  browser: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+  expiresAt: string;
+  current: boolean;
+}
+
+export async function listSessions(userId: string, currentSessionId: string): Promise<SessionView[]> {
+  const sessions = await prisma.session.findMany({
+    where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      device: true,
+      browser: true,
+      ipAddress: true,
+      createdAt: true,
+      expiresAt: true,
+    },
+  });
+  return sessions.map((s) => ({
+    id: s.id,
+    device: s.device,
+    browser: s.browser,
+    ipAddress: s.ipAddress,
+    createdAt: s.createdAt.toISOString(),
+    expiresAt: s.expiresAt.toISOString(),
+    current: s.id === currentSessionId,
+  }));
+}
+
+export async function revokeSession(
+  userId: string,
+  sessionId: string,
+  currentSessionId: string,
+): Promise<void> {
+  if (sessionId === currentSessionId) {
+    throw new BadRequestError("Cannot revoke the current session");
+  }
+  const result = await prisma.session.updateMany({
+    where: { id: sessionId, userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+  if (result.count === 0) {
+    throw new NotFoundError("Active session not found");
+  }
+}
+
+export async function revokeOtherSessions(userId: string, currentSessionId: string): Promise<number> {
+  const result = await prisma.session.updateMany({
+    where: { userId, id: { not: currentSessionId }, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+  return result.count;
 }

@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
 import { authService } from "@/services/auth"
+import { toast } from "@/lib/toast"
 import type { UserSession } from "@/types/domain"
 
 interface SessionManagementModalProps {
@@ -22,24 +23,40 @@ export function SessionManagementModal({ open, onOpenChange }: SessionManagement
   const [sessions, setSessions] = useState<UserSession[]>([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    const user = authService.getCurrentUser()
-    if (!open || !user) return
+  const refresh = async () => {
     setLoading(true)
-    authService.getUserSessions().then((s: UserSession[]) => { setSessions(s); setLoading(false) }).catch(() => setLoading(false))
+    try {
+      setSessions(await authService.getUserSessions())
+    } catch {
+      toast.error("Could not load sessions")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return
+    void refresh()
   }, [open])
 
   const handleLogoutSession = async (sessionId: string) => {
-    void sessionId
-    await authService.killSession()
-    setSessions(await authService.getUserSessions())
-    onOpenChange(false)
+    try {
+      await authService.killSession(sessionId)
+      toast.success("Session logged out")
+      await refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to log out session")
+    }
   }
 
   const handleLogoutAll = async () => {
-    await authService.killAllOtherSessions()
-    setSessions(await authService.getUserSessions())
-    onOpenChange(false)
+    try {
+      await authService.killAllOtherSessions()
+      toast.success("All other sessions logged out")
+      await refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to log out sessions")
+    }
   }
 
   const getDeviceIcon = (device: string) => {

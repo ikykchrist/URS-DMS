@@ -206,10 +206,15 @@ export function isOnlineDocument(document: Document): boolean {
   return document.blobId.startsWith("online:")
 }
 
-export async function openOnlineDocument(document: Document, preview = false): Promise<void> {
+export async function getOnlineDocumentUrl(document: Document, preview = false): Promise<string> {
   const endpoint = preview ? "preview" : "download"
   const result = await apiGet<DownloadResult>(`/documents/${encodeURIComponent(document.id)}/${endpoint}`)
-  window.open(result.url, "_blank", "noopener,noreferrer")
+  return result.url
+}
+
+export async function openOnlineDocument(document: Document, preview = false): Promise<void> {
+  const url = await getOnlineDocumentUrl(document, preview)
+  window.open(url, "_blank", "noopener,noreferrer")
 }
 
 // ── Repository folders (server-backed; replaces the hardcoded UI tree) ──────
