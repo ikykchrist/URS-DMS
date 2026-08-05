@@ -241,6 +241,12 @@ export async function listAuditEntries(query?: {
   return apiGetPage<AuditEntry>(`/audit${qs}`)
 }
 
+/** Wipe every audit row (administrator-only). Returns the number of rows removed. */
+export async function clearAuditLogs(): Promise<number> {
+  const data = await apiDelete<{ cleared: number }>("/audit")
+  return data.cleared
+}
+
 export interface AuditExportResult {
   format: string
   contentType: string

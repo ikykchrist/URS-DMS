@@ -6,10 +6,11 @@ import type {
 } from "@/modules/audit/audit.types";
 
 // =============================================================================
-// URS-DMS — audit log repository (read-only data access)
+// URS-DMS — audit log repository (data access)
 // Sprint 6.3 exposes the existing AuditLog table (append-only, never mutated
 // through this module). All joins go through a single Prisma include so a list
 // query is one round-trip, not N+1 for the actor's role/department.
+// `clearAll` is the one deliberate mutation — gate the admin "Clear Logs" action.
 // =============================================================================
 
 const AUDIT_INCLUDE = {
@@ -128,4 +129,10 @@ export async function findManyForExport(
     take: maxRows,
   });
   return rows.map(toListItem);
+}
+
+/** Delete every audit row. Returns the number of rows removed. */
+export async function clearAll(): Promise<number> {
+  const result = await prisma.auditLog.deleteMany({});
+  return result.count;
 }

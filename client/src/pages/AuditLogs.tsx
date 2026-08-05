@@ -2,15 +2,13 @@ import { useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import {
   Search,
-  Filter,
   Download,
   RotateCcw,
   Activity,
   CheckCircle,
   XCircle,
-  Users,
   Eye,
-  Calendar,
+  Trash2,
 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { StatCard } from "@/components/layout/StatCard"
@@ -34,18 +32,18 @@ import {
   SelectValue,
 } from "@/components/ui/Select"
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/Pagination"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/Dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
 import { LogDetailsModal } from "@/components/modals/LogDetailsModal"
 import { ExportLogsModal } from "@/components/modals/ExportLogsModal"
-import { listAuditEntries, type AuditEntry } from "@/services/admin"
+import { listAuditEntries, clearAuditLogs, type AuditEntry } from "@/services/admin"
+import { toast } from "@/lib/toast"
 
 interface AuditLog {
   id: string
@@ -133,13 +131,18 @@ export default function AuditLogs({ sidebarCollapsed: _sidebarCollapsed = false 
   const [searchParams, setSearchParams] = useSearchParams()
   const [isLogDetailsModalOpen, setIsLogDetailsModalOpen] = useState(false)
   const [isExportLogsModalOpen, setIsExportLogsModalOpen] = useState(() => searchParams.get("modal") === "generate-report")
+  const [isClearDialogOpen, setIsClearDialogOpen] = useState(false)
+  const [clearing, setClearing] = useState(false)
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [total, setTotal] = useState(0)
+  const [successTotal, setSuccessTotal] = useState(0)
+  const [failedTotal, setFailedTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [actionFilter, setActionFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -159,16 +162,49 @@ export default function AuditLogs({ sidebarCollapsed: _sidebarCollapsed = false 
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
+    listAuditEntries({ page: 1, pageSize: 1, status: "SUCCESS" })
+      .then((page) => {
+        if (!cancelled) setSuccessTotal(page.meta.total)
+      })
+      .catch(() => {})
+    listAuditEntries({ page: 1, pageSize: 1, status: "FAILED" })
+      .then((page) => {
+        if (!cancelled) setFailedTotal(page.meta.total)
+      })
+      .catch(() => {})
     return () => {
       cancelled = true
     }
-  }, [searchQuery, actionFilter, statusFilter])
+  }, [searchQuery, actionFilter, statusFilter, reloadKey])
 
   const handleCloseExportLogsModal = (open: boolean) => {
     setIsExportLogsModalOpen(open)
     if (!open) {
       searchParams.delete("modal")
       setSearchParams(searchParams)
+    }
+  }
+
+  const handleResetFilters = () => {
+    setSearchQuery("")
+    setActionFilter("all")
+    setStatusFilter("all")
+  }
+
+  const handleClearLogs = async () => {
+    setClearing(true)
+    try {
+      const cleared = await clearAuditLogs()
+      toast.success(`Cleared ${cleared.toLocaleString()} audit log${cleared === 1 ? "" : "s"}`)
+      setIsClearDialogOpen(false)
+      setSearchQuery("")
+      setActionFilter("all")
+      setStatusFilter("all")
+      setReloadKey((k) => k + 1)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to clear audit logs")
+    } finally {
+      setClearing(false)
     }
   }
 
@@ -183,17 +219,26 @@ export default function AuditLogs({ sidebarCollapsed: _sidebarCollapsed = false 
         title="Audit Logs"
         description="Track and monitor all system activities and user actions."
         actions={
-          <Button
-            variant="outline"
-            onClick={() => setIsExportLogsModalOpen(true)}
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export Logs
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setIsExportLogsModalOpen(true)}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export Logs
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => setIsClearDialogOpen(true)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Clear Logs
+            </Button>
+          </>
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         <StatCard
           title="Total Activities"
           value={total.toLocaleString()}
@@ -201,20 +246,13 @@ export default function AuditLogs({ sidebarCollapsed: _sidebarCollapsed = false 
         />
         <StatCard
           title="Successful Actions"
-          value="11,892"
+          value={successTotal.toLocaleString()}
           icon={<CheckCircle className="w-5 h-5" />}
-          trend={{ value: 8, positive: true }}
         />
         <StatCard
           title="Failed Actions"
-          value="156"
+          value={failedTotal.toLocaleString()}
           icon={<XCircle className="w-5 h-5" />}
-          trend={{ value: 12, positive: false }}
-        />
-        <StatCard
-          title="Active Users Today"
-          value="42"
-          icon={<Users className="w-5 h-5" />}
         />
       </div>
 
@@ -233,20 +271,6 @@ export default function AuditLogs({ sidebarCollapsed: _sidebarCollapsed = false 
               </div>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              <Select defaultValue="all">
-                <SelectTrigger className="w-[160px] h-9">
-                  <Filter className="w-3.5 h-3.5 mr-2" />
-                  <SelectValue placeholder="User" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Users</SelectItem>
-                  <SelectItem value="maria">Dr. Maria Santos</SelectItem>
-                  <SelectItem value="john">Prof. John Doe</SelectItem>
-                  <SelectItem value="sarah">Engr. Sarah Cruz</SelectItem>
-                  <SelectItem value="peter">Dr. Peter Lim</SelectItem>
-                  <SelectItem value="lisa">Ms. Lisa Chen</SelectItem>
-                </SelectContent>
-              </Select>
               <Select value={actionFilter} onValueChange={setActionFilter}>
                 <SelectTrigger className="w-[150px] h-9">
                   <SelectValue placeholder="Action Type" />
@@ -269,15 +293,10 @@ export default function AuditLogs({ sidebarCollapsed: _sidebarCollapsed = false 
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="success">Success</SelectItem>
-                  <SelectItem value="warning">Warning</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" className="h-9">
-                <Calendar className="w-3.5 h-3.5 mr-2" />
-                Date Range
-              </Button>
-              <Button variant="outline" size="sm" className="h-9">
+              <Button variant="outline" size="sm" className="h-9" onClick={handleResetFilters}>
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Reset
               </Button>
@@ -378,31 +397,10 @@ export default function AuditLogs({ sidebarCollapsed: _sidebarCollapsed = false 
               ))}
             </TableBody>
           </Table>
-          <div className="mt-4 px-5 pb-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="mt-4 px-5 pb-5 flex items-center justify-between gap-4">
             <p className="text-[13px] text-gray-500">
               Showing {logs.length} of {total.toLocaleString()} logs
             </p>
-            <Pagination>
-              <PaginationPrevious className="h-8" />
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationLink className="h-8 w-8">1</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink isActive className="h-8 w-8">
-                    2
-                  </PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink className="h-8 w-8">3</PaginationLink>
-                </PaginationItem>
-                <PaginationEllipsis className="h-8 w-8" />
-                <PaginationItem>
-                  <PaginationLink className="h-8 w-8">1,246</PaginationLink>
-                </PaginationItem>
-              </PaginationContent>
-              <PaginationNext className="h-8" />
-            </Pagination>
           </div>
         </CardContent>
       </Card>
@@ -417,6 +415,31 @@ export default function AuditLogs({ sidebarCollapsed: _sidebarCollapsed = false 
         open={isExportLogsModalOpen}
         onOpenChange={handleCloseExportLogsModal}
       />
+
+      <Dialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Clear Audit Logs</DialogTitle>
+            <DialogDescription className="text-[14px]">
+              This will permanently delete every audit log entry. This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 pt-2">
+            <Button variant="outline" className="h-9" onClick={() => setIsClearDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="h-9"
+              disabled={clearing}
+              onClick={() => void handleClearLogs()}
+            >
+              {clearing ? "Clearing..." : "Clear Logs"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

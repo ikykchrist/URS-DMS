@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import type { AuditAction } from "@/config/constants";
+import { AUDIT_ACTIONS } from "@/config/constants";
 import * as repo from "@/modules/audit/audit.repository";
 import { FAILED_AUDIT_ACTIONS } from "@/modules/audit/audit.repository";
 import type {
@@ -267,4 +268,25 @@ export async function exportAudit(
   const orderBy = buildOrderBy(q);
   const items = await repo.findManyForExport(where, orderBy, q.maxRows);
   return { items, format: q.format };
+}
+
+/**
+ * Admin-only destructive action. Deletes every audit row and leaves a single
+ * record behind (written AFTER the wipe) documenting who cleared the logs and
+ * how many rows were removed, so the destructive act itself stays on the trail.
+ */
+export async function clearAuditLogs(
+  userId: string | undefined,
+  ipAddress: string,
+  userAgent: string,
+): Promise<number> {
+  const cleared = await repo.clearAll();
+  await writeAudit({
+    action: AUDIT_ACTIONS.AUDIT_LOGS_CLEARED,
+    userId: userId ?? null,
+    newValue: { cleared },
+    ipAddress,
+    userAgent,
+  });
+  return cleared;
 }

@@ -218,6 +218,8 @@ export const AUDIT_ACTIONS = {
   WORKFLOW_INSTANCE_TRANSITIONED: "workflow_instance.transitioned",
   WORKFLOW_INSTANCE_COMPLETED: "workflow_instance.completed",
   WORKFLOW_INSTANCE_OVERRIDDEN: "workflow_instance.overridden",
+
+  AUDIT_LOGS_CLEARED: "audit.cleared",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

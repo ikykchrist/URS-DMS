@@ -9,6 +9,7 @@ import {
   listAuditQuerySchema,
 } from "@/modules/audit/audit.validator";
 import {
+  clearAuditHandler,
   exportAuditHandler,
   getAuditHandler,
   listAuditHandler,
@@ -20,17 +21,27 @@ import {
 //   - GET /audit          → audit.read     (any role granted the permission)
 //   - GET /audit/:id      → audit.read
 //   - GET /audit/export   → audit.export   (administrator-only per the spec)
+//   - DELETE /audit       → audit.export   (administrator-only destructive wipe)
 //
 // Ordering matters: `/audit/export` is registered BEFORE `/audit/:id` so the
 // path-param router does not steal the literal "export" segment as an id (the
 // id validator would reject a non-UUID anyway, but this keeps intent explicit).
 // Audit Center reads never themselves emit audit entries (consistent with
-// dashboard / analytics read-only convention).
+// dashboard / analytics read-only convention). The DELETE route reuses the
+// `audit.export` gate (administrator-only) rather than a new permission code,
+// so no seed migration is needed — only admins can wipe the trail.
 // =============================================================================
 
 export const auditRouter: Router = Router();
 
 auditRouter.use(authenticate);
+
+// DELETE /audit — clear every audit row
+auditRouter.delete(
+  "/",
+  requirePermission("audit.export"),
+  asyncHandler(clearAuditHandler),
+);
 
 // GET /audit/export?format=csv|json&...filters
 auditRouter.get(

@@ -24,6 +24,18 @@ import { loadCodesByRoleId } from "@/modules/permissions/permissions.repository"
 // Controllers are thin and delegate to these functions.
 // =============================================================================
 
+/**
+ * How long a just-rotated session is still treated as "in-flight rotation"
+ * rather than token theft. When the access token expires, a page refresh can
+ * fire several API calls at once; if each 401 triggered its own /auth/refresh,
+ * the second caller would present a refresh token the first had just rotated,
+ * trip reuse-detection, and revoke EVERY session for the user — bouncing them
+ * to the login page. A token presented within this window is assumed to be a
+ * concurrent rotation race, not a replay attack, so we mint a fresh session
+ * instead of escalating to the all-sessions revocation.
+ */
+const REFRESH_ROTATION_GRACE_MS = 60_000;
+
 export interface AuthenticatedUser {
   id: string;
   employeeId: string;
@@ -258,20 +270,27 @@ export async function refresh(
 
   // Reuse detection: token presented after it was already revoked
   if (existing.revokedAt) {
-    // Revoke ALL sessions for this user (token theft mitigation)
-    await prisma.session.updateMany({
-      where: { userId: existing.userId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
-    await writeAudit({
-      action: AUDIT_ACTIONS.REFRESH_REUSE,
-      userId: existing.userId,
-      entity: "session",
-      entityId: existing.id,
-      ipAddress,
-      userAgent,
-    });
-    throw new RefreshReuseDetectedError();
+    // If the session was revoked within the rotation grace window, this is a
+    // concurrent-rotation race (parallel 401s on page refresh), not a replay.
+    // Fall through and mint a fresh session — otherwise the race would nuke
+    // every session and boot the user back to the login page.
+    const rotatedRecently = Date.now() - existing.revokedAt.getTime() <= REFRESH_ROTATION_GRACE_MS;
+    if (!rotatedRecently) {
+      // Genuine replay of a stale token → revoke ALL sessions (theft mitigation)
+      await prisma.session.updateMany({
+        where: { userId: existing.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      await writeAudit({
+        action: AUDIT_ACTIONS.REFRESH_REUSE,
+        userId: existing.userId,
+        entity: "session",
+        entityId: existing.id,
+        ipAddress,
+        userAgent,
+      });
+      throw new RefreshReuseDetectedError();
+    }
   }
 
   if (existing.expiresAt < new Date()) {

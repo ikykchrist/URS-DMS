@@ -51,6 +51,15 @@ export async function exportAuditHandler(req: Request, res: Response): Promise<v
   res.status(200).json(items);
 }
 
+export async function clearAuditHandler(req: Request, res: Response): Promise<void> {
+  const cleared = await service.clearAuditLogs(
+    req.auth?.userId,
+    req.context.ipAddress,
+    req.context.userAgent,
+  );
+  sendSuccess(res, { cleared });
+}
+
 // -----------------------------------------------------------------------------
 // CSV serialiser — RFC-4180. Fields: a flat view of AuditLogListItem.
 // `changes` is JSON-stringified (already masked at the service layer). The

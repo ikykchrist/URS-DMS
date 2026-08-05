@@ -64,6 +64,38 @@ export class ApiRequestError extends Error {
   }
 }
 
+/**
+ * Single-flight refresh. On a page refresh with an expired access token,
+ * several API calls 401 in parallel. Each one was previously firing its own
+ * /auth/refresh with the same (old) refresh cookie, which rotated the session
+ * on the server; the loser of the race then tripped the reuse-detection and
+ * revoked ALL of the user's sessions — forcing a logout back to the login page.
+ * Serialising refresh behind a single shared promise ensures only one refresh
+ * runs; the rest await the same result and retry with the new token.
+ */
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function refreshAccessToken(): Promise<boolean> {
+  try {
+    const refreshResponse = await fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: "{}",
+    });
+    const refreshPayload = await refreshResponse.json() as
+      | ApiEnvelope<{ accessToken: string }>
+      | ApiErrorEnvelope;
+    if (refreshResponse.ok && refreshPayload.success) {
+      setServerToken(refreshPayload.data.accessToken);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 async function requestEnvelope<T>(
   method: "GET" | "POST" | "PATCH" | "DELETE",
   path: string,
@@ -89,22 +121,14 @@ async function requestEnvelope<T>(
   }
 
   if (res.status === 401 && !retried && token && !path.startsWith("/auth/")) {
-    try {
-      const refreshResponse = await fetch(`${API_BASE}/auth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: "{}",
+    if (!refreshInFlight) {
+      refreshInFlight = refreshAccessToken().finally(() => {
+        refreshInFlight = null;
       });
-      const refreshPayload = await refreshResponse.json() as
-        | ApiEnvelope<{ accessToken: string }>
-        | ApiErrorEnvelope;
-      if (refreshResponse.ok && refreshPayload.success) {
-        setServerToken(refreshPayload.data.accessToken);
-        return requestEnvelope<T>(method, path, body, true);
-      }
-    } catch {
-      // The original 401 is surfaced below after clearing the stale token.
+    }
+    const refreshed = await refreshInFlight;
+    if (refreshed) {
+      return requestEnvelope<T>(method, path, body, true);
     }
     clearServerToken();
   }
