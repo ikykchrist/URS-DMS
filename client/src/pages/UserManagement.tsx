@@ -13,6 +13,7 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
+  KeyRound,
 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { StatCard } from "@/components/layout/StatCard"
@@ -173,9 +174,9 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
     setIsUserDetailsModalOpen(true)
   }
 
-  const handleResetPassword = () => {
-    setIsUserDetailsModalOpen(false)
-    setTimeout(() => setIsResetPasswordModalOpen(true), 150)
+  const handleResetPassword = (user: User) => {
+    setSelectedUser(user)
+    setIsResetPasswordModalOpen(true)
   }
 
   const handleDeleteUser = async (id?: string) => {
@@ -411,6 +412,10 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                                 <Shield className="w-4 h-4 mr-2" />
                                 Change Role
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleResetPassword(user as User)}>
+                                <KeyRound className="w-4 h-4 mr-2" />
+                                Reset Password
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-red-600 focus:text-red-600"
@@ -473,7 +478,7 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
         open={isUserDetailsModalOpen}
         onOpenChange={setIsUserDetailsModalOpen}
         user={selectedUser}
-        onResetPassword={handleResetPassword}
+        onResetPassword={selectedUser ? () => handleResetPassword(selectedUser) : undefined}
         onDelete={selectedUser ? () => handleDeleteUser(selectedUser.id) : undefined}
         onSave={async (id, data) => {
           if (!id) return
@@ -488,7 +493,8 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
       <ResetPasswordModal
         open={isResetPasswordModalOpen}
         onOpenChange={setIsResetPasswordModalOpen}
-        userEmail={selectedUser?.email}
+        userId={selectedUser?.id}
+        userName={selectedUser?.name}
       />
     </div>
   )

@@ -73,5 +73,8 @@ export const consoleEmailProvider: EmailProvider = new ConsoleEmailProvider();
 export const smtpEmailProvider: EmailProvider = new SmtpEmailProvider();
 
 export function getEmailProvider(): EmailProvider {
-  return env.EMAIL_PROVIDER === "smtp" ? smtpEmailProvider : consoleEmailProvider;
+  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) {
+    return smtpEmailProvider;
+  }
+  return consoleEmailProvider;
 }

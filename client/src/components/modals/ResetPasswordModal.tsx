@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { KeyRound, Mail, Info } from "lucide-react"
+import { KeyRound, Loader2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -11,88 +11,81 @@ import {
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/Label"
+import { resetUserPassword } from "@/services/admin"
+import { toast } from "@/lib/toast"
 
 interface ResetPasswordModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  userEmail?: string
-  onSuccess?: (email: string) => void
+  userId?: string
+  userName?: string
 }
 
 export function ResetPasswordModal({
   open,
   onOpenChange,
-  userEmail,
-  onSuccess,
+  userId,
+  userName,
 }: ResetPasswordModalProps) {
-  const [email, setEmail] = useState(userEmail || "")
+  const [newPassword, setNewPassword] = useState("")
+  const [mustChange, setMustChange] = useState(true)
+  const [saving, setSaving] = useState(false)
 
-  const handleSendReset = () => {
-    if (!email.trim()) {
-      return
+  const handleReset = async () => {
+    if (!userId || !newPassword || newPassword.length < 8) return
+    setSaving(true)
+    try {
+      await resetUserPassword(userId, { newPassword, mustChangePassword: mustChange })
+      toast.success("Password has been reset")
+      onOpenChange(false)
+      setNewPassword("")
+      setMustChange(true)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to reset password")
+    } finally {
+      setSaving(false)
     }
-    onSuccess?.(email)
-    onOpenChange(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[460px]">
+      <DialogContent className="sm:max-w-[400px]">
         <DialogHeader className="pb-2">
           <DialogTitle className="text-lg flex items-center gap-2">
-            <KeyRound className="w-5 h-5 text-amber-500" />
+            <KeyRound className="w-5 h-5 text-blue-600" />
             Reset Password
           </DialogTitle>
           <DialogDescription className="text-[14px]">
-            Send a password reset link to the user's email address.
+            Set a new password for <strong>{userName ?? "this user"}</strong>
           </DialogDescription>
         </DialogHeader>
-
-        <div className="grid gap-5 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="resetEmail" className="text-[13px] font-medium text-gray-700">
-              Email Address
-            </Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                id="resetEmail"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter email address"
-                className="h-10 pl-10"
-              />
-            </div>
+        <div className="space-y-4 py-2">
+          <div>
+            <Label className="text-[13px] font-medium mb-1.5 block">New Password</Label>
+            <Input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Min 8 characters"
+              className="h-10"
+              autoFocus
+            />
           </div>
-
-          <div className="flex items-start gap-3 p-4 rounded-xl bg-blue-50/50 border border-blue-100">
-            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-              <Info className="w-4 h-4 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-[13px] font-medium text-blue-800">Information</p>
-              <p className="text-[12px] text-blue-600/80 mt-1 leading-relaxed">
-                A password reset link will be sent to the email address above. The link will expire in 24 hours for security purposes.
-              </p>
-            </div>
-          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={mustChange}
+              onChange={(e) => setMustChange(e.target.checked)}
+              className="w-4 h-4 rounded accent-primary"
+            />
+            <span className="text-[13px] text-gray-600">Require password change on next login</span>
+          </label>
         </div>
-
-        <DialogFooter className="gap-2 pt-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="h-10 px-5"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSendReset}
-            disabled={!email.trim()}
-            className="h-10 px-5 shadow-sm"
-          >
-            Send Reset Link
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="h-10">Cancel</Button>
+          <Button onClick={() => void handleReset()} disabled={saving || newPassword.length < 8} className="h-10">
+            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <KeyRound className="w-4 h-4 mr-2" />}
+            Reset Password
           </Button>
         </DialogFooter>
       </DialogContent>

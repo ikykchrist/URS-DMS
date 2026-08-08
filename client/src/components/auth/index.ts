@@ -3,5 +3,3 @@ export { AuthCard, AuthCardHeader, AuthCardTitle, AuthCardDescription, AuthCardF
 export { PasswordInput } from "./PasswordInput"
 export { PasswordStrength } from "./PasswordStrength"
 export { LoginForm } from "./LoginForm"
-export { ForgotPasswordForm } from "./ForgotPasswordForm"
-export { ResetPasswordForm } from "./ResetPasswordForm"

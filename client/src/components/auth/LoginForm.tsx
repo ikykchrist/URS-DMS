@@ -1,6 +1,6 @@
 import { useState, FormEvent } from "react"
 import { Loader2, AlertCircle } from "lucide-react"
-import { Link, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { AuthCard, AuthCardHeader, AuthCardTitle, AuthCardDescription } from "./AuthCard"
 import { PasswordInput } from "./PasswordInput"
 import { Button } from "@/components/ui/Button"
@@ -92,17 +92,9 @@ export function LoginForm() {
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password" className="text-[13px] font-medium text-[#0F172A]">
-              Password <span className="text-red-500">*</span>
-            </Label>
-            <Link
-              to="/forgot-password"
-              className="text-xs text-[#2563EB] hover:underline font-medium"
-            >
-              Forgot Password?
-            </Link>
-          </div>
+          <Label htmlFor="password" className="text-[13px] font-medium text-[#0F172A]">
+            Password <span className="text-red-500">*</span>
+          </Label>
           <PasswordInput
             id="password"
             placeholder="Enter your password"

@@ -80,8 +80,6 @@ import type { DocumentRequest } from "@/types/domain"
 import { notificationService } from "@/services/notifications"
 import { listOnlineDocuments, openOnlineDocument } from "@/services/documents"
 import LoginPage from "@/pages/Login"
-import ForgotPasswordPage from "@/pages/ForgotPassword"
-import ResetPasswordPage from "@/pages/ResetPassword"
 const RootDashboard = lazy(() => import("@/pages/root/RootDashboard"))
 const RootConfigurations = lazy(() => import("@/pages/root/RootConfigurations"))
 const RootAudit = lazy(() => import("@/pages/root/RootAudit"))
@@ -1064,14 +1062,6 @@ function AppRoutes() {
       <Route
         path="/login"
         element={<LoginPage />}
-      />
-      <Route
-        path="/forgot-password"
-        element={isAuthenticated && user ? <Navigate to={isAdminRole(user.role) ? "/dashboard" : "/user/dashboard"} replace /> : <ForgotPasswordPage />}
-      />
-      <Route
-        path="/reset-password"
-        element={isAuthenticated && user ? <Navigate to={isAdminRole(user.role) ? "/dashboard" : "/user/dashboard"} replace /> : <ResetPasswordPage />}
       />
       <Route
         path="/dashboard"
