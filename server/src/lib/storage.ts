@@ -126,8 +126,13 @@ export async function statObject(objectKey: string): Promise<{ size: number; eta
     const stat = await c.statObject(env.MINIO_BUCKET, objectKey);
     return { size: stat.size, etag: stat.etag };
   } catch (err) {
+    const code = (err as { code?: string })?.code;
+    if (code === "NoSuchKey" || code === "NotFound") {
+      throw Object.assign(new Error("Object not found"), { code });
+    }
     throw new ServiceUnavailableError("Storage stat failed", {
       reason: err instanceof Error ? err.message : String(err),
+      minioCode: code,
     });
   }
 }

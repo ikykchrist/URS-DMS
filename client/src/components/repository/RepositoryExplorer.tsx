@@ -1224,7 +1224,8 @@ export function RepositoryExplorer() {
           {/* Storage card (rule 13) — honest server usage */}
           {storage && (
             <div className="mt-3 px-2">
-              <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5">
+              <div className={cn("rounded-lg border p-2.5",
+                storage.minioStatus === "online" ? "border-gray-100 bg-gray-50/60" : "border-red-200 bg-red-50/60")}>
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
                     <HardDrive className="w-3 h-3" /> Storage
@@ -1236,10 +1237,21 @@ export function RepositoryExplorer() {
                     MinIO {storage.minioStatus}
                   </span>
                 </div>
-                <p className="text-[12px] text-gray-700 font-medium">{formatSize(Number(storage.usedBytes))} used</p>
-                <p className="text-[10px] text-gray-400">
-                  {storage.availableBytes === null ? "Available: — (no capacity quota configured)" : `Available: ${formatSize(Number(storage.availableBytes))}`}
-                </p>
+                {storage.minioStatus === "online" ? (
+                  <>
+                    <p className="text-[12px] text-gray-700 font-medium">{formatSize(Number(storage.usedBytes))} used</p>
+                    <p className="text-[10px] text-gray-400">
+                      {storage.availableBytes === null ? "Available: — (no capacity quota configured)" : `Available: ${formatSize(Number(storage.availableBytes))}`}
+                    </p>
+                  </>
+                ) : (
+                  <div>
+                    <p className="text-[11px] text-red-700 leading-tight mb-1.5">Upload, download, and preview are unavailable until MinIO reconnects</p>
+                    <Button variant="outline" size="sm" className="h-7 text-[11px]" onClick={() => load()}>
+                      <RefreshCw className="w-3 h-3 mr-1" /> Retry
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -10,6 +10,14 @@ if (Test-Path "$root\.env.tunnel-backup") {
     Remove-Item "$root\.env.tunnel-backup" -Force
 }
 
+# Clean up any stale MINIO_PUBLIC_ENDPOINT tunnel URL that may have leaked
+$envContent = [IO.File]::ReadAllText("$root\.env")
+$envContent = [regex]::Replace($envContent, 'MINIO_PUBLIC_ENDPOINT=https://[a-z0-9-]+\.trycloudflare\.com', '')
+# If the line became empty after removal, remove the empty line
+$envContent = $envContent -replace '\n\n+', "`n"
+[IO.File]::WriteAllText("$root\.env", $envContent)
+Write-Host 'Cleared stale MINIO_PUBLIC_ENDPOINT tunnel URL'
+
 Write-Host 'Restarting API server with local endpoints...'
 & "$root\restart-server.ps1"
 

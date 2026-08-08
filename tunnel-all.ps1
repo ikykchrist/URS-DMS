@@ -6,6 +6,42 @@ Write-Host ' URS-DMS - Deploy via Cloudflare quick tunnels'
 Write-Host ' App (5173, /api proxied) | MinIO S3 (9000) | Console (9001)'
 Write-Host '============================================================'
 
+# ── Pre-flight: verify all services are healthy locally ─────────────────────
+Write-Host ''
+Write-Host '--- Pre-flight health checks ---'
+$allHealthy = $true
+
+try {
+    $pg = Invoke-RestMethod -Uri 'http://localhost:4000/api/v1/health' -TimeoutSec 10
+    $dbOk = $pg.data.services.database.status -eq 'up'
+    $mioK = $pg.data.services.minio.status -eq 'up'
+    Write-Host "  PostgreSQL : $(if($dbOk){'UP'}else{'DOWN'})"
+    Write-Host "  MinIO      : $(if($mioK){'UP'}else{'DOWN'})"
+    if (-not $dbOk) { $allHealthy = $false; Write-Warning 'PostgreSQL is not reachable — tunnel will expose broken API' }
+    if (-not $mioK) { $allHealthy = $false; Write-Warning 'MinIO is not reachable — uploads/downloads will fail' }
+} catch {
+    Write-Warning 'API health check failed — is the server running? (run restart-server.ps1 first)'
+    $allHealthy = $false
+}
+
+try {
+    $redisPing = docker exec urs-redis redis-cli PING 2>$null
+    Write-Host "  Redis      : $(if($redisPing -eq 'PONG'){'UP'}else{'DOWN'})"
+    if ($redisPing -ne 'PONG') { $allHealthy = $false; Write-Warning 'Redis is down — background jobs will not work' }
+} catch {
+    Write-Host "  Redis      : NOT RUNNING"
+    Write-Warning 'Redis container not found — background jobs unavailable'
+}
+
+if (-not $allHealthy) {
+    Write-Host ''
+    Write-Error 'Pre-flight checks FAILED. Fix the issues above before deploying.'
+    exit 1
+}
+
+Write-Host 'All services healthy — starting tunnels...'
+Write-Host ''
+
 Get-Process cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep 2
 
