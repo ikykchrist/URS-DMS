@@ -408,6 +408,7 @@ async function safeNotifyRequester(
         message: "Your document access request has been approved.",
         entity: "request",
         entityId: requestId,
+        actionUrl: "/user/requests",
       });
     } else if (decision === "REJECTED") {
       await notifyUser(requesterId, "REQUEST_REJECTED", {
@@ -415,6 +416,7 @@ async function safeNotifyRequester(
         message: "Your document access request has been rejected.",
         entity: "request",
         entityId: requestId,
+        actionUrl: "/user/requests",
       });
     } else {
       await notifyUser(requesterId, "DOCUMENT_DELIVERED", {
@@ -422,6 +424,7 @@ async function safeNotifyRequester(
         message: "A requested document has been delivered to your Requested Documents.",
         entity: "request",
         entityId: requestId,
+        actionUrl: "/user/documents",
       });
     }
   } catch {

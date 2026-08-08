@@ -20,13 +20,29 @@ function toClientNotification(n: ServerNotification): Notification {
   return {
     id: n.id,
     userId: "",
-    type: (n.type.toLowerCase() as NotificationType) || "system",
+    type: mapServerType(n.type),
     title: n.title,
     message: n.message,
     read: n.isRead,
     link: n.actionUrl ?? undefined,
+    entity: n.entity ?? undefined,
+    entityId: n.entityId ?? undefined,
+    metadata: (n.metadata as Record<string, unknown>) ?? undefined,
     createdAt: n.createdAt,
   }
+}
+
+function mapServerType(serverType: string): NotificationType {
+  const t = serverType.toLowerCase()
+  if (t.includes("upload")) return "upload"
+  if (t.includes("approved")) return "approval"
+  if (t.includes("rejected")) return "rejection"
+  if (t.includes("returned")) return "rejection"
+  if (t.includes("request")) return "request"
+  if (t.includes("submission")) return "submission"
+  if (t.includes("task")) return "task"
+  if (t.includes("document")) return "document"
+  return "system"
 }
 
 type Listener = (notifications: Notification[]) => void

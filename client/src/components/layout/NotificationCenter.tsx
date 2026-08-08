@@ -1,18 +1,28 @@
-import { useState, useEffect } from "react"
-import { Bell, Check, CheckCheck, Users, Upload, AlertTriangle, Clock, Settings, X } from "lucide-react"
+import { useState, useEffect, useCallback, useRef } from "react"
+import { useNavigate } from "react-router-dom"
+import { Bell, Check, CheckCheck, X } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
 import { cn } from "@/lib/utils"
 import { notificationService } from "@/services/notifications"
+import { resolveNotificationRoute, buildNotificationUrl } from "@/lib/notificationNav"
 import type { Notification } from "@/types/domain"
 
-const typeConfig = {
-  approval: { icon: Check, color: "text-emerald-600", bg: "bg-emerald-50", label: "Approvals" },
-  revision: { icon: AlertTriangle, color: "text-orange-600", bg: "bg-orange-50", label: "Revisions" },
-  upload: { icon: Upload, color: "text-blue-600", bg: "bg-blue-50", label: "Uploads" },
-  assignment: { icon: Users, color: "text-violet-600", bg: "bg-violet-50", label: "Assignments" },
-  security: { icon: Settings, color: "text-gray-600", bg: "bg-gray-100", label: "Security" },
-  deadline: { icon: Clock, color: "text-red-600", bg: "bg-red-50", label: "Deadlines" },
+const POLL_INTERVAL_MS = 10_000
+
+const typeMeta: Record<string, { label: string; color: string; bg: string }> = {
+  approval:     { label: "Approvals",    color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/30" },
+  rejection:    { label: "Rejections",   color: "text-red-600",     bg: "bg-red-50 dark:bg-red-900/30" },
+  upload:       { label: "Uploads",      color: "text-blue-600",    bg: "bg-blue-50 dark:bg-blue-900/30" },
+  document:     { label: "Documents",    color: "text-blue-600",    bg: "bg-blue-50 dark:bg-blue-900/30" },
+  submission:   { label: "Submissions",  color: "text-violet-600",  bg: "bg-violet-50 dark:bg-violet-900/30" },
+  task:         { label: "Tasks",        color: "text-orange-600",  bg: "bg-orange-50 dark:bg-orange-900/30" },
+  request:      { label: "Requests",     color: "text-amber-600",   bg: "bg-amber-50 dark:bg-amber-900/30" },
+  system:       { label: "System",       color: "text-gray-600",    bg: "bg-gray-100 dark:bg-gray-800" },
+}
+
+function getMeta(notif: Notification) {
+  return typeMeta[notif.type] ?? typeMeta.system
 }
 
 export function NotificationCenter() {
@@ -20,22 +30,29 @@ export function NotificationCenter() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<string>("All")
+  const navigate = useNavigate()
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const n = await notificationService.listAll()
+      setNotifications(n)
+    } catch { /* silent */ }
+    finally { setLoading(false) }
+  }, [])
 
   useEffect(() => {
-    if (!isOpen) return
-    setLoading(true)
-    notificationService.listAll().then(n => { setNotifications(n); setLoading(false) }).catch(() => setLoading(false))
-  }, [isOpen])
+    load()
+    intervalRef.current = setInterval(load, POLL_INTERVAL_MS)
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  }, [load])
 
   const unreadCount = notifications.filter((n) => !n.read).length
 
-  const getNotificationsByGroup = (group: string) => {
-    return notifications.filter((n) => typeConfig[n.type as keyof typeof typeConfig]?.label === group)
-  }
-
   const grouped: Record<string, Notification[]> = {}
   notifications.forEach((n) => {
-    const label = typeConfig[n.type as keyof typeof typeConfig]?.label ?? "Other"
+    const label = getMeta(n).label
     if (!grouped[label]) grouped[label] = []
     grouped[label].push(n)
   })
@@ -44,7 +61,10 @@ export function NotificationCenter() {
   const displayedNotifications =
     activeTab === "All"
       ? notifications
-      : notifications.filter((n) => typeConfig[n.type as keyof typeof typeConfig]?.label === activeTab)
+      : notifications.filter((n) => getMeta(n).label === activeTab)
+
+  const getNotificationsByGroup = (group: string) =>
+    notifications.filter((n) => getMeta(n).label === group)
 
   const markRead = (id: string) => {
     notificationService.markRead(id)
@@ -54,6 +74,16 @@ export function NotificationCenter() {
   const markAllRead = () => {
     notificationService.markAllReadForUser()
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+  }
+
+  const handleDoubleClick = (notif: Notification) => {
+    if (notif.read) return
+    markRead(notif.id)
+    const route = resolveNotificationRoute(notif)
+    if (!route) return
+    const url = buildNotificationUrl(route, notif.entityId)
+    setIsOpen(false)
+    navigate(url)
   }
 
   const formatTime = (dateStr: string) => {
@@ -73,7 +103,7 @@ export function NotificationCenter() {
       <Button
         variant="ghost"
         size="icon"
-        className="relative w-9 h-9 text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+        className="relative w-9 h-9 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-gray-400"
         onClick={() => setIsOpen(!isOpen)}
       >
         <Bell className="w-[18px] h-[18px]" />
@@ -84,41 +114,30 @@ export function NotificationCenter() {
 
       {isOpen && (
         <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setIsOpen(false)}
-          />
-          <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 w-96 bg-white dark:bg-[#111827] rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-2">
-                <h3 className="text-[14px] font-semibold text-gray-900">Notifications</h3>
+                <h3 className="text-[14px] font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
                 {unreadCount > 0 && (
                   <Badge variant="high" className="text-[10px]">{unreadCount} new</Badge>
                 )}
               </div>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={markAllRead}
-                  className="p-1.5 hover:bg-gray-100 rounded-md text-[12px] text-gray-500 flex items-center gap-1"
-                >
-                  <CheckCheck className="w-3.5 h-3.5" />
-                  Mark all read
+                <button onClick={markAllRead} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md text-[12px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <CheckCheck className="w-3.5 h-3.5" /> Mark all read
                 </button>
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="p-1.5 hover:bg-gray-100 rounded-md"
-                >
+                <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
                   <X className="w-4 h-4 text-gray-400" />
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-100 overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-100 dark:border-gray-700 overflow-x-auto">
               {tabs.map((tab) => {
-                const count =
-                  tab === "All"
-                    ? unreadCount
-                    : getNotificationsByGroup(tab).filter((n) => !n.read).length
+                const count = tab === "All"
+                  ? unreadCount
+                  : getNotificationsByGroup(tab).filter((n) => !n.read).length
                 return (
                   <button
                     key={tab}
@@ -126,8 +145,8 @@ export function NotificationCenter() {
                     className={cn(
                       "px-2.5 py-1 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors",
                       activeTab === tab
-                        ? "bg-gray-900 text-white"
-                        : "text-gray-500 hover:bg-gray-100"
+                        ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900"
+                        : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
                     )}
                   >
                     {tab}
@@ -142,47 +161,43 @@ export function NotificationCenter() {
             </div>
 
             <div className="max-h-96 overflow-y-auto">
-              {loading ? (
+              {loading && notifications.length === 0 ? (
                 <div className="py-12 text-center text-[13px] text-gray-500">Loading...</div>
               ) : displayedNotifications.length === 0 ? (
                 <div className="py-12 text-center">
-                  <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                  <Bell className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                   <p className="text-[13px] text-gray-500">No notifications</p>
                 </div>
               ) : (
-                displayedNotifications.map((notification) => {
-                  const cfg = typeConfig[notification.type as keyof typeof typeConfig]
-                  const Icon = cfg?.icon ?? Bell
+                displayedNotifications.map((notif) => {
+                  const meta = getMeta(notif)
+                  const route = resolveNotificationRoute(notif)
                   return (
                     <div
-                      key={notification.id}
+                      key={notif.id}
                       className={cn(
-                        "flex items-start gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer",
-                        !notification.read && "bg-primary/5"
+                        "flex items-start gap-3 px-4 py-3 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer",
+                        !notif.read && "bg-primary/5 dark:bg-primary/10"
                       )}
-                      onClick={() => markRead(notification.id)}
+                      onClick={() => markRead(notif.id)}
+                      onDoubleClick={() => handleDoubleClick(notif)}
+                      title={route ? "Double-click to view" : undefined}
                     >
-                      <div
-                        className={cn(
-                          "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5",
-                          cfg?.bg ?? "bg-gray-100"
-                        )}
-                      >
-                        <Icon className={cn("w-4 h-4", cfg?.color ?? "text-gray-500")} />
+                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5", meta.bg)}>
+                        <Check className={cn("w-4 h-4", meta.color)} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-[13px] font-medium text-gray-900">
-                            {notification.title}
-                          </p>
-                          {!notification.read && (
+                          <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100">{notif.title}</p>
+                          {!notif.read && (
                             <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
                           )}
                         </div>
-                        <p className="text-[12px] text-gray-500 mt-0.5 line-clamp-2">
-                          {notification.message}
-                        </p>
-                        <p className="text-[11px] text-gray-400 mt-1">{formatTime(notification.createdAt)}</p>
+                        <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{notif.message}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-[11px] text-gray-400 dark:text-gray-500">{formatTime(notif.createdAt)}</p>
+                          {route && <span className="text-[10px] text-primary font-medium">Double-click to view</span>}
+                        </div>
                       </div>
                     </div>
                   )
@@ -190,8 +205,11 @@ export function NotificationCenter() {
               )}
             </div>
 
-            <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50/50">
-              <button className="w-full text-center text-[12px] text-primary hover:text-primary font-medium">
+            <div className="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+              <button
+                onClick={() => { setIsOpen(false); navigate("/user/notifications") }}
+                className="w-full text-center text-[12px] text-primary hover:text-primary font-medium"
+              >
                 View all notifications
               </button>
             </div>

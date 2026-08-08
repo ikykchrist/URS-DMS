@@ -627,6 +627,7 @@ async function safeNotifySubmitter(
         message: "Your document submission has been approved.",
         entity: "aaccup_submission",
         entityId: submissionId,
+        actionUrl: "/aaccup?tab=submissions",
       });
     } else if (decision === "NEEDS_REVISION") {
       await notifyUser(submitterId, "AACCUP_SUBMISSION_RETURNED", {
@@ -634,6 +635,7 @@ async function safeNotifySubmitter(
         message: "Your document submission was returned for revision. Please review the remarks and resubmit.",
         entity: "aaccup_submission",
         entityId: submissionId,
+        actionUrl: "/aaccup?tab=submissions",
       });
     } else {
       await notifyUser(submitterId, "AACCUP_SUBMISSION_REJECTED", {
@@ -641,6 +643,7 @@ async function safeNotifySubmitter(
         message: "Your document submission has been rejected. Please review the remarks.",
         entity: "aaccup_submission",
         entityId: submissionId,
+        actionUrl: "/aaccup?tab=submissions",
       });
     }
   } catch {

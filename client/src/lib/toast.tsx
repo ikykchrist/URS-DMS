@@ -29,7 +29,7 @@ class ToastStore {
 
   add(toast: Omit<ToastMessage, "id">): string {
     const id = `t_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-    const item: ToastMessage = { id, duration: 3000, ...toast }
+    const item: ToastMessage = { id, duration: toast.type === "success" ? 1000 : 4000, ...toast }
     this.toasts = [...this.toasts, item]
     this.emit()
     if (item.duration && item.duration > 0) {
@@ -44,7 +44,7 @@ class ToastStore {
   }
 
   success(message: string, duration?: number) {
-    return this.add({ type: "success", message, duration })
+    return this.add({ type: "success", message, duration: duration ?? 1000 })
   }
   error(message: string, duration?: number) {
     return this.add({ type: "error", message, duration })

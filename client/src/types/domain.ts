@@ -229,6 +229,9 @@ export type NotificationType =
   | "request"
   | "mention"
   | "system"
+  | "document"
+  | "submission"
+  | "task"
 
 export interface Notification {
   id: string
@@ -238,6 +241,9 @@ export interface Notification {
   message: string
   read: boolean
   link?: string
+  entity?: string
+  entityId?: string
+  metadata?: Record<string, unknown>
   createdAt: string
 }
 

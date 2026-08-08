@@ -1122,6 +1122,7 @@ export async function verifyUpload(
     message: `"${doc.title}" was uploaded successfully.`,
     entity: "document",
     entityId: documentId,
+    actionUrl: "/documents",
   });
 
   // Rule 19: storage warning when a verified threshold is crossed (best-effort,
@@ -1153,6 +1154,7 @@ async function recordUploadFailure(
     message: `"${doc.title}" could not be verified (${reason}). Please retry.`,
     entity: "document",
     entityId: doc.id,
+    actionUrl: "/documents",
   });
 }
 

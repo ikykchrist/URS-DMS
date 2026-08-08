@@ -340,6 +340,25 @@ export function RepositoryExplorer() {
     return () => window.removeEventListener("beforeunload", beforeUnload)
   }, [activeUploads])
 
+  // ── Highlight support (notification deep-link) ──────────────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const highlightId = params.get("highlight")
+    if (!highlightId) return
+    // Attempt to scroll to the highlighted item after data loads
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`row-${highlightId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" })
+        el.classList.add("ring-2", "ring-amber-400", "bg-amber-50")
+        setTimeout(() => {
+          el.classList.remove("ring-2", "ring-amber-400", "bg-amber-50")
+        }, 3000)
+      }
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [])
+
   // ── Drag & drop (rule 15) ──────────────────────────────────────────────────
 
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null)
