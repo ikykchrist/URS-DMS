@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/Select"
 import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
-import { DocumentPreviewModal } from "@/components/modals/DocumentPreviewModal"
+import { FilePreviewModal } from "@/components/preview/FilePreviewModal"
 import { ReturnSubmissionModal } from "@/components/modals/ReturnSubmissionModal"
 import {
   listAllOnlineSubmissions,
@@ -120,8 +120,8 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
   const [rawSubmissions, setRawSubmissions] = useState<OnlineSubmissionListItem[]>([])
   const [submissions, setSubmissions] = useState<Document[]>([])
   const [setFilter, setSetFilter] = useState<SetFilter>(areaSet ?? "ALL")
-  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false)
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false)
+  const [_previewOpen, setPreviewOpen] = useState(false)
   const [selectedSubmission, setSelectedSubmission] = useState<Document | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -160,11 +160,11 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
 
   const handleViewSubmission = (submission: Document) => {
     setSelectedSubmission(submission)
-    setIsPreviewModalOpen(true)
+    setPreviewOpen(true)
   }
 
   const handleOpenReturnModal = () => {
-    setIsPreviewModalOpen(false)
+    setPreviewOpen(false)
     setTimeout(() => setIsReturnModalOpen(true), 150)
   }
 
@@ -587,15 +587,16 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
         </CardContent>
       </Card>
 
-      <DocumentPreviewModal
-        open={isPreviewModalOpen}
-        onOpenChange={setIsPreviewModalOpen}
-        document={selectedSubmission}
-        showAdminActions={isReview && canReview}
-        onApprove={(id) => void handleApprove(id)}
-        onReject={(id) => void handleReject(id)}
-        onReturn={handleOpenReturnModal}
-      />
+      {selectedSubmission && (
+        <FilePreviewModal
+          document={selectedSubmission}
+          onClose={() => { setSelectedSubmission(null) }}
+          showAdminActions={isReview && canReview}
+          onApprove={(doc) => void handleApprove(doc.id)}
+          onReject={(doc) => void handleReject(doc.id)}
+          onReturn={handleOpenReturnModal}
+        />
+      )}
 
       {isReview && (
         <ReturnSubmissionModal

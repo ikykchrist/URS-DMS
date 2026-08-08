@@ -946,10 +946,17 @@ export function RepositoryExplorer() {
   }, [visibleDocs.docs, sort])
 
   const moveOptions = useMemo(
-    () => [
-      { id: "root", name: "All Files (root)" },
-      ...folders.filter((f) => !moveTarget || f.id !== moveTarget.id).sort((a, b) => a.name.localeCompare(b.name)),
-    ],
+    () => {
+      const parentId = moveTarget
+        ? (moveTarget.type === "folder" ? folders.find((f) => f.id === moveTarget.id)?.parentId : null)
+        : null;
+      return [
+        { id: "root", name: "All Files (root)" },
+        ...folders
+          .filter((f) => (!moveTarget || f.id !== moveTarget.id) && f.id !== parentId)
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      ];
+    },
     [folders, moveTarget],
   )
 
@@ -1849,7 +1856,13 @@ export function RepositoryExplorer() {
                 <SelectContent>
                   <SelectItem value="original">Original location</SelectItem>
                   <SelectItem value="root">My Documents (root)</SelectItem>
-                  {folders.filter((f) => f.id !== (restoreDialog?.type === "folder" ? restoreDialog.id : undefined)).map((folder) => (
+                  {folders.filter((f) => {
+                    if (restoreDialog?.type === "folder") {
+                      const restoringFolder = deletedFolders.find((df) => df.id === restoreDialog.id);
+                      return f.id !== restoreDialog.id && f.id !== restoringFolder?.parentId;
+                    }
+                    return true;
+                  }).map((folder) => (
                     <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1888,7 +1901,7 @@ export function RepositoryExplorer() {
                 <SelectTrigger className="h-10"><SelectValue placeholder="Destination" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="root">My Documents (root)</SelectItem>
-                  {folders.filter((f) => f.id !== copyDialog?.folder.id).map((folder) => (
+                  {folders.filter((f) => f.id !== copyDialog?.folder.id && f.id !== copyDialog?.folder.parentId).map((folder) => (
                     <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>
                   ))}
                 </SelectContent>
