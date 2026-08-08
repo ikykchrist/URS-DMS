@@ -32,9 +32,13 @@ const GENERIC_RESPONSE =
 const GENERIC_TOKEN_ERROR =
   "The password reset link is invalid or has expired. Please request a new one.";
 
-function resetBaseUrl(): string {
-  const origin = env.CLIENT_URL[0];
-  return origin ?? "http://localhost:5173";
+function resetBaseUrl(clientOrigin?: string): string {
+  if (clientOrigin) {
+    try { new URL(clientOrigin); return clientOrigin; } catch {}
+  }
+  const envUrl = env.CLIENT_URL?.[0];
+  if (envUrl) return envUrl;
+  return "http://localhost:5173";
 }
 
 // -----------------------------------------------------------------------------
@@ -42,6 +46,7 @@ function resetBaseUrl(): string {
 // -----------------------------------------------------------------------------
 export async function requestPasswordReset(
   input: { email: string },
+  clientOrigin?: string,
   ipAddress?: string,
   userAgent?: string,
 ): Promise<{ message: string }> {
@@ -50,7 +55,6 @@ export async function requestPasswordReset(
     select: { id: true, email: true, status: true },
   });
 
-  // Identical response for unknown/inactive accounts — never reveal existence.
   if (!user || user.status !== "ACTIVE") {
     return { message: GENERIC_RESPONSE };
   }
@@ -62,7 +66,7 @@ export async function requestPasswordReset(
   const created = await repo.createResetToken({ userId: user.id, tokenHash, expiresAt });
   await repo.invalidateOutstanding(user.id, created.id);
 
-  const baseUrl = resetBaseUrl();
+  const baseUrl = resetBaseUrl(clientOrigin);
   const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
   await sendEmail({
     to: user.email,

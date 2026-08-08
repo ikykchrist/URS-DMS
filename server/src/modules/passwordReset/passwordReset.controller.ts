@@ -12,12 +12,13 @@ import type {
 
 export async function forgotPasswordHandler(req: Request, res: Response): Promise<void> {
   const input = req.body as ForgotPasswordInput;
+  const clientOrigin = (req.get("origin") || req.get("referer") || "").replace(/\/+$/, "");
   const result = await service.requestPasswordReset(
     input,
+    clientOrigin,
     req.context.ipAddress,
     req.context.userAgent,
   );
-  // Always 200 with the same generic message for known and unknown accounts.
   sendSuccess(res, result);
 }
 

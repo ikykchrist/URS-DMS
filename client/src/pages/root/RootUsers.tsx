@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from "react"
-import { Search, RefreshCw, Users } from "lucide-react"
+import { Search, RefreshCw, Users, KeyRound, Loader2 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Badge } from "@/components/ui/Badge"
+import { Label } from "@/components/ui/Label"
 import {
   Table,
   TableBody,
@@ -28,7 +29,17 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/Pagination"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/Dialog"
 import { listSystemUsers, type RootSystemUser } from "@/services/root"
+import { resetUserPassword } from "@/services/admin"
+import { toast } from "@/lib/toast"
 
 const PAGE_SIZE = 15
 
@@ -48,6 +59,10 @@ export default function RootUsers() {
   const [status, setStatus] = useState("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [resetTarget, setResetTarget] = useState<RootSystemUser | null>(null)
+  const [newPassword, setNewPassword] = useState("")
+  const [mustChange, setMustChange] = useState(true)
+  const [resetting, setResetting] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -73,11 +88,27 @@ export default function RootUsers() {
     void load()
   }, [load])
 
+  const handleResetPassword = async () => {
+    if (!resetTarget || !newPassword || newPassword.length < 8) return
+    setResetting(true)
+    try {
+      await resetUserPassword(resetTarget.id, { newPassword, mustChangePassword: mustChange })
+      toast.success(`Password reset for ${resetTarget.firstName} ${resetTarget.lastName}`)
+      setResetTarget(null)
+      setNewPassword("")
+      setMustChange(true)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to reset password")
+    } finally {
+      setResetting(false)
+    }
+  }
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="System Users"
-        description="All platform accounts (read-only view for the system administrator)"
+        description="All platform accounts — system administrator view"
         actions={
           <Button variant="outline" size="sm" onClick={() => void load()} className="shadow-sm">
             <RefreshCw className="w-4 h-4 mr-2" />
@@ -94,19 +125,10 @@ export default function RootUsers() {
               className="h-10 pl-9"
               placeholder="Search by name, email or employee ID…"
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             />
           </div>
-          <Select
-            value={status}
-            onValueChange={(v) => {
-              setStatus(v)
-              setPage(1)
-            }}
-          >
+          <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
             <SelectTrigger className="h-10 w-full sm:w-[160px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -143,22 +165,19 @@ export default function RootUsers() {
                   <TableHead>Status</TableHead>
                   <TableHead>Last Login</TableHead>
                   <TableHead>Created</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell>
-                      <div className="text-[13px] font-medium text-gray-900">
-                        {user.firstName} {user.middleName ?? ""} {user.lastName} {user.suffix ?? ""}
-                      </div>
+                      <div className="text-[13px] font-medium text-gray-900">{user.firstName} {user.middleName ?? ""} {user.lastName} {user.suffix ?? ""}</div>
                       <div className="text-[12px] text-gray-500">{user.email}</div>
                     </TableCell>
                     <TableCell className="text-[13px] text-gray-600">{user.employeeId}</TableCell>
                     <TableCell>
-                      <Badge variant={user.roleName === "ROOT" ? "danger" : "secondary"}>
-                        {user.roleName}
-                      </Badge>
+                      <Badge variant={user.roleName === "ROOT" ? "danger" : "secondary"}>{user.roleName}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={statusBadge(user.status)}>{user.status}</Badge>
@@ -168,6 +187,17 @@ export default function RootUsers() {
                     </TableCell>
                     <TableCell className="text-[12px] text-gray-500">
                       {new Date(user.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-gray-400 hover:text-blue-600"
+                        title="Reset password"
+                        onClick={() => { setResetTarget(user); setNewPassword(""); setMustChange(true) }}
+                      >
+                        <KeyRound className="w-4 h-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -180,27 +210,66 @@ export default function RootUsers() {
           <Pagination>
             <PaginationContent>
               <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className={page <= 1 ? "pointer-events-none opacity-50" : ""}
-                />
+                <PaginationPrevious onClick={() => setPage((p) => Math.max(1, p - 1))} className={page <= 1 ? "pointer-events-none opacity-50" : ""} />
               </PaginationItem>
               <PaginationItem>
                 <PaginationLink isActive>{page}</PaginationLink>
               </PaginationItem>
               <PaginationItem>
-                <PaginationNext
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className={page >= totalPages ? "pointer-events-none opacity-50" : ""}
-                />
+                <PaginationNext onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className={page >= totalPages ? "pointer-events-none opacity-50" : ""} />
               </PaginationItem>
             </PaginationContent>
           </Pagination>
-          <span className="text-[12px] text-gray-500">
-            page {page} of {totalPages}
-          </span>
+          <span className="text-[12px] text-gray-500">page {page} of {totalPages}</span>
         </div>
       </Card>
+
+      <Dialog open={resetTarget !== null} onOpenChange={(open) => { if (!open) setResetTarget(null) }}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-blue-600" />
+              Reset Password
+            </DialogTitle>
+            <DialogDescription className="text-[14px]">
+              Set a new password for <strong>{resetTarget?.firstName} {resetTarget?.lastName}</strong> ({resetTarget?.email})
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-[13px] font-medium mb-1.5 block">New Password</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Min 8 characters"
+                className="h-10"
+                autoFocus
+              />
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={mustChange}
+                onChange={(e) => setMustChange(e.target.checked)}
+                className="w-4 h-4 rounded accent-primary"
+              />
+              <span className="text-[13px] text-gray-600">Require password change on next login</span>
+            </label>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setResetTarget(null)} className="h-10">Cancel</Button>
+            <Button
+              onClick={() => void handleResetPassword()}
+              disabled={resetting || newPassword.length < 8}
+              className="h-10"
+            >
+              {resetting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <KeyRound className="w-4 h-4 mr-2" />}
+              Reset Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
