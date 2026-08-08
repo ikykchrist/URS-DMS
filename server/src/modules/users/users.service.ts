@@ -247,3 +247,104 @@ export async function updateSelf(
 
   return getCurrentUser(userId);
 }
+
+// =============================================================================
+// Sprint 8.9 — Self-service data export
+// =============================================================================
+
+export interface UserDataExport {
+  profile: Record<string, unknown>;
+  documents: Array<{ id: string; title: string; type: string; size: number; createdAt: string }>;
+  folders: Array<{ id: string; name: string; parentId: string | null }>;
+  submissions: Array<{ id: string; status: string; requirementName: string; submittedAt: string }>;
+  tasks: Array<{ id: string; title: string; status: string; dueDate: string | null }>;
+  requests: Array<{ id: string; status: string; createdAt: string }>;
+  exportedAt: string;
+}
+
+export async function exportUserData(userId: string): Promise<UserDataExport> {
+  const [profile, documents, folders, submissions, tasks, requests] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, firstName: true, middleName: true, lastName: true, suffix: true, employeeId: true, status: true, role: { select: { name: true } }, createdAt: true, lastLogin: true },
+    }),
+    prisma.document.findMany({
+      where: { ownerId: userId, deletedAt: null },
+      select: { id: true, title: true, classification: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 1000,
+    }),
+    prisma.folder.findMany({
+      where: { ownerId: userId, deletedAt: null },
+      select: { id: true, name: true, parentId: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.aaccupSubmission.findMany({
+      where: { submittedBy: userId },
+      select: { id: true, status: true, submittedAt: true },
+      orderBy: { submittedAt: "desc" },
+    }),
+    prisma.aaccupTask.findMany({
+      where: { assigneeId: userId },
+      select: { id: true, title: true, status: true, dueDate: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.documentRequest.findMany({
+      where: { requesterId: userId },
+      select: { id: true, status: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  const name = [profile?.firstName, profile?.middleName, profile?.lastName, profile?.suffix].filter(Boolean).join(" ");
+
+  return {
+    profile: {
+      id: profile?.id,
+      email: profile?.email,
+      name: name || "Unknown",
+      employeeId: profile?.employeeId,
+      status: profile?.status,
+      role: profile?.role?.name,
+      memberSince: profile?.createdAt?.toISOString(),
+      lastLogin: profile?.lastLogin?.toISOString(),
+    },
+    documents: documents.map((d) => ({ id: d.id, title: d.title, type: d.classification, size: 0, createdAt: d.createdAt.toISOString() })),
+    folders: folders.map((f) => ({ id: f.id, name: f.name, parentId: f.parentId })),
+    submissions: submissions.map((s) => ({ id: s.id, status: s.status, requirementName: "N/A", submittedAt: s.submittedAt?.toISOString() ?? "" })),
+    tasks: tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, dueDate: t.dueDate?.toISOString() ?? null })),
+    requests: requests.map((r) => ({ id: r.id, status: r.status, createdAt: r.createdAt.toISOString() })),
+    exportedAt: new Date().toISOString(),
+  };
+}
+
+// =============================================================================
+// Sprint 8.9 — Self-service account deactivation
+// =============================================================================
+
+export async function deactivateOwnAccount(
+  userId: string,
+  ipAddress?: string,
+  userAgent?: string,
+): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new NotFoundError("User not found");
+
+  // Soft-deactivate: archive user, their documents, and folders
+  const now = new Date();
+  await prisma.$transaction([
+    prisma.document.updateMany({ where: { ownerId: userId, deletedAt: null }, data: { deletedAt: now } }),
+    prisma.folder.updateMany({ where: { ownerId: userId, deletedAt: null }, data: { deletedAt: now } }),
+    prisma.user.update({ where: { id: userId }, data: { status: "INACTIVE", deletedAt: now } }),
+  ]);
+
+  await writeAudit({
+    action: "user.deactivated",
+    userId,
+    entity: "user",
+    entityId: userId,
+    newValue: { status: "INACTIVE", deactivatedAt: now.toISOString() },
+    ipAddress,
+    userAgent,
+  });
+}

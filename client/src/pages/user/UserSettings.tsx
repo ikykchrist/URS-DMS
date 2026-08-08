@@ -9,7 +9,8 @@ import { useAuth } from "@/context/AuthContext"
 import { useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { getSystemSettings } from "@/services/admin"
-import { deleteOnlineDocument, listOnlineDocuments } from "@/services/documents"
+import { apiGet, apiDelete } from "@/lib/http"
+import { toast } from "@/lib/toast"
 import type { AppSettings } from "@/types/domain"
 import {
   Dialog,
@@ -31,13 +32,6 @@ export default function UserSettings() {
   const [compactMode, setCompactMode] = useState(false)
   const [collapsedSidebar, setCollapsedSidebar] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
-  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error', message: string } | null>(null)
-
-  const showToast = (type: 'success' | 'error', message: string) => {
-    setToastMessage({ type, message })
-    setTimeout(() => setToastMessage(null), 3000)
-  }
-
   const fetchSettings = useCallback(async () => {
     try {
       const s = await getSystemSettings()
@@ -80,29 +74,33 @@ export default function UserSettings() {
     localStorage.setItem("userViewMode", mode)
   }
 
-  const handleDownloadData = () => {
+  const handleDownloadData = async () => {
     if (!user) return
-    const userData = {
-      profile: { name: user.name, email: user.email, role: user.role, department: user.department },
-      exportedAt: new Date().toISOString(),
+    try {
+      const data = await apiGet("/users/me/export")
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url; a.download = `urs-dms-${user.name.replace(/\s/g, "_")}.json`
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success("Your data has been downloaded")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Download failed")
     }
-    const blob = new Blob([JSON.stringify(userData, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = `urs-dms-${user.name}.json`
-    document.body.appendChild(a); a.click(); document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    showToast('success', 'Your data has been downloaded')
   }
 
   const handleDeleteAll = async () => {
     if (!user) return
-    const myDocs = await listOnlineDocuments({ ownerId: user.id, archived: false })
-    for (const doc of myDocs) {
-      try { await deleteOnlineDocument(doc.id) } catch { }
+    try {
+      await apiDelete("/users/me")
+      toast.success("Your account and all data have been deactivated")
+      setIsDeleteConfirmOpen(false)
+      setTimeout(() => { window.location.href = "/" }, 2000)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Deactivation failed")
+      setIsDeleteConfirmOpen(false)
     }
-    showToast('success', 'All your documents have been deleted')
-    setIsDeleteConfirmOpen(false)
   }
 
   return (
@@ -209,7 +207,7 @@ export default function UserSettings() {
           <CardContent className="space-y-3">
             <Button variant="outline" className="w-full justify-start" onClick={handleDownloadData}>Download My Data</Button>
             <Button variant="outline" className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => setIsDeleteConfirmOpen(true)}>
-              Delete All My Documents
+              Remove My Data
             </Button>
           </CardContent>
         </Card>
@@ -230,25 +228,19 @@ export default function UserSettings() {
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
             <DialogTitle className="text-lg flex items-center gap-2">
-              <span className="text-red-500">Delete All Documents</span>
+              <span className="text-red-500">Remove My Data</span>
             </DialogTitle>
             <DialogDescription className="text-[14px]">
-              Are you sure you want to delete all your documents? This action cannot be undone.
+              This will deactivate your account and archive all your documents and folders. This action cannot be undone. You will be logged out.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 pt-2">
             <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)} className="h-9">Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteAll} className="h-9">Delete All</Button>
+            <Button variant="destructive" onClick={handleDeleteAll} className="h-9">Remove</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {toastMessage && (
-        <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border ${toastMessage.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-          <span className="text-[14px] font-medium">{toastMessage.message}</span>
-          <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-70 text-lg">×</button>
-        </div>
-      )}
     </div>
   )
 }
