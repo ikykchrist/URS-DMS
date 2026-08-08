@@ -5,24 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Label } from "@/components/ui/Label"
 import { Switch } from "@/components/ui/Switch"
-import { useAuth } from "@/context/AuthContext"
 import { useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { getSystemSettings } from "@/services/admin"
-import { apiGet, apiDelete } from "@/lib/http"
-import { toast } from "@/lib/toast"
 import type { AppSettings } from "@/types/domain"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/Dialog"
 
 export default function UserSettings() {
-  const { user } = useAuth()
   const { theme, setTheme } = useTheme()
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
@@ -31,7 +19,6 @@ export default function UserSettings() {
   })
   const [compactMode, setCompactMode] = useState(false)
   const [collapsedSidebar, setCollapsedSidebar] = useState(false)
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const fetchSettings = useCallback(async () => {
     try {
       const s = await getSystemSettings()
@@ -72,35 +59,6 @@ export default function UserSettings() {
   const handleViewModeChange = (mode: "grid" | "list") => {
     setViewMode(mode)
     localStorage.setItem("userViewMode", mode)
-  }
-
-  const handleDownloadData = async () => {
-    if (!user) return
-    try {
-      const data = await apiGet("/users/me/export")
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url; a.download = `urs-dms-${user.name.replace(/\s/g, "_")}.json`
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      toast.success("Your data has been downloaded")
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Download failed")
-    }
-  }
-
-  const handleDeleteAll = async () => {
-    if (!user) return
-    try {
-      await apiDelete("/users/me")
-      toast.success("Your account and all data have been deactivated")
-      setIsDeleteConfirmOpen(false)
-      setTimeout(() => { window.location.href = "/" }, 2000)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Deactivation failed")
-      setIsDeleteConfirmOpen(false)
-    }
   }
 
   return (
@@ -202,18 +160,6 @@ export default function UserSettings() {
 
         <Card className="border-gray-200/60 shadow-sm">
           <CardHeader className="pb-4">
-            <CardTitle className="text-[15px] font-semibold text-gray-900">Data & Privacy</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button variant="outline" className="w-full justify-start" onClick={handleDownloadData}>Download My Data</Button>
-            <Button variant="outline" className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => setIsDeleteConfirmOpen(true)}>
-              Remove My Data
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="border-gray-200/60 shadow-sm">
-          <CardHeader className="pb-4">
             <CardTitle className="text-[15px] font-semibold text-gray-900">About</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-[13px] text-gray-500">
@@ -223,23 +169,6 @@ export default function UserSettings() {
           </CardContent>
         </Card>
       </div>
-
-      <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="text-lg flex items-center gap-2">
-              <span className="text-red-500">Remove My Data</span>
-            </DialogTitle>
-            <DialogDescription className="text-[14px]">
-              This will deactivate your account and archive all your documents and folders. This action cannot be undone. You will be logged out.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 pt-2">
-            <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)} className="h-9">Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteAll} className="h-9">Remove</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
     </div>
   )
