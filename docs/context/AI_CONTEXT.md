@@ -12,7 +12,7 @@
 | Project | URS-DMS — University Recognition System Document Management System (AACCUP/ISO/Certification + personal repositories), local deployment, zero internet dependency |
 | Version | 1.0 (Release Candidate) |
 | Phase | Stabilization / defense-demo readiness |
-| Current sprint | Sprint 8.7 Final Repository UX — COMPLETE (46/46 tests, rules 31-40) |
+| Current sprint | Sprint 8.8 Full System Integration — COMPLETE (46/46 tests, 7/9 smoke green) |
 | Current goal | Finish 1.0 backlog (defense readiness, Cloudflare VPS deployment); keep every surface demo-safe with real data only |
 
 ## 2. Tech stack
