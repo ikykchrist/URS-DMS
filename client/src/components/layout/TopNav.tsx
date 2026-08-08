@@ -27,7 +27,7 @@ export function TopNav({ onOpenCommandPalette, onNavigate }: TopNavProps) {
   const roleLabel = user?.role ? ROLE_LABELS[user.role] ?? user.role : "User"
 
   return (
-    <header className="h-16 bg-white/80 backdrop-blur-sm border-b border-gray-200 flex-shrink-0">
+    <header className="h-16 bg-white/80 dark:bg-[#0F1520]/90 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
       <div className="flex items-center justify-between h-full px-6">
         <div className="flex-1 max-w-xl">
           <button

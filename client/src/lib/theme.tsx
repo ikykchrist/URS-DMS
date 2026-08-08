@@ -17,7 +17,7 @@ function storedTheme(): ThemeMode {
     const saved = localStorage.getItem(THEME_KEY)
     if (saved === "light" || saved === "dark" || saved === "system") return saved
   } catch {}
-  return "system"
+  return "light"
 }
 
 function applyTheme(mode: ThemeMode) {

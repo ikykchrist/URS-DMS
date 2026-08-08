@@ -793,7 +793,7 @@ function AppContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FB]">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0B1121]">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-[#2563EB] flex items-center justify-center">
             <FileText className="w-6 h-6 text-white" />
@@ -811,7 +811,7 @@ function AppContent() {
   // AppContent return â€” admin sees this
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#FAFAFA]">
+    <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC] dark:bg-[#0B1121]">
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={handleToggleSidebar}
@@ -967,7 +967,7 @@ function UserAppContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FB]">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0B1121]">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-[#2563EB] flex items-center justify-center">
             <FileText className="w-6 h-6 text-white" />
@@ -985,7 +985,7 @@ function UserAppContent() {
   // UserAppContent return â€” non-admin sees this
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#FAFAFA]">
+    <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC] dark:bg-[#0B1121]">
       <UserSidebar
         collapsed={sidebarCollapsed}
         onToggle={handleToggleSidebar}
@@ -1044,7 +1044,7 @@ function AppRoutes() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FB]">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0B1121]">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-[#2563EB] flex items-center justify-center">
             <FileText className="w-6 h-6 text-white" />

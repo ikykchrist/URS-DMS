@@ -65,7 +65,7 @@ export function UserSidebar({
   return (
     <aside
       className={cn(
-        "h-screen bg-white border-r border-gray-200 transition-all duration-300 flex-shrink-0",
+        "h-screen bg-white dark:bg-[#0F1520] border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-shrink-0",
         collapsed ? "w-20" : "w-64"
       )}
     >
