@@ -45,6 +45,20 @@ export const updateUserSchema = z
   .strict();
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 
+// Sprint 8.1 — self-service profile edit. Explicit whitelist ONLY: name
+// fields. Role, permissions, status, department, email, employee ID and all
+// other fields are rejected (.strict()) to prevent mass assignment /
+// privilege escalation.
+export const updateSelfSchema = z
+  .object({
+    firstName: z.string().trim().min(1).max(100).optional(),
+    middleName: z.string().trim().max(100).nullable().optional(),
+    lastName: z.string().trim().min(1).max(100).optional(),
+    suffix: z.string().trim().max(20).nullable().optional(),
+  })
+  .strict();
+export type UpdateSelfInput = z.infer<typeof updateSelfSchema>;
+
 export const changeUserStatusSchema = z.object({
   status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"]),
 });

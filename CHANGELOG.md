@@ -6,6 +6,382 @@
 
 ---
 
+## Sprint 8.3 — Repository Maintenance & Storage Integrity (2026-08-08)
+
+**Backend**
+
+- New `modules/maintenance/` (service → routes → jobs) mounted under
+  `/root/maintenance` (hard ROOT role gate + `root.access` permission):
+  - `GET /root/maintenance/status` — job history, lock state, orphan
+    candidate counts, storage statistics.
+  - `GET /root/maintenance/storage` — verified storage statistics (MinIO
+    object count/size, active file count, recycle-bin storage, pending orphan
+    storage; capacity fields return null rather than fabricated numbers).
+  - `GET /root/maintenance/check` — READ-ONLY consistency check: active
+    files/folders, stored object references, expired recycle-bin items,
+    missing MinIO objects (reported, never silently deleted), orphan
+    candidate count, failed/pending job counts.
+  - `GET /root/maintenance/orphans` — paginated orphan candidate list.
+  - `POST /root/maintenance/scan` — orphan MinIO-object scan (detection
+    only; records candidates in `maintenance_orphan_candidates`).
+  - `POST /root/maintenance/cleanup-recycle` — 30-day retention recycle-bin
+    cleanup (requires `confirm: true` for destructive mode); batch-based,
+    snapshot-guarded (AACCUP submissions block permanent removal),
+    reference-counted (MinIO objects deleted ONLY when zero version rows
+    reference them), idempotent.
+  - `POST /root/maintenance/cleanup-orphans` — two-stage orphan cleanup
+    (SCAN → CANDIDATE → 7-day grace → RE-VERIFY → DELETE); requires
+    `confirm: true`; re-referenced candidates are marked `RE_REFERENCED` and
+    preserved; "object not found" is handled idempotently.
+- Maintenance jobs module (`maintenance.jobs.ts`):
+  - Database-backed distributed lock (`maintenance_locks` row) with 10-minute
+    expiry and 60-second heartbeat — crashed workers cannot permanently block
+    maintenance; no Redis dependency.
+  - Job persistence in `maintenance_jobs` (jobId, type, status, counts, error,
+    batchCursor, timestamps); PENDING → RUNNING → COMPLETED/FAILED lifecycle.
+  - Shared lock-release heartbeat pattern used by all destructive jobs.
+- Reference-safe physical object deletion (`deleteDocumentWithObjects`):
+  - Before deleting a MinIO object, counts ALL `DocumentVersion` rows
+    referencing that key (including copies, Requested Document deliveries,
+    and replace-version history).
+  - Object is deleted ONLY when no other reference exists.
+  - AACCUP submission snapshots block document permanent removal entirely
+    (RESTRICT FK checked before proceeding).
+- 7 new audit action codes: `maintenance.recycle_cleanup.*`,
+  `maintenance.storage_scan.completed`, `maintenance.orphan_cleanup.*`,
+  `maintenance.storage_check.completed`, `maintenance.manual_triggered`.
+  Audit events are ONE per job run (never per item) with jobId and counts.
+- MinIO storage helpers (additive to frozen `lib/storage.ts`):
+  `objectExists()` (stat probe), `listObjectKeys()` (streaming list with
+  cap), `statObject()` (size retrieval).
+- Cleanup notifications: owners receive `RECYCLE_BIN_CLEANUP` notification
+  when an expired item is permanently removed (best-effort, never blocks).
+
+**Database**
+
+- Migration `20260831040000_add_maintenance_models` (3 tables):
+  `maintenance_jobs` (jobId unique, jobType+status indexed, status+createdAt
+  indexed, batchCursor JSONB), `maintenance_orphan_candidates` (objectKey
+  unique, status+firstSeenAt indexed), `maintenance_locks` (jobType PK with
+  expiry — crashed worker auto-recovery).
+
+**Client**
+
+- `RootMaintenance.tsx` (~350 lines) — Root Console page with storage
+  overview cards (object count, active files, recycle bin, orphan
+  candidates), maintenance job history table, orphan candidates table, and
+  controlled action buttons (Scan, Recycle Cleanup, Orphan Cleanup) with
+  dry-run toggle and confirmation dialog before any destructive operation.
+  Registered in `App.tsx` (`root-maintenance`) and `Sidebar.tsx` (Storage
+  Maintenance under Root, HardDrive icon).
+
+**Scripts**
+
+- `scripts/maintenance-runner.js` — scheduled runner (boot + every 24 hours,
+  `--once` for single cycle); logs in via ROOT credentials from `.env`,
+  performs recycle cleanup + orphan scan via the Root API; lock prevents
+  duplicate execution across instances.
+- `scripts/maintenance-cleanup.js` — manual driver with `--dry-run`,
+  `--scan`, `--recycle`, `--orphans`, `--confirm` flags; dry runs delete
+  nothing; destructive cleanup requires `--confirm`.
+- `scripts/maintenance-storage-check.js` — read-only consistency check via
+  the Root API, prints full JSON report.
+- npm scripts: `maintenance:run`, `maintenance:cleanup`, `maintenance:storage-check`.
+
+**Docs**
+
+- DECISIONS.md: D-032 (7-day orphan grace period), D-033 (database-backed
+  maintenance lock).
+- `engineering/storage.md`: maintenance section added.
+- `specification/repository.md`: Recycle Bin updated to reference the new
+  scheduled `maintenance-runner.js`.
+- `AI_CONTEXT.md` / `PROJECT_STATUS.md` / `MODULE_INDEX.md`: Sprint 8.3
+  updated.
+
+**Smoke**
+
+- `scripts/smoke-maintenance.ps1` — 29 checks covering authorization
+  (ROOT-only, ADMIN/FACULTY/anon denied), <30-day preservation, >=30-day
+  cleanup (files + nested folder trees), shared-blob reference survival,
+  AACCUP snapshot guard, orphan two-stage flow (candidate → grace →
+  dry-run → verified cleanup), missing-object reporting (never deleted),
+  idempotent cleanup, storage statistics with real data + null capacity,
+  maintenance audit trail, and fixture self-clean.
+
+## Sprint 8.2 — Password Recovery & Account Security (2026-08-08)
+
+**Backend**
+
+- New `modules/passwordReset/` (routes → controller → service → repository →
+  Prisma) mounted on `/api/v1/auth` AFTER the frozen `authRouter` (additive,
+  no frozen auth file modified):
+  - `POST /auth/forgot-password` — always 200 with the SAME generic message
+    ("If an account exists for this email, password reset instructions have
+    been sent") for known and unknown accounts (no enumeration). Known
+    ACTIVE accounts get a single-use reset token + queued email.
+  - `POST /auth/reset-password` — validates the token, rejects invalid /
+    expired / already-used tokens with a generic error, refuses resetting to
+    the current password, and transactionally: updates the Argon2 hash,
+    marks the token used, invalidates all other outstanding tokens, and
+    revokes EVERY refresh session (old refresh tokens can no longer obtain
+    new access tokens).
+  - `GET /auth/dev/reset-link?email=` — DEVELOPMENT-ONLY (404 outside
+    `NODE_ENV=development`) helper that returns the latest reset token so
+    local testing can exercise the full flow without SMTP.
+- Token design (D-031): 384-bit random token (`randomToken(48)`), only its
+  SHA-256 hash stored (`PasswordResetToken.tokenHash` unique), 20-minute
+  expiry, single-use (`usedAt`), outstanding older tokens invalidated on
+  every new request or completion. New Prisma model + migration
+  `20260831030000_add_password_reset_tokens` (FK → users, CASCADE).
+- Dedicated reset rate limiter (12 requests / 15 min / IP, counts every
+  request — separate from login/refresh so hammering cannot lock auth).
+  Note: the pre-existing `authLimiter`'s `skip: res.statusCode < 400` hook
+  evaluates before the handler and never counts (documented; not changed —
+  frozen-adjacent middleware).
+- Email reuses the durable queue (`sendEmail`): subject "Reset your
+  URS-DMS password", 20-minute expiry notice, link built from
+  `CLIENT_URL[0]` → `/reset-password?token=…`. No secrets, no tokens in
+  audit; audit actions `auth.password_reset.requested` /
+  `.completed` / `.failed` (exactly one per event).
+
+**Frontend**
+
+- `services/auth.ts`: `forgotPassword` / `resetPassword` implemented
+  (previously stubs returning "not available yet"); a successful reset
+  clears local tokens so the app returns to login.
+- `ForgotPasswordForm.tsx`: real API call, generic success screen
+  ("If an account exists…", 20-minute expiry), loading/error states kept.
+- `ResetPasswordForm.tsx`: real API call, server errors surfaced
+  (invalid/expired token), existing success screen + password strength/
+  show-hide/validation retained.
+
+**Verification**
+
+- New `scripts/smoke-password-reset.ps1` — **30/30 PASS**: generic
+  known/unknown equivalence, token hashing (plaintext never stored),
+  invalid/expired/used-token rejection, new-reset invalidation, valid
+  reset, Argon2 hash, old password fails / new works, old refresh token
+  fails (post rotation-grace), Sprint 8.1 session regression, rate
+  limiting 429, audit exactly once, cleanup.
+- Regression: `smoke-account.ps1` (Sprint 8.1) 35/35. Server
+  typecheck/lint/build + client tsc/build pass.
+
+---
+
+## Sprint 8.1 — Account & Session Management (2026-08-08)
+
+**Backend**
+
+- **Reused existing auth self-service endpoints** (no duplicates): `GET
+  /auth/me`, `GET /auth/sessions`, `POST /auth/sessions/:id/kill`,
+  `POST /auth/sessions/kill-all`, `POST /auth/change-password`,
+  `POST /auth/logout` (all actor-scoped, ownership enforced server-side,
+  current-session identified via `req.auth.sessionId`).
+- **New `PATCH /api/v1/users/me`** (users module, NOT frozen): self-service
+  profile edit. Zod `.strict()` whitelist — only `firstName`, `middleName`,
+  `lastName`, `suffix`; role/status/department/email/permissions are rejected
+  (mass-assignment / privilege-escalation guard). Gated by the existing
+  `users.self.update` permission (granted to every role incl. READ_ONLY via
+  the role matrix + seed). Response is the safe authenticated view.
+- **`GET /auth/me` enriched** (minimal frozen-auth change): now returns
+  `departmentName`, `createdAt`, `lastLogin` — still no hashes/tokens.
+- **Audit** (frozen-auth change, required by the sprint): `revokeSession` and
+  `revokeOtherSessions` now write exactly one event each —
+  `session.revoked` / `session.revoked_others` (new `AUDIT_ACTIONS` codes);
+  `PATCH /users/me` writes `user.profile_updated` once. Existing
+  login/logout auditing unchanged (no duplicates).
+- **Email is read-only** (D-029): email is the login identity — no
+  self-service email change in 8.1; documented limitation.
+
+**Frontend**
+
+- New shared **Account & Security** page (`client/src/pages/AccountSecurity.tsx`)
+  used by BOTH portals: Profile (avatar upload, identity fields, editable
+  name fields with save/validation/unsaved-changes states), Security (read-only
+  email + role, Change Password via existing modal), Active Sessions (device/
+  browser/IP/created/expires, "Current Session" badge, per-row Sign Out,
+  "Sign Out All Other Devices" with confirmation, empty/loading/error states).
+- User portal `/user/profile` → shared page (wrapper kept); admin portal gains
+  `/profile` + TopNav "Account & Security" menu item (was a dead item).
+- `services/auth.ts`: `updateProfile` implemented (PATCH /users/me),
+  `meRaw()` added, `killAllOtherSessions` returns the revoked count.
+- `Settings.tsx`: removed the fake "Profile Settings" editor (name/email/
+  phone/department were not real self-service fields); its Account Security
+  section (password + sessions modal) stays.
+
+**Verification**
+
+- New `scripts/smoke-account.ps1` — **35/35 PASS**: safe /me shape (no
+  secrets), edit + persistence across refresh/logout/login, all 5 mass-
+  assignment guards (role/status/department/email/permissions → 400), sessions
+  list + current flag, revoke own session (token becomes invalid), cannot
+  revoke current (400) or another user's session (404), revoke-others (count +
+  current survives rotation), logout invalidation, ADMINISTRATOR + FACULTY
+  self-service, audit events once each, self-cleanup.
+- Regression: `smoke-requests.ps1` 32/32 (shared auth path untouched
+  behaviorally). Server typecheck/lint/build + client tsc/build pass.
+
+---
+
+## Cloudflare tunnel deployment + upload fixes (2026-08-08)
+
+**Deployment tooling**
+
+- `tunnel-all.ps1` rewritten as the full deploy: app (5173) + MinIO (9000)
+  + console (9001) quick tunnels; backs up `.env` to `.env.tunnel-backup`;
+  rewrites `MINIO_PUBLIC_ENDPOINT` to the MinIO tunnel; restarts the API;
+  restarts Vite with `VITE_API_BASE=/api/v1` so the browser calls the app
+  tunnel same-origin and Vite proxies `/api` → `:4000` (no CORS, no separate
+  API tunnel). `tunnel-stop.ps1` restores `.env` and local dev.
+- Verified end-to-end through the tunnels: app HTML 200, API health via
+  proxy `ok`, ROOT login via tunnel OK, MinIO health 200.
+
+**Fix: presigned URL signature mismatch (D-027)**
+
+- `server/src/lib/storage.ts` signed presigned PUT/GET URLs for the internal
+  endpoint (`localhost:9000`) and then string-rewrote the host to
+  `MINIO_PUBLIC_ENDPOINT` after signing. SigV4 signs the Host header, so
+  MinIO returned 403 `SignatureDoesNotMatch` for every upload/download
+  through the tunnel (and locally while the tunnel `.env` was active).
+- Fix: presigned URLs are now signed with a client built from
+  `MINIO_PUBLIC_ENDPOINT` (host/port/scheme) when set; the host-rewriting
+  hack was removed. Single point — covers uploads, replace-version, preview,
+  downloads, setup-wizard logo.
+- Verified through the tunnel: presigned PUT → tunnel host → HTTP 200,
+  verify OK, presigned GET → 200.
+
+**Change: maximum upload size removed (D-028)**
+
+- `documents.validator.ts`: the hard 100 MB `sizeBytes` cap was removed.
+- `documents.service.ts` `assertUploadPolicy`: no longer reads/enforces
+  `upload.max_size_bytes`; the file-type allowlist is still enforced.
+- `root.config.seeddata.ts`: `upload.max_size_bytes` seed entry removed.
+- `Settings.tsx`: the "Default Upload Size Limit" selector removed.
+- Verified: 115 MB file upload (create → version → presigned PUT → verify →
+  cleanup) succeeded — no size cap.
+
+---
+
+## AACCUP group + tasks + submissions + requests + UI unification (2026-08-08)
+
+**AACCUP group (one tab, both portals)**
+
+- Sidebar collapsed to a single **AACCUP** entry on both portals (admin +
+  user); the three accreditation sets + review/task surfaces live in an
+  in-page tab strip (shared `AACCUPGroupTabs` component).
+- Tabs are URL-synced (`?tab=`) and deep links preserve the set:
+  `/iso` → ISO tab, `/certification` → CERT tab, `/submissions` →
+  Submissions tab (admin); `/user/iso` / `/user/certification` now land on
+  the right user tab too.
+- Admin tabs: AACCUP | ISO | Certification | Submissions | My Tasks.
+  User tabs: AACCUP | ISO | Certification | My Submissions | My Tasks.
+- Shared `SubmissionsTable` (review mode = admin with Approve/Return/Reject +
+  bulk actions; view mode = user's own submissions, read-only) and shared
+  `TaskSubmitDialog` for evidence uploads.
+
+**Area management (admin)**
+
+- Full area CRUD from the UI: `AddAreaModal` gained an edit mode (name,
+  description, department, active/inactive) triggered from a pencil button
+  on each area card and an Edit button in the area details modal.
+- Per-area submissions table now has Approve / Return / Reject actions
+  (PENDING / NEEDS_REVISION only); stats standardized (returned = REJECTED,
+  pending = PENDING + NEEDS_REVISION).
+- AACCUP management toolbar filters wired (search + area/status/submission
+  selects + reset).
+
+**Requirements (admin)**
+
+- New Requirements tab in the area details modal + `RequirementModal`
+  (add/edit): title, document code, description, category, priority,
+  required/optional, active/inactive, display order; archive action.
+  Root Requirement Builder-managed areas are detected and read-only
+  (server 409 surfaces otherwise).
+
+**Tasks (admin + user)**
+
+- Fixed: QAO could not populate the assignee dropdowns (403 on
+  `/admin/users`) → new `GET /aaccup/tasks/assignees` (aaccup.read).
+- Fixed: `dueDate: null` was coerced to 1970-01-01 → validator now accepts
+  null and the client omits the field.
+- Fixed: dead "Create Task" quick action → the modal gained an Area picker
+  when opened without an area.
+- Assignees can transition their tasks OPEN → IN_PROGRESS → COMPLETED
+  (PATCH authorization enforced in the service; managers keep full edits).
+- `GET /aaccup/tasks?mine=true` returns tasks assigned to the caller or
+  their department; new "My Tasks" tab on both portals.
+- `AACCUP_TASK_ASSIGNED` notification emitted on creation; submissions can
+  reference the task they fulfil (`taskId` on `AaccupSubmission`).
+- Admin area-modal tasks table gained the same Start / Mark Complete /
+  Submit Evidence actions as the user cards.
+
+**Submissions**
+
+- Per-row Approve / Return / Reject buttons on the Submissions tab (were
+  missing); the Return modal was miswired to `/requests/:id/reject` and now
+  calls the review API with `NEEDS_REVISION`; preview modal admin actions
+  wired.
+- Repository-style rows: single click selects, double click opens preview,
+  action buttons stop propagation; hint text added.
+- Set filter (All / AACCUP / ISO / CERT), status filter case-bug fixed,
+  department name now populated by the server list, duplicate File column
+  removed, bulk Archive/Delete now call the API, dead Bulk Assign removed.
+- `AACCUP_SUBMISSION_PENDING_REVIEW` notification to all reviewers
+  (aaccup.submission.review / aaccup.manage) when a submission is created.
+
+**Requests**
+
+- Multi-file requests: `DocumentRequestItem` join model; one request covers
+  up to 3 documents; legacy single `documentId` retained (mirrors the first
+  item). FULFILLED delivery clones every item into the requester's
+  repository.
+- New admin **Requests** tab (sidebar + `/requests`): full list with
+  requester/files/explanation, Approve (optional note) / Reject (reason
+  required — server-enforced) dialogs; Dashboard "Pending Approvals" widget
+  and the dashboard's request table now point there.
+- New `GET /requests/browse` (request.create): list-only view of the
+  caller's department archive bucket (name, type, owner, date, size — no
+  preview/download surface).
+- User browse rework: department bucket, max 3 files selected at once,
+  required explanation, single "Request Files" button; request details
+  modal (files + decision note) and Cancel for pending requests wired;
+  dead pagination removed.
+- `GET /requests` and `GET /requests/:id` now allow `request.manage`
+  holders (QAOs) to list/review.
+
+**UI unification & bug fixes (UI only — no permission changes)**
+
+- Users got the command palette (Ctrl+K) and a "New" quick-action menu;
+  admin palette gained Requests/ISO/Certification entries; dead search
+  input on the user top nav replaced with the palette trigger.
+- Removed dead controls: admin dashboard "Recent Submissions" table
+  relabeled "Recent Requests" (it listed document requests) with correct
+  columns/actions, never-matching "In Review" filter, mojibake (–/…),
+  dead MoreHorizontal buttons, dead saved-view presets, orphaned pages
+  (ISO/Cert shims, UserSubmitRequest, UserAACCUP wrappers), admin TopNav
+  dead Profile item, QuickActionButton dead links + fake kbd hints.
+- UserDashboard: dead "Upcoming Deadlines" card (no due-date data exists)
+  replaced with Recent Requests; raw `<table>` swapped for shared Table
+  primitives.
+- Labels unified: "My Documents" on both sidebars/pages (the repository is
+  owner-scoped for everyone); user request cards label "Explanation".
+
+**Data layer**
+
+- Migrations: `20260830000000_aaccup_task_submission_link` (taskId on
+  submissions + AACCUP_TASK_ASSIGNED), `20260831000000_add_submission_pending_review`,
+  `20260831010000_add_request_items`, `20260831020000_request_items_document_cascade`.
+- **Bug fixed (D-026)**: `document_request_items.documentId` FK was
+  RESTRICT, so `DELETE /documents/:id/permanent` 500'd for any document a
+  request ever referenced (recycle-bin purge blocked) → FK is CASCADE;
+  stale SMK recycle-bin rows purged.
+
+**Verification**: server typecheck/lint/build + client tsc/build pass.
+Smokes all green — AACCUP 43/43, Requests 32/32, Repository 49/49,
+Rules 40/40; smoke scripts self-clean (no SMK rows remain).
+
+---
+
 ## Repository Rules 1–30 implementation (2026-08-05)
 
 **Backend**

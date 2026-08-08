@@ -19,8 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/Select"
-import { createOnlineTask, listOnlineRequirements } from "@/services/aaccup"
-import { listSystemUsers, listSystemDepartments } from "@/services/admin"
+import { createOnlineTask, listOnlineRequirements, listTaskAssignees, listAllOnlineAaccupAreas, type OnlineAaccupArea } from "@/services/aaccup"
 import { cn } from "@/lib/utils"
 
 interface CreateTaskModalProps {
@@ -45,46 +44,54 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
   const [category, setCategory] = useState("documentation")
   const [activeUsers, setActiveUsers] = useState<Array<{ id: string; label: string }>>([])
   const [departments, setDepartments] = useState<Array<{ id: string; label: string }>>([])
+  const [areas, setAreas] = useState<OnlineAaccupArea[]>([])
+  const [pickedAreaId, setPickedAreaId] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+
+  const effectiveAreaId = areaId ?? pickedAreaId
+  const effectiveAreaTitle = areaId ? areaTitle : areas.find((a) => a.id === pickedAreaId)?.name
 
   useEffect(() => {
     if (!open) return
     setError("")
     setSaving(false)
     setRequirementId("")
+    setPickedAreaId("")
     Promise.all([
-      listSystemUsers({ status: "ACTIVE", pageSize: 100 }).then((page) =>
-        page.items.map((user) => ({
-          id: user.id,
-          label: [user.firstName, user.middleName, user.lastName].filter(Boolean).join(" ").trim(),
-        })),
-      ),
-      listSystemDepartments({ pageSize: 100 }).then((page) =>
-        page.items.map((department) => ({ id: department.id, label: department.name })),
-      ),
+      listTaskAssignees().then((result) => ({
+        users: result.users.map((user) => ({ id: user.id, label: user.fullName })),
+        departments: result.departments.map((department) => ({ id: department.id, label: department.name })),
+      })),
       areaId
         ? listOnlineRequirements(areaId).then((items) =>
             items.map((item) => ({ id: item.id, title: item.title, documentCode: item.documentCode })),
           )
         : Promise.resolve([]),
+      areaId
+        ? Promise.resolve([])
+        : listAllOnlineAaccupAreas({ status: "ACTIVE" }).then((items) =>
+            items.sort((a, b) => a.areaSet.localeCompare(b.areaSet) || a.name.localeCompare(b.name)),
+          ),
     ])
-      .then(([users, depts, reqs]) => {
-        setActiveUsers(users)
-        setDepartments(depts)
+      .then(([assignees, reqs, areaItems]) => {
+        setActiveUsers(assignees.users)
+        setDepartments(assignees.departments)
         setRequirements(reqs)
+        setAreas(areaItems)
       })
       .catch(() => {
         setActiveUsers([])
         setDepartments([])
         setRequirements([])
+        setAreas([])
       })
-  }, [open])
+  }, [open, areaId])
 
   const handleClose = (isOpen: boolean) => {
     if (!isOpen) {
       setTaskName(""); setTaskDescription(""); setAssigneeId(""); setDueDate(""); setRequirementId("")
-      setPriority("MEDIUM"); setCategory("documentation"); setAssigneeKind("USER"); setError("")
+      setPriority("MEDIUM"); setCategory("documentation"); setAssigneeKind("USER"); setError(""); setPickedAreaId("")
     }
     onOpenChange(isOpen)
   }
@@ -92,18 +99,18 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
   const handleSubmit = async () => {
     setError("")
     if (!taskName.trim()) { setError("Task name is required"); return }
-    if (!areaId) { setError("No area selected"); return }
+    if (!effectiveAreaId) { setError("No area selected"); return }
     if (!assigneeId) { setError("Please select an assignee"); return }
 
     setSaving(true)
     try {
       await createOnlineTask({
-        areaId,
+        areaId: effectiveAreaId,
         title: taskName,
         description: taskDescription,
         category,
         priority,
-        dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+        ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
         requirementId: requirementId || null,
         assigneeType: assigneeKind,
         assigneeId,
@@ -126,7 +133,7 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
             Create New Task
           </DialogTitle>
           <DialogDescription className="text-[14px]">
-            Create a new task for {areaTitle || "this area"}
+            Create a new task for {effectiveAreaTitle || "an accreditation area"}
           </DialogDescription>
         </DialogHeader>
 
@@ -136,6 +143,32 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
               {error}
             </div>
           )}
+
+          {!areaId && (
+            <div className="grid gap-2">
+              <Label className="text-[13px] font-medium text-gray-700">
+                Area <span className="text-red-500">*</span>
+              </Label>
+              <Select value={pickedAreaId} onValueChange={setPickedAreaId}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select an accreditation area" />
+                </SelectTrigger>
+                <SelectContent>
+                  {areas.map((area) => (
+                    <SelectItem key={area.id} value={area.id}>
+                      [{area.areaSet}] {area.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {areas.length === 0 && (
+                <p className="text-[12px] text-gray-500">
+                  No active areas available for task assignment.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="grid gap-2">
             <Label htmlFor="taskName" className="text-[13px] font-medium text-gray-700">
               Task Name <span className="text-red-500">*</span>

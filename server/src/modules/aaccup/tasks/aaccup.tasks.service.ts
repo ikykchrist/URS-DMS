@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS } from "@/config/constants";
 import { writeAudit } from "@/modules/audit/audit.service";
+import { notifyUser, notifyUsers } from "@/modules/notifications/notifications.service";
 import {
   BadRequestError,
+  ConflictError,
   ForbiddenError,
   NotFoundError,
 } from "@/utils/errors";
@@ -121,6 +123,68 @@ async function resolveAssignee(
   return `${user.firstName} ${user.lastName}`.trim();
 }
 
+// -----------------------------------------------------------------------------
+// listTaskAssignees — the aaccup.read-scoped picker for the Create Task modal
+// (active users + non-archived departments). QAOs can populate their task
+// assignee dropdowns without needing the admin `user.read` permission.
+// -----------------------------------------------------------------------------
+export async function listTaskAssignees(
+  actor: Actor,
+): Promise<{ users: Array<{ id: string; fullName: string }>; departments: Array<{ id: string; name: string }> }> {
+  assertCanRead(actor);
+  const [users, departments] = await Promise.all([
+    prisma.user.findMany({
+      where: { status: "ACTIVE", deletedAt: null },
+      select: { id: true, firstName: true, middleName: true, lastName: true },
+      orderBy: { firstName: "asc" },
+    }),
+    prisma.department.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+  return {
+    users: users.map((u) => ({
+      id: u.id,
+      fullName: [u.firstName, u.middleName, u.lastName].filter(Boolean).join(" ").trim(),
+    })),
+    departments: departments.map((d) => ({ id: d.id, name: d.name })),
+  };
+}
+
+/** Best-effort "you have been assigned a task" notification — never fails creation. */
+async function safeNotifyAssignee(
+  assigneeType: "USER" | "DEPARTMENT",
+  assigneeId: string,
+  task: AaccupTaskDetail,
+): Promise<void> {
+  try {
+    const base = {
+      title: "New task assigned",
+      message: `You have been assigned a new task: "${task.title}".`,
+      entity: "aaccup_task",
+      entityId: task.id,
+      actionUrl: "/user/aaccup",
+    };
+    if (assigneeType === "USER") {
+      await notifyUser(assigneeId, "AACCUP_TASK_ASSIGNED", base);
+      return;
+    }
+    const members = await prisma.user.findMany({
+      where: { departmentId: assigneeId, status: "ACTIVE", deletedAt: null },
+      select: { id: true },
+    });
+    await notifyUsers(
+      members.map((m) => m.id),
+      "AACCUP_TASK_ASSIGNED",
+      base,
+    );
+  } catch {
+    // notifications must never break task creation
+  }
+}
+
 const SORT_FIELDS = new Set(["title", "status", "priority", "dueDate", "createdAt", "updatedAt"]);
 
 // -----------------------------------------------------------------------------
@@ -140,6 +204,23 @@ export async function listTasks(query: ListTasksQuery, actor: Actor): Promise<Li
   if (query.status) where.status = query.status;
   if (query.priority) where.priority = query.priority;
   if (query.assigneeType) where.assigneeType = query.assigneeType;
+
+  // `mine=true` — tasks assigned to the caller (USER target) or to a
+  // DEPARTMENT the caller belongs to. Used by the user portal "My Tasks" tab.
+  if (query.mine === "true") {
+    const me = await prisma.user.findUnique({
+      where: { id: actor.id },
+      select: { departmentId: true },
+    });
+    where.AND = [
+      {
+        OR: [
+          { assigneeType: "USER", assigneeId: actor.id },
+          { assigneeType: "DEPARTMENT", assigneeId: me?.departmentId ?? "__none__" },
+        ],
+      },
+    ];
+  }
 
   if (query.q) {
     where.OR = [
@@ -199,7 +280,7 @@ export async function createTask(input: CreateTaskInput, actor: Actor): Promise<
   const task = await repo.create({
     areaId: input.areaId,
     title: input.title,
-    description: input.description ?? null,
+    description: input.description?.trim() ? input.description : null,
     category: input.category ?? null,
     priority: input.priority,
     dueDate: input.dueDate ?? null,
@@ -227,20 +308,70 @@ export async function createTask(input: CreateTaskInput, actor: Actor): Promise<
     userAgent: actor.userAgent,
   });
 
+  await safeNotifyAssignee(assigneeType, input.assigneeId, task);
+
   return task;
 }
 
 // -----------------------------------------------------------------------------
 // updateTask
 // -----------------------------------------------------------------------------
+// Managers (aaccup.manage) may edit everything. The ASSIGNEE (USER target
+// matching the caller, or any member of the assigned DEPARTMENT) may only
+// transition the status along the allowed path:
+//   OPEN → IN_PROGRESS → COMPLETED
+// This is what makes tasks actionable by the people they are assigned to.
+// -----------------------------------------------------------------------------
+const ASSIGNEE_STATUS_TRANSITIONS: Record<string, string[]> = {
+  OPEN: ["IN_PROGRESS"],
+  IN_PROGRESS: ["COMPLETED"],
+  COMPLETED: [],
+  CANCELLED: [],
+};
+
+async function isAssignee(actorId: string, task: AaccupTaskDetail): Promise<boolean> {
+  if (task.assigneeType === "USER") return task.assigneeId === actorId;
+  if (task.assigneeType === "DEPARTMENT") {
+    const me = await prisma.user.findUnique({
+      where: { id: actorId },
+      select: { departmentId: true },
+    });
+    return Boolean(me?.departmentId && me.departmentId === task.assigneeId);
+  }
+  return false;
+}
+
 export async function updateTask(
   id: string,
   input: UpdateTaskInput,
   actor: Actor,
 ): Promise<AaccupTaskDetail> {
-  assertCanManage(actor);
   const existing = await repo.findById(id);
   if (!existing) throw new NotFoundError("AACCUP task not found");
+
+  const manager = isManager(actor);
+  if (!manager) {
+    const assignee = await isAssignee(actor.id, existing);
+    if (!assignee) {
+      throw new ForbiddenError("Only managers or the assigned user can update this task");
+    }
+    const statusOnly = Object.keys(input).every((key) => key === "status");
+    if (!statusOnly) {
+      throw new ForbiddenError("Assignees may only update the task status");
+    }
+  }
+
+  // Status transition validation (applies to managers too — no arbitrary jumps).
+  if (input.status !== undefined && input.status !== existing.status) {
+    const allowed = manager
+      ? ["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"]
+      : ASSIGNEE_STATUS_TRANSITIONS[existing.status] ?? [];
+    if (!allowed.includes(input.status)) {
+      throw new ConflictError(
+        `Cannot move task from ${existing.status} to ${input.status}`,
+      );
+    }
+  }
 
   // If the related requirement changes, it must belong to the task's area.
   if (input.requirementId !== undefined && input.requirementId !== existing.requirementId) {

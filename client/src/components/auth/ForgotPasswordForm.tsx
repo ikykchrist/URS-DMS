@@ -5,6 +5,7 @@ import { AuthCard, AuthCardHeader, AuthCardTitle, AuthCardDescription, AuthCardF
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/Label"
+import { authService } from "@/services/auth"
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("")
@@ -29,15 +30,23 @@ export function ForgotPasswordForm() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError("")
-    
+
     if (!validateEmail(email)) return
 
     setIsLoading(true)
-    
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    setIsLoading(false)
-    setIsSuccess(true)
+
+    try {
+      const result = await authService.forgotPassword(email.trim())
+      if (!result.success) {
+        setError(result.message)
+      } else {
+        setIsSuccess(true)
+      }
+    } catch {
+      setError("Could not send the reset email. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (isSuccess) {
@@ -49,14 +58,14 @@ export function ForgotPasswordForm() {
           </div>
           <AuthCardTitle className="text-center">Check your email</AuthCardTitle>
           <AuthCardDescription className="text-center">
-            We sent a password reset link to <span className="font-medium text-[#0F172A]">{email}</span>
+            If an account exists for this email, password reset instructions have been sent.
           </AuthCardDescription>
         </AuthCardHeader>
-        
+
         <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start gap-3">
           <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-blue-700">
-            <p className="font-medium mb-1">Password reset link expires in 24 hours</p>
+            <p className="font-medium mb-1">Password reset link expires in 20 minutes</p>
             <p>Please check your inbox and spam folder if you don't receive the email.</p>
           </div>
         </div>

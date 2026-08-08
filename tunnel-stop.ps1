@@ -13,4 +13,14 @@ if (Test-Path "$root\.env.tunnel-backup") {
 Write-Host 'Restarting API server with local endpoints...'
 & "$root\restart-server.ps1"
 
-Write-Host 'Done. Tunnels stopped, .env restored.'
+Write-Host 'Restarting Vite with the local API base (no tunnel)...'
+$viteProc = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" |
+    Where-Object { $_.CommandLine -match 'vite' } |
+    Select-Object -First 1
+if ($viteProc) {
+    Stop-Process -Id $viteProc.ProcessId -Force
+    Start-Sleep 2
+}
+Start-Process -FilePath 'cmd.exe' -ArgumentList '/k','cd /d C:\Dev\URS-DMS\client && npm run dev'
+
+Write-Host 'Done. Tunnels stopped, .env restored, local dev back on localhost.'

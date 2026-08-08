@@ -151,14 +151,6 @@ export const SEED_CONFIGURATIONS: SeedConfiguration[] = [
   },
   {
     categoryCode: "upload",
-    key: "upload.max_size_bytes",
-    name: "Maximum Upload Size (bytes)",
-    description: "Largest single upload allowed, in bytes (default 100 MB)",
-    value: 104857600,
-    valueType: "NUMBER",
-  },
-  {
-    categoryCode: "upload",
     key: "upload.allowed_file_types",
     name: "Allowed File Types",
     description: "Accepted file extensions (no leading dot)",

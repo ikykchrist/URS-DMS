@@ -97,6 +97,7 @@ model User {
   updatedAt                     DateTime                @updatedAt
   deletedAt                     DateTime?
   sessions                      Session[]
+  passwordResetTokens           PasswordResetToken[]
   auditLogs                     AuditLog[]
   departments                   Department[]            @relation("UserDepartment")
   headedDepartments             Department[]            @relation("DepartmentHead")
@@ -190,6 +191,29 @@ model Session {
   @@index([expiresAt])
   @@index([revokedAt])
   @@map("sessions")
+}
+
+// =============================================================================
+// Sprint 8.2 — password recovery
+// `PasswordResetToken` stores only the SHA-256 HASH of the single-use reset
+// token (never the plaintext). Tokens expire after 20 minutes; `usedAt`
+// marks a token consumed, and any outstanding older tokens for the same
+// user are marked used when a new reset is requested or completed.
+// =============================================================================
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([usedAt])
+  @@map("password_reset_tokens")
 }
 
 model AuditLog {
@@ -340,6 +364,7 @@ model Document {
   favorites         RepositoryFavorite[] @relation("FavoriteDocument")
   shares            DocumentShare[]
   requests          DocumentRequest[]
+  requestItems      DocumentRequestItem[] @relation("DocumentRequestItemDocument")
   aaccupSubmissions AaccupSubmission[]     @relation("AaccupSubmissionDocument")
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
@@ -403,25 +428,46 @@ model DocumentShare {
 }
 
 model DocumentRequest {
-  id            String        @id @default(uuid())
+  id            String               @id @default(uuid())
   requesterId   String
-  requester     User          @relation("Requester", fields: [requesterId], references: [id], onDelete: Restrict)
+  requester     User                 @relation("Requester", fields: [requesterId], references: [id], onDelete: Restrict)
   documentId    String?
-  document      Document?     @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  document      Document?            @relation(fields: [documentId], references: [id], onDelete: SetNull)
   title         String
   justification String
-  status        RequestStatus @default(PENDING)
+  status        RequestStatus        @default(PENDING)
   decidedById   String?
-  decidedBy     User?         @relation("Decider", fields: [decidedById], references: [id], onDelete: SetNull)
+  decidedBy     User?                @relation("Decider", fields: [decidedById], references: [id], onDelete: SetNull)
   decidedAt     DateTime?
   decisionNote  String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  items         DocumentRequestItem[]
 
   @@index([requesterId])
   @@index([documentId])
   @@index([status])
   @@map("document_requests")
+}
+
+// =============================================================================
+// Sprint — multi-file document requests
+// `DocumentRequestItem` lets one request cover up to 3 documents (the legacy
+// single `documentId` column is kept for backward compatibility and mirrors
+// the first item). The unique (requestId, documentId) pair prevents duplicates.
+// =============================================================================
+
+model DocumentRequestItem {
+  id          String           @id @default(uuid())
+  requestId   String
+  request     DocumentRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  documentId  String
+  document    Document         @relation("DocumentRequestItemDocument", fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now())
+
+  @@unique([requestId, documentId])
+  @@index([documentId])
+  @@map("document_request_items")
 }
 
 model AaccupArea {
@@ -510,6 +556,8 @@ model AaccupSubmission {
   submittedByUser User              @relation("AaccupSubmissionSubmittedBy", fields: [submittedBy], references: [id], onDelete: Restrict)
   reviewedBy      String?
   reviewedByUser  User?             @relation("AaccupSubmissionReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  taskId          String?
+  task            AaccupTask?       @relation(fields: [taskId], references: [id], onDelete: SetNull)
   status          SubmissionStatus  @default(PENDING)
   remarks         String?
   snapshotFilename String?
@@ -527,6 +575,7 @@ model AaccupSubmission {
   @@index([documentId])
   @@index([submittedBy])
   @@index([reviewedBy])
+  @@index([taskId])
   @@index([status])
   @@index([isCurrent])
   @@index([deletedAt])
@@ -582,6 +631,7 @@ model AaccupTask {
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   deletedAt     DateTime?
+  submissions   AaccupSubmission[]
 
   @@index([areaId])
   @@index([requirementId])
@@ -627,6 +677,8 @@ enum NotificationType {
   AACCUP_SUBMISSION_APPROVED
   AACCUP_SUBMISSION_REJECTED
   AACCUP_SUBMISSION_RETURNED
+  AACCUP_SUBMISSION_PENDING_REVIEW
+  AACCUP_TASK_ASSIGNED
   RECYCLE_BIN_CLEANUP
   STORAGE_WARNING
   PASSWORD_RESET
@@ -1892,6 +1944,69 @@ model RepositoryCopyJob {
 
   @@index([ownerId, status])
   @@map("repository_copy_jobs")
+}
+
+// =============================================================================
+// Sprint 8.3 — storage maintenance
+// -----------------------------------------------------------------------------
+// Persisted state for destructive maintenance so cleanup is idempotent,
+// retry-safe, lock-protected and observable. Three additive models:
+//   * MaintenanceJob        — one row per run (recycle cleanup / scans /
+//                             orphan cleanup / consistency check) with
+//                             counts, error, batch cursor and a job id.
+//   * MaintenanceOrphanCandidate — two-stage orphan candidates (scan →
+//                             candidate → grace → verified cleanup).
+//   * MaintenanceLock       — database-backed job lock with expiry so a
+//                             crashed worker can never permanently block
+//                             maintenance (distributed duplicate protection
+//                             without Redis).
+// =============================================================================
+
+model MaintenanceJob {
+  id             String          @id @default(uuid())
+  jobId          String          @unique
+  jobType        String
+  status         String          @default("PENDING")
+  triggerSource  String          @default("SCHEDULED")
+  triggeredBy    String?
+  dryRun         Boolean         @default(false)
+  totalScanned   Int             @default(0)
+  eligibleCount  Int             @default(0)
+  removedCount   Int             @default(0)
+  failedCount    Int             @default(0)
+  bytesReclaimed BigInt?         @default(0)
+  error          String?
+  batchCursor    Json?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime        @default(now())
+
+  @@index([jobType, status])
+  @@index([status, createdAt])
+  @@map("maintenance_jobs")
+}
+
+model MaintenanceOrphanCandidate {
+  id          String    @id @default(uuid())
+  objectKey   String    @unique
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  sizeBytes   BigInt?   @default(0)
+  status      String    @default("CANDIDATE")
+  removedAt   DateTime?
+  removedByJobId String?
+
+  @@index([status, firstSeenAt])
+  @@map("maintenance_orphan_candidates")
+}
+
+model MaintenanceLock {
+  jobType       String    @id
+  lockedAt      DateTime  @default(now())
+  lockExpiresAt DateTime
+  workerId      String
+
+  @@map("maintenance_locks")
 }
 
 model RepositoryFavorite {

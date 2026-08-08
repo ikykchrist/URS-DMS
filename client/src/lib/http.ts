@@ -149,7 +149,19 @@ async function requestEnvelope<T>(
 
   if (!res.ok || !("success" in payload) || !payload.success) {
     const err = payload as ApiErrorEnvelope;
-    throw new ApiRequestError(res.status, err.error.code, err.error.message);
+    // Validation failures carry per-field messages in `details.fieldErrors`;
+    // surface the first one instead of the generic "Request validation failed".
+    let message = err.error.message;
+    const details = err.error.details as Record<string, string[]> | undefined;
+    if (details && typeof details === "object") {
+      const firstField = Object.entries(details).find(
+        ([, messages]) => Array.isArray(messages) && messages.length > 0,
+      );
+      if (firstField) {
+        message = firstField[1][0];
+      }
+    }
+    throw new ApiRequestError(res.status, err.error.code, message);
   }
 
   return payload as ApiEnvelope<T>;

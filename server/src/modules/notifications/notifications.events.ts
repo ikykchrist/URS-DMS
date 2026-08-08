@@ -26,6 +26,8 @@ export const NOTIFICATION_TYPE_VALUES = [
   "AACCUP_SUBMISSION_APPROVED",
   "AACCUP_SUBMISSION_REJECTED",
   "AACCUP_SUBMISSION_RETURNED",
+  "AACCUP_SUBMISSION_PENDING_REVIEW",
+  "AACCUP_TASK_ASSIGNED",
   "RECYCLE_BIN_CLEANUP",
   "STORAGE_WARNING",
   "PASSWORD_RESET",
@@ -138,6 +140,18 @@ export const NOTIFICATION_EVENTS: Record<NotificationType, NotificationEventSpec
     defaultTitle: "Submission rejected",
     defaultMessage: "Your AACCUP document submission has been rejected.",
     defaultPriority: "HIGH",
+  },
+  AACCUP_SUBMISSION_PENDING_REVIEW: {
+    type: "AACCUP_SUBMISSION_PENDING_REVIEW",
+    defaultTitle: "Submission pending review",
+    defaultMessage: "A new AACCUP document submission is awaiting review.",
+    defaultPriority: "MEDIUM",
+  },
+  AACCUP_TASK_ASSIGNED: {
+    type: "AACCUP_TASK_ASSIGNED",
+    defaultTitle: "New task assigned",
+    defaultMessage: "You have been assigned a new AACCUP task.",
+    defaultPriority: "MEDIUM",
   },
   RECYCLE_BIN_CLEANUP: {
     type: "RECYCLE_BIN_CLEANUP",

@@ -4,6 +4,7 @@ import {
   type RequestDetail,
   type RequestListItem,
   type RequestWithRelations,
+  type RequestItemInfo,
   requestSelect,
 } from "@/modules/requests/requests.types";
 
@@ -15,6 +16,18 @@ function fullName(firstName: string, lastName: string): string {
   return `${firstName} ${lastName}`.trim();
 }
 
+function toItemInfo(r: RequestWithRelations["items"][number]): RequestItemInfo {
+  return {
+    documentId: r.documentId,
+    title: r.document?.title ?? null,
+    filename: r.document?.currentVersion?.filename ?? null,
+    mimeType: r.document?.currentVersion?.mimeType ?? null,
+    sizeBytes: r.document?.currentVersion?.sizeBytes?.toString() ?? null,
+    ownerName: r.document?.owner ? fullName(r.document.owner.firstName, r.document.owner.lastName) : null,
+    uploadedAt: r.document?.createdAt ?? null,
+  };
+}
+
 function toListItem(r: RequestWithRelations): RequestListItem {
   return {
     id: r.id,
@@ -23,8 +36,10 @@ function toListItem(r: RequestWithRelations): RequestListItem {
     status: r.status,
     requesterId: r.requesterId,
     requesterName: fullName(r.requester.firstName, r.requester.lastName),
+    requesterEmail: r.requester.email,
     documentId: r.documentId,
     documentTitle: r.document?.title ?? null,
+    items: r.items.map(toItemInfo),
     decidedById: r.decidedById,
     decidedByName: r.decidedBy ? fullName(r.decidedBy.firstName, r.decidedBy.lastName) : null,
     decidedAt: r.decidedAt,
@@ -58,6 +73,7 @@ export interface CreateArgs {
   title: string;
   justification: string;
   documentId: string | null;
+  documentIds: string[];
 }
 
 export async function create(
@@ -72,6 +88,9 @@ export async function create(
       justification: args.justification,
       documentId: args.documentId,
       status: "PENDING",
+      items: {
+        create: args.documentIds.map((documentId) => ({ documentId })),
+      },
     },
     select: requestSelect,
   });

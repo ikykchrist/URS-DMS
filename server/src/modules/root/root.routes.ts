@@ -29,9 +29,10 @@ import { requirementRouter } from "@/modules/root/root.requirement.routes";
 import { workflowRouter } from "@/modules/workflow/workflow.routes";
 import { formRouter } from "@/modules/root/root.form.routes";
 import { setupRouter } from "@/modules/root/root.setup.routes";
+import { maintenanceRouter } from "@/modules/maintenance/maintenance.routes";
 
 // =============================================================================
-// URS-DMS — Root routes (Sprint 7.4.1)
+// URS-DMS â€” Root routes (Sprint 7.4.1)
 // -----------------------------------------------------------------------------
 // Mounted under /api/v1/root. Authentication is mounted ONCE here so every
 // sub-route can assume `req.auth` is populated; granular permission gating
@@ -39,9 +40,9 @@ import { setupRouter } from "@/modules/root/root.setup.routes";
 //
 // ROOT-ONLY surface: the spec mandates that only the ROOT role may reach
 // these endpoints. Two independent gates enforce that:
-//   * `requireRole("ROOT")` — hard role gate (spec requirement), DB-backed
+//   * `requireRole("ROOT")` â€” hard role gate (spec requirement), DB-backed
 //     via req.auth.roleName.
-//   * `requirePermission("root.*")` — the root.* codes are bound exclusively
+//   * `requirePermission("root.*")` â€” the root.* codes are bound exclusively
 //     to the ROOT role in DEFAULT_ROLE_MATRIX and can never be assigned to
 //     another role (privilege-escalation guard in `_shared/admin.guard.ts`).
 //
@@ -50,7 +51,7 @@ import { setupRouter } from "@/modules/root/root.setup.routes";
 // category wildcard can never shadow the fixed segments.
 //
 // Read-only endpoints do NOT write audit entries (project convention,
-// AI_CONTEXT §8). Mutations audit via their service-layer writeAudit calls
+// AI_CONTEXT Â§8). Mutations audit via their service-layer writeAudit calls
 // with the CONFIG_* action constants.
 // =============================================================================
 
@@ -59,10 +60,10 @@ export const rootRouter: Router = Router();
 rootRouter.use(authenticate);
 rootRouter.use(requireRole("ROOT"));
 
-// GET /root/overview — Platform Overview dashboard aggregate
+// GET /root/overview â€” Platform Overview dashboard aggregate
 rootRouter.get("/overview", requirePermission("root.access"), asyncHandler(getOverviewHandler));
 
-// GET /root/config — list (paginated, filterable)
+// GET /root/config â€” list (paginated, filterable)
 rootRouter.get(
   "/config",
   requirePermission("root.configuration.read"),
@@ -70,14 +71,14 @@ rootRouter.get(
   asyncHandler(listConfigurationsHandler),
 );
 
-// GET /root/config/categories — category buckets for the console
+// GET /root/config/categories â€” category buckets for the console
 rootRouter.get(
   "/config/categories",
   requirePermission("root.configuration.read"),
   asyncHandler(listCategoriesHandler),
 );
 
-// GET /root/config/history — configuration audit trail
+// GET /root/config/history â€” configuration audit trail
 rootRouter.get(
   "/config/history",
   requirePermission("root.configuration.read"),
@@ -85,7 +86,7 @@ rootRouter.get(
   asyncHandler(listHistoryHandler),
 );
 
-// GET /root/config/:key/versions — version snapshots (rollback source data)
+// GET /root/config/:key/versions â€” version snapshots (rollback source data)
 rootRouter.get(
   "/config/:key/versions",
   requirePermission("root.configuration.read"),
@@ -93,7 +94,7 @@ rootRouter.get(
   asyncHandler(listVersionsHandler),
 );
 
-// PATCH /root/config — bulk update (bumps versions, writes history)
+// PATCH /root/config â€” bulk update (bumps versions, writes history)
 rootRouter.patch(
   "/config",
   requirePermission("root.configuration.update"),
@@ -101,7 +102,7 @@ rootRouter.patch(
   asyncHandler(updateConfigurationsHandler),
 );
 
-// DELETE /root/config/:key — soft delete (isSystem entries are protected)
+// DELETE /root/config/:key â€” soft delete (isSystem entries are protected)
 rootRouter.delete(
   "/config/:key",
   requirePermission("root.configuration.update"),
@@ -109,7 +110,7 @@ rootRouter.delete(
   asyncHandler(deleteConfigurationHandler),
 );
 
-// POST /root/config/:key/restore — restore a soft-deleted configuration
+// POST /root/config/:key/restore â€” restore a soft-deleted configuration
 rootRouter.post(
   "/config/:key/restore",
   requirePermission("root.configuration.update"),
@@ -117,7 +118,7 @@ rootRouter.post(
   asyncHandler(restoreConfigurationHandler),
 );
 
-// POST /root/config/rollback — roll back to a previous version
+// POST /root/config/rollback â€” roll back to a previous version
 rootRouter.post(
   "/config/rollback",
   requirePermission("root.configuration.rollback"),
@@ -125,7 +126,7 @@ rootRouter.post(
   asyncHandler(rollbackConfigurationHandler),
 );
 
-// GET /root/config/:category — all configurations in one category
+// GET /root/config/:category â€” all configurations in one category
 // (registered last: the fixed /history and /:key/versions segments above
 // must win the match before this wildcard)
 rootRouter.get(
@@ -135,12 +136,12 @@ rootRouter.get(
   asyncHandler(getCategoryConfigurationsHandler),
 );
 
-// Sprint 7.4.2 — Organization Management Engine. Mounted last; its paths
+// Sprint 7.4.2 â€” Organization Management Engine. Mounted last; its paths
 // (/organization/*, /colleges, /departments, /offices, /programs) share no
 // segment with the config routes above, so ordering is safe.
 rootRouter.use(organizationRouter);
 
-// Sprint 7.4.3 — Dynamic Folder Builder. Mounted last; its /folder-builder/*
+// Sprint 7.4.3 â€” Dynamic Folder Builder. Mounted last; its /folder-builder/*
 // paths share no segment with any earlier router.
 rootRouter.use("/folder-builder", folderBuilderRouter);
 
@@ -162,3 +163,4 @@ rootRouter.use("/forms", formRouter);
 // Sprint 7.4.8 - Platform Setup Wizard. Orchestrates wizard lifecycle only;
 // every piece of business data it creates flows through the existing engines.
 rootRouter.use("/setup", setupRouter);
+rootRouter.use("/maintenance", maintenanceRouter);

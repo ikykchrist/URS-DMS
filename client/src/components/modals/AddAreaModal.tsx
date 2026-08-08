@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Award } from "lucide-react"
+import { Award, Pencil } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/Label"
+import { Textarea } from "@/components/ui/Textarea"
 import {
   Select,
   SelectContent,
@@ -18,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/Select"
-import { createOnlineArea } from "@/services/aaccup"
+import { createOnlineArea, updateOnlineArea } from "@/services/aaccup"
 import { listSystemDepartments, type SystemDepartment } from "@/services/admin"
 import { cn } from "@/lib/utils"
 
@@ -26,6 +27,13 @@ interface AddAreaModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   areaSet?: "aaccup" | "iso" | "cert"
+  area?: {
+    id: string
+    name: string
+    description: string
+    departmentId: string
+    isActive: boolean
+  } | null
   onSuccess?: (area: { id: string; title: string }) => void
 }
 
@@ -52,9 +60,12 @@ function toAreaCode(name: string): string {
   return sanitized || "AREA"
 }
 
-export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", onSuccess }: AddAreaModalProps) {
+export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", area, onSuccess }: AddAreaModalProps) {
+  const isEditing = Boolean(area)
   const [areaName, setAreaName] = useState("")
+  const [description, setDescription] = useState("")
   const [department, setDepartment] = useState("")
+  const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE")
   const [departments, setDepartments] = useState<SystemDepartment[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -62,16 +73,20 @@ export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", onSuccess
   useEffect(() => {
     if (!open) return
     setError("")
+    setAreaName(area?.name ?? "")
+    setDescription(area?.description ?? "")
+    setDepartment(area?.departmentId ?? "")
+    setStatus(area ? (area.isActive ? "ACTIVE" : "INACTIVE") : "ACTIVE")
     listSystemDepartments({ pageSize: 100 })
       .then((page) => setDepartments(page.items))
       .catch(() => setDepartments([]))
-  }, [open])
+  }, [open, area])
 
   const isValid = areaName.trim().length > 0 && department
 
   const handleClose = (isOpen: boolean) => {
     if (!isOpen) {
-      setAreaName(""); setDepartment(""); setError("")
+      setAreaName(""); setDescription(""); setDepartment(""); setStatus("ACTIVE"); setError("")
     }
     onOpenChange(isOpen)
   }
@@ -82,18 +97,28 @@ export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", onSuccess
     setSaving(true)
     try {
       const name = areaName.trim()
-      const area = await createOnlineArea({
-        code: toAreaCode(name),
-        name,
-        description: "",
-        departmentId: department,
-        areaSet: areaSet.toUpperCase() as "AACCUP" | "ISO" | "CERT",
-      })
-      onSuccess?.({ id: area.id, title: area.name })
-      setAreaName(""); setDepartment("")
+      if (isEditing && area) {
+        const updated = await updateOnlineArea(area.id, {
+          name,
+          description: description.trim() || "",
+          departmentId: department,
+          status,
+        })
+        onSuccess?.({ id: updated.id, title: updated.name })
+      } else {
+        const created = await createOnlineArea({
+          code: toAreaCode(name),
+          name,
+          description: description.trim() || "",
+          departmentId: department,
+          areaSet: areaSet.toUpperCase() as "AACCUP" | "ISO" | "CERT",
+        })
+        onSuccess?.({ id: created.id, title: created.name })
+      }
+      setAreaName(""); setDescription(""); setDepartment(""); setStatus("ACTIVE")
       onOpenChange(false)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to create area")
+      setError(e instanceof Error ? e.message : isEditing ? "Failed to update area" : "Failed to create area")
     } finally {
       setSaving(false)
     }
@@ -105,12 +130,14 @@ export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", onSuccess
         <DialogHeader className="pb-2">
           <div className="flex items-center gap-2">
             <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", setBadgeIcon[areaSet])}>
-              <Award className="w-4 h-4" />
+              {isEditing ? <Pencil className="w-4 h-4" /> : <Award className="w-4 h-4" />}
             </div>
-            <DialogTitle className="text-lg">Add {setLabel[areaSet]} Area</DialogTitle>
+            <DialogTitle className="text-lg">{isEditing ? "Edit" : "Add"} {setLabel[areaSet]} Area</DialogTitle>
           </div>
           <DialogDescription className="text-[14px]">
-            Create and assign a new {setLabel[areaSet]} accreditation area.
+            {isEditing
+              ? "Update the details of this accreditation area."
+              : `Create and assign a new ${setLabel[areaSet]} accreditation area.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -138,6 +165,19 @@ export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", onSuccess
           </div>
 
           <div className="grid gap-2">
+            <Label htmlFor="areaDescription" className="text-[13px] font-medium">
+              Description
+            </Label>
+            <Textarea
+              id="areaDescription"
+              placeholder="Optional description of the area..."
+              className="min-h-[80px] resize-none"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-2">
             <Label htmlFor="department" className="text-[13px] font-medium">
               Department <span className="text-red-500">*</span>
             </Label>
@@ -157,6 +197,22 @@ export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", onSuccess
               Assign the responsible department
             </p>
           </div>
+
+          <div className="grid gap-2">
+            <Label className="text-[13px] font-medium">Status</Label>
+            <Select value={status} onValueChange={(v) => setStatus(v as "ACTIVE" | "INACTIVE")}>
+              <SelectTrigger className="h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="INACTIVE">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-gray-500">
+              Inactive areas stop accepting new submissions
+            </p>
+          </div>
         </div>
 
         <div className="border-t border-gray-100 my-2" />
@@ -166,7 +222,7 @@ export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", onSuccess
             Cancel
           </Button>
           <Button onClick={handleSubmit} className="h-9 shadow-sm" disabled={!isValid || saving}>
-            {saving ? "Creating..." : "Create Area"}
+            {saving ? (isEditing ? "Saving..." : "Creating...") : isEditing ? "Save Changes" : "Create Area"}
           </Button>
         </DialogFooter>
       </DialogContent>

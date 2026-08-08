@@ -75,6 +75,7 @@ export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProp
     if (!fullName.trim()) { setError("Full name is required"); return }
     if (!email.trim()) { setError("Email is required"); return }
     if (!password) { setError("Password is required"); return }
+    if (password.length < 8) { setError("Password must be at least 8 characters"); return }
     if (password !== confirmPassword) { setError("Passwords do not match"); return }
     if (!department) { setError("Department is required"); return }
     if (!role) { setError("Role is required"); return }
@@ -83,8 +84,11 @@ export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProp
       const nameParts = fullName.trim().split(/\s+/)
       const firstName = nameParts[0] ?? fullName.trim()
       const lastName = nameParts.slice(1).join(" ") || firstName
+      // Employee IDs allow only letters/digits/'-'/'_' (server regex). The
+      // email local part often contains dots, so sanitize before sending.
+      const derivedEmployeeId = email.split("@")[0].replace(/[^A-Za-z0-9_-]+/g, "-").slice(0, 64)
       await createSystemUser({
-        employeeId: email.split("@")[0],
+        employeeId: derivedEmployeeId.length >= 2 ? derivedEmployeeId : "USER",
         email,
         password,
         firstName,

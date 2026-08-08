@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS } from "@/config/constants";
 import { writeAudit } from "@/modules/audit/audit.service";
-import { notifyUser } from "@/modules/notifications/notifications.service";
+import { notifyUser, notifyUsers } from "@/modules/notifications/notifications.service";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "@/utils/errors";
 import * as repo from "@/modules/aaccup/submissions/aaccup.submissions.repository";
 import type { Prisma } from "@prisma/client";
@@ -247,6 +247,31 @@ function assertDocumentBelongsToAreaDepartment(
   }
 }
 
+// A submission may reference the AACCUP task it fulfils. The task must exist,
+// belong to the same area as the requirement, still be open, and (if it names
+// a requirement) match the requirement being submitted against.
+async function assertTaskUsable(
+  taskId: string | null | undefined,
+  requirementId: string,
+  areaId: string,
+): Promise<void> {
+  if (!taskId) return;
+  const task = await prisma.aaccupTask.findFirst({
+    where: { id: taskId, deletedAt: null },
+    select: { areaId: true, status: true, requirementId: true },
+  });
+  if (!task) throw new BadRequestError("Referenced AACCUP task not found");
+  if (task.areaId !== areaId) {
+    throw new BadRequestError("Task does not belong to the submission's area");
+  }
+  if (task.status === "COMPLETED" || task.status === "CANCELLED") {
+    throw new BadRequestError("Task is already closed and cannot accept submissions");
+  }
+  if (task.requirementId && task.requirementId !== requirementId) {
+    throw new BadRequestError("Submission requirement does not match the task's requirement");
+  }
+}
+
 // -----------------------------------------------------------------------------
 // listSubmissions
 // -----------------------------------------------------------------------------
@@ -355,6 +380,7 @@ export async function createSubmission(
   const document = await assertDocumentUsable(input.documentId, actor);
   assertDocumentBelongsToAreaDepartment(document, requirement);
   await assertDynamicRules(requirement, document);
+  await assertTaskUsable(input.taskId, input.requirementId, requirement.area.id);
 
   // Create the submission + demote any prior "current" submissions for this
   // requirement in a single transaction so history is preserved but exactly
@@ -367,6 +393,7 @@ export async function createSubmission(
         requirementId: input.requirementId,
         documentId: input.documentId,
         submittedBy: actor.id,
+        taskId: input.taskId ?? null,
         remarks: input.remarks ?? null,
         status: "PENDING",
         isCurrent: true,
@@ -423,7 +450,45 @@ export async function createSubmission(
     userAgent: actor.userAgent,
   });
 
+  // Rule 19: alert every reviewer (aaccup.submission.review / aaccup.manage)
+  // that a new submission awaits their action (best-effort, once).
+  await safeNotifyReviewers(detail);
+
   return detail;
+}
+
+/** Best-effort "new submission awaits review" notification — never fails creation. */
+async function safeNotifyReviewers(detail: AaccupSubmissionDetail): Promise<void> {
+  try {
+    const reviewers = await prisma.user.findMany({
+      where: {
+        status: "ACTIVE",
+        deletedAt: null,
+        role: {
+          permissions: {
+            some: {
+              permission: { code: { in: ["aaccup.submission.review", "aaccup.manage"] } },
+            },
+          },
+        },
+      },
+      select: { id: true },
+    });
+    if (reviewers.length === 0) return;
+    await notifyUsers(
+      reviewers.map((reviewer) => reviewer.id),
+      "AACCUP_SUBMISSION_PENDING_REVIEW",
+      {
+        title: "New submission pending review",
+        message: `"${detail.documentTitle}" (${detail.areaName}) was submitted and is awaiting your review.`,
+        entity: "aaccup_submission",
+        entityId: detail.id,
+        actionUrl: "/aaccup",
+      },
+    );
+  } catch {
+    // notifications must never break the submission flow
+  }
 }
 
 // -----------------------------------------------------------------------------

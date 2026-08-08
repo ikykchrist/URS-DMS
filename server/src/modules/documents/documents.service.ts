@@ -912,28 +912,20 @@ export async function listRecents(actor: Actor): Promise<RecentItem[]> {
 // -----------------------------------------------------------------------------
 // Upload policy (Configuration Engine integration â€” Sprint 7.5)
 // -----------------------------------------------------------------------------
-// Reads the live platform policy instead of duplicating constants. Both keys
-// are seeded by the Configuration Engine (Sprint 7.4.1):
-//   upload.max_size_bytes     â€” max bytes per uploaded file (100 MB default)
-//   upload.allowed_file_types â€” extensions (e.g. ["pdf","docx"]) allowed;
+// Reads the live platform policy instead of duplicating constants. Only the
+// file-type allowlist is enforced — there is no maximum upload size
+// (upload.max_size_bytes is no longer consulted).
+//   upload.allowed_file_types — extensions (e.g. ["pdf","docx"]) allowed;
 //                               empty/absent => everything allowed
 // -----------------------------------------------------------------------------
 async function assertUploadPolicy(
   filename: string,
   mimeType: string,
-  sizeBytes: bigint,
+  _sizeBytes: bigint,
 ): Promise<void> {
-  const [maxSizeValue, allowedTypesValue] = await Promise.all([
-    getConfigValue("upload.max_size_bytes"),
+  const [allowedTypesValue] = await Promise.all([
     getConfigValue("upload.allowed_file_types"),
   ]);
-
-  const maxSize = Number(maxSizeValue ?? 104857600);
-  if (sizeBytes > BigInt(maxSize)) {
-    throw new BadRequestError(
-      `File exceeds the configured maximum size of ${maxSize} bytes`,
-    );
-  }
 
   const allowed = Array.isArray(allowedTypesValue) ? allowedTypesValue : [];
   if (allowed.length > 0) {

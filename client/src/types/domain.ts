@@ -35,6 +35,9 @@ export interface ServerUser {
   status: string
   role: string
   departmentId: string | null
+  departmentName: string | null
+  createdAt: string
+  lastLogin: string | null
   permissions: string[]
 }
 
@@ -215,6 +218,7 @@ export interface UserSession {
   location: string
   lastActive: string
   createdAt: string
+  expiresAt?: string
   current?: boolean
 }
 

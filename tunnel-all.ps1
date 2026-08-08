@@ -2,8 +2,8 @@ $ErrorActionPreference = 'Stop'
 $root = 'C:\Dev\URS-DMS'
 
 Write-Host '============================================================'
-Write-Host ' URS-DMS - Tunnel Everything (Cloudflare quick tunnels)'
-Write-Host ' App (5173) | MinIO S3 (9000) | MinIO console (9001)'
+Write-Host ' URS-DMS - Deploy via Cloudflare quick tunnels'
+Write-Host ' App (5173, /api proxied) | MinIO S3 (9000) | Console (9001)'
 Write-Host '============================================================'
 
 Get-Process cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
@@ -39,26 +39,54 @@ Write-Host "MinIO tunnel:   $minioUrl"
 $consoleUrl = Get-TunnelUrl 'console'
 Write-Host "Console tunnel: $consoleUrl"
 
+# 1. Back up the original .env once (restored by tunnel-stop.ps1).
 if (-not (Test-Path "$root\.env.tunnel-backup")) {
     Copy-Item "$root\.env" "$root\.env.tunnel-backup" -Force
 }
 
+# 2. Point MinIO's public endpoint at the tunnel so presigned file URLs
+#    (preview/download) work for remote visitors.
 $envContent = [IO.File]::ReadAllText("$root\.env")
-$envContent = $envContent.Replace("MINIO_PUBLIC_ENDPOINT=http://localhost:9000", "MINIO_PUBLIC_ENDPOINT=$minioUrl")
+if ($envContent -match 'MINIO_PUBLIC_ENDPOINT=https://[a-z0-9-]+\.trycloudflare\.com') {
+    $envContent = [regex]::Replace($envContent, 'MINIO_PUBLIC_ENDPOINT=https://[a-z0-9-]+\.trycloudflare\.com', "MINIO_PUBLIC_ENDPOINT=$minioUrl")
+} elseif ($envContent -match 'MINIO_PUBLIC_ENDPOINT=http://localhost:9000') {
+    $envContent = $envContent.Replace('MINIO_PUBLIC_ENDPOINT=http://localhost:9000', "MINIO_PUBLIC_ENDPOINT=$minioUrl")
+} else {
+    Write-Warning 'MINIO_PUBLIC_ENDPOINT not found in expected form; appending.'
+    $envContent = "$envContent`nMINIO_PUBLIC_ENDPOINT=$minioUrl"
+}
 [IO.File]::WriteAllText("$root\.env", $envContent)
 Write-Host 'Updated .env MINIO_PUBLIC_ENDPOINT'
 
+# 3. Restart the API server so the new env is picked up.
 Write-Host 'Restarting API server...'
 & "$root\restart-server.ps1"
 
-Start-Sleep 2
+# 4. Restart the Vite client with a RELATIVE API base: the browser then
+#    calls the app tunnel itself (/api/v1/*) and Vite proxies it to :4000 —
+#    no CORS, no separate API tunnel needed.
+$viteProc = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" |
+    Where-Object { $_.CommandLine -match 'vite' } |
+    Select-Object -First 1
+if ($viteProc) {
+    Write-Host "Stopping Vite PID $($viteProc.ProcessId) ..."
+    Stop-Process -Id $viteProc.ProcessId -Force
+    Start-Sleep 2
+}
+$env:VITE_API_BASE = '/api/v1'
+Start-Process -FilePath 'cmd.exe' -ArgumentList '/k','cd /d C:\Dev\URS-DMS\client && npm run dev'
+Remove-Item Env:VITE_API_BASE
+Write-Host 'Vite restarted with VITE_API_BASE=/api/v1'
+
+# 5. Health checks THROUGH the tunnels (app tunnel proxies /api to :4000).
+Start-Sleep 3
 $appOk = $false
 $minioOk = $false
-for ($i = 0; $i -lt 15; $i++) {
+for ($i = 0; $i -lt 20; $i++) {
     if (-not $appOk) {
         try {
             $h = Invoke-RestMethod -Uri "$appUrl/api/v1/health" -TimeoutSec 15
-            Write-Host "API health via tunnel: $($h.data.status)"
+            Write-Host "API health via app tunnel: $($h.data.status)"
             $appOk = $true
         } catch {
         }
@@ -75,7 +103,7 @@ for ($i = 0; $i -lt 15; $i++) {
     Start-Sleep 2
 }
 
-if (-not $appOk) { Write-Warning 'App tunnel health check FAILED' }
+if (-not $appOk) { Write-Warning 'App tunnel API health check FAILED (is Vite up?)' }
 if (-not $minioOk) { Write-Warning 'MinIO tunnel health check FAILED' }
 
 Write-Host ''

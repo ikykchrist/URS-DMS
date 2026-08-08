@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/Button"
 import { Label } from "@/components/ui/Label"
 import { cn } from "@/lib/utils"
-import { handleRequest } from "@/services/requests"
+import { reviewOnlineSubmission } from "@/services/aaccup"
 
 interface ReturnSubmissionModalProps {
   open: boolean
@@ -32,6 +32,7 @@ export function ReturnSubmissionModal({
   const [files, setFiles] = useState<File[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
   const maxCharacters = 500
 
   const handleDrag = (e: React.DragEvent) => {
@@ -73,12 +74,18 @@ export function ReturnSubmissionModal({
   const handleReturn = async () => {
     if (!returnReason.trim()) return
     setSaving(true)
+    setError("")
     try {
-      await handleRequest(submissionId, "Rejected", returnReason)
+      await reviewOnlineSubmission(submissionId, {
+        decision: "NEEDS_REVISION",
+        remarks: returnReason.trim(),
+      })
       onSuccess?.()
       setReturnReason("")
       setFiles([])
       onOpenChange(false)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to return the submission. Please try again.")
     } finally {
       setSaving(false)
     }
@@ -104,6 +111,11 @@ export function ReturnSubmissionModal({
         </DialogHeader>
 
         <div className="grid gap-5 py-4">
+          {error && (
+            <div className="text-[13px] text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+              {error}
+            </div>
+          )}
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="returnReason" className="text-[13px] font-medium text-gray-700">

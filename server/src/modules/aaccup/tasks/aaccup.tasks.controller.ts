@@ -26,6 +26,11 @@ export async function listTasksHandler(req: Request, res: Response): Promise<voi
   sendSuccess(res, result.items, 200, result.meta);
 }
 
+export async function listTaskAssigneesHandler(req: Request, res: Response): Promise<void> {
+  const result = await service.listTaskAssignees(toActor(req));
+  sendSuccess(res, result);
+}
+
 export async function getTaskHandler(req: Request, res: Response): Promise<void> {
   const { id } = req.params as { id: string };
   const task = await service.getTask(id, toActor(req));

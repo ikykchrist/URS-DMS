@@ -12,7 +12,9 @@ import {
   FileText,
   Calendar,
   Plus,
+  Pencil,
   Trash2,
+  RotateCcw,
 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { StatCard } from "@/components/layout/StatCard"
@@ -38,6 +40,7 @@ import {
   archiveOnlineArea,
   type OnlineAaccupArea,
   type OnlineSubmissionListItem,
+  type AreaSet,
 } from "@/services/aaccup"
 import { cn } from "@/lib/utils"
 
@@ -49,10 +52,12 @@ interface AACCUPArea {
   status: "Completed" | "In Progress" | "Pending" | "Overdue"
   completion: number
   dueDate: string
+  departmentId: string
+  isActive: boolean
 }
 
 interface AACCUPManagementProps {
-  sidebarCollapsed?: boolean
+  areaSet?: AreaSet
 }
 
 const statusColors = {
@@ -69,7 +74,23 @@ const statusBadge = {
   Overdue: "danger",
 } as const
 
-export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed = false }: AACCUPManagementProps) {
+const SET_TITLES: Record<AreaSet, { title: string; description: string }> = {
+  AACCUP: {
+    title: "AACCUP Management",
+    description: "Manage accreditation areas, submissions, and compliance tracking",
+  },
+  ISO: {
+    title: "ISO 21001 Management",
+    description: "Manage ISO accreditation areas, submissions, and compliance tracking",
+  },
+  CERT: {
+    title: "Certification Management",
+    description: "Manage certification areas, submissions, and compliance tracking",
+  },
+}
+
+export default function AACCUPManagement({ areaSet = "AACCUP" }: AACCUPManagementProps) {
+  const setMeta = SET_TITLES[areaSet]
   const [searchParams, setSearchParams] = useSearchParams()
   const [areas, setAreas] = useState<OnlineAaccupArea[]>([])
   const [submissions, setSubmissions] = useState<OnlineSubmissionListItem[]>([])
@@ -78,8 +99,19 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(() => searchParams.get("modal") === "create-task")
   const [isAddSubmissionOpen, setIsAddSubmissionOpen] = useState(false)
   const [isAddAreaModalOpen, setIsAddAreaModalOpen] = useState(false)
+  const [editingArea, setEditingArea] = useState<{
+    id: string
+    name: string
+    description: string
+    departmentId: string
+    isActive: boolean
+  } | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [detailsReloadKey, setDetailsReloadKey] = useState(0)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [areaFilter, setAreaFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [submissionFilter, setSubmissionFilter] = useState("all")
 
   useEffect(() => {
     fetchData()
@@ -90,8 +122,8 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
 
   const fetchData = async () => {
     const [areasData, submissionsData] = await Promise.all([
-      listAllOnlineAaccupAreas({ areaSet: "AACCUP" }),
-      listAllOnlineSubmissions({ areaSet: "AACCUP" })
+      listAllOnlineAaccupAreas({ areaSet }),
+      listAllOnlineSubmissions({ areaSet })
     ])
     setAreas(areasData)
     setSubmissions(submissionsData)
@@ -146,7 +178,7 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
-    link.download = `aaccup-areas-${new Date().toISOString().slice(0, 10)}.csv`
+    link.download = `${areaSet.toLowerCase()}-areas-${new Date().toISOString().slice(0, 10)}.csv`
     link.click()
     URL.revokeObjectURL(url)
   }
@@ -170,10 +202,51 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
       status,
       completion,
       dueDate: area.accreditationCycleName ?? area.updatedAt.slice(0, 10),
+      departmentId: area.departmentId,
+      isActive: area.status === "ACTIVE",
     }
   }
 
   const localAreas = areas.map((area, index) => toLocalArea(area, index))
+
+  const filteredAreas = localAreas.filter((area) => {
+    if (searchQuery) {
+      const areaSubs = submissions.filter((s) => s.areaId === area.serverId)
+      const haystack = [
+        area.title,
+        area.description,
+        `Area ${area.id}`,
+        ...areaSubs.map((s) => `${s.requirementTitle} ${s.documentTitle} ${s.submittedByName ?? ""}`),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+      if (!haystack.includes(searchQuery.toLowerCase())) return false
+    }
+    if (areaFilter !== "all" && area.id.toString() !== areaFilter) return false
+    if (statusFilter !== "all") {
+      const normalized = statusFilter === "in-progress" ? "in progress" : statusFilter
+      if (area.status.toLowerCase() !== normalized) return false
+    }
+    if (submissionFilter !== "all") {
+      const areaSubs = submissions.filter((s) => s.areaId === area.serverId)
+      const approved = areaSubs.filter((s) => s.status === "APPROVED").length
+      const pending = areaSubs.filter((s) => s.status === "PENDING" || s.status === "NEEDS_REVISION").length
+      const returned = areaSubs.filter((s) => s.status === "REJECTED").length
+      if (submissionFilter === "approved" && approved === 0) return false
+      if (submissionFilter === "pending" && pending === 0) return false
+      if (submissionFilter === "returned" && returned === 0) return false
+    }
+    return true
+  })
+
+  const toEditableArea = (area: AACCUPArea) => ({
+    id: area.serverId,
+    name: area.title,
+    description: area.description,
+    departmentId: area.departmentId,
+    isActive: area.isActive,
+  })
 
   const handleViewArea = (area: AACCUPArea) => {
     setSelectedArea(area)
@@ -194,8 +267,8 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
     <>
       <div className="p-4 sm:p-6 lg:p-8">
         <PageHeader
-          title="AACCUP Management"
-          description="Manage accreditation areas, submissions, and compliance tracking"
+          title={setMeta.title}
+          description={setMeta.description}
           actions={
             <Button className="shadow-sm" onClick={() => setIsAddAreaModalOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
@@ -243,12 +316,14 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
                       placeholder="Search areas or submissions..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10 h-10 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white focus:ring-1.5 focus:ring-gray-200"
                     />
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <Select defaultValue="all">
+                  <Select value={areaFilter} onValueChange={setAreaFilter}>
                     <SelectTrigger className="w-[140px] h-9">
                       <Filter className="w-3.5 h-3.5 mr-2" />
                       <SelectValue placeholder="Area" />
@@ -262,7 +337,7 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
                       ))}
                     </SelectContent>
                   </Select>
-                  <Select defaultValue="all">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-[130px] h-9">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
@@ -274,7 +349,7 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
                       <SelectItem value="overdue">Overdue</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select defaultValue="all">
+                  <Select value={submissionFilter} onValueChange={setSubmissionFilter}>
                     <SelectTrigger className="w-[150px] h-9">
                       <SelectValue placeholder="Submission" />
                     </SelectTrigger>
@@ -289,6 +364,22 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
                     <Download className="w-4 h-4 mr-2" />
                     Export
                   </Button>
+                  {(searchQuery || areaFilter !== "all" || statusFilter !== "all" || submissionFilter !== "all") && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 text-gray-500"
+                      onClick={() => {
+                        setSearchQuery("")
+                        setAreaFilter("all")
+                        setStatusFilter("all")
+                        setSubmissionFilter("all")
+                      }}
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Reset
+                    </Button>
+                  )}
                   {selectedIds.length > 0 && (
                     <Button
                       variant="destructive"
@@ -306,7 +397,12 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {localAreas.map((area) => {
+            {filteredAreas.length === 0 && (
+              <div className="col-span-full py-10 text-center">
+                <p className="text-[14px] text-gray-500">No areas match your filters.</p>
+              </div>
+            )}
+            {filteredAreas.map((area) => {
               const areaSubs = submissions.filter(s => s.areaId === area.serverId)
               const stats = {
                 total: areaSubs.length,
@@ -356,6 +452,17 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
                         <Badge variant={statusBadge[area.status]} className="text-[10px]">
                           {area.status}
                         </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingArea(toEditableArea(area))
+                            setIsAddAreaModalOpen(true)
+                          }}                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -436,9 +543,14 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
         area={selectedArea}
-        areaSet="AACCUP"
+        areaSet={areaSet}
         onAddSubmission={() => setIsAddSubmissionOpen(true)}
         onCreateTask={() => setIsCreateTaskOpen(true)}
+        onEditArea={() => {
+          setIsDetailsOpen(false)
+          if (selectedArea) setEditingArea(toEditableArea(selectedArea))
+          setIsAddAreaModalOpen(true)
+        }}
       />
 
       <AddSubmissionModal
@@ -446,7 +558,7 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
         onOpenChange={setIsAddSubmissionOpen}
         areaId={selectedArea?.serverId}
         areaTitle={selectedArea?.title}
-        areaSet="AACCUP"
+        areaSet={areaSet}
         departmentId={areas.find((a) => a.id === selectedArea?.serverId)?.departmentId}
         onSuccess={() => {
           setIsAddSubmissionOpen(false)
@@ -469,9 +581,16 @@ export default function AACCUPManagement({ sidebarCollapsed: _sidebarCollapsed =
 
       <AddAreaModal
         open={isAddAreaModalOpen}
-        onOpenChange={setIsAddAreaModalOpen}
-        areaSet="aaccup"
-        onSuccess={() => fetchData()}
+        onOpenChange={(open) => {
+          setIsAddAreaModalOpen(open)
+          if (!open) setEditingArea(null)
+        }}
+        areaSet={areaSet.toLowerCase() as "aaccup" | "iso" | "cert"}
+        area={editingArea}
+        onSuccess={() => {
+          setEditingArea(null)
+          fetchData()
+        }}
       />
     </>
   )

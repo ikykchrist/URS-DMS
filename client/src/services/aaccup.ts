@@ -158,6 +158,9 @@ export interface OnlineSubmissionListItem {
   areaName: string
   departmentId: string | null
   departmentName: string | null
+  taskId: string | null
+  taskTitle: string | null
+  taskStatus: "OPEN" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | null
   documentId: string
   documentTitle: string
   status: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_REVISION"
@@ -195,6 +198,10 @@ export async function reviewOnlineSubmission(
     `/aaccup/submissions/${encodeURIComponent(id)}/review`,
     input,
   )
+}
+
+export async function archiveOnlineSubmission(id: string): Promise<OnlineAaccupSubmission> {
+  return apiDelete<OnlineAaccupSubmission>(`/aaccup/submissions/${encodeURIComponent(id)}`)
 }
 
 export async function getOnlineArea(id: string): Promise<OnlineAaccupArea> {
@@ -244,6 +251,39 @@ export async function listOnlineRequirements(areaId: string): Promise<OnlineAacc
   )
 }
 
+export async function listOnlineAreaRequirements(areaId: string): Promise<OnlineAaccupRequirement[]> {
+  return everyPage<OnlineAaccupRequirement>(
+    `/aaccup/requirements?areaId=${encodeURIComponent(areaId)}&sort=displayOrder&order=asc`,
+  )
+}
+
+export interface CreateOnlineRequirementInput {
+  areaId: string
+  title: string
+  documentCode: string
+  description?: string | null
+  category?: string | null
+  priority?: string | null
+  isRequired?: boolean
+  status?: "ACTIVE" | "INACTIVE"
+  displayOrder?: number
+}
+
+export async function createOnlineRequirement(input: CreateOnlineRequirementInput): Promise<OnlineAaccupRequirement> {
+  return apiPost<OnlineAaccupRequirement>("/aaccup/requirements", input)
+}
+
+export async function updateOnlineRequirement(
+  id: string,
+  patch: Partial<Omit<CreateOnlineRequirementInput, "areaId"> & { areaId?: string }>,
+): Promise<OnlineAaccupRequirement> {
+  return apiPatch<OnlineAaccupRequirement>(`/aaccup/requirements/${encodeURIComponent(id)}`, patch)
+}
+
+export async function archiveOnlineRequirement(id: string): Promise<OnlineAaccupRequirement> {
+  return apiDelete<OnlineAaccupRequirement>(`/aaccup/requirements/${encodeURIComponent(id)}`)
+}
+
 export async function listMyAaccupSubmissions(areaId: string): Promise<OnlineAaccupSubmission[]> {
   return everyPage<OnlineAaccupSubmission>(
     `/aaccup/submissions?areaId=${encodeURIComponent(areaId)}&isCurrent=true&sort=submittedAt&order=desc`,
@@ -261,6 +301,7 @@ export interface OnlineAaccupTask {
   areaCode: string
   areaName: string
   areaSet: AreaSet
+  departmentId: string | null
   title: string
   description: string | null
   category: string | null
@@ -295,6 +336,30 @@ export async function createOnlineTask(input: CreateOnlineTaskInput): Promise<On
   return apiPost<OnlineAaccupTask>("/aaccup/tasks", input)
 }
 
+export async function updateOnlineTask(
+  id: string,
+  patch: { status?: OnlineTaskStatus; title?: string; description?: string | null; priority?: OnlineTaskPriority; dueDate?: string | null; requirementId?: string | null },
+): Promise<OnlineAaccupTask> {
+  return apiPatch<OnlineAaccupTask>(`/aaccup/tasks/${encodeURIComponent(id)}`, patch)
+}
+
+export interface TaskAssigneeOption {
+  id: string
+  fullName: string
+}
+
+export interface TaskDepartmentOption {
+  id: string
+  name: string
+}
+
+export async function listTaskAssignees(): Promise<{
+  users: TaskAssigneeOption[]
+  departments: TaskDepartmentOption[]
+}> {
+  return apiGet<{ users: TaskAssigneeOption[]; departments: TaskDepartmentOption[] }>("/aaccup/tasks/assignees")
+}
+
 export async function listOnlineAreaTasks(
   areaId: string,
   query?: { status?: OnlineTaskStatus; q?: string },
@@ -303,6 +368,10 @@ export async function listOnlineAreaTasks(
   if (query?.status) params.set("status", query.status)
   if (query?.q) params.set("q", query.q)
   return everyPage<OnlineAaccupTask>(`/aaccup/tasks?${params.toString()}`)
+}
+
+export async function listMyOnlineTasks(): Promise<OnlineAaccupTask[]> {
+  return everyPage<OnlineAaccupTask>("/aaccup/tasks?mine=true")
 }
 
 function inferredMimeType(file: File): string {
@@ -336,6 +405,7 @@ export interface RequirementUploadInput {
   title: string
   areaName?: string
   requirementCode?: string
+  taskId?: string
   file: File
   remarks?: string
   pageCount?: number
@@ -413,6 +483,7 @@ export async function uploadOnlineRequirementDocument(
   return apiPost<OnlineAaccupSubmission>("/aaccup/submissions", {
     requirementId: input.requirementId,
     documentId: created.document.id,
+    ...(input.taskId ? { taskId: input.taskId } : {}),
     remarks: input.remarks,
   })
 }

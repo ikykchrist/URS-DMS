@@ -244,6 +244,7 @@ export const DEFAULT_ROLE_MATRIX: RolePermissionMatrix[] = [
     description: "Read-only access to documents",
     permissions: [
       "users.read",
+      "users.self.update",
       "documents.read",
       "folders.read",
       "departments.read",

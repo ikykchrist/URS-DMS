@@ -7,6 +7,16 @@ import type { DocumentRequest, RequestStatus } from "@/types/domain"
 // into the client `DocumentRequest` type for the existing UI.
 // =============================================================================
 
+export interface BackendRequestItem {
+  documentId: string
+  title: string | null
+  filename: string | null
+  mimeType: string | null
+  sizeBytes: string | null
+  ownerName: string | null
+  uploadedAt: string | null
+}
+
 interface BackendRequest {
   id: string
   title: string
@@ -14,14 +24,35 @@ interface BackendRequest {
   status: "PENDING" | "APPROVED" | "REJECTED" | "FULFILLED"
   requesterId: string
   requesterName: string
+  requesterEmail: string | null
   documentId: string | null
   documentTitle: string | null
+  items: BackendRequestItem[]
   decidedById: string | null
   decidedByName: string | null
   decidedAt: string | null
   decisionNote: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface BrowseBucketItem {
+  id: string
+  title: string
+  filename: string | null
+  mimeType: string | null
+  sizeBytes: string | null
+  ownerName: string
+  departmentId: string | null
+  departmentName: string | null
+  uploadedAt: string
+  folderName: string | null
+}
+
+export interface BrowseBucket {
+  items: BrowseBucketItem[]
+  departmentId: string | null
+  departmentName: string | null
 }
 
 function adaptStatusFromBackend(s: BackendRequest["status"]): RequestStatus {
@@ -47,6 +78,14 @@ function adaptStatusToBackend(s: RequestStatus | "all"): "PENDING" | "APPROVED" 
 
 function adaptRequestFromBackend(r: BackendRequest): DocumentRequest {
   const hasUrgent = r.justification.toLowerCase().includes("priority: urgent")
+  const docs = r.items.length > 0
+    ? r.items.map((item) => ({
+        documentId: item.documentId,
+        documentName: item.title ?? item.filename ?? "",
+      }))
+    : r.documentId
+      ? [{ documentId: r.documentId, documentName: r.documentTitle ?? "" }]
+      : []
   return {
     id: r.id,
     title: r.title,
@@ -56,7 +95,7 @@ function adaptRequestFromBackend(r: BackendRequest): DocumentRequest {
     submittedBy: r.requesterId,
     submittedByName: r.requesterName,
     department: "",
-    documents: r.documentId ? [{ documentId: r.documentId, documentName: r.documentTitle ?? "" }] : [],
+    documents: docs,
     status: adaptStatusFromBackend(r.status),
     dateSubmitted: r.createdAt,
     handledBy: r.decidedById ?? undefined,
@@ -94,17 +133,14 @@ export async function getRequest(id: string): Promise<DocumentRequest | null> {
 export async function createRequest(
   data: Pick<DocumentRequest, "title" | "purpose" | "remarks" | "priority" | "documents">,
 ): Promise<DocumentRequest> {
-  const firstDoc = data.documents?.[0]?.documentId ?? null
+  const documentIds = (data.documents ?? []).map((d) => d.documentId).filter(Boolean)
   const justificationParts = [data.purpose]
   if (data.remarks) justificationParts.push(`Remarks: ${data.remarks}`)
-  if (data.documents && data.documents.length > 1) {
-    justificationParts.push(`Additional documents: ${data.documents.slice(1).map((d) => d.documentName).join(", ")}`)
-  }
   if (data.priority === "Urgent") justificationParts.push("Priority: Urgent")
   const created = await apiPost<BackendRequest>("/requests", {
     title: data.title,
     justification: justificationParts.join("\n"),
-    documentId: firstDoc,
+    documentIds,
   })
   return adaptRequestFromBackend(created)
 }
@@ -122,4 +158,8 @@ export async function handleRequest(
 
 export async function cancelRequest(id: string): Promise<void> {
   await apiPost<BackendRequest>(`/requests/${id}/cancel`)
+}
+
+export async function browseArchive(): Promise<BrowseBucket> {
+  return apiGet<BrowseBucket>("/requests/browse")
 }

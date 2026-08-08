@@ -18,7 +18,10 @@
     "prisma:generate": "npm --workspace server run prisma:generate",
     "prisma:migrate": "npm --workspace server run prisma:migrate",
     "prisma:deploy": "npm --workspace server run prisma:deploy",
-    "prisma:seed": "npm --workspace server run prisma:seed"
+    "prisma:seed": "npm --workspace server run prisma:seed",
+    "maintenance:storage-check": "node scripts/maintenance-storage-check.js",
+    "maintenance:cleanup": "node scripts/maintenance-cleanup.js",
+    "maintenance:run": "node scripts/maintenance-runner.js"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.0.4",

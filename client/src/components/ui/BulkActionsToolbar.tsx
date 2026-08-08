@@ -64,27 +64,29 @@ export function BulkActionsToolbar({
       <div className="w-px h-5 bg-gray-200 mx-1" />
 
       <div className="flex items-center gap-1">
-        {bulkActions.map((action) => {
-          const Icon = action.icon
-          const handler = handlers[action.label as keyof typeof handlers]
-          return (
-            <Button
-              key={action.label}
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-8 px-2.5 text-[12px]",
-                action.variant === "success" && "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50",
-                action.variant === "danger" && "text-red-600 hover:text-red-700 hover:bg-red-50",
-                action.variant === "secondary" && "text-gray-600 hover:text-gray-900"
-              )}
-              onClick={handler}
-            >
-              <Icon className="w-3.5 h-3.5 mr-1.5" />
-              {action.label}
-            </Button>
-          )
-        })}
+        {bulkActions
+          .filter((action) => handlers[action.label as keyof typeof handlers])
+          .map((action) => {
+            const Icon = action.icon
+            const handler = handlers[action.label as keyof typeof handlers]
+            return (
+              <Button
+                key={action.label}
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-8 px-2.5 text-[12px]",
+                  action.variant === "success" && "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50",
+                  action.variant === "danger" && "text-red-600 hover:text-red-700 hover:bg-red-50",
+                  action.variant === "secondary" && "text-gray-600 hover:text-gray-900"
+                )}
+                onClick={handler}
+              >
+                <Icon className="w-3.5 h-3.5 mr-1.5" />
+                {action.label}
+              </Button>
+            )
+          })}
       </div>
 
       <div className="ml-auto">

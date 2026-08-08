@@ -14,7 +14,7 @@ export default function DocumentRepository() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <PageHeader
-        title="Document Repository"
+        title="My Documents"
         description="Your personal repository — folders and files belong to your account"
         actions={
           <div className="flex items-center gap-2 text-[13px] text-gray-500">

@@ -64,6 +64,26 @@ export const AUDIT_ACTIONS = {
   ROLE_RESTORED: "role.restored",
   PERMISSIONS_UPDATED: "role.permissions_updated",
 
+  // Sprint 8.1 — Account & Session management (self-service)
+  PROFILE_UPDATED: "user.profile_updated",
+  SESSION_REVOKED: "session.revoked",
+  OTHER_SESSIONS_REVOKED: "session.revoked_others",
+
+  // Sprint 8.2 — Password recovery
+  PASSWORD_RESET_REQUESTED: "auth.password_reset.requested",
+  PASSWORD_RESET_COMPLETED: "auth.password_reset.completed",
+  PASSWORD_RESET_FAILED: "auth.password_reset.failed",
+
+  // Sprint 8.3 — Storage maintenance (one event per job run, never per item)
+  RECYCLE_CLEANUP_STARTED: "maintenance.recycle_cleanup.started",
+  RECYCLE_CLEANUP_COMPLETED: "maintenance.recycle_cleanup.completed",
+  RECYCLE_CLEANUP_FAILED: "maintenance.recycle_cleanup.failed",
+  STORAGE_SCAN_COMPLETED: "maintenance.storage_scan.completed",
+  ORPHAN_CLEANUP_COMPLETED: "maintenance.orphan_cleanup.completed",
+  ORPHAN_CLEANUP_FAILED: "maintenance.orphan_cleanup.failed",
+  STORAGE_CHECK_COMPLETED: "maintenance.storage_check.completed",
+  MANUAL_MAINTENANCE_TRIGGERED: "maintenance.manual_triggered",
+
   DOCUMENT_CREATED: "document.created",
   DOCUMENT_UPDATED: "document.updated",
   DOCUMENT_DELETED: "document.deleted",

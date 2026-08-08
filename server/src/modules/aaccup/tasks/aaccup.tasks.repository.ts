@@ -10,7 +10,7 @@ import type {
 // =============================================================================
 
 const TASK_INCLUDE = {
-  area: { select: { id: true, code: true, name: true, areaSet: true } },
+  area: { select: { id: true, code: true, name: true, areaSet: true, departmentId: true } },
   requirement: { select: { id: true, title: true, documentCode: true } },
   createdByUser: { select: { firstName: true, lastName: true } },
   updatedByUser: { select: { firstName: true, lastName: true } },
@@ -31,6 +31,7 @@ function toListItem(row: TaskWithRelations): AaccupTaskListItem {
     areaCode: row.area?.code ?? "",
     areaName: row.area?.name ?? "",
     areaSet: row.area?.areaSet ?? "AACCUP",
+    departmentId: row.area?.departmentId ?? null,
     title: row.title,
     description: row.description,
     category: row.category,

@@ -8,8 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
-  Shield,
-  BadgeCheck,
+  Inbox,
   ServerCog,
   SlidersHorizontal,
   Rocket,
@@ -18,6 +17,7 @@ import {
   FolderTree,
   FileCheck2,
   Workflow,
+  HardDrive,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { confirmLeaveIfUploading } from "@/lib/uploadBus"
@@ -31,11 +31,9 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
   { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { id: "submissions", icon: FileText, label: "Submissions" },
-  { id: "documents", icon: FolderArchive, label: "Document Repository" },
-  { id: "aaccup", icon: GraduationCap, label: "Accreditation" },
-  { id: "iso", icon: Shield, label: "ISO" },
-  { id: "certification", icon: BadgeCheck, label: "Certification" },
+  { id: "documents", icon: FolderArchive, label: "My Documents" },
+  { id: "aaccup", icon: GraduationCap, label: "AACCUP" },
+  { id: "requests", icon: Inbox, label: "Requests" },
   { id: "users", icon: Users, label: "User Management" },
   { id: "audit", icon: ClipboardList, label: "Audit Logs" },
   { id: "settings", icon: Settings, label: "Settings" },
@@ -50,6 +48,7 @@ const rootConsoleItems: SidebarItem[] = [
   { id: "root-form-builder", icon: ClipboardList, label: "Form Builder" },
   { id: "root-setup-wizard", icon: Rocket, label: "Setup Wizard" },
   { id: "root-config", icon: SlidersHorizontal, label: "Configuration Engine" },
+  { id: "root-maintenance", icon: HardDrive, label: "Storage Maintenance" },
   { id: "root-audit", icon: ScrollText, label: "System Audit" },
   { id: "root-users", icon: Users, label: "System Users" },
 ]

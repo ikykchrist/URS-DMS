@@ -8,6 +8,7 @@ import {
   createUserSchema,
   listUsersQuerySchema,
   resetPasswordSchema,
+  updateSelfSchema,
   updateUserSchema,
   userIdParamSchema,
 } from "@/modules/users/users.validator";
@@ -18,6 +19,7 @@ import {
   getUserHandler,
   listUsersHandler,
   resetPasswordHandler,
+  updateSelfHandler,
   updateUserHandler,
 } from "@/modules/users/users.controller";
 
@@ -30,6 +32,15 @@ import {
 export const usersRouter: Router = Router();
 
 usersRouter.use(authenticate);
+
+// Sprint 8.1 — self-service profile edit. Registered BEFORE /:id so "me" is
+// never treated as a user id. Operates on the authenticated identity only.
+usersRouter.patch(
+  "/me",
+  requirePermission("users.self.update"),
+  validateBody(updateSelfSchema),
+  asyncHandler(updateSelfHandler),
+);
 
 usersRouter.get(
   "/",

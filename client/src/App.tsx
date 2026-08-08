@@ -62,13 +62,12 @@ import {
   Bar,
 } from "recharts"
 import DocumentRepository from "@/pages/DocumentRepository"
-import Submissions from "@/pages/Submissions"
 import UserManagement from "@/pages/UserManagement"
 import AuditLogs from "@/pages/AuditLogs"
 import Settings from "@/pages/Settings"
-import AACCUPManagement from "@/pages/AACCUPManagement"
-import AACCUPManagementISO from "@/pages/AACCUPManagementISO"
-import AACCUPManagementCert from "@/pages/AACCUPManagementCert"
+import AACCUPGroupPage from "@/pages/AACCUPGroupPage"
+import RequestsReview from "@/pages/RequestsReview"
+import AccountSecurity from "@/pages/AccountSecurity"
 import { CommandPalette } from "@/components/layout/CommandPalette"
 import { AuthProvider, useAuth } from "@/context/AuthContext"
 import { ThemeProvider } from "@/lib/theme"
@@ -86,6 +85,7 @@ import ResetPasswordPage from "@/pages/ResetPassword"
 const RootDashboard = lazy(() => import("@/pages/root/RootDashboard"))
 const RootConfigurations = lazy(() => import("@/pages/root/RootConfigurations"))
 const RootAudit = lazy(() => import("@/pages/root/RootAudit"))
+const RootMaintenance = lazy(() => import("@/pages/root/RootMaintenance"))
 const RootUsers = lazy(() => import("@/pages/root/RootUsers"))
 const RootOrganization = lazy(() => import("@/pages/root/RootOrganization"))
 const RootFolderBuilder = lazy(() => import("@/pages/root/RootFolderBuilder"))
@@ -99,10 +99,7 @@ import UserDashboard from "@/pages/user/UserDashboard"
 import UserDocuments from "@/pages/user/UserDocuments"
 import UserRequests from "@/pages/user/UserRequests"
 import UserBrowseArchive from "@/pages/user/UserBrowseArchive"
-import UserSubmitRequest from "@/pages/user/UserSubmitRequest"
-import UserAACCUP from "@/pages/user/UserAACCUP"
-import UserAACCUPISO from "@/pages/user/UserAACCUPISO"
-import UserAACCUPCert from "@/pages/user/UserAACCUPCert"
+import UserAACCUPGroup from "@/pages/user/UserAACCUPGroup"
 import UserNotifications from "@/pages/user/UserNotifications"
 import UserProfile from "@/pages/user/UserProfile"
 import UserSettings from "@/pages/user/UserSettings"
@@ -122,7 +119,7 @@ function shortBucketLabel(label: string): string {
 
 function formatDate(iso: string): string {
   const d = new Date(iso)
-  return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  return isNaN(d.getTime()) ? "â€”" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
 function formatBytes(bytes: number): string {
@@ -352,7 +349,7 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                     </p>
                     <p className="text-[12px] text-gray-500 mt-0.5">
                       {stats
-                        ? `${stats.totalSubmissions} submissions Â· ${stats.approved} approved`
+                        ? `${stats.totalSubmissions} submissions Ã‚Â· ${stats.approved} approved`
                         : "Loadingâ€¦"}
                     </p>
                   </div>
@@ -497,7 +494,7 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                 subtitle={`${report.requests.pending} requests awaiting review`}
                 badge={String(report.requests.pending)}
                 badgeVariant="warning"
-                onClick={() => onNavigate('submissions')}
+                onClick={() => onNavigate('requests')}
               />
               <ActionWidget
                 icon={<RotateCcw className="w-4 h-4" />}
@@ -540,9 +537,9 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
           <CardHeader className="pb-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <CardTitle className="text-base md:text-[17px] font-semibold">Recent Submissions</CardTitle>
+                <CardTitle className="text-base md:text-[17px] font-semibold">Recent Requests</CardTitle>
                 <p className="text-[13px] text-gray-500 mt-1 hidden sm:block">
-                  Latest document submissions awaiting review
+                  Latest document access requests awaiting review
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -556,10 +553,9 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="approved">Approved</SelectItem>
                     <SelectItem value="rejected">Rejected</SelectItem>
-                    <SelectItem value="review">In Review</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" className="h-9 hidden sm:inline-flex" onClick={() => onNavigate('submissions')}>View All</Button>
+                <Button variant="outline" size="sm" className="h-9 hidden sm:inline-flex" onClick={() => onNavigate('requests')}>View All</Button>
               </div>
             </div>
           </CardHeader>
@@ -569,8 +565,8 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                 <TableRow>
                   <TableHead className="whitespace-nowrap">ID</TableHead>
                   <TableHead className="whitespace-nowrap">Title</TableHead>
-                  <TableHead className="whitespace-nowrap hidden md:table-cell">Category</TableHead>
-                  <TableHead className="whitespace-nowrap hidden lg:table-cell">Submitted By</TableHead>
+                  <TableHead className="whitespace-nowrap hidden md:table-cell">Files</TableHead>
+                  <TableHead className="whitespace-nowrap hidden lg:table-cell">Requested By</TableHead>
                   <TableHead className="whitespace-nowrap hidden sm:table-cell">Date</TableHead>
                   <TableHead className="whitespace-nowrap">Status</TableHead>
                   <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
@@ -583,7 +579,13 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                     <TableCell className="max-w-[150px] md:max-w-[220px] truncate font-medium text-gray-900">
                       {submission.title}
                     </TableCell>
-                    <TableCell className="text-gray-500 whitespace-nowrap hidden md:table-cell">{submission.documents[0]?.documentName ?? "General Request"}</TableCell>
+                    <TableCell className="text-gray-500 whitespace-nowrap hidden md:table-cell">
+                      <span className="flex items-center gap-1">
+                        <FileText className="w-3.5 h-3.5" />
+                        {submission.documents[0]?.documentName ?? "General Request"}
+                        {submission.documents.length > 1 && ` +${submission.documents.length - 1}`}
+                      </span>
+                    </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6 md:h-7 md:w-7">
@@ -599,7 +601,7 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                     <TableCell className="whitespace-nowrap">{getStatusBadge(submission.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-0.5">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900" onClick={() => onNavigate('submissions')}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900" onClick={() => onNavigate('requests')}>
                           <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900" onClick={() => handleDownload(submission)}>
@@ -644,11 +646,11 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
                 <span className="sm:hidden">{visibleRequests.length}/{recentRequests.length}</span>
                 <span className="hidden sm:inline">
                   {isLoadingRequests
-                    ? "Loading submissionsâ€¦"
-                    : `Showing ${visibleRequests.length} of ${recentRequests.length} submissions`}
+                    ? "Loading requests..."
+                    : `Showing ${visibleRequests.length} of ${recentRequests.length} requests`}
                 </span>
               </p>
-              <Button variant="outline" size="sm" className="h-8" onClick={() => onNavigate('submissions')}>
+              <Button variant="outline" size="sm" className="h-8" onClick={() => onNavigate('requests')}>
                 View All
               </Button>
             </div>
@@ -677,6 +679,8 @@ function AppContent() {
     "/documents": "documents",
     "/repository": "documents",
     "/submissions": "submissions",
+    "/requests": "requests",
+    "/profile": "profile",
     "/users": "users",
     "/user-management": "users",
     "/audit": "audit",
@@ -693,6 +697,7 @@ function AppContent() {
     "/root-form-builder": "root-form-builder",
     "/root-setup-wizard": "root-setup-wizard",
     "/root-config": "root-config",
+    "/root-maintenance": "root-maintenance",
     "/root-audit": "root-audit",
     "/root-users": "root-users",
   }
@@ -719,14 +724,16 @@ function AppContent() {
 
   const pageTitles: Record<string, string> = {
     dashboard: "Dashboard",
-    documents: "Document Repository",
-    submissions: "Submissions",
+    documents: "My Documents",
+    submissions: "AACCUP Â· Submissions",
+    requests: "File Requests",
+    profile: "Account & Security",
     users: "User Management",
     audit: "Audit Logs",
     settings: "Settings",
-    aaccup: "AACCUP Management",
-    iso: "ISO Management",
-    certification: "Certification Management",
+    aaccup: "AACCUP",
+    iso: "AACCUP Â· ISO",
+    certification: "AACCUP Â· Certification",
     root: "Platform Overview",
     "root-organization": "Organization",
     "root-folder-builder": "Folder Builder",
@@ -734,13 +741,14 @@ function AppContent() {
     "root-form-builder": "Form Builder",
     "root-setup-wizard": "Setup Wizard",
     "root-config": "Configuration Engine",
+    "root-maintenance": "Storage Maintenance",
     "root-audit": "System Audit",
     "root-users": "System Users",
   }
 
   useEffect(() => {
     document.title = pageTitles[activePage]
-      ? `${pageTitles[activePage]} · URS-DMS`
+      ? `${pageTitles[activePage]} Â· URS-DMS`
       : "URS-DMS"
   }, [activePage])
 
@@ -751,6 +759,8 @@ function AppContent() {
       dashboard: "/dashboard",
       documents: "/documents",
       submissions: "/submissions",
+      requests: "/requests",
+      profile: "/profile",
       users: "/users",
       audit: "/audit",
       settings: "/settings",
@@ -764,6 +774,7 @@ function AppContent() {
       "root-form-builder": "/root-form-builder",
       "root-setup-wizard": "/root-setup-wizard",
       "root-config": "/root-config",
+      "root-maintenance": "/root-maintenance",
       "root-audit": "/root-audit",
       "root-users": "/root-users",
     }
@@ -831,17 +842,20 @@ function AppContent() {
           {activePage === "root-form-builder" && <RootFormBuilder />}
           {activePage === "root-setup-wizard" && <RootSetupWizard />}
           {activePage === "root-config" && <RootConfigurations />}
+          {activePage === "root-maintenance" && <RootMaintenance />}
           {activePage === "root-audit" && <RootAudit />}
           {activePage === "root-users" && <RootUsers />}
           {activePage === "dashboard" && <Dashboard onNavigate={handleNavigate} />}
           {activePage === "documents" && <DocumentRepository />}
-          {activePage === "submissions" && <Submissions />}
+          {activePage === "requests" && <RequestsReview />}
+          {activePage === "profile" && <AccountSecurity />}
           {activePage === "users" && <UserManagement />}
           {activePage === "audit" && <AuditLogs />}
           {activePage === "settings" && <Settings />}
-          {activePage === "aaccup" && <AACCUPManagement />}
-          {activePage === "iso" && <AACCUPManagementISO />}
-          {activePage === "certification" && <AACCUPManagementCert />}
+          {activePage === "aaccup" && <AACCUPGroupPage initialTab="AACCUP" />}
+          {activePage === "iso" && <AACCUPGroupPage initialTab="ISO" />}
+          {activePage === "certification" && <AACCUPGroupPage initialTab="CERT" />}
+          {activePage === "submissions" && <AACCUPGroupPage initialTab="submissions" />}
           </Suspense>
         </main>
       </div>
@@ -858,8 +872,7 @@ function UserAppContent() {
   })
   const [activePage, setActivePage] = useState("dashboard")
   const [showBrowseArchive, setShowBrowseArchive] = useState(false)
-  const [showSubmitRequest, setShowSubmitRequest] = useState(false)
-  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([])
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
@@ -868,14 +881,25 @@ function UserAppContent() {
     return unsub
   }, [user])
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault()
+        setIsCommandPaletteOpen(true)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
+
   const userRouteToPageMap: Record<string, string> = {
     "/user": "dashboard",
     "/user/dashboard": "dashboard",
     "/user/documents": "documents",
     "/user/requests": "requests",
     "/user/aaccup": "aaccup",
-    "/user/iso": "iso",
-    "/user/certification": "certification",
+    "/user/iso": "aaccup",
+    "/user/certification": "aaccup",
     "/user/notifications": "notifications",
     "/user/profile": "profile",
     "/user/settings": "settings",
@@ -892,14 +916,11 @@ function UserAppContent() {
   const handleNavigate = (page: string) => {
     setActivePage(page)
     setShowBrowseArchive(false)
-    setShowSubmitRequest(false)
     const pageToRouteMap: Record<string, string> = {
       dashboard: "/user/dashboard",
       documents: "/user/documents",
       requests: "/user/requests",
       aaccup: "/user/aaccup",
-      iso: "/user/iso",
-      certification: "/user/certification",
       notifications: "/user/notifications",
       profile: "/user/profile",
       settings: "/user/settings",
@@ -912,8 +933,6 @@ function UserAppContent() {
     documents: "My Documents",
     requests: "My Requests",
     aaccup: "AACCUP",
-    iso: "ISO",
-    certification: "Certification",
     notifications: "Notifications",
     profile: "My Profile",
     settings: "Settings",
@@ -921,7 +940,7 @@ function UserAppContent() {
 
   useEffect(() => {
     document.title = userPageTitles[activePage]
-      ? `${userPageTitles[activePage]} · URS-DMS`
+      ? `${userPageTitles[activePage]} Â· URS-DMS`
       : "URS-DMS"
   }, [activePage])
 
@@ -934,23 +953,6 @@ function UserAppContent() {
   const handleBrowseArchive = () => {
     setShowBrowseArchive(true)
     setActivePage("requests")
-  }
-
-  const handleNewRequest = () => {
-    setShowSubmitRequest(true)
-    setActivePage("requests")
-  }
-
-  const handleSubmitRequest = (docIds: string[]) => {
-    setSelectedDocIds(docIds)
-    setShowBrowseArchive(false)
-    setShowSubmitRequest(true)
-  }
-
-  const handleSubmitRequestSuccess = () => {
-    setShowSubmitRequest(false)
-    setSelectedDocIds([])
-    handleNavigate("requests")
   }
 
   const handleLogout = () => {
@@ -991,33 +993,38 @@ function UserAppContent() {
       <div className="flex flex-col flex-1 min-w-0 w-full">
         <UserTopNav
           onNavigate={handleNavigate}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           unreadNotifications={unreadCount}
+        />
+        <CommandPalette
+          open={isCommandPaletteOpen}
+          onOpenChange={setIsCommandPaletteOpen}
+          onNavigate={handleNavigate}
         />
         <main className="flex-1 overflow-y-auto">
           {activePage === "dashboard" && <UserDashboard onNavigate={handleNavigate} />}
           {activePage === "documents" && <UserDocuments />}
-          {activePage === "requests" && !showBrowseArchive && !showSubmitRequest && (
-            <UserRequests onBrowseArchive={handleBrowseArchive} onNewRequest={handleNewRequest} />
+          {activePage === "requests" && !showBrowseArchive && (
+            <UserRequests onBrowseArchive={handleBrowseArchive} />
           )}
-          {activePage === "requests" && showBrowseArchive && !showSubmitRequest && (
+          {activePage === "requests" && showBrowseArchive && (
             <UserBrowseArchive
               onBack={() => setShowBrowseArchive(false)}
-              onSubmitRequest={handleSubmitRequest}
+              onSuccess={() => handleNavigate("requests")}
             />
           )}
-          {activePage === "requests" && showSubmitRequest && (
-            <UserSubmitRequest
-              docIds={selectedDocIds}
-              onBack={() => {
-                setShowSubmitRequest(false)
-                setSelectedDocIds([])
-              }}
-              onSuccess={handleSubmitRequestSuccess}
+          {activePage === "aaccup" && (
+            <UserAACCUPGroup
+              key={window.location.pathname}
+              initialTab={
+                window.location.pathname.includes("/iso")
+                  ? "ISO"
+                  : window.location.pathname.includes("/certification")
+                  ? "CERT"
+                  : "AACCUP"
+              }
             />
           )}
-          {activePage === "aaccup" && <UserAACCUP />}
-          {activePage === "iso" && <UserAACCUPISO />}
-          {activePage === "certification" && <UserAACCUPCert />}
           {activePage === "notifications" && <UserNotifications />}
           {activePage === "profile" && <UserProfile />}
           {activePage === "settings" && <UserSettings />}
@@ -1074,6 +1081,14 @@ function AppRoutes() {
         element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
+        path="/requests"
+        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/profile"
+        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
         path="/users"
         element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
@@ -1127,6 +1142,10 @@ function AppRoutes() {
       />
       <Route
         path="/root-config"
+        element={isAuthenticated && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/root-maintenance"
         element={isAuthenticated && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route

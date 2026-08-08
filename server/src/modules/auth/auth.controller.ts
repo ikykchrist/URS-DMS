@@ -77,11 +77,22 @@ export async function listSessionsHandler(req: Request, res: Response): Promise<
 
 export async function revokeSessionHandler(req: Request, res: Response): Promise<void> {
   const { sessionId } = req.params as { sessionId: string };
-  await service.revokeSession(req.auth!.userId, sessionId, req.auth!.sessionId);
+  await service.revokeSession(
+    req.auth!.userId,
+    sessionId,
+    req.auth!.sessionId,
+    req.context.ipAddress,
+    req.context.userAgent,
+  );
   sendSuccess(res, { success: true });
 }
 
 export async function revokeOtherSessionsHandler(req: Request, res: Response): Promise<void> {
-  const revoked = await service.revokeOtherSessions(req.auth!.userId, req.auth!.sessionId);
+  const revoked = await service.revokeOtherSessions(
+    req.auth!.userId,
+    req.auth!.sessionId,
+    req.context.ipAddress,
+    req.context.userAgent,
+  );
   sendSuccess(res, { success: true, revoked });
 }

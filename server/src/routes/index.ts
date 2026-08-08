@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { healthRouter } from "@/health/health.routes";
 import { authRouter } from "@/modules/auth/auth.routes";
+import { passwordResetRouter } from "@/modules/passwordReset/passwordReset.routes";
 import { usersRouter } from "@/modules/users/users.routes";
 import { documentsRouter } from "@/modules/documents/documents.routes";
 import { foldersRouter } from "@/modules/folders/folders.routes";
@@ -24,6 +25,7 @@ export const apiRouter: Router = Router();
 
 apiRouter.use("/health", healthRouter);
 apiRouter.use("/auth", authRouter);
+apiRouter.use("/auth", passwordResetRouter);
 apiRouter.use("/users", usersRouter);
 apiRouter.use("/documents", documentsRouter);
 apiRouter.use("/folders", foldersRouter);

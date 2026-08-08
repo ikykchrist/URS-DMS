@@ -1,5 +1,4 @@
-import { useState } from "react"
-import { Search, User, LogOut, Settings, ChevronDown, Bell } from "lucide-react"
+import { Search, User, LogOut, Settings, ChevronDown, Bell, Command, FilePlus, Upload, GraduationCap } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { useAvatar } from "@/lib/avatar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
@@ -12,16 +11,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu"
 import { Button } from "@/components/ui/Button"
+import { Input } from "@/components/ui/Input"
+import { QuickActionButton } from "@/components/layout/QuickActionButton"
 
 interface UserTopNavProps {
   onNavigate?: (page: string) => void
+  onOpenCommandPalette?: () => void
   unreadNotifications?: number
 }
 
-export function UserTopNav({ onNavigate, unreadNotifications = 0 }: UserTopNavProps) {
+export function UserTopNav({ onNavigate, onOpenCommandPalette, unreadNotifications = 0 }: UserTopNavProps) {
   const { user, logout } = useAuth()
   const { url: avatarUrl } = useAvatar(user?.id)
-  const [searchQuery, setSearchQuery] = useState("")
 
   const getInitials = (name: string) => {
     return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
@@ -39,27 +40,58 @@ export function UserTopNav({ onNavigate, unreadNotifications = 0 }: UserTopNavPr
     return labels[role] ?? "User"
   }
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value)
-  }
-
   return (
     <header className="h-16 bg-white/80 backdrop-blur-sm border-b border-gray-200 flex-shrink-0">
       <div className="flex items-center justify-between h-full px-6">
         <div className="flex-1 max-w-xl">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search my documents..."
-              className="w-full h-10 pl-10 pr-4 bg-gray-50/50 border border-gray-200 rounded-lg text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-300 transition-all"
-              value={searchQuery}
-              onChange={handleSearch}
-            />
-          </div>
+          <button
+            onClick={onOpenCommandPalette}
+            className="w-full max-w-md group"
+          >
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-gray-600 transition-colors pointer-events-none" />
+              <Input
+                placeholder="Search documents, users, pages..."
+                className="pl-10 pr-16 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white focus:ring-1.5 focus:ring-gray-200 focus:border-gray-200 transition-all text-[14px] cursor-pointer"
+                readOnly
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
+                <kbd className="hidden sm:inline-flex h-5 items-center gap-0.5 rounded border border-gray-200 bg-white px-1.5 font-mono text-[10px] font-medium text-gray-400 shadow-sm">
+                  <Command className="w-2.5 h-2.5" />
+                </kbd>
+                <kbd className="hidden sm:inline-flex h-5 items-center rounded border border-gray-200 bg-white px-1 font-mono text-[10px] font-medium text-gray-400 shadow-sm">
+                  K
+                </kbd>
+              </div>
+            </div>
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
+          <QuickActionButton onNavigate={onNavigate} actions={[
+            {
+              label: "Request Files",
+              icon: FilePlus,
+              description: "Browse archive and request files",
+              route: "/user/requests",
+              page: "requests",
+            },
+            {
+              label: "Upload Document",
+              icon: Upload,
+              description: "Open My Documents",
+              route: "/user/documents",
+              page: "documents",
+            },
+            {
+              label: "Browse AACCUP",
+              icon: GraduationCap,
+              description: "Open AACCUP requirements",
+              route: "/user/aaccup",
+              page: "aaccup",
+            },
+          ]} />
+
           <Button
             variant="ghost"
             size="icon"

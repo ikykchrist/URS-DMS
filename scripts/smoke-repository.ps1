@@ -277,7 +277,7 @@ Check "personal repository surfaces never expose foreign items" ($foreignItems.C
 
 # ── 11. Audit trail ──────────────────────────────────────────────────────────
 Write-Host "`n== 11. Audit trail ==" -ForegroundColor Cyan
-$audit = Invoke-Api "GET" "/audit?page=1&pageSize=50" $null $token 200
+$audit = Invoke-Api "GET" "/audit?page=1&pageSize=100" $null $token 200
 $actions = @("document.version_added", "document.copied", "document.favorited", "folder.pinned", "folder.restored", "document.restored", "folder.permanently_deleted")
 foreach ($action in $actions) {
     $found = $audit.ok -and ($audit.data | Where-Object { $_.action -eq $action })

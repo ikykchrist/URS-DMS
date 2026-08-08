@@ -1,13 +1,22 @@
 import { useState, useEffect, useCallback } from "react"
-import { Search, FileText, FilePlus, FolderArchive, Eye } from "lucide-react"
+import { Search, FileText, FilePlus, FolderArchive, Eye, XCircle, FileCheck2 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Badge } from "@/components/ui/Badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/Dialog"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs"
+import { toast } from "@/lib/toast"
 import { useAuth } from "@/context/AuthContext"
-import { listRequests } from "@/services/requests"
+import { listRequests, cancelRequest } from "@/services/requests"
 import type { DocumentRequest } from "@/types/domain"
 
 const getStatusBadge = (status: string) => {
@@ -29,16 +38,16 @@ const getPriorityBadge = (priority: string) => {
 
 interface UserRequestsProps {
   onBrowseArchive?: () => void
-  onNewRequest?: () => void
-  onViewDetails?: (reqId: string) => void
 }
 
-export default function UserRequests({ onBrowseArchive, onNewRequest, onViewDetails }: UserRequestsProps) {
+export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
   const { user } = useAuth()
   const [requests, setRequests] = useState<DocumentRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
+  const [selected, setSelected] = useState<DocumentRequest | null>(null)
+  const [cancelling, setCancelling] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!user) return
@@ -50,7 +59,7 @@ export default function UserRequests({ onBrowseArchive, onNewRequest, onViewDeta
     }
   }, [user])
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => { void refresh() }, [refresh])
 
   const filteredRequests = requests.filter((req) => {
     const matchesSearch = req.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -60,24 +69,31 @@ export default function UserRequests({ onBrowseArchive, onNewRequest, onViewDeta
     return matchesSearch && matchesTab
   })
 
-  const totalCount = requests.length
+  const handleCancel = async (request: DocumentRequest) => {
+    if (!window.confirm(`Cancel request "${request.title}"?`)) return
+    setCancelling(true)
+    try {
+      await cancelRequest(request.id)
+      toast.success("Request cancelled")
+      setSelected(null)
+      await refresh()
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to cancel the request")
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="My Requests"
-        description="Track your document requests"
+        description="Track your document access requests"
         actions={
-          <>
-            <Button variant="outline" onClick={onBrowseArchive}>
-              <FolderArchive className="w-4 h-4 mr-2" />
-              Browse Archive
-            </Button>
-            <Button onClick={onNewRequest}>
-              <FilePlus className="w-4 h-4 mr-2" />
-              New Request
-            </Button>
-          </>
+          <Button onClick={onBrowseArchive}>
+            <FilePlus className="w-4 h-4 mr-2" />
+            Request Files
+          </Button>
         }
       />
 
@@ -137,19 +153,43 @@ export default function UserRequests({ onBrowseArchive, onNewRequest, onViewDeta
                     </div>
                     <div>
                       <h3 className="text-[14px] font-semibold text-gray-900">{request.title}</h3>
-                      <p className="text-[13px] text-gray-500 mt-1">Purpose: {request.purpose}</p>
+                      <p className="text-[13px] text-gray-500 mt-1">Explanation: {request.purpose}</p>
                       <div className="flex flex-wrap items-center gap-3 mt-2">
                         <span className="text-[12px] text-gray-400">Submitted: {new Date(request.dateSubmitted).toLocaleDateString()}</span>
                         <span className="text-[12px] text-gray-300">|</span>
                         <span className="text-[12px] text-gray-400">Priority: {getPriorityBadge(request.priority)}</span>
+                        {request.documents.length > 0 && (
+                          <>
+                            <span className="text-[12px] text-gray-300">|</span>
+                            <span className="text-[12px] text-gray-400">
+                              {request.documents.length} file{request.documents.length > 1 ? "s" : ""}
+                            </span>
+                          </>
+                        )}
                       </div>
+                      {request.remarks && request.status === "Rejected" && (
+                        <p className="text-[12px] text-red-600 mt-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                          Decision: {request.remarks}
+                        </p>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     {getStatusBadge(request.status)}
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onViewDetails?.(request.id)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" title="View details" onClick={() => setSelected(request)}>
                       <Eye className="w-4 h-4" />
                     </Button>
+                    {request.status === "Pending" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-600 hover:bg-red-50"
+                        title="Cancel request"
+                        onClick={() => void handleCancel(request)}
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -160,16 +200,74 @@ export default function UserRequests({ onBrowseArchive, onNewRequest, onViewDeta
 
       <Card className="border-gray-200/60 shadow-sm mt-6">
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <p className="text-[13px] text-gray-500">Showing {filteredRequests.length} of {totalCount} requests</p>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled className="h-8">Previous</Button>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 bg-gray-900 text-white">1</Button>
-              <Button variant="outline" size="sm" disabled className="h-8">Next</Button>
-            </div>
-          </div>
+          <p className="text-[13px] text-gray-500">Showing {filteredRequests.length} of {requests.length} requests</p>
         </CardContent>
       </Card>
+
+      <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent className="sm:max-w-[540px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg">{selected?.title}</DialogTitle>
+            <DialogDescription className="text-[14px]">
+              Submitted {selected ? new Date(selected.dateSubmitted).toLocaleDateString() : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            {selected && (
+              <>
+                <div className="flex items-center gap-2">
+                  {getStatusBadge(selected.status)}
+                  {getPriorityBadge(selected.priority)}
+                </div>
+                {selected.documents.length > 0 && (
+                  <div className="rounded-lg bg-gray-50 border border-gray-100 p-3">
+                    <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-2">
+                      Requested Files ({selected.documents.length})
+                    </p>
+                    <div className="flex flex-col gap-1">
+                      {selected.documents.map((doc) => (
+                        <p key={doc.documentId} className="text-[13px] text-gray-700 truncate flex items-center gap-2">
+                          <FileCheck2 className="w-4 h-4 text-gray-400 shrink-0" />
+                          {doc.documentName}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1">Explanation</p>
+                  <p className="text-[13px] text-gray-700 whitespace-pre-line">{selected.purpose}</p>
+                </div>
+                {selected.handledByName && (
+                  <div>
+                    <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1">
+                      {selected.status === "Approved" ? "Approved by" : "Decision by"}
+                    </p>
+                    <p className="text-[13px] text-gray-700">{selected.handledByName}</p>
+                    {selected.remarks && <p className="text-[12px] text-gray-500 mt-1 whitespace-pre-line">{selected.remarks}</p>}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            {selected?.status === "Pending" && (
+              <Button
+                variant="outline"
+                className="border-red-300 text-red-600 hover:bg-red-50"
+                disabled={cancelling}
+                onClick={() => void handleCancel(selected)}
+              >
+                <XCircle className="w-4 h-4 mr-2" />
+                {cancelling ? "Cancelling..." : "Cancel Request"}
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setSelected(null)} className="h-10 px-5">
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

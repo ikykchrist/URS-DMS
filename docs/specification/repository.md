@@ -111,7 +111,7 @@
 | Restore | Any retained item may be restored by its owner to the original location, another folder, or root, with conflict handling (keep_both / replace / cancel) |
 | Folder restoration | Restores the complete tree |
 | Permanent delete | Owner may permanently delete at any time during retention (snapshot/reference guarded); bulk via Empty Recycle Bin |
-| Automatic cleanup | Past-due items permanently removed by `scripts/cleanup-recycle-bin.js` (snapshot-guarded, reference-count aware, `--dry-run`); owners get a RECYCLE_BIN_CLEANUP notification |
+| Automatic cleanup | Past-due items permanently removed by the scheduled `maintenance-runner.js` (24-hour cycle; snapshot-guarded, reference-count aware, `--dry-run` supported; manual via `maintenance-cleanup.js`); owners get a RECYCLE_BIN_CLEANUP notification |
 | Blob safety | MinIO blobs still referenced by active files, copies, request deliveries or AACCUP snapshots are never deleted |
 | Scope | Per-owner; accounts only see their own deleted items |
 

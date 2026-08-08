@@ -3,9 +3,6 @@ import {
   Search,
   FileText,
   Users,
-  CheckCircle,
-  ClipboardList,
-  Award,
   ArrowRight,
   Command,
   X,
@@ -23,7 +20,7 @@ interface CommandPaletteProps {
 
 interface SearchResult {
   id: string
-  type: "document" | "submission" | "user" | "task" | "audit" | "aaccup" | "page"
+  type: "document" | "user" | "page"
   title: string
   subtitle: string
   badge?: string
@@ -32,9 +29,12 @@ interface SearchResult {
 
 const staticPages: SearchResult[] = [
   { id: "p-dashboard", type: "page", title: "Dashboard", subtitle: "Go to Dashboard", page: "dashboard" },
-  { id: "p-submissions", type: "page", title: "Submissions", subtitle: "Go to Submissions", page: "submissions" },
+  { id: "p-aaccup", type: "page", title: "AACCUP", subtitle: "AACCUP, ISO, Certification and submissions", page: "aaccup" },
+  { id: "p-iso", type: "page", title: "ISO", subtitle: "Go to ISO 21001", page: "iso" },
+  { id: "p-cert", type: "page", title: "Certification", subtitle: "Go to Certification", page: "certification" },
+  { id: "p-submissions", type: "page", title: "Submissions", subtitle: "Review AACCUP submissions", page: "submissions" },
+  { id: "p-requests", type: "page", title: "Requests", subtitle: "Review file requests", page: "requests" },
   { id: "p-documents", type: "page", title: "Document Repository", subtitle: "Go to Document Repository", page: "documents" },
-  { id: "p-aaccup", type: "page", title: "AACCUP Management", subtitle: "Go to AACCUP Management", page: "aaccup" },
   { id: "p-users", type: "page", title: "User Management", subtitle: "Go to User Management", page: "users" },
   { id: "p-audit", type: "page", title: "Audit Logs", subtitle: "Go to Audit Logs", page: "audit" },
   { id: "p-settings", type: "page", title: "Settings", subtitle: "Go to Settings", page: "settings" },
@@ -42,11 +42,7 @@ const staticPages: SearchResult[] = [
 
 const typeConfig = {
   document: { icon: FileText, color: "text-gray-500", bg: "bg-gray-100" },
-  submission: { icon: CheckCircle, color: "text-blue-600", bg: "bg-blue-50" },
   user: { icon: Users, color: "text-violet-600", bg: "bg-violet-50" },
-  task: { icon: ClipboardList, color: "text-amber-600", bg: "bg-amber-50" },
-  audit: { icon: ClipboardList, color: "text-gray-600", bg: "bg-gray-100" },
-  aaccup: { icon: Award, color: "text-primary", bg: "bg-primary/10" },
   page: { icon: ArrowRight, color: "text-gray-500", bg: "bg-gray-100" },
 }
 
@@ -163,7 +159,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search documents, submissions, users, tasks..."
+            placeholder="Search documents, users, pages..."
             className="flex-1 text-[14px] outline-none bg-transparent text-gray-900 placeholder:text-gray-400"
           />
           <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border border-gray-200 bg-gray-50 px-1.5 font-mono text-[10px] font-medium text-gray-500">
@@ -225,7 +221,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                             ? "success"
                             : result.badge === "Pending"
                             ? "warning"
-                            : "danger"
+                            : "secondary"
                         }
                         className="text-[10px] flex-shrink-0"
                       >

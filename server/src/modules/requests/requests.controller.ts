@@ -64,3 +64,8 @@ export async function cancelRequestHandler(req: Request, res: Response): Promise
   const request = await service.cancelRequest(id, toActor(req));
   sendSuccess(res, request);
 }
+
+export async function browseRequestHandler(req: Request, res: Response): Promise<void> {
+  const result = await service.browseDepartmentArchive(toActor(req));
+  sendSuccess(res, result);
+}

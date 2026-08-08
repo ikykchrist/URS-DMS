@@ -47,6 +47,9 @@ export interface AuthenticatedUser {
   status: string;
   role: string;
   departmentId: string | null;
+  departmentName: string | null;
+  createdAt: string;
+  lastLogin: string | null;
   permissions: string[];
 }
 
@@ -69,12 +72,20 @@ async function buildUserView(userId: string): Promise<AuthenticatedUser> {
       suffix: true,
       status: true,
       departmentId: true,
+      createdAt: true,
+      lastLogin: true,
       roleId: true,
       role: { select: { name: true } },
     },
   });
   if (!user) throw new NotFoundError("User not found");
   const permissions = await loadCodesByRoleId(user.roleId);
+  const departmentName = user.departmentId
+    ? (await prisma.department.findUnique({
+        where: { id: user.departmentId },
+        select: { name: true },
+      }))?.name ?? null
+    : null;
   return {
     id: user.id,
     employeeId: user.employeeId,
@@ -86,6 +97,9 @@ async function buildUserView(userId: string): Promise<AuthenticatedUser> {
     status: user.status,
     role: user.role.name,
     departmentId: user.departmentId,
+    departmentName,
+    createdAt: user.createdAt.toISOString(),
+    lastLogin: user.lastLogin?.toISOString() ?? null,
     permissions,
   };
 }
@@ -431,6 +445,8 @@ export async function revokeSession(
   userId: string,
   sessionId: string,
   currentSessionId: string,
+  ipAddress: string,
+  userAgent: string,
 ): Promise<void> {
   if (sessionId === currentSessionId) {
     throw new BadRequestError("Cannot revoke the current session");
@@ -442,12 +458,35 @@ export async function revokeSession(
   if (result.count === 0) {
     throw new NotFoundError("Active session not found");
   }
+  // Sprint 8.1 — audit exactly one event per revocation (actor = owner).
+  await writeAudit({
+    action: AUDIT_ACTIONS.SESSION_REVOKED,
+    userId,
+    entity: "session",
+    entityId: sessionId,
+    ipAddress,
+    userAgent,
+  });
 }
 
-export async function revokeOtherSessions(userId: string, currentSessionId: string): Promise<number> {
+export async function revokeOtherSessions(
+  userId: string,
+  currentSessionId: string,
+  ipAddress: string,
+  userAgent: string,
+): Promise<number> {
   const result = await prisma.session.updateMany({
     where: { userId, id: { not: currentSessionId }, revokedAt: null },
     data: { revokedAt: new Date() },
+  });
+  // Sprint 8.1 — audit exactly one event per revoke-others action.
+  await writeAudit({
+    action: AUDIT_ACTIONS.OTHER_SESSIONS_REVOKED,
+    userId,
+    entity: "session",
+    newValue: { revoked: result.count },
+    ipAddress,
+    userAgent,
   });
   return result.count;
 }

@@ -29,6 +29,18 @@ export async function createUserHandler(req: Request, res: Response): Promise<vo
   sendCreated(res, created);
 }
 
+// Sprint 8.1 — self-service profile edit (PATCH /users/me)
+export async function updateSelfHandler(req: Request, res: Response): Promise<void> {
+  const data = req.body as Parameters<typeof service.updateSelf>[1];
+  const user = await service.updateSelf(
+    req.auth!.userId,
+    data,
+    req.context.ipAddress,
+    req.context.userAgent,
+  );
+  sendSuccess(res, { user });
+}
+
 export async function updateUserHandler(req: Request, res: Response): Promise<void> {
   const id = (req.params as { id: string }).id;
   const data = req.body as Parameters<typeof service.updateUser>[1];

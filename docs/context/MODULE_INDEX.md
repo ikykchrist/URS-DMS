@@ -8,11 +8,11 @@
 
 | | |
 |---|---|
-| **Backend** | `modules/auth/` (auth.controller/service/routes/validator, auth.cookies, auth.password, auth.tokens) — **FROZEN** |
-| **Frontend** | `components/auth/` (LoginForm, AuthCard, AuthLayout, PasswordInput, PasswordStrength, Forgot/ResetPasswordForm), `pages/Login.tsx`, `pages/ForgotPassword.tsx`, `pages/ResetPassword.tsx`, `context/AuthContext.tsx`, `lib/http.ts` |
-| **Database** | `User` (session/lockout fields), `Session` |
-| **Dependencies** | argon2, JWT, env (PASSWORD_MIN_LENGTH, BOOTSTRAP_ROOT_*) |
-| **Public APIs** | `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me`, `/auth/sessions`, password change |
+| **Backend** | `modules/auth/` (auth.controller/service/routes/validator, auth.cookies, auth.password, auth.tokens) — **FROZEN** (D-030: session-revoke audits + `/auth/me` additive fields are the only 8.1 exception); `modules/passwordReset/` (8.2: forgot/reset-password on `/auth`, `PasswordResetToken`) |
+| **Frontend** | `components/auth/` (LoginForm, AuthCard, AuthLayout, PasswordInput, PasswordStrength, Forgot/ResetPasswordForm), `pages/Login.tsx`, `pages/ForgotPassword.tsx`, `pages/ResetPassword.tsx`, `context/AuthContext.tsx`, `lib/http.ts`, `services/auth.ts` (account/session/password-recovery service: `meRaw`, `updateProfile`, `getUserSessions`, `killSession`, `killAllOtherSessions`, `changePassword`, `forgotPassword`, `resetPassword`) |
+| **Database** | `User` (session/lockout fields), `Session`, `PasswordResetToken` |
+| **Dependencies** | argon2, JWT, env (PASSWORD_MIN_LENGTH, BOOTSTRAP_ROOT_*), email queue (reset links) |
+| **Public APIs** | `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me`, `/auth/sessions`, `/auth/sessions/:id/kill`, `/auth/sessions/kill-all`, `/auth/change-password`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/dev/reset-link` (dev only), `PATCH /users/me` (self-service profile) |
 | **Docs** | `engineering/security.md`, `specification/users.md` |
 
 ## 2. Users / Roles / Permissions (RBAC)
@@ -20,10 +20,10 @@
 | | |
 |---|---|
 | **Backend** | `modules/users/`, `modules/roles/roles.constants.ts`, `modules/permissions/permissions.constants.ts` + `permissions.repository.ts` |
-| **Frontend** | `pages/UserManagement.tsx`, `components/modals/AddUserModal.tsx`, `components/modals/UserDetailsModal.tsx`, `components/ui/RoleGuard.tsx`, `lib/permissions.ts`, `services/admin.ts` |
+| **Frontend** | `pages/UserManagement.tsx`, `pages/AccountSecurity.tsx` (shared Account & Security, both portals), `pages/user/UserProfile.tsx` (wrapper), `components/modals/AddUserModal.tsx`, `components/modals/UserDetailsModal.tsx`, `components/modals/ChangePasswordModal.tsx`, `components/modals/SessionManagementModal.tsx`, `lib/permissions.ts`, `services/admin.ts` |
 | **Database** | `User`, `Role`, `Permission`, `RolePermission`, `Session` |
 | **Dependencies** | Auth, audit |
-| **Public APIs** | `/users`, `/admin/users`, `/admin/roles`, `/admin/permissions` |
+| **Public APIs** | `/users`, `/users/me` (PATCH self-service), `/admin/users`, `/admin/roles`, `/admin/permissions` |
 | **Docs** | `specification/users.md`, `engineering/security.md` |
 
 ## 3. Repository (personal file management)
@@ -42,10 +42,10 @@
 | | |
 |---|---|
 | **Backend** | `modules/requests/` (requests.controller/service/repository/routes/types/validator) |
-| **Frontend** | `pages/user/UserRequests.tsx`, `pages/user/UserSubmitRequest.tsx`, `services/requests.ts` (admin request surface lives in admin pages) |
-| **Database** | `DocumentRequest` (no soft-delete column — documented gap, D-013) |
+| **Frontend** | `pages/RequestsReview.tsx` (admin review), `pages/user/UserRequests.tsx` + `pages/user/UserBrowseArchive.tsx` (browse + request), `services/requests.ts` |
+| **Database** | `DocumentRequest` (no soft-delete column — documented gap, D-013), `DocumentRequestItem` (multi-file, 1–3 per request, D-022; documentId FK CASCADE, D-026) |
 | **Dependencies** | Auth, RBAC, Documents (delivery copy → Repository), Workflow (DOCUMENT_REQUEST instances), Audit |
-| **Public APIs** | `/requests` (create/list/get), `POST /requests/:id/approve`, `/reject`, `/fulfill`, `/cancel` |
+| **Public APIs** | `/requests` (create/list/get — create accepts `documentIds[1–3]`), `GET /requests/browse` (department bucket, list-only), `POST /requests/:id/approve|reject|fulfill|cancel` (reject requires `decisionNote`) |
 | **Docs** | `specification/repository.md` (Requested Documents), `specification/workflow.md` |
 
 ## 5. AACCUP / Accreditation (AACCUP | ISO | CERT)
@@ -53,10 +53,10 @@
 | | |
 |---|---|
 | **Backend** | `modules/aaccup/` (core + `requirements/`, `submissions/`, `tasks/`, `analytics/`, `services/compliance.service.ts`), `modules/requirements/requirement.runtime.ts` |
-| **Frontend** | `pages/AACCUPManagement.tsx` + `AACCUPManagementISO.tsx` + `AACCUPManagementCert.tsx`, `pages/Submissions.tsx`, `pages/user/UserAccreditationView.tsx` + `UserAACCUP.tsx` + `UserAACCUPISO.tsx` + `UserAACCUPCert.tsx`, `components/modals/AACCUPAreaDetailsModal.tsx`, `AddAreaModal.tsx`, `AddSubmissionModal.tsx`, `CreateTaskModal.tsx`, `ReturnSubmissionModal.tsx`, `services/aaccup.ts` |
-| **Database** | `AaccupArea`, `AaccupRequirement`, `AaccupSubmission` (snapshot columns), `AaccupTask`, `AccreditationCycle` + requirement template projection tables |
+| **Frontend** | `pages/AACCUPGroupPage.tsx` (admin group) + `pages/user/UserAACCUPGroup.tsx` (user group) with shared `components/aaccup/` (AACCUPGroupTabs, SubmissionsTable, TaskSubmitDialog); `pages/AACCUPManagement.tsx` (per-set areas), `pages/Submissions.tsx`, `pages/user/UserAccreditationView.tsx`, `pages/user/UserSubmissionsTab.tsx`, `pages/user/UserTasksTab.tsx`, `components/modals/AACCUPAreaDetailsModal.tsx` (Submissions/Tasks/Requirements tabs), `AddAreaModal.tsx` (create+edit), `RequirementModal.tsx`, `AddSubmissionModal.tsx`, `CreateTaskModal.tsx`, `ReturnSubmissionModal.tsx`, `services/aaccup.ts` |
+| **Database** | `AaccupArea`, `AaccupRequirement`, `AaccupSubmission` (snapshot columns + `taskId`), `AaccupTask`, `AccreditationCycle` + requirement template projection tables |
 | **Dependencies** | Auth, RBAC (`aaccup.*`), Documents (evidence uploads), Workflow (AACCUP_SUBMISSION instances), Requirement Builder runtime, Audit |
-| **Public APIs** | `/aaccup/areas|requirements|submissions|tasks`, `/aaccup/analytics/overview`, `/requirements/*` (runtime), `/dashboard/aaccup` |
+| **Public APIs** | `/aaccup/areas|requirements|submissions|tasks` (full CRUD + assignee picker `GET /tasks/assignees` + `mine=true`), `/aaccup/analytics/overview`, `/requirements/*` (runtime), `/dashboard/aaccup` |
 | **Docs** | `specification/aaccup.md`, `specification/workflow.md`, `specification/configuration.md` |
 
 ## 6. Workflow Engine
@@ -125,7 +125,18 @@
 | **Public APIs** | `/root/overview`, `/root/config*`, `/root/organization*`, `/root/folder-templates*`, `/root/requirements*`, `/root/workflows*`, `/root/forms*`, `/root/setup*` |
 | **Docs** | `specification/configuration.md`, `specification/workflow.md`, `engineering/backend.md` |
 
-## 12. Health
+## 12. Maintenance (storage integrity)
+
+| | |
+|---|---|
+| **Backend** | `modules/maintenance/` (maintenance.service, maintenance.routes, maintenance.jobs — recycle-bin retention cleanup, orphan scan/cleanup, consistency check, storage stats) |
+| **Frontend** | `pages/root/RootMaintenance.tsx` (storage overview, job history, orphan browser, controlled cleanup actions with dry-run/confirm) |
+| **Database** | `MaintenanceJob`, `MaintenanceOrphanCandidate`, `MaintenanceLock` |
+| **Dependencies** | Auth (ROOT), RBAC (`root.access`), MinIO, Audit, Notifications |
+| **Public APIs** | `/root/maintenance/status`, `/root/maintenance/storage`, `/root/maintenance/check`, `/root/maintenance/orphans`, `/root/maintenance/scan`, `/root/maintenance/cleanup-recycle`, `/root/maintenance/cleanup-orphans` |
+| **Docs** | `engineering/storage.md` (Maintenance section), `specification/repository.md` (Recycle Bin), `DECISIONS.md` (D-032, D-033) |
+
+## 13. Health
 
 | | |
 |---|---|
@@ -136,7 +147,7 @@
 | **Public APIs** | `/health` |
 | **Docs** | `engineering/architecture.md` |
 
-## 13. Shared infrastructure (cross-cutting)
+## 14. Shared infrastructure (cross-cutting)
 
 | | |
 |---|---|
@@ -158,3 +169,4 @@
 | Audit | 8 | `specification/audit.md` |
 | Auth | 1 | `engineering/security.md` |
 | Storage | 3 | `engineering/storage.md` |
+| Maintenance | 12 | `engineering/storage.md` §Maintenance |

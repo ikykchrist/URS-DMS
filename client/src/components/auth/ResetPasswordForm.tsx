@@ -5,6 +5,7 @@ import { AuthCard, AuthCardHeader, AuthCardTitle, AuthCardDescription, AuthCardF
 import { PasswordInput } from "./PasswordInput"
 import { PasswordStrength } from "./PasswordStrength"
 import { Button } from "@/components/ui/Button"
+import { authService } from "@/services/auth"
 
 interface ResetPasswordFormProps {
   onSuccess?: () => void
@@ -52,12 +53,20 @@ export function ResetPasswordForm({ onSuccess }: ResetPasswordFormProps) {
     if (!validateForm()) return
 
     setIsLoading(true)
-    
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    setIsLoading(false)
-    setIsSuccess(true)
-    onSuccess?.()
+
+    try {
+      const result = await authService.resetPassword(token, newPassword)
+      if (!result.success) {
+        setError(result.error || "Password reset failed. Please try again.")
+      } else {
+        setIsSuccess(true)
+        onSuccess?.()
+      }
+    } catch {
+      setError("Password reset failed. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (!token || token.length < 6) {

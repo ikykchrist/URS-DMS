@@ -12,6 +12,11 @@ import {
   TrendingUp,
   Activity,
   X,
+  Pencil,
+  RotateCcw,
+  XCircle,
+  FileCheck2,
+  Trash2,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog"
 import { Button } from "@/components/ui/Button"
@@ -25,8 +30,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/Table"
-import { listAllOnlineSubmissions, listOnlineAreaTasks, type OnlineAaccupTask, type OnlineSubmissionListItem } from "@/services/aaccup"
+import {
+  listAllOnlineSubmissions,
+  listOnlineAreaRequirements,
+  listOnlineAreaTasks,
+  reviewOnlineSubmission,
+  archiveOnlineRequirement,
+  updateOnlineTask,
+  type OnlineAaccupRequirement,
+  type OnlineAaccupTask,
+  type OnlineSubmissionListItem,
+} from "@/services/aaccup"
+import { ReturnSubmissionModal } from "@/components/modals/ReturnSubmissionModal"
+import { RequirementModal } from "@/components/modals/RequirementModal"
+import { TaskSubmitDialog } from "@/components/aaccup/TaskSubmitDialog"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/context/AuthContext"
+import { hasPermission } from "@/lib/permissions"
 
 interface AACCUPArea {
   id: number
@@ -45,6 +65,7 @@ interface AACCUPAreaDetailsModalProps {
   areaSet?: "AACCUP" | "ISO" | "CERT"
   onAddSubmission: () => void
   onCreateTask: () => void
+  onEditArea?: () => void
 }
 
 interface AreaSubmission {
@@ -105,21 +126,30 @@ export function AACCUPAreaDetailsModal({
   areaSet = "AACCUP",
   onAddSubmission,
   onCreateTask,
+  onEditArea,
 }: AACCUPAreaDetailsModalProps) {
+  const { user } = useAuth()
+  const canManageTasks = Boolean(user && hasPermission(user.role, "canManageAACCUP"))
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
-  const [view, setView] = useState<"submissions" | "tasks">("submissions")
+  const [view, setView] = useState<"submissions" | "tasks" | "requirements">("submissions")
   const [submissions, setSubmissions] = useState<AreaSubmission[]>([])
+  const [rawSubmissions, setRawSubmissions] = useState<OnlineSubmissionListItem[]>([])
   const [tasks, setTasks] = useState<OnlineAaccupTask[]>([])
+  const [requirements, setRequirements] = useState<OnlineAaccupRequirement[]>([])
+  const [isRequirementModalOpen, setIsRequirementModalOpen] = useState(false)
+  const [editingRequirement, setEditingRequirement] = useState<OnlineAaccupRequirement | null>(null)
   const [stats, setStats] = useState({ completed: 0, pending: 0, returned: 0, total: 0 })
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false)
+  const [returnTarget, setReturnTarget] = useState<{ id: string; title: string } | null>(null)
+  const [submitTask, setSubmitTask] = useState<OnlineAaccupTask | null>(null)
+  const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!open || !area) return
-    setSubmissions([])
-    setStats({ completed: 0, pending: 0, returned: 0, total: 0 })
-    setTasks([])
+  const loadSubmissions = () => {
+    if (!area) return
     listAllOnlineSubmissions({ areaId: area.serverId, areaSet })
       .then((items) => {
+        setRawSubmissions(items)
         const mapped: AreaSubmission[] = items.map((submission) => ({
           id: submission.id,
           title: submission.requirementTitle,
@@ -133,19 +163,91 @@ export function AACCUPAreaDetailsModal({
         setSubmissions(mapped)
         setStats({
           completed: items.filter((s) => s.status === "APPROVED").length,
-          pending: items.filter((s) => s.status === "PENDING").length,
-          returned: items.filter((s) => s.status === "NEEDS_REVISION").length,
+          pending: items.filter((s) => s.status === "PENDING" || s.status === "NEEDS_REVISION").length,
+          returned: items.filter((s) => s.status === "REJECTED").length,
           total: items.length,
         })
       })
       .catch(() => {
         setSubmissions([])
+        setRawSubmissions([])
         setStats({ completed: 0, pending: 0, returned: 0, total: 0 })
       })
+  }
+
+  useEffect(() => {
+    if (!open || !area) return
+    setSubmissions([])
+    setStats({ completed: 0, pending: 0, returned: 0, total: 0 })
+    setTasks([])
+    setRequirements([])
+    loadSubmissions()
     listOnlineAreaTasks(area.serverId)
       .then(setTasks)
       .catch(() => setTasks([]))
+    listOnlineAreaRequirements(area.serverId)
+      .then(setRequirements)
+      .catch(() => setRequirements([]))
   }, [open, area])
+
+  const loadRequirements = () => {
+    if (!area) return
+    listOnlineAreaRequirements(area.serverId)
+      .then(setRequirements)
+      .catch(() => setRequirements([]))
+  }
+
+  const handleArchiveRequirement = async (requirement: OnlineAaccupRequirement) => {
+    if (!window.confirm(`Archive requirement "${requirement.title}"? It will no longer accept submissions.`)) return
+    try {
+      await archiveOnlineRequirement(requirement.id)
+      loadRequirements()
+    } catch {
+      window.alert("Failed to archive the requirement. Please try again.")
+    }
+  }
+
+  const handleTaskStatusChange = async (task: OnlineAaccupTask, status: "IN_PROGRESS" | "COMPLETED") => {
+    setUpdatingTaskId(task.id)
+    try {
+      await updateOnlineTask(task.id, { status })
+      const next = await listOnlineAreaTasks(task.areaId)
+      setTasks(next)
+    } catch {
+      window.alert("Failed to update the task status.")
+    } finally {
+      setUpdatingTaskId(null)
+    }
+  }
+
+  const taskStatusLabel: Record<OnlineAaccupTask["status"], string> = {
+    OPEN: "Open",
+    IN_PROGRESS: "In Progress",
+    COMPLETED: "Completed",
+    CANCELLED: "Cancelled",
+  }
+
+  const handleReview = async (submissionId: string, decision: "APPROVED" | "REJECTED") => {
+    if (decision === "REJECTED" && !window.confirm("Reject this submission? This closes the review.")) return
+    try {
+      await reviewOnlineSubmission(submissionId, { decision })
+      loadSubmissions()
+    } catch {
+      window.alert("Review action failed. Please try again.")
+    }
+  }
+
+  const handleReturn = (submissionId: string, submissionTitle: string) => {
+    setExpandedRow(null)
+    setReturnTarget({ id: submissionId, title: submissionTitle })
+    setIsReturnModalOpen(true)
+  }
+
+  const closeReturnModal = () => {
+    setIsReturnModalOpen(false)
+    setReturnTarget(null)
+    loadSubmissions()
+  }
 
   if (!area) return null
 
@@ -183,10 +285,18 @@ export function AACCUPAreaDetailsModal({
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Button variant="outline" size="sm" className="h-9" onClick={onCreateTask}>
-                <Plus className="w-4 h-4 mr-2" />
-                New Task
-              </Button>
+              {canManageTasks && onEditArea && (
+                <Button variant="outline" size="sm" className="h-9" onClick={onEditArea}>
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+              )}
+              {canManageTasks && (
+                <Button variant="outline" size="sm" className="h-9" onClick={onCreateTask}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Task
+                </Button>
+              )}
               <Button size="sm" className="h-9 shadow-sm" onClick={onAddSubmission}>
                 <Upload className="w-4 h-4 mr-2" />
                 Add Submission
@@ -228,6 +338,17 @@ export function AACCUPAreaDetailsModal({
                     <CheckCircle className="w-3.5 h-3.5" />
                     Tasks ({tasks.length})
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setView("requirements")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+                      view === "requirements" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    )}
+                  >
+                    <FileCheck2 className="w-3.5 h-3.5" />
+                    Requirements ({requirements.length})
+                  </button>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -247,7 +368,120 @@ export function AACCUPAreaDetailsModal({
             </div>
 
             <div className="flex-1 overflow-auto p-6">
-              {view === "tasks" ? (
+              {view === "requirements" ? (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-[14px] font-semibold text-gray-900">Submission Requirements</h3>
+                      <p className="text-[12px] text-gray-500">
+                        {requirements.some((r) => r.sourceTemplateId || r.sourceNodeId)
+                          ? "This area is managed by the Root Requirement Builder — manage requirements there."
+                          : "Users submit evidence against these requirements."}
+                      </p>
+                    </div>
+                    {canManageTasks && !requirements.some((r) => r.sourceTemplateId || r.sourceNodeId) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9"
+                        onClick={() => {
+                          setEditingRequirement(null)
+                          setIsRequirementModalOpen(true)
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Requirement
+                      </Button>
+                    )}
+                  </div>
+                  <div className="bg-white rounded-lg border border-gray-200">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent bg-gray-50/50">
+                          <TableHead>Requirement</TableHead>
+                          <TableHead>Code</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {requirements.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6}>
+                              <EmptyState icon={FileCheck2} message="No requirements for this area yet" />
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          requirements.map((requirement) => (
+                            <TableRow key={requirement.id} className="border-b border-gray-100">
+                              <TableCell>
+                                <p className="text-[14px] font-medium text-gray-900">{requirement.title}</p>
+                                {requirement.description && (
+                                  <p className="text-[12px] text-gray-500 mt-0.5 line-clamp-1">{requirement.description}</p>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <span className="font-mono text-[12px] text-gray-600">{requirement.documentCode}</span>
+                              </TableCell>
+                              <TableCell className="text-[13px] text-gray-600">
+                                {requirement.category ?? "—"}
+                              </TableCell>
+                              <TableCell>
+                                {requirement.isRequired ? (
+                                  <Badge variant="warning" className="text-[11px]">Required</Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="text-[11px]">Optional</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={requirement.status === "ACTIVE" ? "success" : "secondary"}
+                                  className="text-[11px]"
+                                >
+                                  {requirement.status === "ACTIVE" ? "Active" : "Inactive"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {canManageTasks && !requirement.sourceTemplateId && !requirement.sourceNodeId ? (
+                                  <div className="flex items-center justify-end gap-0.5">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                                      title="Edit"
+                                      onClick={() => {
+                                        setEditingRequirement(requirement)
+                                        setIsRequirementModalOpen(true)
+                                      }}
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                      title="Archive"
+                                      onClick={() => void handleArchiveRequirement(requirement)}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <span className="text-[11px] text-gray-400">
+                                    {requirement.sourceTemplateId ? "Builder-managed" : "—"}
+                                  </span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ) : view === "tasks" ? (
                 <div className="bg-white rounded-lg border border-gray-200">
                   <Table>
                       <TableHeader>
@@ -258,17 +492,20 @@ export function AACCUPAreaDetailsModal({
                         <TableHead>Priority</TableHead>
                         <TableHead>Due Date</TableHead>
                         <TableHead>Status</TableHead>
+                        {canManageTasks && <TableHead className="text-right">Actions</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {tasks.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6}>
+                          <TableCell colSpan={canManageTasks ? 7 : 6}>
                             <EmptyState icon={CheckCircle} message="No tasks for this area yet" />
                           </TableCell>
                         </TableRow>
                       ) : (
-                        tasks.map((task) => (
+                        tasks.map((task) => {
+                          const actionable = task.status === "OPEN" || task.status === "IN_PROGRESS"
+                          return (
                           <TableRow key={task.id} className="border-b border-gray-100">
                             <TableCell>
                               <p className="text-[14px] font-medium text-gray-900">{task.title}</p>
@@ -316,11 +553,49 @@ export function AACCUPAreaDetailsModal({
                                 }
                                 className="text-[11px]"
                               >
-                                {task.status.replace("_", " ")}
+                                {taskStatusLabel[task.status]}
                               </Badge>
                             </TableCell>
+                            {canManageTasks && (
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  {actionable && task.status === "OPEN" && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-[12px]"
+                                      disabled={updatingTaskId === task.id}
+                                      onClick={() => void handleTaskStatusChange(task, "IN_PROGRESS")}
+                                    >
+                                      Start
+                                    </Button>
+                                  )}
+                                  {actionable && task.status === "IN_PROGRESS" && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-[12px] border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                                      disabled={updatingTaskId === task.id}
+                                      onClick={() => void handleTaskStatusChange(task, "COMPLETED")}
+                                    >
+                                      Mark Complete
+                                    </Button>
+                                  )}
+                                  {actionable && task.requirementId && (
+                                    <Button
+                                      size="sm"
+                                      className="h-8 text-[12px] shadow-sm"
+                                      onClick={() => setSubmitTask(task)}
+                                    >
+                                      Submit Evidence
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            )}
                           </TableRow>
-                        ))
+                          )
+                        })
                       )}
                     </TableBody>
                   </Table>
@@ -403,14 +678,56 @@ export function AACCUPAreaDetailsModal({
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 text-[13px] text-primary hover:text-primary"
-                                onClick={() => setExpandedRow(expandedRow === submission.id ? null : submission.id)}
-                              >
-                                {expandedRow === submission.id ? "Hide" : "View"}
-                              </Button>
+                              <div className="flex items-center justify-end gap-0.5">
+                                {(() => {
+                                  const raw = rawSubmissions.find((s) => s.id === submission.id)
+                                  const reviewable =
+                                    canManageTasks && raw && (raw.status === "PENDING" || raw.status === "NEEDS_REVISION")
+                                  return (
+                                    <>
+                                      {reviewable && (
+                                        <>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
+                                            title="Approve"
+                                            onClick={() => void handleReview(submission.id, "APPROVED")}
+                                          >
+                                            <CheckCircle className="w-4 h-4" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-amber-600 hover:bg-amber-50"
+                                            title="Return for revision"
+                                            onClick={() => handleReturn(submission.id, submission.title)}
+                                          >
+                                            <RotateCcw className="w-4 h-4" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-red-600 hover:bg-red-50"
+                                            title="Reject"
+                                            onClick={() => void handleReview(submission.id, "REJECTED")}
+                                          >
+                                            <XCircle className="w-4 h-4" />
+                                          </Button>
+                                        </>
+                                      )}
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 text-[13px] text-primary hover:text-primary"
+                                        onClick={() => setExpandedRow(expandedRow === submission.id ? null : submission.id)}
+                                      >
+                                        {expandedRow === submission.id ? "Hide" : "View"}
+                                      </Button>
+                                    </>
+                                  )
+                                })()}
+                              </div>
                             </TableCell>
                           </TableRow>
 
@@ -587,6 +904,39 @@ export function AACCUPAreaDetailsModal({
           </div>
         </div>
       </DialogContent>
+
+      <ReturnSubmissionModal
+        open={isReturnModalOpen}
+        onOpenChange={closeReturnModal}
+        submissionId={returnTarget?.id ?? ""}
+        submissionTitle={returnTarget?.title}
+        onSuccess={closeReturnModal}
+      />
+
+      {area && (
+        <RequirementModal
+          open={isRequirementModalOpen}
+          onOpenChange={setIsRequirementModalOpen}
+          areaId={area.serverId}
+          areaTitle={area.title}
+          requirement={editingRequirement}
+          onSuccess={() => {
+            setEditingRequirement(null)
+            loadRequirements()
+          }}
+        />
+      )}
+
+      <TaskSubmitDialog
+        task={submitTask}
+        onClose={() => setSubmitTask(null)}
+        onSubmitted={() => {
+          if (!area) return
+          listOnlineAreaTasks(area.serverId)
+            .then(setTasks)
+            .catch(() => setTasks([]))
+        }}
+      />
     </Dialog>
   )
 }

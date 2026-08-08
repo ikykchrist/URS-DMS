@@ -97,16 +97,22 @@ export async function createRequest(
     throw new ForbiddenError("Missing permission: request.create");
   }
 
-  if (input.documentId) {
-    // Optional: validate document exists and is not soft-deleted. We rely on
-    // schema FK SetNull semantics â€” a missing document would just null out
-    // the field. To keep behavior explicit, we surface a clear error.
-    const { prisma } = await import("@/lib/prisma");
-    const doc = await prisma.document.findFirst({
-      where: { id: input.documentId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!doc) throw new BadRequestError("Referenced document not found");
+  // Resolve the documents of this request. `documentIds` is the modern
+  // multi-file field (1-3); the legacy single `documentId` is kept for
+  // backward compatibility.
+  const documentIds = [...new Set(input.documentIds ?? (input.documentId ? [input.documentId] : []))];
+  if (documentIds.length === 0) {
+    throw new BadRequestError("At least one document is required");
+  }
+  if (documentIds.length > 3) {
+    throw new BadRequestError("A request can include at most 3 documents");
+  }
+  const documents = await prisma.document.findMany({
+    where: { id: { in: documentIds }, deletedAt: null },
+    select: { id: true },
+  });
+  if (documents.length !== documentIds.length) {
+    throw new BadRequestError("One or more referenced documents were not found");
   }
 
   const request = await prisma.$transaction(async (tx) => {
@@ -115,7 +121,8 @@ export async function createRequest(
         requesterId: actor.id,
         title: input.title,
         justification: input.justification,
-        documentId: input.documentId ?? null,
+        documentId: documentIds[0] ?? null,
+        documentIds,
       },
       tx,
     );
@@ -141,7 +148,7 @@ export async function createRequest(
     entityId: request.id,
     newValue: {
       title: request.title,
-      documentId: request.documentId,
+      documentIds,
     },
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
@@ -151,68 +158,145 @@ export async function createRequest(
 }
 
 // -----------------------------------------------------------------------------
+// browseDepartmentArchive — list-only view of the caller's department bucket
+// Used by the user portal "Browse Archive" screen: file name, type, owner,
+// date uploaded and size only. No presigned URLs are issued, so files cannot
+// be opened or downloaded from this surface.
+// -----------------------------------------------------------------------------
+export interface BrowseItem {
+  id: string;
+  title: string;
+  filename: string | null;
+  mimeType: string | null;
+  sizeBytes: string | null;
+  ownerName: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  uploadedAt: Date;
+  folderName: string | null;
+}
+
+export async function browseDepartmentArchive(
+  actor: Actor,
+): Promise<{ items: BrowseItem[]; departmentId: string | null; departmentName: string | null }> {
+  if (!actor.permissions.includes("request.create")) {
+    throw new ForbiddenError("Missing permission: request.create");
+  }
+  const me = await prisma.user.findUnique({
+    where: { id: actor.id },
+    select: { departmentId: true },
+  });
+  const departmentId = me?.departmentId ?? null;
+  if (!departmentId) return { items: [], departmentId: null, departmentName: null };
+
+  const [department, docs] = await Promise.all([
+    prisma.department.findUnique({
+      where: { id: departmentId },
+      select: { name: true },
+    }),
+    prisma.document.findMany({
+      where: { departmentId, deletedAt: null },
+      select: {
+        id: true,
+        title: true,
+        createdAt: true,
+        currentVersion: { select: { filename: true, mimeType: true, sizeBytes: true } },
+        owner: { select: { firstName: true, lastName: true } },
+        folder: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  return {
+    items: docs.map((d) => ({
+      id: d.id,
+      title: d.title,
+      filename: d.currentVersion?.filename ?? null,
+      mimeType: d.currentVersion?.mimeType ?? null,
+      sizeBytes: d.currentVersion?.sizeBytes?.toString() ?? null,
+      ownerName: d.owner ? `${d.owner.firstName} ${d.owner.lastName}`.trim() : "Unknown",
+      departmentId,
+      departmentName: department?.name ?? null,
+      uploadedAt: d.createdAt,
+      folderName: d.folder?.name ?? null,
+    })),
+    departmentId,
+    departmentName: department?.name ?? null,
+  };
+}
+
+// -----------------------------------------------------------------------------
 // decideRequest (approve / reject / fulfill)
 // -----------------------------------------------------------------------------
 
-// Deliver a requester-owned copy of the source document into the requester's
-// Requested Documents. The copy links to the request via metadata.requestId
+// Deliver requester-owned copies of the source documents into the requester's
+// Requested Documents. Each copy links to the request via metadata.requestId
 // and references the same immutable version object (shared blob); later
-// source rename/move/delete never breaks the delivered file.
+// source rename/move/delete never breaks the delivered files.
 async function deliverRequestedDocument(
   tx: Prisma.TransactionClient,
   existing: RequestDetail,
   actor: Actor,
 ): Promise<void> {
-  const source = await tx.document.findFirst({
-    where: { id: existing.documentId ?? undefined },
+  const sourceIds = existing.items.length > 0
+    ? existing.items.map((item) => item.documentId)
+    : existing.documentId
+      ? [existing.documentId]
+      : [];
+  const sources = await tx.document.findMany({
+    where: { id: { in: sourceIds } },
     include: { currentVersion: true },
   });
-  if (!source?.currentVersion) {
-    throw new ConflictError("The source document has no version to deliver");
+  if (sources.length === 0 || sources.some((source) => !source.currentVersion)) {
+    throw new ConflictError("One or more source documents have no version to deliver");
   }
 
   const repository = await tx.repository.findUnique({ where: { ownerId: existing.requesterId } });
   const repositoryId = repository?.id ?? null;
 
-  const delivered = await tx.document.create({
-    data: {
-      title: `[Delivered] ${source.title}`,
-      description: source.description,
-      classification: "INTERNAL",
-      metadata: {
-        ...(source.metadata && typeof source.metadata === "object" ? source.metadata : {}),
-        requestId: existing.id,
-        delivered: true,
+  for (const source of sources) {
+    if (!source.currentVersion) continue;
+    const delivered = await tx.document.create({
+      data: {
+        title: `[Delivered] ${source.title}`,
+        description: source.description,
+        classification: "INTERNAL",
+        metadata: {
+          ...(source.metadata && typeof source.metadata === "object" ? source.metadata : {}),
+          requestId: existing.id,
+          delivered: true,
+        },
+        ownerId: existing.requesterId,
+        departmentId: null,
+        repositoryId,
       },
-      ownerId: existing.requesterId,
-      departmentId: null,
-      repositoryId,
-    },
-  });
-  const version = await tx.documentVersion.create({
-    data: {
-      documentId: delivered.id,
-      versionNumber: 1,
-      objectKey: source.currentVersion.objectKey,
-      filename: source.currentVersion.filename,
-      mimeType: source.currentVersion.mimeType,
-      sizeBytes: source.currentVersion.sizeBytes,
-      checksum: source.currentVersion.checksum,
-      changeNote: "Delivered via document request",
-      uploadedById: actor.id,
-    },
-  });
-  await tx.document.update({
-    where: { id: delivered.id },
-    data: { currentVersionId: version.id },
-  });
+    });
+    const version = await tx.documentVersion.create({
+      data: {
+        documentId: delivered.id,
+        versionNumber: 1,
+        objectKey: source.currentVersion.objectKey,
+        filename: source.currentVersion.filename,
+        mimeType: source.currentVersion.mimeType,
+        sizeBytes: source.currentVersion.sizeBytes,
+        checksum: source.currentVersion.checksum,
+        changeNote: "Delivered via document request",
+        uploadedById: actor.id,
+      },
+    });
+    await tx.document.update({
+      where: { id: delivered.id },
+      data: { currentVersionId: version.id },
+    });
+  }
 
   await writeAudit({
     action: AUDIT_ACTIONS.REQUEST_FULFILLED_DELIVERED,
     userId: actor.id,
     entity: "request",
     entityId: existing.id,
-    newValue: { deliveredDocumentId: delivered.id, requesterId: existing.requesterId },
+    newValue: { deliveredCount: sources.length, requesterId: existing.requesterId },
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
   });
@@ -229,6 +313,11 @@ export async function decideRequest(
 
   const existing = await repo.findById(id);
   if (!existing) throw new NotFoundError("Request not found");
+
+  // Managers must give a reason when rejecting (decisionNote required).
+  if (decision === "REJECTED" && !input.decisionNote?.trim()) {
+    throw new BadRequestError("A reason is required when rejecting a request");
+  }
 
   // State machine validation.
   if (decision === "APPROVED") {
@@ -266,11 +355,11 @@ export async function decideRequest(
       tx,
     );
 
-    // Delivery: when a request is fulfilled, deliver a requester-owned copy
+    // Delivery: when a request is fulfilled, deliver requester-owned copies
     // into their Requested Documents (linked via metadata.requestId). The
-    // source document's privacy and ownership are preserved; the delivered
+    // source documents' privacy and ownership are preserved; each delivered
     // copy references the same immutable version object.
-    if (decision === "FULFILLED" && existing.documentId) {
+    if (decision === "FULFILLED") {
       await deliverRequestedDocument(tx, existing, actor);
     }
 

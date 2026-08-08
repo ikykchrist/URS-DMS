@@ -30,6 +30,7 @@ export type ListSubmissionsQuery = z.infer<typeof listSubmissionsQuerySchema>;
 export const createSubmissionSchema = z.object({
   requirementId: z.string().uuid(),
   documentId: z.string().uuid(),
+  taskId: z.string().uuid().nullable().optional(),
   remarks: z.string().trim().max(2000).optional(),
 });
 export type CreateSubmissionInput = z.infer<typeof createSubmissionSchema>;

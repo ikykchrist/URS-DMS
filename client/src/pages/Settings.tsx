@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react"
 import {
-  User,
   Shield,
   Bell,
   Settings2,
   Palette,
   FolderArchive,
   KeyRound,
-  Camera,
   Monitor,
   Moon,
   Smartphone,
@@ -21,7 +19,6 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/Label"
 import { Switch } from "@/components/ui/Switch"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import {
   Select,
   SelectContent,
@@ -33,7 +30,6 @@ import { ChangePasswordModal } from "@/components/modals/ChangePasswordModal"
 import { SessionManagementModal } from "@/components/modals/SessionManagementModal"
 import { useAuth } from "@/context/AuthContext"
 import { useTheme } from "@/lib/theme"
-import { useAvatar, readFileAsDataUrl } from "@/lib/avatar"
 import { toast } from "@/lib/toast"
 import { ROLE_LABELS } from "@/lib/permissions"
 import { getSystemSettings, updateSystemSettings, type SystemSettingsView } from "@/services/admin"
@@ -41,10 +37,9 @@ import { getDashboardStorage, type StorageStats } from "@/services/dashboard"
 import { authService } from "@/services/auth"
 import { cn } from "@/lib/utils"
 
-type SettingsSection = "profile" | "security" | "notifications" | "system" | "appearance" | "files" | "access"
+type SettingsSection = "security" | "notifications" | "system" | "appearance" | "files" | "access"
 
 const navItems = [
-  { id: "profile" as const, label: "Profile Settings", icon: User },
   { id: "security" as const, label: "Account Security", icon: Shield },
   { id: "notifications" as const, label: "Notification Preferences", icon: Bell },
   { id: "system" as const, label: "System Preferences", icon: Settings2 },
@@ -56,18 +51,12 @@ const navItems = [
 export default function Settings() {
   const { user, logout } = useAuth()
   const { theme, setTheme } = useTheme()
-  const { url: avatarUrl, set: setAvatar, remove: removeAvatar } = useAvatar(user?.id)
-  const [activeSection, setActiveSection] = useState<SettingsSection>("profile")
+  const [activeSection, setActiveSection] = useState<SettingsSection>("security")
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false)
   const [isSessionManagementOpen, setIsSessionManagementOpen] = useState(false)
   const [settings, setSettings] = useState<SystemSettingsView | null>(null)
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null)
-  const [saving, setSaving] = useState(false)
 
-  const [profileName, setProfileName] = useState(user?.name ?? "")
-  const [profileEmail, setProfileEmail] = useState(user?.email ?? "")
-  const [profilePhone, setProfilePhone] = useState(user?.phone ?? "")
-  const [profileDept, setProfileDept] = useState(user?.department ?? "")
   const [language, setLanguage] = useState<"en" | "fil">("en")
   const [newFileType, setNewFileType] = useState("")
   const [timezone, setTimezone] = useState("Asia/Manila")
@@ -83,25 +72,9 @@ export default function Settings() {
   })
 
   useEffect(() => {
-    if (user) {
-      setProfileName(user.name)
-      setProfileEmail(user.email)
-      setProfilePhone(user.phone ?? "")
-      setProfileDept(user.department)
-    }
-  }, [user])
-
-  useEffect(() => {
     getSystemSettings().then(setSettings)
     getDashboardStorage().then(setStorageStats)
   }, [])
-
-  const handleSaveProfile = async () => {
-    setSaving(true)
-    try {
-      await authService.updateProfile()
-    } finally { setSaving(false) }
-  }
 
   const handleSaveSettings = async (patch: Partial<Omit<SystemSettingsView, "updatedAt" | "updatedById">>) => {
     const updated = settings ? { ...settings, ...patch } : null
@@ -136,36 +109,15 @@ export default function Settings() {
 
   const handleSaveNotifications = async () => {}
 
-  const handleAvatarChange = async (file: File) => {
-    if (!user) return
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Profile picture must be 2MB or smaller.")
-      return
-    }
-    try {
-      const dataUrl = await readFileAsDataUrl(file)
-      setAvatar(dataUrl)
-      toast.success("Profile picture updated.")
-    } catch {
-      toast.error("Could not read the selected image.")
-    }
-  }
-
   const handleLogoutAll = async () => {
     try { await authService.logout(); logout() } catch { }
   }
 
   const roleLabel = user?.role ? ROLE_LABELS[user.role] ?? user.role : "User"
-  const initials = (user?.name || "U").split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
   const storageUsed = Number(storageStats?.totalStorageUsedBytes ?? 0)
   const storageAvailable = Number(storageStats?.availableStorageBytes ?? 0)
   const storageTotal = storageUsed + storageAvailable
   const storagePercent = storageTotal > 0 ? Math.round((storageUsed / storageTotal) * 100) : 0
-  const uploadSizeValue = settings
-    ? Number.isFinite(Number(settings.maxUploadSizeBytes)) && Number(settings.maxUploadSizeBytes) > 0
-      ? String(Math.round(Number(settings.maxUploadSizeBytes) / 1048576))
-      : "25"
-    : "25"
 
   function bytesToReadable(bytes: number): string {
     if (!Number.isFinite(bytes) || bytes <= 0) return "0 B"
@@ -216,67 +168,6 @@ export default function Settings() {
             </div>
 
             <div className="flex-1 min-w-0">
-              {activeSection === "profile" && (
-                <Card className="border-gray-200/60 shadow-sm">
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-[16px] font-semibold">Profile Settings</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="flex items-center gap-4">
-                      <div className="relative">
-                        <Avatar className="h-20 w-20">
-                          <AvatarImage src={avatarUrl ?? (user?.avatarSeed ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatarSeed}` : undefined)} />
-                          <AvatarFallback className="text-xl bg-primary text-white">{initials}</AvatarFallback>
-                        </Avatar>
-                        <label className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center hover:bg-gray-800 transition-colors cursor-pointer">
-                          <Camera className="w-4 h-4" />
-                          <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAvatarChange(f); e.target.value = "" }} />
-                        </label>
-                      </div>
-                      <div>
-                        <p className="text-[14px] font-medium text-gray-900">{user?.name}</p>
-                        <p className="text-[13px] text-gray-500">{roleLabel}</p>
-                        <Button variant="outline" size="sm" className="mt-2 h-8" onClick={() => { if (user) removeAvatar() }}>
-                          Remove Photo
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label className="text-[13px] font-medium text-gray-700">Full Name</Label>
-                        <Input value={profileName} onChange={(e) => setProfileName(e.target.value)} className="h-10" />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label className="text-[13px] font-medium text-gray-700">Email Address</Label>
-                        <Input value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} type="email" className="h-10" />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label className="text-[13px] font-medium text-gray-700">Contact Number</Label>
-                        <Input value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)} className="h-10" />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label className="text-[13px] font-medium text-gray-700">Department</Label>
-                        <Input value={profileDept} onChange={(e) => setProfileDept(e.target.value)} className="h-10" />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-2">
-                      <Label className="text-[13px] font-medium text-gray-700">Role</Label>
-                      <Input value={roleLabel} disabled className="h-10 bg-gray-50" />
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                      <Button variant="outline" className="h-10 px-5" onClick={() => { if (user) { setProfileName(user.name); setProfileEmail(user.email); setProfilePhone(user.phone ?? ""); setProfileDept(user.department) } }}>Cancel</Button>
-                      <Button className="h-10 px-5 shadow-sm" onClick={handleSaveProfile} disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
               {activeSection === "security" && (
                 <div className="space-y-6">
                   <Card className="border-gray-200/60 shadow-sm">
@@ -496,24 +387,7 @@ export default function Settings() {
                     <CardTitle className="text-[16px] font-semibold">File Management</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-5">
-                    <div className="grid grid-cols-2 gap-5">
-                      <div className="grid gap-2">
-                        <Label className="text-[13px] font-medium text-gray-700">Default Upload Size Limit</Label>
-                        <Select
-                          value={uploadSizeValue}
-                          onValueChange={(v) => handleSaveSettings({ maxUploadSizeBytes: String(Math.round(Number(v) * 1048576)) })}
-                        >
-                          <SelectTrigger className="h-10">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="10">10 MB</SelectItem>
-                            <SelectItem value="25">25 MB</SelectItem>
-                            <SelectItem value="50">50 MB</SelectItem>
-                            <SelectItem value="100">100 MB</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="grid gap-5">
                       <div className="grid gap-2">
                         <Label className="text-[13px] font-medium text-gray-700">Storage Threshold Warning</Label>
                         <Select

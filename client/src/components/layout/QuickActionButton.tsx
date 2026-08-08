@@ -1,11 +1,8 @@
 import { useNavigate } from "react-router-dom"
 import {
-  Upload,
   FileText,
   Users,
-  FolderPlus,
   BarChart3,
-  Award,
   Plus,
   ChevronRight,
 } from "lucide-react"
@@ -23,31 +20,22 @@ import { cn } from "@/lib/utils"
 interface QuickActionButtonProps {
   className?: string
   onNavigate?: (page: string) => void
+  actions?: QuickAction[]
 }
 
 interface QuickAction {
   label: string
   icon: React.ComponentType<{ className?: string }>
   description: string
-  shortcut: string
   route: string
   page: string
 }
 
-const quickActions: QuickAction[] = [
-  {
-    label: "Upload Document",
-    icon: Upload,
-    description: "Upload new document",
-    shortcut: "U",
-    route: "/documents?modal=upload",
-    page: "documents",
-  },
+const adminQuickActions: QuickAction[] = [
   {
     label: "Create Task",
     icon: FileText,
-    description: "Assign a new task",
-    shortcut: "T",
+    description: "Assign a new AACCUP task",
     route: "/aaccup?modal=create-task",
     page: "aaccup",
   },
@@ -55,37 +43,19 @@ const quickActions: QuickAction[] = [
     label: "Add User",
     icon: Users,
     description: "Register new user",
-    shortcut: "N",
     route: "/users?modal=add-user",
     page: "users",
-  },
-  {
-    label: "Create Folder",
-    icon: FolderPlus,
-    description: "New folder in repository",
-    shortcut: "F",
-    route: "/documents?modal=create-folder",
-    page: "documents",
   },
   {
     label: "Generate Report",
     icon: BarChart3,
     description: "Export system report",
-    shortcut: "R",
     route: "/audit?modal=generate-report",
     page: "audit",
   },
-  {
-    label: "Assign Area",
-    icon: Award,
-    description: "Assign AACCUP area",
-    shortcut: "A",
-    route: "/aaccup?modal=assign-area",
-    page: "aaccup",
-  },
 ]
 
-export function QuickActionButton({ className, onNavigate }: QuickActionButtonProps) {
+export function QuickActionButton({ className, onNavigate, actions = adminQuickActions }: QuickActionButtonProps) {
   const navigate = useNavigate()
 
   const handleActionClick = (action: QuickAction) => {
@@ -109,7 +79,7 @@ export function QuickActionButton({ className, onNavigate }: QuickActionButtonPr
           Quick Actions
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {quickActions.map((action) => {
+        {actions.map((action) => {
           const Icon = action.icon
           return (
             <DropdownMenuItem
@@ -124,9 +94,6 @@ export function QuickActionButton({ className, onNavigate }: QuickActionButtonPr
                 <p className="text-[13px] font-medium text-gray-900">{action.label}</p>
                 <p className="text-[11px] text-gray-500">{action.description}</p>
               </div>
-              <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border border-gray-200 bg-gray-50 px-1.5 font-mono text-[10px] font-medium text-gray-500">
-                {action.shortcut}
-              </kbd>
             </DropdownMenuItem>
           )
         })}

@@ -82,7 +82,7 @@ export function TopNav({ onOpenCommandPalette, onNavigate }: TopNavProps) {
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-[13px] cursor-pointer" onClick={() => onNavigate?.("profile")}>
                 <User className="mr-2.5 w-4 h-4" />
-                Profile
+                Account & Security
               </DropdownMenuItem>
               <DropdownMenuItem className="text-[13px] cursor-pointer" onClick={() => onNavigate?.("settings")}>
                 <Settings className="mr-2.5 w-4 h-4" />

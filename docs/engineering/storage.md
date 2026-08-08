@@ -7,9 +7,11 @@
 
 - Bucket from env; objects are **private**; access ONLY via presigned URLs.
 - Physical objects are **never deleted by soft-delete** — the database
-  reference is cleared; retention sweep + future GC job remove orphans.
+  reference is cleared; the scheduled maintenance runner handles retention
+  sweep + orphan GC (see Maintenance section).
 - `lib/storage.ts` is **frozen** — use `presignUpload` / `presignDownload`
-  / `statObject` / `getObjectStream` / `deleteObject`; never modify it.
+  / `statObject` / `getObjectStream` / `deleteObject` / `objectExists` /
+  `listObjectKeys`; never modify it.
 
 ## Object naming
 
@@ -43,6 +45,28 @@ documents/{documentId}/{versionId}/{sanitized-filename}
 - The client strips `Content-Length` before PUT (server-supplied headers).
 - Large uploads: presigned streaming PUT — never proxy bytes through the API.
 - Downloads/previews: presigned GET; video via range requests (future).
+
+## Maintenance (Sprint 8.3)
+
+- **Recycle Bin retention**: automatic 30-day cleanup via
+  `scripts/maintenance-runner.js` (24-hour cycle) or manual
+  `scripts/maintenance-cleanup.js --recycle --confirm`.
+- **Orphan detection**: `POST /root/maintenance/scan` enumerates all MinIO
+  objects and records unreferenced ones as `CANDIDATE` in
+  `maintenance_orphan_candidates`. Never deletes on first sight.
+- **Orphan cleanup**: 7-day grace period, then `POST /root/maintenance/
+  cleanup-orphans` re-verifies references before physical deletion.
+- **Reference safety**: MinIO objects are deleted ONLY when zero
+  `DocumentVersion` rows reference them (copies, Requested Document
+  deliveries, and replace-version history all count).
+- **Consistency check**: `npm run maintenance:storage-check` reports active
+  references, recycle-bin expiry, missing MinIO objects, and orphan
+  candidates (read-only).
+- **Distributed lock**: all destructive jobs acquire a database-backed
+  `maintenance_locks` row with 10-minute expiry + heartbeat — no Redis
+  required.
+- **Abandoned multipart uploads**: not currently cleaned (MinIO 7-day
+  lifecycle policy recommended as a future enhancement).
 
 ## Related documents
 

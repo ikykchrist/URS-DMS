@@ -4,6 +4,16 @@ import type { Prisma } from "@prisma/client";
 // URS-DMS — document requests domain shapes
 // =============================================================================
 
+export interface RequestItemInfo {
+  documentId: string;
+  title: string | null;
+  filename: string | null;
+  mimeType: string | null;
+  sizeBytes: string | null;
+  ownerName: string | null;
+  uploadedAt: Date | null;
+}
+
 export interface RequestListItem {
   id: string;
   title: string;
@@ -11,8 +21,10 @@ export interface RequestListItem {
   status: string;
   requesterId: string;
   requesterName: string;
+  requesterEmail: string | null;
   documentId: string | null;
   documentTitle: string | null;
+  items: RequestItemInfo[];
   decidedById: string | null;
   decidedByName: string | null;
   decidedAt: Date | null;
@@ -42,4 +54,19 @@ export const requestSelect = {
   requester: { select: { firstName: true, lastName: true, email: true } },
   document: { select: { id: true, title: true } },
   decidedBy: { select: { firstName: true, lastName: true } },
+  items: {
+    select: {
+      documentId: true,
+      document: {
+        select: {
+          id: true,
+          title: true,
+          createdAt: true,
+          currentVersion: { select: { filename: true, mimeType: true, sizeBytes: true } },
+          owner: { select: { firstName: true, lastName: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" as const },
+  },
 } satisfies Prisma.DocumentRequestSelect;

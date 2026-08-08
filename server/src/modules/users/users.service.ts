@@ -1,5 +1,6 @@
 import * as repo from "@/modules/users/users.repository";
 import { hashPassword } from "@/modules/auth/auth.password";
+import { getCurrentUser, type AuthenticatedUser } from "@/modules/auth/auth.service";
 import {
   EmailTakenError,
   EmployeeIdTakenError,
@@ -9,8 +10,8 @@ import {
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS } from "@/config/constants";
 import { writeAudit } from "@/modules/audit/audit.service";
-import type { UserStatus } from "@prisma/client";
-import type { CreateUserInput, UpdateUserInput } from "@/modules/users/users.validator";
+import type { Prisma, UserStatus } from "@prisma/client";
+import type { CreateUserInput, UpdateUserInput, UpdateSelfInput } from "@/modules/users/users.validator";
 import type { UserDetail, UserListItem } from "@/modules/users/users.types";
 
 // =============================================================================
@@ -201,4 +202,48 @@ export async function deleteUser(
     ipAddress,
     userAgent,
   });
+}
+
+// -----------------------------------------------------------------------------
+// Sprint 8.1 — self-service profile edit (PATCH /users/me)
+// The authenticated identity is the target — never an arbitrary userId.
+// Only the whitelisted name fields can change (validator is .strict()); the
+// response is the safe authenticated view (no hashes/tokens/secrets).
+// -----------------------------------------------------------------------------
+export async function updateSelf(
+  userId: string,
+  input: UpdateSelfInput,
+  ipAddress: string,
+  userAgent: string,
+): Promise<AuthenticatedUser> {
+  const existing = await repo.findById(userId);
+  if (!existing) throw new NotFoundError("User not found");
+
+  const data: Prisma.UserUpdateInput = {};
+  if (input.firstName !== undefined) data.firstName = input.firstName;
+  if (input.lastName !== undefined) data.lastName = input.lastName;
+  if (input.middleName !== undefined) data.middleName = input.middleName;
+  if (input.suffix !== undefined) data.suffix = input.suffix;
+
+  if (Object.keys(data).length > 0) {
+    await prisma.user.update({ where: { id: userId }, data });
+  }
+
+  await writeAudit({
+    action: AUDIT_ACTIONS.PROFILE_UPDATED,
+    userId,
+    entity: "user",
+    entityId: userId,
+    oldValue: {
+      firstName: existing.firstName,
+      middleName: existing.middleName,
+      lastName: existing.lastName,
+      suffix: existing.suffix,
+    },
+    newValue: data,
+    ipAddress,
+    userAgent,
+  });
+
+  return getCurrentUser(userId);
 }

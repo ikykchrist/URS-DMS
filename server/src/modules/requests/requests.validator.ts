@@ -20,6 +20,7 @@ export const createRequestSchema = z.object({
   title: z.string().trim().min(1).max(255),
   justification: z.string().trim().min(1).max(2000),
   documentId: z.string().uuid().nullable().optional(),
+  documentIds: z.array(z.string().uuid()).min(1, "At least one document is required").max(3, "A request can include at most 3 documents").optional(),
 });
 export type CreateRequestInput = z.infer<typeof createRequestSchema>;
 

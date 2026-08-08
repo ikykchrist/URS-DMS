@@ -32,6 +32,7 @@ import { toast } from "@/lib/toast"
 import { hasPermission } from "@/lib/permissions"
 import { useAuth } from "@/context/AuthContext"
 import {
+  listAllOnlineSubmissions,
   listMyAaccupSubmissions,
   listOnlineAaccupAreas,
   listOnlineRequirements,
@@ -53,16 +54,16 @@ import {
 
 const SET_META: Record<AreaSet, { title: string; description: string }> = {
   AACCUP: {
-    title: "AACCUP Accreditation",
-    description: "Live AACCUP requirements configured by the university Requirement Builder.",
+    title: "AACCUP Management",
+    description: "Manage accreditation areas, submissions, and compliance tracking.",
   },
   ISO: {
-    title: "ISO Accreditation",
-    description: "Live ISO requirements configured by the university Requirement Builder.",
+    title: "ISO 21001 Management",
+    description: "Manage ISO accreditation areas, submissions, and compliance tracking.",
   },
   CERT: {
-    title: "Certification",
-    description: "Live certification requirements configured by the university Requirement Builder.",
+    title: "Certification Management",
+    description: "Manage certification areas, submissions, and compliance tracking.",
   },
 }
 
@@ -105,6 +106,7 @@ export function UserAccreditationView({ areaSet }: { areaSet: AreaSet }) {
   const [activeAreaId, setActiveAreaId] = useState("")
   const [requirements, setRequirements] = useState<OnlineAaccupRequirement[]>([])
   const [submissions, setSubmissions] = useState<OnlineAaccupSubmission[]>([])
+  const [areaSubmissionCounts, setAreaSubmissionCounts] = useState<Record<string, number>>({})
   const [areasLoading, setAreasLoading] = useState(true)
   const [requirementsLoading, setRequirementsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -129,6 +131,13 @@ export function UserAccreditationView({ areaSet }: { areaSet: AreaSet }) {
       const nextAreas = await listOnlineAaccupAreas(areaSet)
       setAreas(nextAreas)
       setActiveAreaId((current) => current || nextAreas[0]?.id || "")
+      const ownSubmissions = await listAllOnlineSubmissions({ areaSet })
+      setAreaSubmissionCounts(
+        ownSubmissions.reduce<Record<string, number>>((acc, submission) => {
+          acc[submission.areaId] = (acc[submission.areaId] ?? 0) + 1
+          return acc
+        }, {}),
+      )
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : `Unable to load dynamic ${meta.title} areas`)
     } finally {
@@ -237,8 +246,9 @@ export function UserAccreditationView({ areaSet }: { areaSet: AreaSet }) {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <Card className="border-slate-200/70"><CardContent className="p-5"><div className="flex items-center justify-between"><span className="text-[12px] font-medium text-slate-500">Required Progress</span><FileCheck2 className="h-4 w-4 text-indigo-500" /></div><p className="mt-2 text-2xl font-semibold text-slate-950">{completion}%</p><div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-600 transition-all" style={{ width: `${completion}%` }} /></div><p className="mt-2 text-[11px] text-slate-500">{approved} of {required.length} approved</p></CardContent></Card>
+        <Card className="border-slate-200/70"><CardContent className="p-5"><div className="flex items-center justify-between"><span className="text-[12px] font-medium text-slate-500">Approved</span><CheckCircle2 className="h-4 w-4 text-emerald-500" /></div><p className="mt-2 text-2xl font-semibold text-slate-950">{submissions.filter((submission) => submission.status === "APPROVED").length}</p><p className="mt-3 text-[11px] text-slate-500">Approved submissions in this set</p></CardContent></Card>
         <Card className="border-slate-200/70"><CardContent className="p-5"><div className="flex items-center justify-between"><span className="text-[12px] font-medium text-slate-500">Pending Review</span><Clock3 className="h-4 w-4 text-amber-500" /></div><p className="mt-2 text-2xl font-semibold text-slate-950">{pending}</p><p className="mt-3 text-[11px] text-slate-500">Current submissions awaiting QA action</p></CardContent></Card>
         <Card className="border-slate-200/70"><CardContent className="p-5"><div className="flex items-center justify-between"><span className="text-[12px] font-medium text-slate-500">Needs Attention</span><AlertCircle className="h-4 w-4 text-rose-500" /></div><p className="mt-2 text-2xl font-semibold text-slate-950">{needsRevision}</p><p className="mt-3 text-[11px] text-slate-500">Rejected or revision-requested submissions</p></CardContent></Card>
       </div>
@@ -247,7 +257,19 @@ export function UserAccreditationView({ areaSet }: { areaSet: AreaSet }) {
         <CardContent className="p-3">
           {areasLoading ? <Skeleton variant="rectangular" className="h-11" />
             : areas.length === 0 ? <p className="py-3 text-center text-[12px] text-slate-500">No active {meta.title} areas are assigned to your account.</p>
-              : <Tabs value={activeAreaId} onValueChange={setActiveAreaId}><TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto p-1">{areas.map((area) => <TabsTrigger key={area.id} value={area.id} className="min-w-max px-4 py-2 text-[12px]">{area.code}</TabsTrigger>)}</TabsList></Tabs>}
+              : <Tabs value={activeAreaId} onValueChange={setActiveAreaId}><TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto p-1">{areas.map((area) => {
+                const count = areaSubmissionCounts[area.id] ?? 0
+                return (
+                  <TabsTrigger key={area.id} value={area.id} className="min-w-max px-4 py-2 text-[12px]">
+                    {area.code}
+                    {count > 0 && (
+                      <span className="ml-2 inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-indigo-100 px-1 text-[10px] font-semibold text-indigo-600">
+                        {count}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                )
+              })}</TabsList></Tabs>}
         </CardContent>
       </Card>
 

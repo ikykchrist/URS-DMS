@@ -1,5 +1,5 @@
 import type { User, UserRole, ServerUser, UserSession } from "@/types/domain"
-import { apiGet, apiPost, getAccessToken, clearServerToken, setServerToken } from "@/lib/http"
+import { apiGet, apiPost, apiPatch, getAccessToken, clearServerToken, setServerToken } from "@/lib/http"
 
 interface AuthState {
   isLoading: boolean
@@ -31,10 +31,11 @@ export function toClientUser(server: ServerUser): User {
       .trim(),
     email: server.email,
     role,
-    department: server.departmentId ?? "",
+    department: server.departmentName ?? server.departmentId ?? "",
     departmentId: server.departmentId ?? undefined,
     status: server.status === "ACTIVE" ? "Active" : "Inactive",
     memberSince: createdAt ?? new Date().toISOString(),
+    lastLogin: server.lastLogin ?? undefined,
     createdAt: createdAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     permissions: server.permissions,
@@ -117,17 +118,31 @@ class AuthService {
   }
 
   async forgotPassword(email: string): Promise<{ success: boolean; message: string }> {
-    void email
-    return {
-      success: false,
-      message: "Password reset is not available yet. Contact your administrator.",
+    try {
+      const data = await apiPost<{ message: string }>("/auth/forgot-password", { email })
+      return { success: true, message: data.message }
+    } catch (err) {
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : "Could not send the reset email. Please try again.",
+      }
     }
   }
 
   async resetPassword(token: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
-    void token
-    void newPassword
-    return { success: false, error: "Password reset is not available yet. Contact your administrator." }
+    try {
+      await apiPost<{ success: true }>("/auth/reset-password", { token, newPassword })
+      // The reset revoked every session; clear local tokens so the app
+      // returns to the login screen.
+      clearServerToken()
+      this.update({ isAuthenticated: false, user: null, token: null })
+      return { success: true }
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Password reset failed. Please try again.",
+      }
+    }
   }
 
   async me(): Promise<User | null> {
@@ -142,8 +157,23 @@ class AuthService {
     }
   }
 
-  async updateProfile(): Promise<{ success: boolean; user?: User; error?: string }> {
-    return { success: false, error: "Profile editing is not available yet" }
+  async updateProfile(patch: {
+    firstName?: string
+    middleName?: string | null
+    lastName?: string
+    suffix?: string | null
+  }): Promise<{ success: boolean; user?: User; error?: string }> {
+    try {
+      const server = await apiPatch<ServerUser>("/users/me", patch)
+      const user = toClientUser(server)
+      this.update({ user })
+      return { success: true, user }
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Failed to update profile",
+      }
+    }
   }
 
   async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
@@ -188,6 +218,7 @@ class AuthService {
       location: "",
       lastActive: s.createdAt,
       createdAt: s.createdAt,
+      expiresAt: s.expiresAt,
       current: s.current,
     }))
   }
@@ -196,8 +227,13 @@ class AuthService {
     await apiPost<{ success: true }>(`/auth/sessions/${encodeURIComponent(sessionId)}/kill`)
   }
 
-  async killAllOtherSessions(): Promise<void> {
-    await apiPost<{ success: true }>("/auth/sessions/kill-all")
+  async killAllOtherSessions(): Promise<number> {
+    const data = await apiPost<{ success: true; revoked: number }>("/auth/sessions/kill-all")
+    return data.revoked ?? 0
+  }
+
+  async meRaw(): Promise<ServerUser> {
+    return apiGet<ServerUser>("/auth/me")
   }
 }
 

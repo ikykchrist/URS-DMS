@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "@/utils/asyncHandler";
 import { authenticate } from "@/middlewares/authenticate";
-import { requirePermission } from "@/middlewares/authorize";
+import { requireAnyPermission, requirePermission } from "@/middlewares/authorize";
 import { validateBody, validateParams, validateQuery } from "@/middlewares/validate";
 import {
   createRequestSchema,
@@ -11,6 +11,7 @@ import {
 } from "@/modules/requests/requests.validator";
 import {
   approveRequestHandler,
+  browseRequestHandler,
   cancelRequestHandler,
   createRequestHandler,
   fulfillRequestHandler,
@@ -21,8 +22,9 @@ import {
 
 // =============================================================================
 // URS-DMS — requests routes
-// Listing/getting is gated by request.create OR request.manage; mutations on
-// create require request.create, decision mutations require request.manage.
+// Listing/getting is gated by request.create OR request.manage (managers such
+// as QAOs hold only request.manage but must review); mutations on create
+// require request.create, decision mutations require request.manage.
 // =============================================================================
 
 export const requestsRouter: Router = Router();
@@ -32,9 +34,16 @@ requestsRouter.use(authenticate);
 // GET /requests — list visible requests (scoped in service)
 requestsRouter.get(
   "/",
-  requirePermission("request.create"),
+  requireAnyPermission("request.create", "request.manage"),
   validateQuery(listRequestsQuerySchema),
   asyncHandler(listRequestsHandler),
+);
+
+// GET /requests/browse — list-only department archive bucket for requesters
+requestsRouter.get(
+  "/browse",
+  requirePermission("request.create"),
+  asyncHandler(browseRequestHandler),
 );
 
 // POST /requests — create a new request
@@ -48,7 +57,7 @@ requestsRouter.post(
 // GET /requests/:id — fetch a single request
 requestsRouter.get(
   "/:id",
-  requirePermission("request.create"),
+  requireAnyPermission("request.create", "request.manage"),
   validateParams(requestIdParamSchema),
   asyncHandler(getRequestHandler),
 );

@@ -1,26 +1,26 @@
 import { useState, useEffect, useCallback } from "react"
-import { FileText, Clock, CheckCircle, HardDrive, Upload, FilePlus, GraduationCap, ArrowRight, Award } from "lucide-react"
+import { FileText, Clock, CheckCircle, HardDrive, Upload, FilePlus, GraduationCap, ArrowRight, Award, Inbox } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { StatCard } from "@/components/layout/StatCard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/Table"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
 import { useAuth } from "@/context/AuthContext"
-import { listOnlineAaccupAreas, listAllOnlineAaccupAreas, listAllOnlineSubmissions } from "@/services/aaccup"
+import { listAllOnlineAaccupAreas, listAllOnlineSubmissions } from "@/services/aaccup"
 import { listOnlineDocuments } from "@/services/documents"
 import { listRequests } from "@/services/requests"
 import type { Document, DocumentRequest } from "@/types/domain"
 
 interface UserDashboardProps {
   onNavigate?: (page: string) => void
-}
-
-interface DeadlineArea {
-  id: string
-  number: string
-  title: string
-  dueDate: string
-  status: string
 }
 
 interface SetStats {
@@ -46,7 +46,6 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
   const { user } = useAuth()
   const [docs, setDocs] = useState<Document[]>([])
   const [requests, setRequests] = useState<DocumentRequest[]>([])
-  const [areas, setAreas] = useState<DeadlineArea[]>([])
   const [myStats, setMyStats] = useState({ total: 0, pending: 0, approved: 0, storageUsed: 0, storageReadable: "0 B" })
   const [setStats, setSetStats] = useState<Record<"AACCUP" | "ISO" | "CERT", SetStats>>({
     AACCUP: { areas: 0, submissions: 0, approved: 0, pending: 0 },
@@ -59,10 +58,9 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
     if (!user) return
     setLoading(true)
     try {
-      const [docsData, reqData, areasData, ...setData] = await Promise.all([
+      const [docsData, reqData, ...setData] = await Promise.all([
         listOnlineDocuments({ ownerId: user.id, archived: false }),
         listRequests({ submittedBy: user.id }),
-        listOnlineAaccupAreas(),
         ...(["AACCUP", "ISO", "CERT"] as const).map((areaSet) =>
           Promise.all([
             listAllOnlineAaccupAreas({ areaSet }),
@@ -73,13 +71,6 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
       const storage = docsData.reduce((sum, doc) => sum + (Number(doc.size) || 0), 0)
       setDocs(docsData)
       setRequests(reqData)
-      setAreas(areasData.map((area) => ({
-        id: area.id,
-        number: area.code,
-        title: area.name,
-        dueDate: "",
-        status: "",
-      })))
       const nextSetStats = { ...setStats }
       ;(["AACCUP", "ISO", "CERT"] as const).forEach((areaSet, index) => {
         const [setAreas, setSubs] = setData[index]
@@ -122,16 +113,6 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
     }
   }
 
-  const getDeadlineBadge = (dueDate: string, status: string) => {
-    const due = new Date(dueDate)
-    const now = new Date()
-    const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-    if (status === "Completed") return <Badge variant="success">Completed</Badge>
-    if (diffDays < 0) return <Badge variant="overdue">Overdue</Badge>
-    if (diffDays <= 7) return <Badge variant="due_soon">Due Soon</Badge>
-    return <Badge variant="pending">Upcoming</Badge>
-  }
-
   const activityTypeFromStatus = (status: string): "success" | "warning" | "info" => {
     if (status === "Approved") return "success"
     if (status === "Rejected" || status === "Returned") return "warning"
@@ -139,7 +120,7 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
   }
 
   const recentDocs = docs.slice(0, 5)
-  const upcomingAreas = areas.slice(0, 3)
+  const recentRequests = requests.slice(0, 3)
   const recentReqActivity = requests.slice(0, 4).map((r) => ({
     id: r.id,
     action: r.status === "Approved" ? "Request approved" : r.status === "Rejected" ? "Request rejected" : r.status === "Pending" ? "Request submitted" : "Request updated",
@@ -226,28 +207,28 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
         <Card className="border-gray-200/60 shadow-sm">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-[15px] font-semibold text-gray-900">Upcoming Deadlines</CardTitle>
-              <Button variant="ghost" size="sm" className="h-8 text-[12px] text-primary" onClick={() => onNavigate?.("aaccup")}>View All</Button>
+              <CardTitle className="text-[15px] font-semibold text-gray-900">Recent Requests</CardTitle>
+              <Button variant="ghost" size="sm" className="h-8 text-[12px] text-primary" onClick={() => onNavigate?.("requests")}>View All</Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? (
               <p className="text-[13px] text-gray-400">Loading...</p>
-            ) : upcomingAreas.length === 0 ? (
-              <p className="text-[13px] text-gray-400">No areas found</p>
+            ) : recentRequests.length === 0 ? (
+              <p className="text-[13px] text-gray-400">No requests yet</p>
             ) : (
-              upcomingAreas.map((area) => (
-                <div key={area.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <GraduationCap className="w-4 h-4 text-primary" />
+              recentRequests.map((request) => (
+                <div key={request.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Inbox className="w-4 h-4 text-primary" />
                     </div>
-                    <div>
-                      <p className="text-[13px] font-medium text-gray-900">Area {area.number}: {area.title}</p>
-                      {area.dueDate && <p className="text-[12px] text-gray-500">Due: {area.dueDate}</p>}
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-medium text-gray-900 truncate">{request.title}</p>
+                      <p className="text-[12px] text-gray-500">{request.documents.length} file{request.documents.length > 1 ? "s" : ""} · {new Date(request.dateSubmitted).toLocaleDateString()}</p>
                     </div>
                   </div>
-                  {area.dueDate && getDeadlineBadge(area.dueDate, area.status)}
+                  {getStatusBadge(request.status)}
                 </div>
               ))
             )}
@@ -328,37 +309,41 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Name</th>
-                  <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide hidden md:table-cell">Type</th>
-                  <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide hidden sm:table-cell">Date</th>
-                  <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Status</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="whitespace-nowrap">Name</TableHead>
+                  <TableHead className="whitespace-nowrap hidden md:table-cell">Type</TableHead>
+                  <TableHead className="whitespace-nowrap hidden sm:table-cell">Date</TableHead>
+                  <TableHead className="whitespace-nowrap">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {loading ? (
-                  <tr><td colSpan={4} className="px-4 py-6 text-center text-[13px] text-gray-400">Loading...</td></tr>
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-[13px] text-gray-400 py-6">Loading...</TableCell>
+                  </TableRow>
                 ) : recentDocs.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-6 text-center text-[13px] text-gray-400">No documents found</td></tr>
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-[13px] text-gray-400 py-6">No documents found</TableCell>
+                  </TableRow>
                 ) : (
                   recentDocs.map((doc) => (
-                    <tr key={doc.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                      <td className="px-4 py-3">
+                    <TableRow key={doc.id} className="hover:bg-gray-50/50 transition-colors">
+                      <TableCell>
                         <div className="flex items-center gap-2">
                           <FileText className="w-4 h-4 text-gray-400" />
                           <span className="text-[14px] font-medium text-gray-900">{doc.name}</span>
                         </div>
-                      </td>
-                      <td className="px-4 py-3 text-[13px] text-gray-500 hidden md:table-cell">{doc.type}</td>
-                      <td className="px-4 py-3 text-[13px] text-gray-500 hidden sm:table-cell">{new Date(doc.dateModified).toLocaleDateString()}</td>
-                      <td className="px-4 py-3">{getStatusBadge(doc.status)}</td>
-                    </tr>
+                      </TableCell>
+                      <TableCell className="text-[13px] text-gray-500 hidden md:table-cell">{doc.type}</TableCell>
+                      <TableCell className="text-[13px] text-gray-500 hidden sm:table-cell">{new Date(doc.dateModified).toLocaleDateString()}</TableCell>
+                      <TableCell>{getStatusBadge(doc.status)}</TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
           <div className="p-4 border-t border-gray-100">
             <Button variant="ghost" size="sm" className="text-primary" onClick={() => onNavigate?.("documents")}>

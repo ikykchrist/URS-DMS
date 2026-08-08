@@ -8,6 +8,7 @@ export interface AaccupTaskListItem {
   areaCode: string;
   areaName: string;
   areaSet: string;
+  departmentId: string | null;
   title: string;
   description: string | null;
   category: string | null;

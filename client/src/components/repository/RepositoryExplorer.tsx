@@ -245,7 +245,7 @@ export function RepositoryExplorer() {
   }, [load])
 
   // ── Repository-wide search ─────────────────────────────────────────────────
-  // In the "My Uploads" view a non-empty query searches the owner's WHOLE
+  // In the "My Documents" view a non-empty query searches the owner's WHOLE
   // repository through the backend (q + ownerId, no folder scoping) instead
   // of only filtering the open folder. Folder matches are filtered client-side
   // over the full tree already in state. Debounced 300ms.
@@ -683,7 +683,7 @@ export function RepositoryExplorer() {
       ? (folderById.get(targetFolderId)?.name ?? "Current folder")
       : currentFolderId
         ? (folderById.get(currentFolderId)?.name ?? "Current folder")
-        : "My Uploads"
+        : "My Documents"
     const items: UploadItem[] = Array.from(files).map((file) => ({
       id: `up_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       file,
@@ -1164,7 +1164,7 @@ export function RepositoryExplorer() {
             </Button>
           </div>
           <div className="space-y-0.5 mb-3">
-            <SectionButton active={section === "all" && currentFolderId === null} onClick={() => navigate(null)} icon={<FolderOpen className="w-4 h-4 text-amber-500" />} label="My Uploads" />
+            <SectionButton active={section === "all" && currentFolderId === null} onClick={() => navigate(null)} icon={<FolderOpen className="w-4 h-4 text-amber-500" />} label="My Documents" />
             {pins.length > 0 && (
               <div className="pt-2">
                 <p className="px-2 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Quick Access</p>
@@ -1217,7 +1217,7 @@ export function RepositoryExplorer() {
           onDrop={(e) => onPaneDrop(e)}>
           {dragOverPane && (
             <div className="mb-3 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/50 p-6 text-center">
-              <p className="text-[13px] font-medium text-blue-700">Drop files to upload into {currentFolderId ? folderById.get(currentFolderId)?.name ?? "this folder" : "My Uploads"}</p>
+              <p className="text-[13px] font-medium text-blue-700">Drop files to upload into {currentFolderId ? folderById.get(currentFolderId)?.name ?? "this folder" : "My Documents"}</p>
             </div>
           )}
 
@@ -1378,7 +1378,7 @@ export function RepositoryExplorer() {
               <button type="button" onClick={() => navigate(null)}
                 className={cn("px-2 py-1 rounded-md flex items-center gap-1.5 transition-colors",
                   currentFolderId === null ? "bg-gray-900 text-white font-medium" : "text-gray-600 hover:bg-gray-100")}>
-                <FolderOpen className="w-3.5 h-3.5" /> My Uploads
+                <FolderOpen className="w-3.5 h-3.5" /> My Documents
               </button>
               {crumbs.map((folder) => (
                 <div key={folder.id} className="flex items-center gap-1.5">
@@ -1732,7 +1732,7 @@ export function RepositoryExplorer() {
                 <SelectTrigger className="h-10"><SelectValue placeholder="Destination" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="original">Original location</SelectItem>
-                  <SelectItem value="root">My Uploads (root)</SelectItem>
+                  <SelectItem value="root">My Documents (root)</SelectItem>
                   {folders.filter((f) => f.id !== (restoreDialog?.type === "folder" ? restoreDialog.id : undefined)).map((folder) => (
                     <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>
                   ))}
@@ -1771,7 +1771,7 @@ export function RepositoryExplorer() {
               <Select value={copyDialog?.targetParentId ?? "root"} onValueChange={(v) => setCopyDialog((prev) => prev ? { ...prev, targetParentId: v } : prev)}>
                 <SelectTrigger className="h-10"><SelectValue placeholder="Destination" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="root">My Uploads (root)</SelectItem>
+                  <SelectItem value="root">My Documents (root)</SelectItem>
                   {folders.filter((f) => f.id !== copyDialog?.folder.id).map((folder) => (
                     <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>
                   ))}

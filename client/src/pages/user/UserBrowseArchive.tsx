@@ -1,208 +1,281 @@
 import { useState, useEffect, useCallback } from "react"
-import { ChevronLeft, Search, FolderOpen, FileText, Check } from "lucide-react"
+import { ArrowLeft, FileText, Info, Send } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
+import { Card, CardContent } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
-import { Input } from "@/components/ui/Input"
-import { Badge } from "@/components/ui/Badge"
+import { Label } from "@/components/ui/Label"
+import { Textarea } from "@/components/ui/Textarea"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/Table"
+import { EmptyState } from "@/components/ui/EmptyState"
+import { Skeleton } from "@/components/ui/Skeleton"
+import { toast } from "@/lib/toast"
+import { browseArchive, createRequest, type BrowseBucketItem } from "@/services/requests"
 import { cn } from "@/lib/utils"
-import { listSystemDepartments } from "@/services/admin"
-import { listOnlineDocuments } from "@/services/documents"
-import type { Document, Department } from "@/types/domain"
+
+// =============================================================================
+// UserBrowseArchive — department file bucket browser (Sprint).
+// List-only surface: file name, type, owner, date uploaded and size. Files
+// cannot be opened or downloaded here. The user selects up to 3 files and
+// must provide an explanation before submitting ONE request for them.
+// =============================================================================
+
+const MAX_FILES = 3
+
+function formatSize(sizeBytes: string | null): string {
+  if (!sizeBytes) return "—"
+  const bytes = Number(sizeBytes)
+  if (!Number.isFinite(bytes) || bytes <= 0) return "—"
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function fileTypeOf(item: BrowseBucketItem): string {
+  if (item.filename) {
+    const ext = item.filename.split(".").pop()
+    if (ext) return ext.toUpperCase()
+  }
+  if (item.mimeType) return item.mimeType.split("/")[1]?.toUpperCase() ?? "FILE"
+  return "FILE"
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "—"
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+}
 
 interface UserBrowseArchiveProps {
-  onBack?: () => void
-  onSubmitRequest?: (docIds: string[]) => void
+  onBack: () => void
+  onSuccess?: () => void
 }
 
-const getFileIcon = (type: string) => {
-  switch (type.toUpperCase()) {
-    case "PDF": return <FileText className="w-4 h-4 text-red-500" />
-    case "DOCX":
-    case "DOC": return <FileText className="w-4 h-4 text-blue-500" />
-    case "XLSX":
-    case "XLS": return <FileText className="w-4 h-4 text-emerald-600" />
-    default: return <FileText className="w-4 h-4 text-gray-400" />
-  }
-}
-
-export default function UserBrowseArchive({ onBack, onSubmitRequest }: UserBrowseArchiveProps) {
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [archivedDocs, setArchivedDocs] = useState<Document[]>([])
-  const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null)
-  const [selectedDocs, setSelectedDocs] = useState<string[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
+export default function UserBrowseArchive({ onBack, onSuccess }: UserBrowseArchiveProps) {
+  const [items, setItems] = useState<BrowseBucketItem[]>([])
+  const [departmentName, setDepartmentName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [explanation, setExplanation] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
-  const fetchData = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [deptPage, docs] = await Promise.all([
-        listSystemDepartments({ pageSize: 100 }),
-        listOnlineDocuments({ archived: true }),
-      ])
-      setDepartments(deptPage.items.map((dept) => ({
-        id: dept.id,
-        name: dept.name,
-        code: dept.code,
-        headUserId: dept.headId ?? undefined,
-        createdAt: dept.createdAt,
-        updatedAt: dept.updatedAt,
-      })))
-      setArchivedDocs(docs)
+      const bucket = await browseArchive()
+      setItems(bucket.items)
+      setDepartmentName(bucket.departmentName)
+    } catch {
+      setItems([])
+      setDepartmentName(null)
+      toast.error("Unable to load the archive. Please try again.")
     } finally {
       setLoading(false)
     }
   }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { void load() }, [load])
 
-  const docsByDept: Record<string, Document[]> = {}
-  for (const doc of archivedDocs) {
-    const dept = doc.department
-    if (!docsByDept[dept]) docsByDept[dept] = []
-    docsByDept[dept].push(doc)
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+        return next
+      }
+      if (next.size >= MAX_FILES) return prev
+      next.add(id)
+      return next
+    })
   }
 
-  const docsInSelectedDept = selectedDepartment ? (docsByDept[selectedDepartment] ?? []) : []
-  const filteredDocs = docsInSelectedDept.filter((d) => d.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const selectedItems = items.filter((item) => selectedIds.has(item.id))
 
-  const toggleDocSelection = (docId: string) => {
-    setSelectedDocs((prev) => prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId])
+  const handleSubmit = async () => {
+    if (selectedItems.length === 0) {
+      toast.error("Select at least one file to request")
+      return
+    }
+    if (!explanation.trim()) {
+      toast.error("Please provide an explanation for your request")
+      return
+    }
+    setSubmitting(true)
+    try {
+      await createRequest({
+        title: `Document Request - ${new Date().toISOString().slice(0, 10)}`,
+        purpose: explanation.trim(),
+        remarks: "",
+        priority: "Normal",
+        documents: selectedItems.map((item) => ({ documentId: item.id, documentName: item.title })),
+      })
+      toast.success("Request submitted for approval")
+      onSuccess?.()
+      onBack()
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to submit the request")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <PageHeader
-        title="Browse Document Archive"
-        description="Select documents to request access"
+        title="Browse Archive"
+        description={departmentName ? `Files from the ${departmentName} archive — preview and download are disabled while browsing.` : "Files from your department's archive"}
         actions={
           <Button variant="outline" onClick={onBack}>
-            <ChevronLeft className="w-4 h-4 mr-2" />
+            <ArrowLeft className="w-4 h-4 mr-2" />
             Back to My Requests
           </Button>
         }
       />
 
-      {selectedDocs.length > 0 && (
-        <Card className="border-primary/30 bg-primary/5 shadow-sm mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-[14px] font-medium text-gray-900">{selectedDocs.length} document{selectedDocs.length > 1 ? "s" : ""} selected</p>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-8" onClick={() => setSelectedDocs([])}>Clear Selection</Button>
-                <Button size="sm" className="h-8" onClick={() => onSubmitRequest?.(selectedDocs)}>Submit Request</Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
-        <Card className="border-gray-200/60 shadow-sm h-fit">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-[15px] font-semibold text-gray-900">Departments</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {loading ? (
-              <p className="text-[13px] text-gray-400 px-4 pb-4">Loading...</p>
-            ) : (
-              <nav className="space-y-1 px-4 pb-4">
-                {departments.map((dept) => (
-                  <button
-                    key={dept.id}
-                    onClick={() => { setSelectedDepartment(dept.name); setSelectedDocs([]) }}
-                    className={cn(
-                      "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150",
-                      selectedDepartment === dept.name ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <FolderOpen className={cn("w-[18px] h-[18px]", selectedDepartment === dept.name ? "text-white" : "text-gray-400")} />
-                      <span className="text-left truncate">{dept.name}</span>
-                    </div>
-                    <span className={cn("text-[12px]", selectedDepartment === dept.name ? "text-gray-300" : "text-gray-400")}>
-                      {docsByDept[dept.name]?.length ?? 0}
-                    </span>
-                  </button>
-                ))}
-              </nav>
+      <Card className="border-gray-200/60 shadow-sm">
+        <div className="px-5 pt-4 pb-0 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[12px] text-gray-500">
+            <Info className="w-4 h-4 text-gray-400" />
+            Select up to {MAX_FILES} files to request. You will see only the file name, type, owner, date, and size.
+          </div>
+          <span
+            className={cn(
+              "text-[12px] font-medium",
+              selectedIds.size >= MAX_FILES ? "text-amber-600" : "text-gray-500"
             )}
-          </CardContent>
-        </Card>
-
-        <div className="space-y-4">
-          {selectedDepartment ? (
-            <>
-              <Card className="border-gray-200/60 shadow-sm">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-[15px] font-semibold text-gray-900">{selectedDepartment}</h2>
-                    <Badge variant="secondary">{filteredDocs.length} documents</Badge>
-                  </div>
-                  <div className="relative max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      placeholder="Search documents..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 h-10 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-gray-200/60 shadow-sm">
-                <CardContent className="p-0 overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-100">
-                        <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-12"></th>
-                        <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Name</th>
-                        <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide hidden md:table-cell">Type</th>
-                        <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide hidden sm:table-cell">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredDocs.length === 0 ? (
-                        <tr><td colSpan={4} className="px-4 py-6 text-center text-[13px] text-gray-400">No documents found</td></tr>
-                      ) : (
-                        filteredDocs.map((doc) => {
-                          const isSelected = selectedDocs.includes(doc.id)
-                          return (
-                            <tr key={doc.id} className={cn("border-b border-gray-50 transition-colors cursor-pointer", isSelected ? "bg-primary/5" : "hover:bg-gray-50/50")} onClick={() => toggleDocSelection(doc.id)}>
-                              <td className="px-4 py-3">
-                                <div className={cn("w-5 h-5 rounded border-2 flex items-center justify-center transition-colors", isSelected ? "bg-primary border-primary" : "border-gray-300 hover:border-gray-400")}>
-                                  {isSelected && <Check className="w-3 h-3 text-white" />}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                  {getFileIcon(doc.type)}
-                                  <span className="text-[14px] font-medium text-gray-900">{doc.name}</span>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-[13px] text-gray-500 uppercase hidden md:table-cell">{doc.type}</td>
-                              <td className="px-4 py-3 text-[13px] text-gray-500 hidden sm:table-cell">{new Date(doc.dateModified).toLocaleDateString()}</td>
-                            </tr>
-                          )
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </CardContent>
-              </Card>
-            </>
-          ) : (
-            <Card className="border-gray-200/60 shadow-sm">
-              <CardContent className="p-8 text-center">
-                <FolderOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-[14px] text-gray-500">Select a department to view available documents</p>
-              </CardContent>
-            </Card>
-          )}
+          >
+            {selectedIds.size}/{MAX_FILES} selected
+          </span>
         </div>
-      </div>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10"></TableHead>
+                <TableHead>File Name</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Owner</TableHead>
+                <TableHead>Date Uploaded</TableHead>
+                <TableHead>Size</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading && (
+                <TableRow>
+                  <TableCell colSpan={6} className="p-5">
+                    <Skeleton variant="rectangular" className="h-16" />
+                  </TableCell>
+                </TableRow>
+              )}
+              {!loading && items.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6}>
+                    <EmptyState
+                      variant="archives"
+                      title="No files in your department archive"
+                      description="Files shared by your department will appear here once uploaded"
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
+              {!loading &&
+                items.map((item) => {
+                  const checked = selectedIds.has(item.id)
+                  const disabled = !checked && selectedIds.size >= MAX_FILES
+                  return (
+                    <TableRow
+                      key={item.id}
+                      className={cn(
+                        "hover:bg-gray-50/50 transition-colors cursor-pointer select-none",
+                        checked && "bg-primary/5"
+                      )}
+                      onClick={() => toggleSelect(item.id)}
+                    >
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-gray-300 accent-primary cursor-pointer"
+                          checked={checked}
+                          disabled={disabled}
+                          onChange={() => toggleSelect(item.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                            <FileText className="w-4 h-4 text-gray-500" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[14px] font-medium text-gray-900 max-w-[280px] truncate">
+                              {item.title}
+                            </p>
+                            {item.filename && item.filename !== item.title && (
+                              <p className="text-[11px] text-gray-400 truncate max-w-[280px]">{item.filename}</p>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="px-2 py-1 text-[11px] font-medium bg-gray-100 text-gray-700 rounded">
+                          {fileTypeOf(item)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[13px] text-gray-700">{item.ownerName}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[13px] text-gray-500">{formatDate(item.uploadedAt)}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[13px] text-gray-500">{formatSize(item.sizeBytes)}</span>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card className="border-gray-200/60 shadow-sm mt-6">
+        <CardContent className="p-5">
+          <div className="grid gap-3">
+            <Label htmlFor="requestExplanation" className="text-[13px] font-medium text-gray-700">
+              Explanation <span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              id="requestExplanation"
+              placeholder="Explain why you need access to the selected file(s)..."
+              className="min-h-[110px] resize-none"
+              value={explanation}
+              onChange={(e) => setExplanation(e.target.value)}
+              maxLength={2000}
+            />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <p className="text-[12px] text-gray-500">
+                {selectedItems.length === 0
+                  ? "No files selected"
+                  : `Requesting ${selectedItems.length} file${selectedItems.length > 1 ? "s" : ""}: ${selectedItems.map((item) => item.title).join(", ")}`}
+              </p>
+              <Button
+                onClick={() => void handleSubmit()}
+                disabled={submitting || selectedItems.length === 0 || !explanation.trim()}
+                className="shadow-sm"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                {submitting ? "Submitting..." : "Submit Request"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

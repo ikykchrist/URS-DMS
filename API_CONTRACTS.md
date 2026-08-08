@@ -3413,3 +3413,236 @@ override. Client services live in `client/src/services/root.ts`.
   `AACCUP_SUBMISSION_REJECTED` (submitter); retention sweep →
   `RECYCLE_BIN_CLEANUP` (owner); storage threshold crossed →
   `STORAGE_WARNING` (admins, throttled 24h).
+
+---
+
+## AACCUP group + tasks + submissions + requests (2026-08-08)
+
+> Additions/changes from the AACCUP group sprint (8.5) and the UI
+> unification pass (8.6). All endpoints under /api/v1, standard envelope.
+
+### AACCUP tasks — assignee picker
+
+``markdown
+GET /aaccup/tasks/assignees        (permission: aaccup.read)
+→ { success, data: { users: [{ id, fullName }], departments: [{ id, name }] } }
+Active users + non-archived departments for the Create Task modal (QAOs no
+longer need admin user.read).
+``
+
+### AACCUP tasks — list
+
+``markdown
+GET /aaccup/tasks                  (permission: aaccup.read)
+Query: areaId?, status?, priority?, assigneeType?, mine?("true"),
+       q?, page?, pageSize?, sort?, order?
+mine=true returns tasks assigned to the caller (USER target) or to a
+DEPARTMENT the caller belongs to (user portal "My Tasks").
+List item now also carries departmentId (the task area's department).
+``
+
+### AACCUP tasks — create / update
+
+``markdown
+POST /aaccup/tasks                 (permission: aaccup.manage)
+Body: { areaId*, title*, description?, category?, priority?,
+        dueDate? (ISO | null — nullable, no longer coerces null→1970),
+        requirementId? (uuid|null, same area), assigneeType?,
+        assigneeId* }
+Emits AACCUP_TASK_ASSIGNED to the assignee (department → all ACTIVE members)
+and audit aaccup_task.created.
+
+PATCH /aaccup/tasks/:id            (authorized in the service: manager OR assignee)
+Assignees may only send { status } along OPEN → IN_PROGRESS → COMPLETED
+(409 otherwise, 403 for other fields). Managers may send any updateable field
+(title, description, category, priority, status, dueDate, requirementId,
+assigneeType, assigneeId).
+``
+
+### AACCUP submissions — create with task
+
+``markdown
+POST /aaccup/submissions           (permission: aaccup.submission.create)
+Body: { requirementId*, documentId*, taskId? (uuid|null), remarks? }
+	askId must reference a non-archived, OPEN/IN_PROGRESS task in the same area
+whose requirement (if any) matches the submission's requirement.
+Emits AACCUP_SUBMISSION_PENDING_REVIEW to every ACTIVE user holding
+aaccup.submission.review or aaccup.manage (best-effort, never fails creation).
+``
+
+### AACCUP submissions — list shape
+
+``markdown
+GET /aaccup/submissions            (permission: aaccup.submission.read)
+List item additions:
+  departmentId: string | null      (document department, falls back to area)
+  departmentName: string | null
+  taskId / taskTitle / taskStatus: submission's linked task
+Non-reviewers/non-managers still see only their own rows (unchanged).
+``
+
+### AACCUP requirements — management (full CRUD)
+
+``markdown
+POST   /aaccup/requirements        (permission: aaccup.requirement.create)
+Body: { areaId*, title*, documentCode*, description?, category?, priority?,
+        isRequired? (default true), status? (ACTIVE|INACTIVE), displayOrder? }
+409 if the area is managed by the Root Requirement Builder or the
+documentCode already exists for the area.
+
+PATCH  /aaccup/requirements/:id    (permission: aaccup.requirement.update)
+Body: any subset of the create fields (areaId?, title?, documentCode?, ...).
+
+DELETE /aaccup/requirements/:id    (permission: aaccup.requirement.archive) → 200
+Soft delete (deletedAt); rows leave ACTIVE lists.
+
+GET    /aaccup/requirements?areaId=&status=&q=&...   (aaccup.requirement.read)
+``
+
+### Requests — multi-file create
+
+``markdown
+POST /requests                     (permission: request.create)
+Body: { title*, justification* (1–2000), documentIds: uuid[] (1–3) }
+Legacy single documentId still accepted (becomes documentIds[0]).
+Response item gains items: [{ documentId, title, filename, mimeType,
+sizeBytes (string), ownerName, uploadedAt }] and equesterEmail.
+``
+
+### Requests — list access widened
+
+``markdown
+GET /requests                      (permission: request.create OR request.manage)
+GET /requests/:id                  (permission: request.create OR request.manage)
+Managers (e.g. QAO holding only request.manage) can now list/review.
+``
+
+### Requests — reject requires reason
+
+``markdown
+POST /requests/:id/reject          (permission: request.manage)
+Body: { decisionNote* (required — 400 when missing/blank) }
+Approve keeps decisionNote optional.
+``
+
+### Requests — department archive browse (list-only)
+
+``markdown
+GET /requests/browse               (permission: request.create)
+→ { success, data: { departmentId, departmentName,
+    items: [{ id, title, filename, mimeType, sizeBytes (string), ownerName,
+             departmentId, departmentName, uploadedAt, folderName }] } }
+Documents where departmentId = the caller's department, deletedAt null.
+LIST-ONLY: no presigned URLs are issued — files cannot be opened/downloaded
+from this surface (the browse UI shows name, type, owner, date, size only).
+``
+
+### Fulfillment
+
+``markdown
+POST /requests/:id/fulfill         (permission: request.manage)
+Now delivers EVERY request item (clones each source document into the
+requester's repository; shared immutable blob, metadata.requestId).
+``
+
+### Notifications (new types)
+
+- AACCUP_TASK_ASSIGNED — task creation (assignee / department members).
+- AACCUP_SUBMISSION_PENDING_REVIEW — submission creation (reviewers).
+(Added via migrations 20260830000000_aaccup_task_submission_link and
+20260831000000_add_submission_pending_review.)
+
+### Data layer (migrations)
+
+- 20260830000000_aaccup_task_submission_link — accup_submissions.taskId
+  (FK → aaccup_tasks, SET NULL) + AACCUP_TASK_ASSIGNED enum value.
+- 20260831000000_add_submission_pending_review — notification enum value.
+- 20260831010000_add_request_items — document_request_items table.
+- 20260831020000_request_items_document_cascade — documentId FK RESTRICT →
+  CASCADE (permanent document delete was 500ing on request-item references).
+
+### Upload size limit removed (D-028)
+
+- POST /documents/:id/version accepts any positive sizeBytes — the hard
+  100 MB cap is gone.
+- ssertUploadPolicy (documents service) enforces ONLY the
+  upload.allowed_file_types allowlist; upload.max_size_bytes is no longer
+  read (seed entry removed; stale DB rows are ignored).
+- The admin Settings "Default Upload Size Limit" selector was removed; the
+  legacy maxUploadSizeBytes system-setting field still exists in the API
+  for compatibility and is ignored by uploads.
+
+### Presigned URL host (D-027)
+
+- presignUpload / presignDownload responses carry URLs signed for
+  MINIO_PUBLIC_ENDPOINT when it is set (e.g. a Cloudflare tunnel), so the
+  host the browser PUTs/GETs matches the signed host (SigV4). With
+  MINIO_PUBLIC_ENDPOINT unset they fall back to the internal endpoint —
+  identical to previous behavior.
+
+### Sprint 8.1 — Account & Session management
+
+``markdown
+GET   /auth/me                            (authenticated)
+→ { user: { id, employeeId, email, firstName, middleName, lastName, suffix,
+            status, role, departmentId, departmentName, createdAt, lastLogin,
+            permissions } }
+Safe view — never returns password/refresh hashes or tokens. (Preexisting
+endpoint; added departmentName/createdAt/lastLogin.)
+
+PATCH /users/me                           (permission: users.self.update)
+Body: { firstName?, middleName? (string|null), lastName?, suffix? (string|null) }
+Strict whitelist — roleId/status/departmentId/email/permissions → 400
+(mass-assignment / privilege-escalation guard). Operates on the
+authenticated identity only (userId is never accepted in the body).
+→ { user: <safe view> }   Audit: user.profile_updated (once).
+
+GET   /auth/sessions                      (authenticated)
+→ { sessions: [{ id, device, browser, ipAddress, createdAt, expiresAt,
+                 current }] }
+current marks THIS session (req.auth.sessionId — not IP matching). No
+tokens/hashes exposed. (Preexisting.)
+
+POST  /auth/sessions/:sessionId/kill      (authenticated)
+Revokes one of the caller's OWN sessions; 400 if it is the current session;
+404 for unknown or another user's session. Audit: session.revoked (once).
+(Preexisting; now audited.)
+
+POST  /auth/sessions/kill-all             (authenticated)
+Revokes every active session except the current one. → { success, revoked }.
+Audit: session.revoked_others (once). (Preexisting; now audited.)
+
+POST  /auth/change-password               (authenticated)  — preexisting
+POST  /auth/logout                        (authenticated)  — preexisting
+``
+
+### Sprint 8.2 — Password recovery
+
+``markdown
+POST /auth/forgot-password                  (public, rate-limited 12/15 min per IP)
+Body: { email }
+→ 200 { success, data: { message } } — ALWAYS the SAME generic message:
+  "If an account exists for this email, password reset instructions have
+  been sent." Known and unknown accounts are indistinguishable. Known
+  ACTIVE accounts receive a single-use reset email (durable queue).
+  Audit: auth.password_reset.requested (once, known accounts only).
+
+POST /auth/reset-password                   (public, rate-limited 12/15 min per IP)
+Body: { token (>= 20 chars), newPassword (>= PASSWORD_MIN_LENGTH, <= 128) }
+→ 200 { success, data: { success: true } }
+Rejects (generic 401 "invalid or expired"): unknown / expired / already-used
+tokens; 400 when the new password equals the current one. On success the
+Argon2 hash is updated, the token is consumed, all other outstanding tokens
+are invalidated, and EVERY refresh session is revoked (old refresh tokens
+fail once the frozen-auth 60s rotation grace passes).
+Audit: auth.password_reset.completed / .failed (once each).
+
+GET /auth/dev/reset-link?email=             (DEVELOPMENT ONLY — 404 otherwise)
+→ { success, data: { token } | { token: null } }
+Returns the latest single-use reset token for the email so local testing can
+exercise the full flow without SMTP. Never available in production.
+
+Schema (migration 20260831030000_add_password_reset_tokens):
+  PasswordResetToken { id, userId (FK→users, CASCADE), tokenHash (unique,
+  SHA-256), expiresAt, usedAt?, createdAt } — plaintext tokens never stored.
+``

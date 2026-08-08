@@ -7,7 +7,6 @@ import {
   RotateCw,
   Printer,
   Download,
-  MoreHorizontal,
   CheckCircle,
   RotateCcw,
   XCircle,
@@ -212,9 +211,6 @@ export function DocumentPreviewModal({
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600" onClick={handleDownload} disabled={!blobUrl}>
                   <Download className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600">
-                  <MoreHorizontal className="w-4 h-4" />
                 </Button>
               </div>
             </div>

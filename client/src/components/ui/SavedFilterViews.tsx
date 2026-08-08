@@ -29,10 +29,9 @@ interface SavedFilterViewsProps {
 const defaultFilters: SavedFilter[] = [
   { id: "all", label: "All Submissions", filters: {}, isDefault: true },
   { id: "pending", label: "Pending Approvals", filters: { status: "pending" } },
-  { id: "overdue", label: "Overdue Tasks", filters: { status: "overdue" } },
-  { id: "area1", label: "Area I Files", filters: { area: "1" } },
+  { id: "approved", label: "Approved", filters: { status: "approved" } },
   { id: "returned", label: "Needs Revision", filters: { status: "returned" } },
-  { id: "recent", label: "Recent Uploads", filters: { dateRange: "week" } },
+  { id: "rejected", label: "Rejected", filters: { status: "rejected" } },
 ]
 
 export function SavedFilterViews({ onApplyFilter, onSaveFilter, currentFilters, className }: SavedFilterViewsProps) {

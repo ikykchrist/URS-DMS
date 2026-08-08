@@ -114,7 +114,7 @@ export const addVersionSchema = z.object({
   mimeType: z.enum(ALLOWED_MIME_TYPES, {
     errorMap: () => ({ message: "Unsupported file type" }),
   }),
-  sizeBytes: z.coerce.bigint().positive().max(BigInt("104857600")), // 100 MB cap
+  sizeBytes: z.coerce.bigint().positive(),
   checksum: z
     .string()
     .trim()

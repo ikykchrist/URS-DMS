@@ -12,6 +12,7 @@ import {
   archiveTaskHandler,
   createTaskHandler,
   getTaskHandler,
+  listTaskAssigneesHandler,
   listTasksHandler,
   restoreTaskHandler,
   updateTaskHandler,
@@ -22,6 +23,9 @@ import {
 // Mounted under /aaccup in aaccup.routes.ts. The parent authenticates, so
 // task routes gate via the existing manager/read codes: mutations require
 // aaccup.manage (admins + QAOs), reads require aaccup.read (managers hold it).
+// PATCH /aaccup/tasks/:id is the exception: authorization (manager OR task
+// assignee) is enforced inside the service so assigned users can move their
+// own task status forward.
 // =============================================================================
 
 export const aaccupTasksRouter: Router = Router();
@@ -32,6 +36,13 @@ aaccupTasksRouter.get(
   requirePermission("aaccup.read"),
   validateQuery(listTasksQuerySchema),
   asyncHandler(listTasksHandler),
+);
+
+// GET /aaccup/tasks/assignees — assignee picker for the Create Task modal
+aaccupTasksRouter.get(
+  "/assignees",
+  requirePermission("aaccup.read"),
+  asyncHandler(listTaskAssigneesHandler),
 );
 
 // POST /aaccup/tasks
@@ -53,7 +64,6 @@ aaccupTasksRouter.get(
 // PATCH /aaccup/tasks/:id
 aaccupTasksRouter.patch(
   "/:id",
-  requirePermission("aaccup.manage"),
   validateParams(taskIdParamSchema),
   validateBody(updateTaskSchema),
   asyncHandler(updateTaskHandler),
