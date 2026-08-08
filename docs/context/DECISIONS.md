@@ -310,6 +310,84 @@
   through the Roles & Permissions management page take immediate UI effect.
 - **Status**: ACCEPTED
 
+### D-035 — Folder color/icon customization (Rule 31)
+- **Decision**: Personal repository folders gain nullable `color` (hex string,
+  validated server-side via `z.regex(/^#[0-9a-fA-F]{6}$/)`) and `icon`
+  (safe identifier, max 50 chars) columns. Users customize their own folders
+  via the existing `PATCH /folders/:id` endpoint. System folders (My Uploads,
+  Requested Documents) are virtual roots — never customised.
+- **Reason**: User-requested visual organization; safe string storage with no
+  executable/script payload.
+- **Status**: ACCEPTED
+
+### D-036 — Same filename allowed across different folders (Rule 32)
+- **Decision**: Filename uniqueness is enforced only within the same parent
+  folder. No global repository-wide uniqueness constraint. Search results
+  include folder path to disambiguate duplicates.
+- **Reason**: Natural file system behavior; already the existing design.
+- **Status**: ACCEPTED
+
+### D-037 — ZIP upload + safe extraction (Rule 33)
+- **Decision**: ZIP files can be uploaded normally or extracted. Extraction
+  enforces: ZIP Slip protection (rejects `..`, absolute, drive-letter paths),
+  max 10,000 entries, 100:1 expansion ratio bomb protection, depth 5
+  enforcement, conflict modes (keep_both/replace/cancel). Extraction is
+  explicit user action — never automatic.
+- **Reason**: Administrative convenience with safety-first extraction;
+  prevents path-traversal attacks and resource exhaustion.
+- **Status**: ACCEPTED
+
+### D-038 — Folder ZIP download excludes deleted/submission-only items (Rule 34)
+- **Decision**: Folder ZIP download includes only active files and folders.
+  Excludes Recycle Bin items, deleted files, hidden temp files, and
+  submission-only snapshot records not represented as active repository files.
+- **Status**: ACCEPTED
+
+### D-039 — Resumable multipart uploads (Rule 35)
+- **Decision**: Large files support resumable multipart upload via MinIO
+  presigned part URLs. Upload session state persisted in DB. Abandoned
+  multipart uploads cleaned via Sprint 8.3 maintenance infrastructure.
+- **Reason**: Practical for large video/uploads on unreliable connections.
+- **Status**: ACCEPTED
+
+### D-040 — File replacement preserves identity (Rule 36)
+- **Decision**: Replacing a file preserves its identity (ID), parent folder,
+  display name, favorite state, and activity history. Only content (bytes,
+  checksum, size, MIME type, stored object reference, modified date) is
+  updated. Existing immutable AACCUP submission snapshots reference the OLD
+  content — replacement never modifies submitted evidence.
+- **Status**: ACCEPTED
+
+### D-041 — Recycle Bin shows days remaining (Rule 37)
+- **Decision**: Recycle Bin display includes computed days-remaining until
+  permanent deletion (30-day window from `deletedAt`). No redundant
+  persisted column — calculated client-side from authoritative timestamps.
+- **Status**: ACCEPTED
+
+### D-042 — Bulk destructive actions require confirmation dialogs (Rule 38)
+- **Decision**: Delete to Recycle Bin uses standard confirmation. Empty
+  Recycle Bin and Permanent Delete use strong confirmation with
+  irreversible warning. Bulk move shows no unnecessary confirmation.
+  Large copy (>1000 items) requires confirmation before creating a
+  background job.
+- **Status**: ACCEPTED
+
+### D-043 — File Details panel shows authoritative data (Rule 39)
+- **Decision**: File Details displays general metadata (name, type, size,
+  dates), repository info (location, favorite, submission badge, download
+  count via audit aggregation), activity timeline from real audit events,
+  and advanced info (UUID, checksum). Never exposes credentials, presigned
+  secrets, or token values.
+- **Status**: ACCEPTED
+
+### D-044 — Service-unavailable handling (Rule 40)
+- **Decision**: Distinct handling per dependency failure: API unavailable
+  shows connection error with retry. PostgreSQL unavailable disables
+  mutations. MinIO unavailable disables upload/download but allows metadata
+  browsing. Redis unavailable disables background jobs but allows synchronous
+  operations. No fake/mock data fallback.
+- **Status**: ACCEPTED
+
 ## Status legend
 
 | Status | Meaning |

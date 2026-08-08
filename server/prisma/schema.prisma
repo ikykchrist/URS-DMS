@@ -316,6 +316,8 @@ model Department {
 model Folder {
   id            String      @id @default(uuid())
   name          String
+  color         String?
+  icon          String?
   parentId      String?
   parent        Folder?     @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
   children      Folder[]    @relation("FolderTree")

@@ -608,6 +608,8 @@ export async function listPinnedFolders(actor: Actor): Promise<{ items: FolderLi
       parentId: folder.parentId,
       departmentId: folder.departmentId,
       ownerId: folder.ownerId,
+      color: (folder as any).color ?? null,
+      icon: (folder as any).icon ?? null,
       documentCount: 0,
       childCount: 0,
       createdAt: folder.createdAt,

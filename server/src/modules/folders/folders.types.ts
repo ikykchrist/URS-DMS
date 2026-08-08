@@ -10,6 +10,8 @@ export interface FolderListItem {
   parentId: string | null;
   departmentId: string | null;
   ownerId: string | null;
+  color: string | null;
+  icon: string | null;
   documentCount: number;
   childCount: number;
   createdAt: Date;
@@ -66,6 +68,8 @@ export interface ResolvedFolderStructure {
 export const folderSelect = {
   id: true,
   name: true,
+  color: true,
+  icon: true,
   parentId: true,
   departmentId: true,
   ownerId: true,
@@ -75,4 +79,4 @@ export const folderSelect = {
   parent: { select: { id: true, name: true } },
   children: { select: { id: true }, where: { deletedAt: null } },
   documents: { select: { id: true }, where: { deletedAt: null } },
-} satisfies Prisma.FolderSelect;
+};

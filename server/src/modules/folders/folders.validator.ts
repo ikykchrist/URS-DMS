@@ -32,6 +32,8 @@ export const updateFolderSchema = z
     name: z.string().trim().min(1).max(255).optional(),
     parentId: z.string().uuid().nullable().optional(),
     departmentId: z.string().uuid().nullable().optional(),
+    color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color").nullable().optional(),
+    icon: z.string().max(50).nullable().optional(),
   })
   .strict();
 export type UpdateFolderInput = z.infer<typeof updateFolderSchema>;

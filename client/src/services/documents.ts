@@ -488,6 +488,8 @@ export interface RepositoryFolderRow {
   parentId: string | null
   departmentId: string | null
   ownerId: string | null
+  color: string | null
+  icon: string | null
   documentCount: number
   childCount: number
   createdAt: string
@@ -511,6 +513,10 @@ export async function listRepositoryFolders(options?: {
 
 export async function renameRepositoryFolder(id: string, name: string): Promise<RepositoryFolderRow> {
   return apiPatch<RepositoryFolderRow>(`/folders/${encodeURIComponent(id)}`, { name })
+}
+
+export async function customizeFolder(id: string, patch: { color?: string | null; icon?: string | null }): Promise<RepositoryFolderRow> {
+  return apiPatch<RepositoryFolderRow>(`/folders/${encodeURIComponent(id)}`, patch)
 }
 
 /** Move a folder under a new parent (null = repository root). */

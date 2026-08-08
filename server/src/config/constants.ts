@@ -84,6 +84,12 @@ export const AUDIT_ACTIONS = {
   STORAGE_CHECK_COMPLETED: "maintenance.storage_check.completed",
   MANUAL_MAINTENANCE_TRIGGERED: "maintenance.manual_triggered",
 
+  // Sprint 8.7 — Repository UX rules 31-40
+  FOLDER_CUSTOMIZED: "folder.customized",
+  ZIP_EXTRACTED: "document.zip_extracted",
+  FILE_REPLACED: "document.replaced",
+  UPLOAD_RESUMED: "document.upload_resumed",
+
   DOCUMENT_CREATED: "document.created",
   DOCUMENT_UPDATED: "document.updated",
   DOCUMENT_DELETED: "document.deleted",

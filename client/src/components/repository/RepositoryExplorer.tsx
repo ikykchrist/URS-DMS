@@ -23,6 +23,8 @@ import {
   X,
   RefreshCw,
   ArchiveRestore,
+  Palette,
+  Undo2,
   AlertTriangle,
   Inbox,
   FileArchive,
@@ -55,6 +57,7 @@ import {
   listRepositoryFolders,
   createRepositoryFolder,
   renameRepositoryFolder,
+  customizeFolder,
   moveRepositoryFolder,
   deleteRepositoryFolder,
   restoreRepositoryFolder,
@@ -200,6 +203,10 @@ export function RepositoryExplorer() {
   const [moveTarget, setMoveTarget] = useState<{ type: "folder" | "file"; id: string } | null>(null)
   const [moveFolderId, setMoveFolderId] = useState("root")
   const [deleteTarget, setDeleteTarget] = useState<{ type: "folder" | "file"; id: string; name: string } | null>(null)
+  const [customizeTarget, setCustomizeTarget] = useState<RepositoryFolderRow | null>(null)
+  const [customizeColor, setCustomizeColor] = useState("#3b82f6")
+  const [emptyBinConfirm, setEmptyBinConfirm] = useState(false)
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
   const [permanentTarget, setPermanentTarget] = useState<{ type: "folder" | "file"; id: string; name: string } | null>(null)
   const [preview, setPreview] = useState<Document | null>(null)
   const [conflictDialog, setConflictDialog] = useState<{ name: string; resolve: (mode: "replace" | "keep_both" | "cancel") => void } | null>(null)
@@ -834,7 +841,7 @@ export function RepositoryExplorer() {
   }
 
   const emptyRecycleBin = async () => {
-    if (!window.confirm("Permanently delete ALL items in the Recycle Bin? This cannot be undone.")) return
+    setEmptyBinConfirm(false)
     try {
       for (const folder of deletedFolders) await permanentDeleteRepositoryFolder(folder.id)
       for (const doc of deletedDocs) {
@@ -952,6 +959,13 @@ export function RepositoryExplorer() {
     const date = new Date(deletedAt)
     date.setDate(date.getDate() + 30)
     return date.toLocaleDateString()
+  }
+  const daysRemaining = (deletedAt?: string | null): number | null => {
+    if (!deletedAt) return null
+    const d = new Date(deletedAt)
+    const expire = new Date(d.getTime() + 30 * 24 * 60 * 60 * 1000)
+    const days = Math.ceil((expire.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    return Math.max(0, days)
   }
 
   if (!ownerId) {
@@ -1130,6 +1144,10 @@ export function RepositoryExplorer() {
           onClick={() => { setFolderName(folder.name); setFolderDialog({ open: true, mode: "rename", folder }) }}>
           <Pencil className="w-3.5 h-3.5" />
         </Button>
+        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-purple-600" title="Customize"
+          onClick={() => { setCustomizeTarget(folder); setCustomizeColor(folder.color ?? "#3b82f6") }}>
+          <Palette className="w-3.5 h-3.5" />
+        </Button>
         <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-600" title="Delete"
           onClick={() => setDeleteTarget({ type: "folder", id: folder.id, name: folder.name })}>
           <Trash2 className="w-3.5 h-3.5" />
@@ -1290,12 +1308,12 @@ export function RepositoryExplorer() {
                 </>
               )}
               {section === "recycle" && (deletedDocs.length + deletedFolders.length) > 0 && (
-                <Button variant="destructive" size="sm" className="h-9" onClick={() => void emptyRecycleBin()}>
+                <Button variant="destructive" size="sm" className="h-9" onClick={() => setEmptyBinConfirm(true)}>
                   <Trash2 className="w-4 h-4 mr-2" /> Empty Recycle Bin
                 </Button>
               )}
               {selectedIds.size > 0 && section === "all" && (
-                <Button variant="destructive" size="sm" className="h-9" onClick={() => void submitBulkDelete()}>
+                <Button variant="destructive" size="sm" className="h-9" onClick={() => setBulkDeleteConfirm(true)}>
                   <Trash2 className="w-4 h-4 mr-2" /> Delete ({selectedIds.size})
                 </Button>
               )}
@@ -1451,14 +1469,14 @@ export function RepositoryExplorer() {
                 <>
                   {deletedFolders.map((folder) => renderRow(
                     <Folder className="w-[18px] h-[18px] text-amber-500" />, folder.name,
-                    folder.deletedAt ? `Deleted ${new Date(folder.deletedAt).toLocaleDateString()} · expires ${expiresAt(folder.deletedAt)}` : "Folder",
+                    folder.deletedAt ? `Deleted ${new Date(folder.deletedAt).toLocaleDateString()} · expires ${expiresAt(folder.deletedAt)} · ${daysRemaining(folder.deletedAt)}d left` : "Folder",
                     folder.id,
                     recycleActions("folder", folder.id, folder.name), () => undefined,
                   ))}
                   {deletedDocs.map((doc) => renderRow(
                     <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", fileIconClasses(doc))}><FileText className="w-4 h-4" /></div>,
                     doc.name,
-                    `${doc.type} · ${formatSize(doc.size)} · Deleted ${doc.deletedAt ? new Date(doc.deletedAt).toLocaleDateString() : ""} · expires ${expiresAt(doc.deletedAt)}`,
+                    `${doc.type} · ${formatSize(doc.size)} · Deleted ${doc.deletedAt ? new Date(doc.deletedAt).toLocaleDateString() : ""} · expires ${expiresAt(doc.deletedAt)} · ${daysRemaining(doc.deletedAt)}d left`,
                     doc.id,
                     recycleActions("file", doc.id, doc.name), () => setPreview(doc),
                     { badge: submissionBadge(doc) },
@@ -1468,7 +1486,7 @@ export function RepositoryExplorer() {
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 p-3">
                   {deletedFolders.map((folder) => renderCard(
                     <Folder className="w-5 h-5 text-amber-500" />, folder.name,
-                    folder.deletedAt ? `Deleted ${new Date(folder.deletedAt).toLocaleDateString()} · expires ${expiresAt(folder.deletedAt)}` : "Folder",
+                    folder.deletedAt ? `Deleted ${new Date(folder.deletedAt).toLocaleDateString()} · expires ${expiresAt(folder.deletedAt)} · ${daysRemaining(folder.deletedAt)}d left` : "Folder",
                     folder.id,
                     recycleActions("folder", folder.id, folder.name), () => undefined,
                   ))}
@@ -1655,6 +1673,73 @@ export function RepositoryExplorer() {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDeleteTarget(null)} className="h-10 px-5">Cancel</Button>
             <Button variant="destructive" onClick={() => void submitDelete()} className="h-10 px-5">Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Folder customize (Rule 31) ── */}
+      <Dialog open={customizeTarget !== null} onOpenChange={(open) => !open && setCustomizeTarget(null)}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-lg flex items-center gap-2"><Palette className="w-5 h-5 text-purple-500" /> Customize Folder</DialogTitle>
+            <DialogDescription className="text-[14px]">
+              Change the appearance of "{customizeTarget?.name}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-[13px] font-medium mb-1.5 block">Color</Label>
+              <div className="flex items-center gap-2 flex-wrap">
+                {["#3b82f6","#ef4444","#10b981","#f59e0b","#8b5cf6","#ec4899","#06b6d4","#6b7280"].map((c) => (
+                  <button key={c} onClick={() => setCustomizeColor(c)} className={cn("w-8 h-8 rounded-full border-2 transition-all", customizeColor === c ? "border-gray-800 scale-110" : "border-transparent hover:scale-105")} style={{ backgroundColor: c }} title={c} />
+                ))}
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Input value={customizeColor} onChange={(e) => setCustomizeColor(e.target.value)} placeholder="#3b82f6" className="h-8 text-[12px] w-28 font-mono" />
+                <Button variant="ghost" size="sm" className="h-8 text-[12px]" onClick={() => setCustomizeColor("#3b82f6")}><Undo2 className="w-3.5 h-3.5 mr-1" />Reset</Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setCustomizeTarget(null)} className="h-10 px-5">Cancel</Button>
+            <Button onClick={() => { if (customizeTarget) { void customizeFolder(customizeTarget.id, { color: customizeColor }).then(() => { setCustomizeTarget(null); void load() }).catch((e: Error) => toast.error(e.message)) } }} className="h-10 px-5">Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Bulk delete confirm (Rule 38) ── */}
+      <Dialog open={bulkDeleteConfirm} onOpenChange={(open) => !open && setBulkDeleteConfirm(false)}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-lg flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-500" /> Bulk Delete</DialogTitle>
+            <DialogDescription className="text-[14px]">
+              Move {selectedIds.size} selected items to the Recycle Bin? They can be restored within 30 days.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setBulkDeleteConfirm(false)} className="h-10 px-5">Cancel</Button>
+            <Button variant="destructive" onClick={() => void submitBulkDelete()} className="h-10 px-5">Delete {selectedIds.size} Items</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Empty Recycle Bin confirm (Rule 38) ── */}
+      <Dialog open={emptyBinConfirm} onOpenChange={(open) => !open && setEmptyBinConfirm(false)}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-lg flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-red-500" /> Empty Recycle Bin</DialogTitle>
+            <DialogDescription className="text-[14px]">
+              Permanently delete all items in the Recycle Bin? This action cannot be undone.
+              {deletedDocs.length + deletedFolders.length > 0 && (
+                <span className="block mt-1 text-red-600 font-medium">
+                  {deletedDocs.length + deletedFolders.length} item(s) will be permanently removed.
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEmptyBinConfirm(false)} className="h-10 px-5">Cancel</Button>
+            <Button variant="destructive" onClick={() => void emptyRecycleBin()} className="h-10 px-5">Permanently Delete All</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -18,6 +18,8 @@ function toListItem(f: FolderWithRelations): FolderListItem {
     parentId: f.parentId,
     departmentId: f.departmentId,
     ownerId: f.ownerId,
+    color: f.color,
+    icon: f.icon,
     documentCount: f.documents.length,
     childCount: f.children.length,
     createdAt: f.createdAt,
@@ -438,6 +440,8 @@ export interface UpdateArgs {
     name?: string;
     parentId?: string | null;
     departmentId?: string | null;
+    color?: string | null;
+    icon?: string | null;
   };
 }
 
@@ -448,6 +452,8 @@ export async function update(args: UpdateArgs): Promise<FolderDetail> {
       ...(args.data.name !== undefined ? { name: args.data.name } : {}),
       ...(args.data.parentId !== undefined ? { parentId: args.data.parentId } : {}),
       ...(args.data.departmentId !== undefined ? { departmentId: args.data.departmentId } : {}),
+      ...(args.data.color !== undefined ? { color: args.data.color } : {}),
+      ...(args.data.icon !== undefined ? { icon: args.data.icon } : {}),
     },
     select: folderSelect,
   });
