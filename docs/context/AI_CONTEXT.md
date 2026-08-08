@@ -12,7 +12,7 @@
 | Project | URS-DMS — University Recognition System Document Management System (AACCUP/ISO/Certification + personal repositories), local deployment, zero internet dependency |
 | Version | 1.0 (Release Candidate) |
 | Phase | Stabilization / defense-demo readiness |
-| Current sprint | Sprint 8.3 Repository Maintenance — COMPLETE (29/29 smoke) |
+| Current sprint | Sprint 8.4 Roles & Permissions Management — COMPLETE (28/28 smoke) |
 | Current goal | Finish 1.0 backlog (defense readiness, Cloudflare VPS deployment); keep every surface demo-safe with real data only |
 
 ## 2. Tech stack
@@ -89,6 +89,13 @@ codes, additive-only). Details: `engineering/architecture.md`.
   `maintenance-cleanup.js` (manual `--dry-run`/`--confirm`),
   `maintenance-storage-check.js` (read-only); 7 audit event types;
   reference-safe MinIO deletion respects copies, deliveries, AACCUP snapshots
+- Roles & Permissions management (Sprint 8.4): `modules/root/
+  root.rolesPermissions.*` under `/root/roles-permissions` (ROOT-only matrix
+  view + permission-binding mutation); Root Console Roles & Permissions page
+  (`RootRolesPermissions.tsx`); client-side permission system refactored to
+  server-authoritative `hasServerPermission(user, code)` using granular
+  codes from `/auth/me`; legacy `ROLE_PERMISSIONS` hardcoded matrix retained
+  for backward compatibility
 - Tooling: `restart-server.ps1`, `ai-dev.bat`, `tunnel-all.ps1` /
   `tunnel-stop.ps1` (Cloudflare quick-tunnel deploy + restore),
   `scripts/cleanup-demo-data.js`,
@@ -116,9 +123,9 @@ codes, additive-only). Details: `engineering/architecture.md`.
 - Background copy jobs run in-process (no worker process; crash restarts the
   job as FAILED — acceptable for 1.0).
 - Client `ROLE_PERMISSIONS` (permissions.tsx) is a hand-maintained parallel
-  matrix that can drift from the server role matrix; client UI never
-  hard-gates by it (intentional — see D-025), so 403s surface from the API
-  if drift occurs (e.g. department_head review buttons).
+  matrix retained for backward compatibility; new code should use
+  `hasServerPermission(user, code)` (Sprint 8.4). The server is always the
+  authoritative gate — client permission checks are UX only.
 - Frozen `lib/storage.ts` was modified once by explicit request (D-027 —
   presigned URLs signed for `MINIO_PUBLIC_ENDPOINT`); treat it as frozen
   again.
@@ -142,7 +149,6 @@ codes, additive-only). Details: `engineering/architecture.md`.
 
 1. **Cloudflare VPS production deployment** — V1.0 release readiness; DNS,
    SSL, automated backups, monitoring.
-2. UX/feedback consistency; bug fixes surfaced by demos.
 
 ## 7. Non-negotiables
 

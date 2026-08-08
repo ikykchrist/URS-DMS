@@ -30,6 +30,7 @@ import { workflowRouter } from "@/modules/workflow/workflow.routes";
 import { formRouter } from "@/modules/root/root.form.routes";
 import { setupRouter } from "@/modules/root/root.setup.routes";
 import { maintenanceRouter } from "@/modules/maintenance/maintenance.routes";
+import { rootRolesPermissionsRouter } from "@/modules/root/root.rolesPermissions.routes";
 
 // =============================================================================
 // URS-DMS â€” Root routes (Sprint 7.4.1)
@@ -164,3 +165,4 @@ rootRouter.use("/forms", formRouter);
 // every piece of business data it creates flows through the existing engines.
 rootRouter.use("/setup", setupRouter);
 rootRouter.use("/maintenance", maintenanceRouter);
+rootRouter.use("/roles-permissions", rootRolesPermissionsRouter);

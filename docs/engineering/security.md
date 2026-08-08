@@ -31,6 +31,16 @@
 - **Escalation guard**: ADMINISTRATOR and member roles can never acquire
   `ROOT_ONLY_CODES`.
 - See `specification/users.md` for the role table.
+- **Sprint 8.4 — Roles & Permissions Management**: ROOT-only page
+  (`/root/roles-permissions`) surfaces the full permission matrix with
+  per-role assignment checkboxes, permission search, module filtering,
+  and Save Changes with confirmation diff. Protected permissions (ROOT
+  codes, system roles) are displayed as locked/disabled. All changes are
+  guarded by privilege-escalation checks and audited.
+- **Client permissions** (Sprint 8.4): the client-side permission system is
+  now server-authoritative via `useServerPermission(user, code)`. The
+  legacy `ROLE_PERMISSIONS` matrix in `permissions.tsx` is retained for
+  backward compatibility only.
 
 ## Ownership
 

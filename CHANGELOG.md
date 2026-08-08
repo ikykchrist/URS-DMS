@@ -6,7 +6,66 @@
 
 ---
 
-## Sprint 8.3 — Repository Maintenance & Storage Integrity (2026-08-08)
+## Sprint 8.4 — Roles & Permissions Management (2026-08-08)
+
+**Backend**
+
+- New `modules/root/root.rolesPermissions.routes.ts` + `root.rolesPermissions.service.ts`
+  mounted under `/root/roles-permissions` (hard `requireRole("ROOT")` — no
+  ADMIN access):
+  - `GET /root/roles-permissions/matrix` — returns all roles with bound
+    permission codes + full permission catalog + ROOT-only codes.
+  - `GET /root/roles-permissions/catalog` — returns the full permission
+    catalog (code, module, description).
+  - `PATCH /root/roles-permissions/roles/:id/permissions` — replaces a
+    role's permission bindings atomically with privilege-escalation guard
+    and catalog validation; ROOT role permissions are fixed and immutable;
+    ADMINISTRATOR role is mutable (through Root Console only).
+- Reuses existing `admin/roles/roles.repository.ts` for data access — no
+  duplicate business logic. All guards (escalation, ROOT protection,
+  catalog validation) are re-asserted in the root service layer.
+
+**Client**
+
+- `RootRolesPermissions.tsx` (~410 lines) — ROOT-only page with role list
+  panel (left), permission matrix panel (right) grouped by module. Features:
+  - Permission checkboxes per role with toggle, search, and module filter
+    pills.
+  - ROOT-protected codes shown as locked + disabled with shield icon.
+  - ROOT ONLY badge on `rootOnlyCodes`.
+  - Modified/unsaved state indication with Reset and Save Changes buttons.
+  - Confirmation dialog with diff summary (added/removed codes) before save.
+  - Loading skeleton, empty state, archived role state.
+  Registered in `App.tsx` (`root-roles-permissions`) and `Sidebar.tsx`
+  (Roles & Permissions under Root Console, Shield icon).
+- `lib/permissions.tsx` refactored (Sprint 8.4):
+  - New `hasServerPermission(user, code)` — checks `user.permissions`
+    array (populated from `GET /auth/me`). **Preferred method for new code.**
+  - New `hasAnyServerPermission(user, codes)` / `hasAllServerPermissions(user, codes)`.
+  - New `getUserPermissions(user)` — returns full set.
+  - New `isRootUser(user)` — server-authoritative ROOT check via
+    `root.access` code.
+  - New `isAdminUser(user)` — server-authoritative admin-gate check.
+  - Legacy `ROLE_PERMISSIONS` matrix, `isAdminRole()`, `isRootRole()`
+    retained for backward compatibility.
+- `services/admin.ts` — new API wrappers: `getRolesPermissionMatrix()`,
+  `getPermissionCatalog()`, `updateRolePermissions(roleId, permissions)`.
+
+**Docs**
+
+- `engineering/security.md`: RBAC section updated with Sprint 8.4 additions.
+- `specification/users.md`: server-authoritative client permissions + management page.
+- `AI_CONTEXT.md` / `PROJECT_STATUS.md` / `CHANGELOG.md` updated.
+- `API_CONTRACTS.md`: root roles-permissions endpoints documented.
+
+**Smoke**
+
+- `scripts/smoke-roles-permissions.ps1` — 28 checks covering authorization
+  (ROOT-only matrix, ADMIN/FACULTY/anon denied), matrix structure (roles,
+  catalog, rootOnlyCodes), catalog grouping, PATCH permission save +
+  persist + restore, ROOT permission protection (blocked mutation),
+  escalation guard (admin PATCH denied), `/auth/me` granular permissions
+  (root + faculty), and audit trail.
 
 **Backend**
 

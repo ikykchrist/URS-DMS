@@ -86,6 +86,7 @@ const RootDashboard = lazy(() => import("@/pages/root/RootDashboard"))
 const RootConfigurations = lazy(() => import("@/pages/root/RootConfigurations"))
 const RootAudit = lazy(() => import("@/pages/root/RootAudit"))
 const RootMaintenance = lazy(() => import("@/pages/root/RootMaintenance"))
+const RootRolesPermissions = lazy(() => import("@/pages/root/RootRolesPermissions"))
 const RootUsers = lazy(() => import("@/pages/root/RootUsers"))
 const RootOrganization = lazy(() => import("@/pages/root/RootOrganization"))
 const RootFolderBuilder = lazy(() => import("@/pages/root/RootFolderBuilder"))
@@ -698,6 +699,7 @@ function AppContent() {
     "/root-setup-wizard": "root-setup-wizard",
     "/root-config": "root-config",
     "/root-maintenance": "root-maintenance",
+    "/root-roles-permissions": "root-roles-permissions",
     "/root-audit": "root-audit",
     "/root-users": "root-users",
   }
@@ -742,6 +744,7 @@ function AppContent() {
     "root-setup-wizard": "Setup Wizard",
     "root-config": "Configuration Engine",
     "root-maintenance": "Storage Maintenance",
+    "root-roles-permissions": "Roles &amp; Permissions",
     "root-audit": "System Audit",
     "root-users": "System Users",
   }
@@ -775,6 +778,7 @@ function AppContent() {
       "root-setup-wizard": "/root-setup-wizard",
       "root-config": "/root-config",
       "root-maintenance": "/root-maintenance",
+      "root-roles-permissions": "/root-roles-permissions",
       "root-audit": "/root-audit",
       "root-users": "/root-users",
     }
@@ -843,6 +847,7 @@ function AppContent() {
           {activePage === "root-setup-wizard" && <RootSetupWizard />}
           {activePage === "root-config" && <RootConfigurations />}
           {activePage === "root-maintenance" && <RootMaintenance />}
+          {activePage === "root-roles-permissions" && <RootRolesPermissions />}
           {activePage === "root-audit" && <RootAudit />}
           {activePage === "root-users" && <RootUsers />}
           {activePage === "dashboard" && <Dashboard onNavigate={handleNavigate} />}
@@ -1146,6 +1151,10 @@ function AppRoutes() {
       />
       <Route
         path="/root-maintenance"
+        element={isAuthenticated && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/root-roles-permissions"
         element={isAuthenticated && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route

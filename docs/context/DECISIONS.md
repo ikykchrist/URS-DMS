@@ -298,6 +298,18 @@
   infrastructure, and survives the worker crash scenario the spec mandates.
 - **Status**: ACCEPTED
 
+### D-034 — Server-authoritative client permission system (Sprint 8.4)
+- **Decision**: The client-side `ROLE_PERMISSIONS` hardcoded boolean matrix
+  (`permissions.tsx`) is deprecated in favor of `hasServerPermission(user, code)`
+  which reads from the granular `permissions` string array returned by
+  `GET /auth/me`. New code must use server-authoritative checks; the legacy
+  matrix is retained for backward compatibility only.
+- **Reason**: Eliminates frontend/backend permission drift (D-025 context);
+  the broken `ROLE_PERMISSIONS` matrix that assigned identical flags to ROOT
+  and ADMIN is no longer the only client-side gate. Server permission changes
+  through the Roles & Permissions management page take immediate UI effect.
+- **Status**: ACCEPTED
+
 ## Status legend
 
 | Status | Meaning |

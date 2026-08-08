@@ -1,5 +1,55 @@
 import type { ReactNode } from "react"
-import type { UserRole, RolePermissions } from "@/types/domain"
+import type { UserRole, RolePermissions, User } from "@/types/domain"
+
+// =============================================================================
+// URS-DMS — Permission helpers (Sprint 8.4: server-authoritative refactor)
+//
+// The ROLE_PERMISSIONS matrix below is a LEGACY mapping retained for backward
+// compatibility. New code should prefer `hasServerPermission(user, code)` which
+// reads the granular permission array from the server (user.permissions).
+// The server is always the authoritative gate — client permission checks are
+// UX only.
+// =============================================================================
+
+/**
+ * Checks whether the current user holds a specific server permission code.
+ * This is the PREFERRED method for new code. It reads from user.permissions
+ * which is populated by GET /auth/me at login time.
+ *
+ * Examples:
+ *   hasServerPermission(user, "users.create")
+ *   hasServerPermission(user, "root.access")
+ *   hasServerPermission(user, "role.read")
+ */
+export function hasServerPermission(user: User | null | undefined, code: string): boolean {
+  if (!user) return false
+  if (!user.permissions) return false
+  return user.permissions.includes(code)
+}
+
+/**
+ * Checks whether the current user holds ANY of the specified server permission codes.
+ */
+export function hasAnyServerPermission(user: User | null | undefined, codes: string[]): boolean {
+  if (!user || !user.permissions) return false
+  return codes.some((c) => user.permissions!.includes(c))
+}
+
+/**
+ * Checks whether the current user holds ALL of the specified server permission codes.
+ */
+export function hasAllServerPermissions(user: User | null | undefined, codes: string[]): boolean {
+  if (!user || !user.permissions) return false
+  return codes.every((c) => user.permissions!.includes(c))
+}
+
+/**
+ * Returns the full set of server permission codes held by the user, or an
+ * empty array if the user is not loaded. Use for batch checks.
+ */
+export function getUserPermissions(user: User | null | undefined): string[] {
+  return user?.permissions ?? []
+}
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: "Super Admin",
@@ -144,6 +194,28 @@ export function isAdminRole(role: UserRole | undefined): boolean {
 
 export function isRootRole(role: UserRole | undefined): boolean {
   return role === "root"
+}
+
+/**
+ * Server-authoritative ROOT check. Prefer this over isRootRole() in new code
+ * because it validates against the actual permission set, not a hardcoded role.
+ */
+export function isRootUser(user: User | null | undefined): boolean {
+  return hasServerPermission(user, "root.access")
+}
+
+/**
+ * Server-authoritative admin-gate check. Returns true when the user holds
+ * permissions that indicate admin-portal access (e.g. user.read from the admin
+ * surface, or root.access).
+ */
+export function isAdminUser(user: User | null | undefined): boolean {
+  return hasAnyServerPermission(user, [
+    "root.access",
+    "user.read",
+    "role.read",
+    "permission.read",
+  ])
 }
 
 export function isReviewerRole(role: UserRole | undefined): boolean {

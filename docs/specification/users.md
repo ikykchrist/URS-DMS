@@ -26,6 +26,14 @@ through permissions (see `engineering/security.md`).
 - **Additive-only**: never remove existing codes; grant by adding to the
   matrix + re-running the seed.
 - Escalation guard: admin cannot acquire ROOT-only codes.
+- **Sprint 8.4**: Role permission bindings are now editable via the ROOT-only
+  Roles & Permissions management page (`/root-roles-permissions`). Changes
+  persist to PostgreSQL immediately; affected users receive updated permissions
+  on their next page refresh/login. One audit event per binding change.
+- **Client**: `lib/permissions.tsx` exposes `hasServerPermission(user, code)`
+  which reads from the `permissions` array returned by `GET /auth/me`. The
+  legacy `ROLE_PERMISSIONS` hardcoded matrix is retained for backward
+  compatibility but new code should prefer server-authoritative checks.
 
 ## Root protection (D-006)
 

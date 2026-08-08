@@ -18,6 +18,7 @@ import {
   FileCheck2,
   Workflow,
   HardDrive,
+  Shield,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { confirmLeaveIfUploading } from "@/lib/uploadBus"
@@ -49,6 +50,7 @@ const rootConsoleItems: SidebarItem[] = [
   { id: "root-setup-wizard", icon: Rocket, label: "Setup Wizard" },
   { id: "root-config", icon: SlidersHorizontal, label: "Configuration Engine" },
   { id: "root-maintenance", icon: HardDrive, label: "Storage Maintenance" },
+  { id: "root-roles-permissions", icon: Shield, label: "Roles &amp; Permissions" },
   { id: "root-audit", icon: ScrollText, label: "System Audit" },
   { id: "root-users", icon: Users, label: "System Users" },
 ]

@@ -135,6 +135,55 @@ export async function listSystemRoles(query?: {
   return apiGetPage<SystemRole>(`/admin/roles${qs}`)
 }
 
+// ── Roles & Permissions Matrix (Root Console — Sprint 8.4) ────────────────────
+
+export interface ServerPermissionCatalogEntry {
+  code: string
+  module: string
+  description: string
+}
+
+export interface ServerRoleMatrixEntry {
+  id: string
+  name: string
+  description: string | null
+  isSystem: boolean
+  userCount: number
+  permissionCount: number
+  deletedAt: string | null
+  boundPermissions: string[]
+}
+
+export interface ServerRolesPermissionMatrix {
+  roles: ServerRoleMatrixEntry[]
+  catalog: ServerPermissionCatalogEntry[]
+  rootOnlyCodes: string[]
+}
+
+export interface ServerRolePermissionUpdateResult {
+  role: ServerRoleMatrixEntry
+  added: string[]
+  removed: string[]
+}
+
+export async function getRolesPermissionMatrix(): Promise<ServerRolesPermissionMatrix> {
+  return apiGet<ServerRolesPermissionMatrix>("/root/roles-permissions/matrix")
+}
+
+export async function getPermissionCatalog(): Promise<ServerPermissionCatalogEntry[]> {
+  return apiGet<ServerPermissionCatalogEntry[]>("/root/roles-permissions/catalog")
+}
+
+export async function updateRolePermissions(
+  roleId: string,
+  permissions: string[],
+): Promise<ServerRolePermissionUpdateResult> {
+  return apiPatch<ServerRolePermissionUpdateResult>(
+    `/root/roles-permissions/roles/${encodeURIComponent(roleId)}/permissions`,
+    { permissions },
+  )
+}
+
 // ── Departments (/admin/departments) ─────────────────────────────────────────
 
 export interface SystemDepartment {
