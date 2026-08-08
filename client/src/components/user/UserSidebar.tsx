@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils"
 import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import { Button } from "@/components/ui/Button"
+import { Logo } from "@/components/layout/Logo"
 import { useAuth } from "@/context/AuthContext"
 
 interface SidebarItem {
@@ -71,31 +72,15 @@ export function UserSidebar({
     >
       <div className="flex flex-col h-full">
         <div className={cn(
-          "flex items-center border-b border-gray-100",
+          "flex items-center border-b border-gray-100 dark:border-gray-800",
           collapsed ? "justify-center px-5 py-5" : "justify-between px-5 py-5"
         )}>
-          {!collapsed && (
-            <button
-              onClick={() => handleNavigate("dashboard")}
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-            >
-              <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shadow-sm">
-                <FileText className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-[15px] font-semibold text-gray-900 tracking-tight">URS-DMS</h1>
-                <p className="text-[11px] text-gray-500 font-medium">User Portal</p>
-              </div>
-            </button>
-          )}
-          {collapsed && (
-            <button
-              onClick={() => handleNavigate("dashboard")}
-              className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shadow-sm hover:opacity-80 transition-opacity"
-            >
-              <FileText className="w-5 h-5 text-white" />
-            </button>
-          )}
+          <button
+            onClick={() => handleNavigate("dashboard")}
+            className="hover:opacity-80 transition-opacity"
+          >
+            <Logo size="sm" showText={!collapsed} subtitle="User Portal" />
+          </button>
         </div>
 
         <nav className="flex-1 px-3 py-4 overflow-y-auto">

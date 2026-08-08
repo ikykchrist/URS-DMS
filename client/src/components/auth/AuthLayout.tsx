@@ -1,5 +1,6 @@
 import { ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import { Logo } from "@/components/layout/Logo"
 
 interface AuthLayoutProps {
   children: ReactNode
@@ -13,18 +14,7 @@ export function AuthLayout({ children, className }: AuthLayoutProps) {
       <div className="hidden lg:flex lg:w-1/2 bg-[#2563EB] flex-col justify-between p-12 xl:p-16">
         <div>
           <div className="flex items-center gap-3 mb-16">
-            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M14 2V8H20" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M12 18V12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M9 15H15" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-white text-xl font-bold">URS-DMS</h1>
-              <p className="text-white/70 text-sm">Document Management System</p>
-            </div>
+            <Logo size="lg" showText={true} subtitle="Document Management System" className="[&_h1]:text-white [&_p]:text-white/70" />
           </div>
 
           <div className="mb-12">
@@ -60,7 +50,7 @@ export function AuthLayout({ children, className }: AuthLayoutProps) {
         </div>
 
         <div className="flex items-center gap-6 text-white/60 text-sm">
-          <span>© 2024 University of Rizal System</span>
+          <span>© 2026 University of Rizal System</span>
         </div>
       </div>
 
