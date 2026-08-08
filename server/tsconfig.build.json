@@ -6,5 +6,5 @@
     "sourceMap": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "prisma"]
+  "exclude": ["node_modules", "dist", "prisma", "src/__tests__", "**/*.test.ts", "**/*.spec.ts"]
 }

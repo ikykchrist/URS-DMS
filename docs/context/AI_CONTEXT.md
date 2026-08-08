@@ -12,7 +12,7 @@
 | Project | URS-DMS — University Recognition System Document Management System (AACCUP/ISO/Certification + personal repositories), local deployment, zero internet dependency |
 | Version | 1.0 (Release Candidate) |
 | Phase | Stabilization / defense-demo readiness |
-| Current sprint | Sprint 8.5 Background Jobs & Concurrency — COMPLETE (12/12 smoke) |
+| Current sprint | Sprint 8.6 Automated Testing & Engineering Cleanup — COMPLETE (46/46 tests) |
 | Current goal | Finish 1.0 backlog (defense readiness, Cloudflare VPS deployment); keep every surface demo-safe with real data only |
 
 ## 2. Tech stack
@@ -100,6 +100,9 @@ codes, additive-only). Details: `engineering/architecture.md`.
   `workers/` (folderCopy, folderZip, email, maintenance); graceful shutdown
   with Redis/BullMQ/Prisma disconnect; `/health` endpoint now reports Redis +
   queue metrics + memory; Prisma pool `connection_limit=20`; load-test script
+- Automated testing (Sprint 8.6): Vitest 2.1 with coverage, 46 tests across 3
+  suites (RBAC, repository ownership, audit/notifications); test helpers/
+  factories; client ESLint 9 flat config; `docs/testing/TESTING.md`
 - Tooling: `restart-server.ps1`, `ai-dev.bat`, `tunnel-all.ps1` /
   `tunnel-stop.ps1` (Cloudflare quick-tunnel deploy + restore),
   `scripts/cleanup-demo-data.js`,
@@ -113,8 +116,10 @@ codes, additive-only). Details: `engineering/architecture.md`.
 
 ## 5. Known issues (confirmed)
 
-- No test files (server `test` exits 1; vitest unused).
-- No ESLint 9 config for the client (`lint` cannot start).
+- No test files (server `test` exits 1; vitest unused). RESOLVED in 8.6: 46 tests,
+  3 suites, coverage configured.
+- No ESLint 9 config for the client (`lint` cannot start). RESOLVED in 8.6:
+  `client/eslint.config.mjs` with flat config.
 - `prisma migrate dev` broken — manual SQL + `migrate deploy` (D-012).
 - `DocumentRequest` has no soft-delete column (archival needs a migration).
 - MinIO object GC is now fully operational (Sprint 8.3): scheduled
