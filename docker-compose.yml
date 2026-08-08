@@ -85,6 +85,27 @@ services:
       - urs-net
 
   # ────────────────────────────────────────────────────────
+  # Redis 7 — BullMQ queue backend + session cache
+  # ────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: urs-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - urs-redis-data:/data
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - urs-net
+
+  # ────────────────────────────────────────────────────────
   # URS-DMS server — Node.js + Express + Prisma
   # ────────────────────────────────────────────────────────
   server:
@@ -97,10 +118,12 @@ services:
       - .env
     environment:
       # Override docker-internal hostnames
-      DATABASE_URL: postgresql://${POSTGRES_USER:-urs_user}:${POSTGRES_PASSWORD:-urs_password}@urs-postgres:5432/${POSTGRES_DB:-urs_dms}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-urs_user}:${POSTGRES_PASSWORD:-urs_password}@urs-postgres:5432/${POSTGRES_DB:-urs_dms}?schema=public&connection_limit=20&pool_timeout=30
       MINIO_ENDPOINT: urs-minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: "false"
+      REDIS_HOST: urs-redis
+      REDIS_PORT: 6379
       NODE_ENV: production
       PORT: 4000
     volumes:
@@ -111,6 +134,8 @@ services:
       postgres:
         condition: service_healthy
       minio:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/v1/health"]
@@ -130,6 +155,8 @@ volumes:
   urs-minio-data:
     driver: local
   urs-pgadmin-data:
+    driver: local
+  urs-redis-data:
     driver: local
   urs-server-logs:
     driver: local

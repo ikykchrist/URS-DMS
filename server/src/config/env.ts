@@ -95,6 +95,18 @@ const envSchema = z.object({
   SMTP_USER: z.string().trim().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().trim().email().optional(),
+
+  // Sprint 8.5 — Redis + BullMQ background jobs
+  REDIS_HOST: z.string().default("localhost"),
+  REDIS_PORT: integerFromString.pipe(z.number().int().min(1).max(65535)).default(6379),
+  REDIS_PASSWORD: z.string().optional(),
+
+  // Sprint 8.5 — Resource limits
+  DATABASE_CONNECTION_LIMIT: integerFromString.pipe(z.number().int().min(1).max(100)).default(20),
+  WORKER_CONCURRENCY: integerFromString.pipe(z.number().int().min(1).max(20)).default(3),
+  JOB_RETRY_LIMIT: integerFromString.pipe(z.number().int().min(0).max(10)).default(3),
+  JOB_TIMEOUT_MS: integerFromString.pipe(z.number().int().min(5000).max(600000)).default(300000),
+  ZIP_EXPIRATION_SECONDS: integerFromString.pipe(z.number().int().min(60).max(86400)).default(3600),
 })
   .superRefine((val, ctx) => {
     if (val.EMAIL_PROVIDER !== "smtp") return;

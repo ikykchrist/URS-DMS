@@ -136,7 +136,17 @@
 | **Public APIs** | `/root/maintenance/status`, `/root/maintenance/storage`, `/root/maintenance/check`, `/root/maintenance/orphans`, `/root/maintenance/scan`, `/root/maintenance/cleanup-recycle`, `/root/maintenance/cleanup-orphans` |
 | **Docs** | `engineering/storage.md` (Maintenance section), `specification/repository.md` (Recycle Bin), `DECISIONS.md` (D-032, D-033) |
 
-## 13. Health
+## 13. Background Jobs & Queues (Sprint 8.5)
+
+| | |
+|---|---|
+| **Backend** | `lib/redis.ts` (ioredis singleton), `lib/queue.ts` (BullMQ — 4 named queues: `urs-folder-copy`, `urs-folder-zip`, `urs-email-delivery`, `urs-maintenance`), `workers/` (folderCopy, folderZip, email, maintenance) |
+| **Frontend** | — (polls `repository_copy_jobs` for progress; ZIP results via Redis key) |
+| **Database** | `EmailMessage`, `RepositoryCopyJob`, `MaintenanceJob` (existing) |
+| **Dependencies** | ioredis, bullmq, Redis 7 (Docker) |
+| **Docs** | `engineering/backend.md` (Background Jobs section) |
+
+## 14. Health
 
 | | |
 |---|---|
@@ -147,7 +157,7 @@
 | **Public APIs** | `/health` |
 | **Docs** | `engineering/architecture.md` |
 
-## 14. Shared infrastructure (cross-cutting)
+## 15. Shared infrastructure (cross-cutting)
 
 | | |
 |---|---|

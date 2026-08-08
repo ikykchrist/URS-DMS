@@ -444,7 +444,7 @@ async function runFolderCopy(
   return copied;
 }
 
-/** Persisted background copy job (rule 9). */
+/** Persisted background copy job via BullMQ (Sprint 8.5). */
 async function startFolderCopyJob(
   sourceId: string,
   targetParentId: string | null,
@@ -466,80 +466,20 @@ async function startFolderCopyJob(
     },
   });
 
-  void (async () => {
-    try {
-      await prisma.repositoryCopyJob.update({
-        where: { id: job.id },
-        data: { status: "RUNNING", startedAt: new Date() },
-      });
-
-      const source = await repo.findById(sourceId);
-      if (!source) throw new Error("Source folder no longer exists");
-
-      const conflict = await repo.findSameNameFolder(targetParentId, source.name, actor.id, sourceId);
-      let resultFolderId: string | null = null;
-
-      if (conflict && conflict.id !== sourceId && conflictMode === "merge") {
-        await repo.copyChildrenInto(sourceId, conflict.id, actor.id, repositoryId, async (processed) => {
-          await prisma.repositoryCopyJob.update({
-            where: { id: job.id },
-            data: { processedItems: processed },
-          });
-        });
-        resultFolderId = conflict.id;
-      } else {
-        let usedName = source.name;
-        if (conflict && conflict.id !== sourceId) {
-          if (conflictMode === "cancel") throw new ConflictError(`Folder "${source.name}" already exists`);
-          usedName = await repo.uniqueFolderName(targetParentId, source.name, actor.id);
-        }
-        let throttled = 0;
-        resultFolderId = await repo.copySubtree({
-          sourceId,
-          newParentId: targetParentId,
-          ownerId: actor.id,
-          repositoryId,
-          total: totalItems,
-          onProgress: async (processed) => {
-            throttled += 1;
-            if (throttled % 25 === 0 || processed === totalItems) {
-              await prisma.repositoryCopyJob.update({
-                where: { id: job.id },
-                data: { processedItems: processed },
-              });
-            }
-          },
-        });
-        if (usedName !== source.name) {
-          await repo.update({ id: resultFolderId, data: { name: usedName } });
-        }
-      }
-
-      await prisma.repositoryCopyJob.update({
-        where: { id: job.id },
-        data: { status: "COMPLETED", processedItems: totalItems, resultFolderId, completedAt: new Date() },
-      });
-
-      await writeAudit({
-        action: AUDIT_ACTIONS.FOLDER_COPIED,
-        userId: actor.id,
-        entity: "folder",
-        entityId: resultFolderId ?? job.id,
-        newValue: { source: sourceId, targetParentId, mode: "background_job", conflictMode },
-        ipAddress: actor.ipAddress,
-        userAgent: actor.userAgent,
-      });
-    } catch (err) {
-      await prisma.repositoryCopyJob.update({
-        where: { id: job.id },
-        data: {
-          status: "FAILED",
-          error: err instanceof Error ? err.message : "Copy job failed",
-          completedAt: new Date(),
-        },
-      });
-    }
-  })();
+  // Enqueue to BullMQ instead of fire-and-forget IIFE
+  const { enqueue, QUEUE_NAMES } = await import("@/lib/queue");
+  await enqueue<{ jobRecordId: string; sourceFolderId: string; targetParentId: string | null; conflictMode: string; totalItems: number; actorId: string; repositoryId: string }>(
+    QUEUE_NAMES.FOLDER_COPY,
+    {
+      jobRecordId: job.id,
+      sourceFolderId: sourceId,
+      targetParentId,
+      conflictMode,
+      totalItems,
+      actorId: actor.id,
+      repositoryId,
+    },
+  );
 
   return toCopyJobView(job);
 }

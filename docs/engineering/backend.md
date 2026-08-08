@@ -73,3 +73,20 @@ commit atomically inside `prisma.$transaction`; repositories expose optional
 - `specification/audit.md` — audit writes from services
 - `API_CONTRACTS.md` (root) — full endpoint contracts
 - `docs/api.md` — legacy API reference
+
+## Background Jobs & Concurrency (Sprint 8.5)
+
+- **Redis + BullMQ**: `lib/redis.ts` (ioredis singleton) + `lib/queue.ts`
+  (4 named queues: folder-copy, folder-zip, email-delivery, maintenance).
+- **Workers**: `workers/` — `folderCopy.worker.ts`, `folderZip.worker.ts`,
+  `email.worker.ts`, `maintenance.worker.ts`. Registered at boot via
+  `workers/startup.ts`.
+- **Job defaults**: 3 attempts, exponential backoff (2s base), auto-remove
+  completed after 24h.
+- **Graceful shutdown**: HTTP close → BullMQ workers close → Redis disconnect
+  → Prisma disconnect. 10s force-kill fallback.
+- **Prisma pool**: `connection_limit=20`, `pool_timeout=30` (docker-compose
+  DATABASE_URL query params).
+- **Load testing**: `scripts/load-test.ps1 -Users N -Duration S`.
+- **Environment**: `REDIS_HOST`, `REDIS_PORT`, `WORKER_CONCURRENCY`,
+  `JOB_RETRY_LIMIT`, `JOB_TIMEOUT_MS`, `ZIP_EXPIRATION_SECONDS`.

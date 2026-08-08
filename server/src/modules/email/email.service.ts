@@ -43,14 +43,18 @@ function nextBackoffDelayMs(attempts: number): number {
 
 export async function sendEmail(input: EmailMessageInput): Promise<void> {
   await enqueueMessages([input], getEmailProvider().name);
-  // Kick a processing pass immediately so interactive flows (e.g. a password
-  // reset email) are not blocked by the worker's poll interval. The queue row
-  // is already durable — a failure here never loses the message.
-  void processQueue().catch((err) => {
-    logger.error("[email] immediate processing pass failed", {
-      err: err instanceof Error ? err.message : String(err),
+  // Sprint 8.5 — kick BullMQ worker as primary delivery path; fallback to
+  // in-process processQueue for development environments without Redis.
+  try {
+    const { enqueue, QUEUE_NAMES } = await import("@/lib/queue");
+    await enqueue(QUEUE_NAMES.EMAIL_DELIVERY, { batchSize: 10 });
+  } catch {
+    void processQueue().catch((err) => {
+      logger.error("[email] immediate processing pass failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
     });
-  });
+  }
 }
 
 export async function processQueue(batchSize = 10): Promise<number> {

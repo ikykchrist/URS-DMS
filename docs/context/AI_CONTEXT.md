@@ -12,7 +12,7 @@
 | Project | URS-DMS — University Recognition System Document Management System (AACCUP/ISO/Certification + personal repositories), local deployment, zero internet dependency |
 | Version | 1.0 (Release Candidate) |
 | Phase | Stabilization / defense-demo readiness |
-| Current sprint | Sprint 8.4 Roles & Permissions Management — COMPLETE (28/28 smoke) |
+| Current sprint | Sprint 8.5 Background Jobs & Concurrency — COMPLETE (12/12 smoke) |
 | Current goal | Finish 1.0 backlog (defense readiness, Cloudflare VPS deployment); keep every surface demo-safe with real data only |
 
 ## 2. Tech stack
@@ -96,6 +96,10 @@ codes, additive-only). Details: `engineering/architecture.md`.
   server-authoritative `hasServerPermission(user, code)` using granular
   codes from `/auth/me`; legacy `ROLE_PERMISSIONS` hardcoded matrix retained
   for backward compatibility
+- Background jobs (Sprint 8.5): Redis + BullMQ (`lib/redis.ts`, `lib/queue.ts`),
+  `workers/` (folderCopy, folderZip, email, maintenance); graceful shutdown
+  with Redis/BullMQ/Prisma disconnect; `/health` endpoint now reports Redis +
+  queue metrics + memory; Prisma pool `connection_limit=20`; load-test script
 - Tooling: `restart-server.ps1`, `ai-dev.bat`, `tunnel-all.ps1` /
   `tunnel-stop.ps1` (Cloudflare quick-tunnel deploy + restore),
   `scripts/cleanup-demo-data.js`,
@@ -118,10 +122,10 @@ codes, additive-only). Details: `engineering/architecture.md`.
   and post-grace cleanup; the older `cleanup-recycle-bin.js` script is
   superseded.
 - Storage "available" metric `null` (no MinIO quota probe).
-- Roles/permissions management UI absent (backend CRUD complete).
+- Roles/permissions management UI absent (backend CRUD complete). RESOLVED in 8.4.
 - Vite chunk-size warning non-blocking.
-- Background copy jobs run in-process (no worker process; crash restarts the
-  job as FAILED — acceptable for 1.0).
+- Background copy jobs now run via BullMQ workers (Sprint 8.5); crash recovery
+  handled by BullMQ retry queue with exponential backoff.
 - Client `ROLE_PERMISSIONS` (permissions.tsx) is a hand-maintained parallel
   matrix retained for backward compatibility; new code should use
   `hasServerPermission(user, code)` (Sprint 8.4). The server is always the

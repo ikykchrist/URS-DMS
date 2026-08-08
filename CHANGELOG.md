@@ -6,6 +6,83 @@
 
 ---
 
+## Sprint 8.5 — Background Jobs, Concurrency & Heavy-Load Reliability (2026-08-08)
+
+**Infrastructure**
+
+- Redis 7 added to `docker-compose.yml` (`urs-redis` container on port 6380,
+  persistent AOF, 128MB maxmemory, allkeys-lru eviction).
+- `ioredis` + `bullmq` packages installed.
+- `lib/redis.ts` — singleton Redis client with retry strategy (10 attempts,
+  200ms base), duplicate subscriber, `redisHealth()` ping probe,
+  `disconnectRedis()` graceful close.
+- `lib/queue.ts` — BullMQ abstraction: 4 named queues (`urs-folder-copy`,
+  `urs-folder-zip`, `urs-email-delivery`, `urs-maintenance`), `enqueue()`,
+  `createWorker()`, `getQueueMetrics()`, `shutdownQueues()`. Shared defaults:
+  3 attempts, exponential backoff (2s base), auto-remove completed after 24h.
+- Prisma connection pool configured via docker-compose: `connection_limit=20`,
+  `pool_timeout=30` on DATABASE_URL.
+- New env vars (server/src/config/env.ts):
+  `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`,
+  `DATABASE_CONNECTION_LIMIT`, `WORKER_CONCURRENCY`, `JOB_RETRY_LIMIT`,
+  `JOB_TIMEOUT_MS`, `ZIP_EXPIRATION_SECONDS`.
+
+**Workers**
+
+- `workers/startup.ts` — registers all 4 workers at server boot.
+- `workers/folderCopy.worker.ts` — replaces the in-process fire-and-forget
+  IIFE in `folders.service.ts`. Persisted `repository_copy_jobs` row is
+  created synchronously; BullMQ picks up the job and handles execution.
+  Progress is tracked via `job.updateProgress()` + periodic DB updates.
+  Survives server restarts (BullMQ retry with exponential backoff).
+- `workers/folderZip.worker.ts` — for large folder ZIP requests, streams
+  the ZIP from MinIO into a temporary MinIO object, stores the presigned
+  download URL in Redis with `${ZIP_EXPIRATION_SECONDS}` TTL. Cleanup is
+  automatic via Redis key expiry.
+- `workers/email.worker.ts` — replaces the in-process `setInterval` poller
+  in `email.service.ts`. Reuses existing `claimDueMessages` / `markSent` /
+  `markFailed` repository functions. Exponential backoff for retries.
+  Legacy poller kept as fallback.
+- `workers/maintenance.worker.ts` — wraps `runRecycleCleanup` /
+  `runOrphanScan` / `runOrphanCleanup` from the maintenance service. The
+  database-backed lock in `maintenance.jobs.ts` still prevents concurrent
+  execution.
+
+**Email service**
+
+- `sendEmail()` now enqueues to BullMQ as primary delivery path; falls
+  back to in-process `processQueue()` if Redis is unavailable.
+
+**Folder copy service**
+
+- `startFolderCopyJob()` in `folders.service.ts` now enqueues via
+  `enqueue(QUEUE_NAMES.FOLDER_COPY, ...)` instead of `void (async () => { ... })()`.
+  Job record is still created in `repository_copy_jobs` for polling.
+
+**Server lifecycle**
+
+- `server.ts` rewritten: graceful shutdown handles HTTP server close →
+  BullMQ worker shutdown → Redis disconnect → Prisma disconnect. Workers
+  started via dynamic import after server listen.
+- SIGINT/SIGTERM handled with async shutdown; 10s force-kill fallback.
+
+**Health endpoint**
+
+- `/api/v1/health` now includes:
+  - `services.redis` (ping + latencyMs)
+  - `queues` (waiting/active/completed/failed/delayed per queue)
+  - `memory` (rssMB, heapUsedMB)
+
+**Load testing**
+
+- `scripts/load-test.ps1` — parameterized concurrent-user load test
+  (`-Users N -Duration S`). Login → list folders → list documents →
+  health check in a loop per user via background jobs. Reports total
+  requests, success/failure counts, p50/p95 latency, server memory.
+
+**Results** (5 concurrent users, 15s): 279 requests, 0 failures, avg 22.6ms
+latency, p95 39ms, server RSS 110MB.
+
 ## Sprint 8.4 — Roles & Permissions Management (2026-08-08)
 
 **Backend**

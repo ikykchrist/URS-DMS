@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { prisma } from "@/lib/prisma";
 import { ensureBucket } from "@/lib/storage";
+import { redisHealth } from "@/lib/redis";
+import { getQueueMetrics, QUEUE_NAMES } from "@/lib/queue";
 import { env } from "@/config/env";
 import { sendSuccess } from "@/utils/apiResponse";
 
 // =============================================================================
-// URS-DMS — health route
-// Sprint 1 contract: { status, timestamp, environment, uptime, services }
-// Reports both database and MinIO status. "degraded" if any dependency is down.
+// URS-DMS — health route (Sprint 8.5: added Redis + BullMQ)
 // =============================================================================
 
 export const healthRouter: Router = Router();
@@ -25,8 +25,6 @@ healthRouter.get("/", async (_req, res, next) => {
       dbOk = false;
     }
 
-    // MinIO probe: best-effort ensureBucket(). Idempotent, so safe on every
-    // health check. Reports the bucket name + existence flag.
     let minioOk = false;
     let minioBucketExists = false;
     try {
@@ -38,7 +36,27 @@ healthRouter.get("/", async (_req, res, next) => {
       minioBucketExists = false;
     }
 
-    const status = dbOk && minioOk ? "ok" : "degraded";
+    const redis = await redisHealth();
+
+    let queueMetrics: Record<string, unknown> = {};
+    try {
+      const [copy, zip, email, maint] = await Promise.all([
+        getQueueMetrics(QUEUE_NAMES.FOLDER_COPY).catch(() => null),
+        getQueueMetrics(QUEUE_NAMES.FOLDER_ZIP).catch(() => null),
+        getQueueMetrics(QUEUE_NAMES.EMAIL_DELIVERY).catch(() => null),
+        getQueueMetrics(QUEUE_NAMES.MAINTENANCE).catch(() => null),
+      ]);
+      queueMetrics = {
+        folderCopy: copy ?? { status: "unavailable" },
+        folderZip: zip ?? { status: "unavailable" },
+        emailDelivery: email ?? { status: "unavailable" },
+        maintenance: maint ?? { status: "unavailable" },
+      };
+    } catch {
+      queueMetrics = { status: "unavailable" };
+    }
+
+    const status = dbOk && minioOk && redis.status === "up" ? "ok" : "degraded";
     sendSuccess(
       res,
       {
@@ -53,6 +71,12 @@ healthRouter.get("/", async (_req, res, next) => {
             bucket: env.MINIO_BUCKET,
             exists: minioBucketExists,
           },
+          redis,
+        },
+        queues: queueMetrics,
+        memory: {
+          rssMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
+          heapUsedMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
         },
       },
       200,
