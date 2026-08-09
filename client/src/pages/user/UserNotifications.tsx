@@ -88,9 +88,8 @@ export default function UserNotifications() {
     } catch { }
   }
 
-  const handleDoubleClick = (notif: Notification) => {
-    if (notif.read) return
-    markAsRead(notif.id)
+  const handleViewNotification = (notif: Notification) => {
+    if (!notif.read) markAsRead(notif.id)
     const route = resolveNotificationRoute(notif)
     if (!route) return
     const url = buildNotificationUrl(route, notif.entityId)
@@ -158,7 +157,7 @@ export default function UserNotifications() {
             return (
               <Card
                 key={notif.id}
-                onDoubleClick={() => handleDoubleClick(notif)}
+                onDoubleClick={() => handleViewNotification(notif)}
                 title={route ? "Double-click to view" : undefined}
                 className={cn(
                   "border-gray-200/60 dark:border-gray-700 shadow-sm transition-all cursor-pointer",
@@ -189,7 +188,14 @@ export default function UserNotifications() {
                       </div>
                       <div className="flex items-center gap-2 mt-2">
                         <p className="text-[12px] text-gray-400 dark:text-gray-500">{getTimeAgo(notif.createdAt)}</p>
-                        {route && <span className="text-[10px] text-primary font-medium">Double-click to view</span>}
+                        {route && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleViewNotification(notif) }}
+                              className="text-[12px] text-primary dark:text-blue-400 hover:underline font-medium"
+                            >
+                              View
+                            </button>
+                          )}
                       </div>
                     </div>
                   </div>

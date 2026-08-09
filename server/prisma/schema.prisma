@@ -217,22 +217,66 @@ model PasswordResetToken {
 }
 
 model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action    String
-  entity    String?
-  entityId  String?
-  oldValue  Json?
-  newValue  Json?
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
+  id                String   @id @default(uuid())
+  userId            String?
+  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action            String
+  category          String   @default("SYSTEM")
+  severity          String   @default("INFO")
+  result            String   @default("SUCCESS")
+  entity            String?
+  entityId          String?
+  oldValue          Json?
+  newValue          Json?
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime @default(now())
+  actorName         String?
+  actorRole         String?
+  actorOrganization String?
+  targetType        String?
+  targetId          String?
+  targetName        String?
+  correlationId     String?
+  metadata          Json?
 
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+  @@index([category])
+  @@index([severity])
+  @@index([result])
+  @@index([targetType, targetId])
   @@map("audit_logs")
+}
+
+model AuditArchive {
+  id            String   @id @default(uuid())
+  dateRangeFrom DateTime
+  dateRangeTo   DateTime
+  recordCount   Int
+  checksum      String
+  format        String   @default("json")
+  objectKey     String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  notes         String?
+
+  @@map("audit_archives")
+}
+
+model AuditReview {
+  id         String   @id @default(uuid())
+  auditLogId String   @unique
+  reviewedBy String?
+  status     String   @default("UNREVIEWED")
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([auditLogId])
+  @@index([reviewedBy])
+  @@map("audit_reviews")
 }
 
 // =============================================================================
@@ -775,6 +819,7 @@ model SystemSetting {
   defaultPaginationSize   Int      @default(25)
   maintenanceMode         Boolean  @default(false)
   storageThresholdWarning Int      @default(80) // percent of quota
+  auditRetentionYears     Int      @default(5)
   updatedById             String?
   updatedBy               User?    @relation("SystemSettingUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
   updatedAt               DateTime @updatedAt

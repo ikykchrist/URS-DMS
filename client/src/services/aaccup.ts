@@ -194,6 +194,7 @@ export async function reviewOnlineSubmission(
   id: string,
   input: { decision: "APPROVED" | "REJECTED" | "NEEDS_REVISION"; remarks?: string },
 ): Promise<OnlineAaccupSubmission> {
+  if (!id) throw new Error("Missing submission ID")
   return apiPost<OnlineAaccupSubmission>(
     `/aaccup/submissions/${encodeURIComponent(id)}/review`,
     input,
@@ -201,6 +202,7 @@ export async function reviewOnlineSubmission(
 }
 
 export async function archiveOnlineSubmission(id: string): Promise<OnlineAaccupSubmission> {
+  if (!id) throw new Error("Missing submission ID")
   return apiDelete<OnlineAaccupSubmission>(`/aaccup/submissions/${encodeURIComponent(id)}`)
 }
 

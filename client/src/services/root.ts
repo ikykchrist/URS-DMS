@@ -341,6 +341,19 @@ export async function listSystemAudit(query?: {
   return apiGetPage<RootAuditEntry>(`/audit${qs}`)
 }
 
+export async function getAuditSummary(days = 1): Promise<{
+  failedLoginsToday: number
+  criticalEventsToday: number
+  unreviewedCritical: number
+  recentRoleChanges: number
+  recentPermissionChanges: number
+  lastArchive: string | null
+  retentionYears: number
+  totalRecords: number
+}> {
+  return apiGet(`/audit/summary?days=${days}`)
+}
+
 // Ã¢â€â‚¬Ã¢â€â‚¬ Organization Management Engine (Sprint 7.4.2) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // ROOT-only master data: colleges / departments (Sprint 7.1 rows) + offices /
 // programs (7.4.2 tables). Every mutation versions the record; ROOT can roll

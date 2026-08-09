@@ -33,7 +33,21 @@ export interface Actor {
 }
 
 function assertPermission(actor: Actor, code: string, message: string): void {
-  if (!actor.permissions.includes(code)) throw new ForbiddenError(message);
+  if (!actor.permissions.includes(code)) {
+    void writeAudit({
+      action: AUDIT_ACTIONS.ACCESS_DENIED,
+      userId: actor.id,
+      entity: "repository",
+      entityId: code,
+      ipAddress: actor.ipAddress,
+      userAgent: actor.userAgent,
+      category: "SECURITY",
+      severity: "WARNING",
+      result: "DENIED",
+      newValue: { reason: "missing_permission", required: code },
+    });
+    throw new ForbiddenError(message);
+  }
 }
 
 // Shared access gate used by repository-scoped surfaces: own repository, or
@@ -56,6 +70,18 @@ export async function assertRepositoryAccess(
     });
     return repositoryId;
   }
+  void writeAudit({
+    action: AUDIT_ACTIONS.ACCESS_DENIED,
+    userId: actor.id,
+    entity: "repository",
+    entityId: repositoryId,
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+    category: "SECURITY",
+    severity: "WARNING",
+    result: "DENIED",
+    newValue: { reason: "cross_user_repository_access", targetOwnerId: ownerId },
+  });
   throw new NotFoundError("Repository not found");
 }
 
@@ -100,6 +126,18 @@ export async function grantEmergencyAccess(
   });
   if (!admin) throw new NotFoundError("Admin user not found");
   if (input.adminId === ownerId) {
+    void writeAudit({
+      action: AUDIT_ACTIONS.ACCESS_DENIED,
+      userId: actor.id,
+      entity: "repository",
+      entityId: ownerId,
+      ipAddress: actor.ipAddress,
+      userAgent: actor.userAgent,
+      category: "SECURITY",
+      severity: "WARNING",
+      result: "DENIED",
+      newValue: { reason: "self_grant_emergency_access", targetOwnerId: ownerId },
+    });
     throw new ForbiddenError("A repository owner already has access to their own repository");
   }
 

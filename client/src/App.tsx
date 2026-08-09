@@ -102,6 +102,7 @@ import UserAACCUPGroup from "@/pages/user/UserAACCUPGroup"
 import UserNotifications from "@/pages/user/UserNotifications"
 import UserProfile from "@/pages/user/UserProfile"
 import UserSettings from "@/pages/user/UserSettings"
+import MyActivity from "@/pages/user/MyActivity"
 
 function shortBucketLabel(label: string): string {
   const month = /^(\d{4})-(\d{2})$/.exec(label)
@@ -660,7 +661,7 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading, user } = useAuth()
+  const { isAuthenticated, authStatus, user } = useAuth()
   const navigate = useNavigate()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed")
@@ -789,14 +790,15 @@ function AppContent() {
     localStorage.setItem("sidebarCollapsed", JSON.stringify(newValue))
   }
 
-  if (isLoading) {
+  if (authStatus === "INITIALIZING") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0B1121]">
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-5">
           <div className="w-12 h-12 rounded-xl bg-[#2563EB] flex items-center justify-center">
             <FileText className="w-6 h-6 text-white" />
           </div>
           <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[13px] text-gray-500 font-medium">Restoring session&hellip;</p>
         </div>
       </div>
     )
@@ -867,7 +869,7 @@ function AppContent() {
 }
 
 function UserAppContent() {
-  const { isAuthenticated, isLoading, user, logout } = useAuth()
+  const { isAuthenticated, authStatus, user, logout } = useAuth()
   const navigate = useNavigate()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("userSidebarCollapsed")
@@ -904,6 +906,7 @@ function UserAppContent() {
     "/user/iso": "aaccup",
     "/user/certification": "aaccup",
     "/user/notifications": "notifications",
+    "/user/activity": "activity",
     "/user/profile": "profile",
     "/user/settings": "settings",
   }
@@ -925,6 +928,7 @@ function UserAppContent() {
       requests: "/user/requests",
       aaccup: "/user/aaccup",
       notifications: "/user/notifications",
+      activity: "/user/activity",
       profile: "/user/profile",
       settings: "/user/settings",
     }
@@ -937,6 +941,7 @@ function UserAppContent() {
     requests: "My Requests",
     aaccup: "AACCUP",
     notifications: "Notifications",
+    activity: "My Activity",
     profile: "My Profile",
     settings: "Settings",
   }
@@ -958,19 +963,20 @@ function UserAppContent() {
     setActivePage("requests")
   }
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate("/")
   }
 
-  if (isLoading) {
+  if (authStatus === "INITIALIZING") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0B1121]">
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-5">
           <div className="w-12 h-12 rounded-xl bg-[#2563EB] flex items-center justify-center">
             <FileText className="w-6 h-6 text-white" />
           </div>
           <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[13px] text-gray-500 font-medium">Restoring session&hellip;</p>
         </div>
       </div>
     )
@@ -1029,6 +1035,7 @@ function UserAppContent() {
             />
           )}
           {activePage === "notifications" && <UserNotifications />}
+          {activePage === "activity" && <MyActivity />}
           {activePage === "profile" && <UserProfile />}
           {activePage === "settings" && <UserSettings />}
         </main>
@@ -1038,16 +1045,17 @@ function UserAppContent() {
 }
 
 function AppRoutes() {
-  const { isAuthenticated, isLoading, user } = useAuth()
+  const { authStatus, user } = useAuth()
 
-  if (isLoading) {
+  if (authStatus === "INITIALIZING") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0B1121]">
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-5">
           <div className="w-12 h-12 rounded-xl bg-[#2563EB] flex items-center justify-center">
             <FileText className="w-6 h-6 text-white" />
           </div>
           <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[13px] text-gray-500 font-medium">Restoring session&hellip;</p>
         </div>
       </div>
     )
@@ -1057,111 +1065,111 @@ function AppRoutes() {
     <Routes>
       <Route
         path="/"
-        element={<LoginPage />}
+        element={authStatus === "AUTHENTICATED" && user ? <Navigate to={isAdminRole(user.role) ? "/dashboard" : "/user/dashboard"} replace /> : <LoginPage />}
       />
       <Route
         path="/login"
-        element={<LoginPage />}
+        element={authStatus === "AUTHENTICATED" && user ? <Navigate to={isAdminRole(user.role) ? "/dashboard" : "/user/dashboard"} replace /> : <LoginPage />}
       />
       <Route
         path="/dashboard"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/documents"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/submissions"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/requests"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/profile"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/users"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/user-management"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/audit"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/audit-logs"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/settings"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/aaccup"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/aaccup-management"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/iso"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/certification"
-        element={isAuthenticated && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/root"
-        element={isAuthenticated && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/root-organization"
-        element={isAuthenticated && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/root-folder-builder"
-        element={isAuthenticated && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/root-requirement-builder"
-        element={isAuthenticated && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/root-config"
-        element={isAuthenticated && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/root-maintenance"
-        element={isAuthenticated && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/root-roles-permissions"
-        element={isAuthenticated && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/root-audit"
-        element={isAuthenticated && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/root-users"
-        element={isAuthenticated && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/user/*"
-        element={isAuthenticated && !isAdminRole(user?.role) ? <UserAppContent /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && !isAdminRole(user?.role) ? <UserAppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/*"
-        element={isAuthenticated && user ? <Navigate to={isAdminRole(user.role) ? "/dashboard" : "/user/dashboard"} replace /> : <Navigate to="/" replace />}
+        element={authStatus === "AUTHENTICATED" && user ? <Navigate to={isAdminRole(user.role) ? "/dashboard" : "/user/dashboard"} replace /> : <Navigate to="/" replace />}
       />
     </Routes>
   )

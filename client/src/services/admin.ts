@@ -286,12 +286,23 @@ export interface AuditEntry {
   id: string
   timestamp: string
   action: string
+  category: string
+  severity: string
+  result: string
   module: string
   status: string
   user: { id: string; name: string; email: string; role: string } | null
   entity: { type: string; id: string } | null
+  targetType: string | null
+  targetId: string | null
+  targetName: string | null
+  actorName: string | null
+  actorRole: string | null
+  actorOrganization: string | null
   ipAddress: string | null
   userAgent: string | null
+  correlationId: string | null
+  description: string | null
 }
 
 export async function listAuditEntries(query?: {
@@ -301,6 +312,9 @@ export async function listAuditEntries(query?: {
   module?: string
   action?: string
   status?: string
+  category?: string
+  severity?: string
+  result?: string
   from?: string
   to?: string
 }): Promise<ApiPage<AuditEntry>> {
@@ -311,10 +325,34 @@ export async function listAuditEntries(query?: {
   if (query?.module) params.set("module", query.module)
   if (query?.action) params.set("action", query.action)
   if (query?.status) params.set("status", query.status)
+  if (query?.category) params.set("category", query.category)
+  if (query?.severity) params.set("severity", query.severity)
+  if (query?.result) params.set("result", query.result)
   if (query?.from) params.set("from", query.from)
   if (query?.to) params.set("to", query.to)
   const qs = params.size > 0 ? `?${params.toString()}` : ""
   return apiGetPage<AuditEntry>(`/audit${qs}`)
+}
+
+export async function listMyActivity(query?: {
+  page?: number
+  pageSize?: number
+  q?: string
+  category?: string
+  result?: string
+  from?: string
+  to?: string
+}): Promise<ApiPage<AuditEntry>> {
+  const params = new URLSearchParams()
+  if (query?.page) params.set("page", String(query.page))
+  if (query?.pageSize) params.set("pageSize", String(query.pageSize))
+  if (query?.q) params.set("q", query.q)
+  if (query?.category) params.set("category", query.category)
+  if (query?.result) params.set("result", query.result)
+  if (query?.from) params.set("from", query.from)
+  if (query?.to) params.set("to", query.to)
+  const qs = params.size > 0 ? `?${params.toString()}` : ""
+  return apiGetPage<AuditEntry>(`/audit/my-activity${qs}`)
 }
 
 /** Wipe every audit row (administrator-only). Returns the number of rows removed. */
@@ -331,19 +369,25 @@ export interface AuditExportResult {
   count: number
 }
 
-export async function exportAuditEntries(query?: {
+export async function exportAuditEntries(format: "csv" | "pdf" = "csv", query?: {
   q?: string
   module?: string
   action?: string
   status?: string
+  category?: string
+  severity?: string
+  result?: string
   from?: string
   to?: string
 }): Promise<AuditExportResult> {
-  const params = new URLSearchParams({ format: "csv" })
+  const params = new URLSearchParams({ format })
   if (query?.q) params.set("q", query.q)
   if (query?.module) params.set("module", query.module)
   if (query?.action) params.set("action", query.action)
   if (query?.status) params.set("status", query.status)
+  if (query?.category) params.set("category", query.category)
+  if (query?.severity) params.set("severity", query.severity)
+  if (query?.result) params.set("result", query.result)
   if (query?.from) params.set("from", query.from)
   if (query?.to) params.set("to", query.to)
 
@@ -364,12 +408,13 @@ export async function exportAuditEntries(query?: {
   }
   const data = await res.text()
   const disposition = res.headers.get("Content-Disposition") ?? ""
-  const filename = disposition.match(/filename="?([^";]+)"?/)?.[1] ?? "audit-export.csv"
+  const ext = format === "pdf" ? ".html" : ".csv"
+  const filename = disposition.match(/filename="?([^";]+)"?/)?.[1] ?? `audit-export${ext}`
   return {
-    format: "csv",
-    contentType: res.headers.get("Content-Type") ?? "text/csv",
+    format,
+    contentType: res.headers.get("Content-Type") ?? (format === "pdf" ? "text/html" : "text/csv"),
     filename,
     data,
-    count: data.split("\r\n").filter((line) => line.length > 0).length - 1,
+    count: format === "csv" ? data.split("\r\n").filter((line) => line.length > 0).length - 1 : 0,
   }
 }

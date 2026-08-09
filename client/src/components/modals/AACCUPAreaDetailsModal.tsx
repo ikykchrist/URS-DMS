@@ -228,6 +228,7 @@ export function AACCUPAreaDetailsModal({
   }
 
   const handleReview = async (submissionId: string, decision: "APPROVED" | "REJECTED") => {
+    if (!submissionId) return
     if (decision === "REJECTED" && !window.confirm("Reject this submission? This closes the review.")) return
     try {
       await reviewOnlineSubmission(submissionId, { decision })

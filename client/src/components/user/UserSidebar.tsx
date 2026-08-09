@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Clock,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { confirmLeaveIfUploading } from "@/lib/uploadBus"
@@ -28,6 +29,7 @@ const sidebarItems: SidebarItem[] = [
   { id: "requests", icon: FileText, label: "My Requests" },
   { id: "aaccup", icon: GraduationCap, label: "AACCUP" },
   { id: "notifications", icon: Bell, label: "Notifications" },
+  { id: "activity", icon: Clock, label: "My Activity" },
   { id: "profile", icon: User, label: "Profile" },
   { id: "settings", icon: Settings, label: "Settings" },
 ]

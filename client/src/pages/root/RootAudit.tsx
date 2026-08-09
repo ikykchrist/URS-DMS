@@ -32,10 +32,22 @@ import { listSystemAudit, type RootAuditEntry } from "@/services/root"
 
 const PAGE_SIZE = 15
 
-function statusBadge(status: string): "success" | "warning" | "danger" | "default" {
-  if (status === "SUCCESS") return "success"
-  if (status === "FAILURE") return "danger"
-  return "warning"
+const PRESETS = [
+  { label: "Today", params: {} as Record<string, string> },
+  { label: "Last 7 Days", params: {} as Record<string, string> },
+  { label: "Last 30 Days", params: {} as Record<string, string> },
+  { label: "Login Activity", params: { category: "AUTHENTICATION" } },
+  { label: "Failed Security", params: { category: "SECURITY", result: "FAILED" } },
+  { label: "Submissions", params: { category: "SUBMISSION" } },
+  { label: "Requests", params: { category: "REQUEST" } },
+  { label: "Role/Permission", params: { category: "ACCESS_CONTROL" } },
+  { label: "Critical Events", params: { severity: "CRITICAL" } },
+]
+
+const SEV_BADGES: Record<string, "success" | "warning" | "danger" | "default"> = {
+  INFO: "success",
+  WARNING: "warning",
+  CRITICAL: "danger",
 }
 
 export default function RootAudit() {
@@ -46,18 +58,21 @@ export default function RootAudit() {
   const [search, setSearch] = useState("")
   const [module, setModule] = useState("all")
   const [status, setStatus] = useState("all")
+  const [activePreset, setActivePreset] = useState("")
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await listSystemAudit({
+    const preset = PRESETS.find((p) => p.label === activePreset)
+    const result = await listSystemAudit({
         page,
         pageSize: PAGE_SIZE,
         q: search.trim() || undefined,
         module: module === "all" ? undefined : module,
         status: status === "all" ? undefined : status,
-      })
+        ...preset?.params,
+      } as Parameters<typeof listSystemAudit>[0])
       setEntries(result.items)
       setTotal(result.meta.total)
       setTotalPages(Math.max(1, result.meta.totalPages))
@@ -66,11 +81,20 @@ export default function RootAudit() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, module, status])
+  }, [page, search, module, status, activePreset])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  const handlePreset = (label: string) => {
+    if (activePreset === label) {
+      setActivePreset("")
+    } else {
+      setActivePreset(label)
+      setPage(1)
+    }
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -85,6 +109,20 @@ export default function RootAudit() {
         }
       />
 
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        {PRESETS.map((p) => (
+          <Button
+            key={p.label}
+            variant={activePreset === p.label ? "default" : "outline"}
+            size="sm"
+            className="h-7 text-[11px]"
+            onClick={() => handlePreset(p.label)}
+          >
+            {p.label}
+          </Button>
+        ))}
+      </div>
+
       <Card className="border-gray-200/60 shadow-sm mb-4">
         <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
@@ -93,19 +131,10 @@ export default function RootAudit() {
               className="h-10 pl-9"
               placeholder="Search actions, users, entities…"
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             />
           </div>
-          <Select
-            value={module}
-            onValueChange={(v) => {
-              setModule(v)
-              setPage(1)
-            }}
-          >
+          <Select value={module} onValueChange={(v) => { setModule(v); setPage(1) }}>
             <SelectTrigger className="h-10 w-full sm:w-[160px]">
               <SelectValue placeholder="Module" />
             </SelectTrigger>
@@ -119,13 +148,7 @@ export default function RootAudit() {
               <SelectItem value="requests">requests</SelectItem>
             </SelectContent>
           </Select>
-          <Select
-            value={status}
-            onValueChange={(v) => {
-              setStatus(v)
-              setPage(1)
-            }}
-          >
+          <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
             <SelectTrigger className="h-10 w-full sm:w-[150px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -156,51 +179,71 @@ export default function RootAudit() {
                 <TableRow>
                   <TableHead>Timestamp</TableHead>
                   <TableHead>Action</TableHead>
-                  <TableHead>Module</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Severity</TableHead>
                   <TableHead>User</TableHead>
                   <TableHead>Entity</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Result</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map((entry) => (
+                {(entries as RootAuditEntry[]).map((entry) => {
+                  const e = entry as any
+                  return (
                   <TableRow key={entry.id}>
                     <TableCell className="text-[12px] text-gray-500 whitespace-nowrap">
                       {new Date(entry.timestamp).toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-[13px] font-medium text-gray-900">
+                    <TableCell className="text-[13px] font-medium text-gray-900 max-w-[180px] truncate">
                       {entry.action}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{entry.module}</Badge>
+                      {e.category ? (
+                        <Badge variant="secondary" className="text-[11px]">{e.category}</Badge>
+                      ) : (
+                        <Badge variant="secondary">{entry.module}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {e.severity ? (
+                        <Badge variant={SEV_BADGES[e.severity] ?? "default"} className="text-[11px]">{e.severity}</Badge>
+                      ) : "—"}
                     </TableCell>
                     <TableCell className="text-[13px] text-gray-600">
                       {entry.user ? (
                         <div>
-                          <div>{entry.user.name}</div>
-                          <div className="text-[11px] text-gray-400">{entry.user.role}</div>
+                          <div>{e.actorName || entry.user.name}</div>
+                          <div className="text-[11px] text-gray-400">{e.actorRole || entry.user.role}</div>
                         </div>
-                      ) : (
-                        "—"
-                      )}
+                      ) : "—"}
                     </TableCell>
                     <TableCell className="text-[13px] text-gray-600">
                       {entry.entity ? (
                         <div>
                           <div>{entry.entity.type}</div>
-                          <div className="text-[11px] text-gray-400 truncate max-w-[160px]">
-                            {entry.entity.id}
+                          <div className="text-[11px] text-gray-400 truncate max-w-[120px]">
+                            {e.targetName || entry.entity.id}
                           </div>
                         </div>
-                      ) : (
-                        "—"
-                      )}
+                      ) : "—"}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusBadge(entry.status)}>{entry.status}</Badge>
+                      <Badge
+                        variant={
+                          e.result === "SUCCESS" ? "success"
+                          : e.result === "FAILED" ? "danger"
+                          : e.result === "DENIED" ? "warning"
+                          : entry.status === "SUCCESS" ? "success"
+                          : entry.status === "FAILURE" ? "danger"
+                          : "default"
+                        }
+                        className="text-[11px]"
+                      >
+                        {e.result || entry.status}
+                      </Badge>
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
               </TableBody>
             </Table>
           )}
@@ -215,9 +258,7 @@ export default function RootAudit() {
                   className={page <= 1 ? "pointer-events-none opacity-50" : ""}
                 />
               </PaginationItem>
-              <PaginationItem>
-                <PaginationLink isActive>{page}</PaginationLink>
-              </PaginationItem>
+              <PaginationItem><PaginationLink isActive>{page}</PaginationLink></PaginationItem>
               <PaginationItem>
                 <PaginationNext
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -226,9 +267,7 @@ export default function RootAudit() {
               </PaginationItem>
             </PaginationContent>
           </Pagination>
-          <span className="text-[12px] text-gray-500">
-            page {page} of {totalPages}
-          </span>
+          <span className="text-[12px] text-gray-500">page {page} of {totalPages}</span>
         </div>
       </Card>
     </div>

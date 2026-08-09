@@ -6,13 +6,14 @@ import {
   useCallback,
   type ReactNode,
 } from "react"
-import { authService } from "@/services/auth"
+import { authService, type AuthStatus } from "@/services/auth"
 import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import type { User, UserRole } from "@/types/domain"
 
 interface AuthContextType {
   isAuthenticated: boolean
   isLoading: boolean
+  authStatus: AuthStatus
   user: User | null
   login: (email: string, password: string) => Promise<{ success: boolean; role?: UserRole; error?: string }>
   logout: () => Promise<void>
@@ -28,6 +29,7 @@ const REMEMBER_ME_KEY = "urs_dms_remember_me"
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [authStatus, setAuthStatus] = useState<AuthStatus>("INITIALIZING")
   const [rememberMe, setRememberMe] = useState(false)
   const [user, setUser] = useState<User | null>(null)
 
@@ -38,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const state = authService.getState()
       setIsAuthenticated(state.isAuthenticated)
       setIsLoading(false)
+      setAuthStatus(state.authStatus)
       if (state.user) setUser(state.user)
       else setIsLoading(false)
     })
@@ -47,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsub = authService.subscribe((state) => {
       setIsAuthenticated(state.isAuthenticated)
       setIsLoading(state.isLoading)
+      setAuthStatus(state.authStatus)
       setUser(state.user as User | null)
     })
     // Expired session (refresh failed): force local logout so protected
@@ -96,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const state = authService.getState()
     setIsAuthenticated(state.isAuthenticated)
     setUser(state.user as User | null)
+    setAuthStatus(state.authStatus)
     setIsLoading(false)
   }, [])
 
@@ -104,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         isAuthenticated,
         isLoading,
+        authStatus,
         user,
         login,
         logout,

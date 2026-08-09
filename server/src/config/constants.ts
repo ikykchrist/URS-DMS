@@ -295,6 +295,20 @@ export const AUDIT_ACTIONS = {
   REQUEST_FULFILLED_DELIVERED: "request.fulfilled.delivered",
 
   AUDIT_LOGS_CLEARED: "audit.cleared",
+
+  // Sprint 8.8A — Audit V1 finalization
+  AUDIT_ARCHIVE_CREATED: "audit.archive_created",
+  AUDIT_LOGS_PURGED: "audit.logs_purged",
+  AUDIT_RETENTION_CHANGED: "audit.retention_changed",
+  AUDIT_LOG_EXPORTED: "audit.log_exported",
+  USER_ROLE_CHANGED: "user.role_changed",
+  ROLE_PERMISSIONS_UPDATED: "role.permissions_updated",
+
+  // Sprint 8.8A Phase 2 — Audit security, review, archive
+  ACCESS_DENIED: "auth.access_denied",
+  AUDIT_EVENT_REVIEWED: "audit.event_reviewed",
+  AUDIT_FOLLOWUP_MARKED: "audit.followup_marked",
+  AUDIT_ARCHIVE_DOWNLOADED: "audit.archive_downloaded",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

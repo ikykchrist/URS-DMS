@@ -76,9 +76,8 @@ export function NotificationCenter() {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
   }
 
-  const handleDoubleClick = (notif: Notification) => {
-    if (notif.read) return
-    markRead(notif.id)
+  const handleViewNotification = (notif: Notification) => {
+    if (!notif.read) markRead(notif.id)
     const route = resolveNotificationRoute(notif)
     if (!route) return
     const url = buildNotificationUrl(route, notif.entityId)
@@ -180,7 +179,7 @@ export function NotificationCenter() {
                         !notif.read && "bg-primary/5 dark:bg-primary/10"
                       )}
                       onClick={() => markRead(notif.id)}
-                      onDoubleClick={() => handleDoubleClick(notif)}
+                      onDoubleClick={() => handleViewNotification(notif)}
                       title={route ? "Double-click to view" : undefined}
                     >
                       <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5", meta.bg)}>
@@ -196,7 +195,14 @@ export function NotificationCenter() {
                         <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{notif.message}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <p className="text-[11px] text-gray-400 dark:text-gray-500">{formatTime(notif.createdAt)}</p>
-                          {route && <span className="text-[10px] text-primary font-medium">Double-click to view</span>}
+                          {route && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleViewNotification(notif) }}
+                              className="text-[11px] text-primary dark:text-blue-400 hover:underline font-medium"
+                            >
+                              View
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

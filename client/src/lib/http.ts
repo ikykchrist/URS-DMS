@@ -120,7 +120,7 @@ async function requestEnvelope<T>(
     throw new ApiRequestError(0, "NETWORK", err instanceof Error ? err.message : String(err));
   }
 
-  if (res.status === 401 && !retried && token && !path.startsWith("/auth/")) {
+  if (res.status === 401 && !retried && token && path !== "/auth/login" && path !== "/auth/logout" && path !== "/auth/refresh") {
     if (!refreshInFlight) {
       refreshInFlight = refreshAccessToken().finally(() => {
         refreshInFlight = null;

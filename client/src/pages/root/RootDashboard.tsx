@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/Table"
-import { getOverview, formatConfigValue, type RootPlatformOverview } from "@/services/root"
+import { getOverview, formatConfigValue, getAuditSummary, type RootPlatformOverview } from "@/services/root"
 import { getDashboardOverview, type DashboardOverview } from "@/services/dashboard"
 import { ApiRequestError } from "@/lib/http"
 
@@ -68,6 +68,7 @@ function actionBadgeVariant(action: string): "success" | "warning" | "danger" | 
 export default function RootDashboard() {
   const [overview, setOverview] = useState<RootPlatformOverview | null>(null)
   const [accreditation, setAccreditation] = useState<DashboardOverview | null>(null)
+  const [auditSummary, setAuditSummary] = useState<Awaited<ReturnType<typeof getAuditSummary>> | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -97,9 +98,11 @@ export default function RootDashboard() {
   useEffect(() => {
     void load()
     loadAccreditation()
+    getAuditSummary().then(setAuditSummary).catch(() => {})
     const poll = setInterval(() => {
       void load()
       loadAccreditation()
+      getAuditSummary().then(setAuditSummary).catch(() => {})
     }, 30000)
     return () => clearInterval(poll)
   }, [load, loadAccreditation])
@@ -273,6 +276,58 @@ export default function RootDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {auditSummary && (
+        <div className="mb-6 lg:mb-8">
+          <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Lock className="w-4 h-4" /> Security &amp; Audit
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <StatCard
+              title="Failed Logins Today"
+              value={String(auditSummary.failedLoginsToday)}
+              icon={<Lock className="w-4 h-4" />}
+            />
+            <StatCard
+              title="Critical Events"
+              value={String(auditSummary.criticalEventsToday)}
+              icon={<Activity className="w-4 h-4" />}
+            />
+            <StatCard
+              title="Unreviewed Critical"
+              value={String(auditSummary.unreviewedCritical)}
+              icon={<RefreshCw className="w-4 h-4" />}
+            />
+            <StatCard
+              title="Retention"
+              value={`${auditSummary.retentionYears}y`}
+              icon={<Settings2 className="w-4 h-4" />}
+            />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-3">
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Recent Role Changes</p>
+              <p className="text-base font-semibold text-gray-900">{auditSummary.recentRoleChanges}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Permission Changes</p>
+              <p className="text-base font-semibold text-gray-900">{auditSummary.recentPermissionChanges}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Last Archive</p>
+              <p className="text-base font-semibold text-gray-900">
+                {auditSummary.lastArchive
+                  ? new Date(auditSummary.lastArchive).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                  : "Never"}
+              </p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Total Records</p>
+              <p className="text-base font-semibold text-gray-900">{auditSummary.totalRecords.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
         <Card className="border-gray-200/60 shadow-sm">

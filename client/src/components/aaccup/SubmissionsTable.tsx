@@ -69,7 +69,7 @@ const toSubmissionDocument = (s: OnlineSubmissionListItem): Document => {
       ? "Returned"
       : "Pending"
   return {
-    id: s.id,
+    id: s.documentId,
     name: s.documentTitle,
     type: "FILE",
     categoryId: s.requirementId,
@@ -123,6 +123,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false)
   const [_previewOpen, setPreviewOpen] = useState(false)
   const [selectedSubmission, setSelectedSubmission] = useState<Document | null>(null)
+  const [returnSubmissionId, setReturnSubmissionId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [currentFilters, setCurrentFilters] = useState<Record<string, string>>({})
@@ -152,7 +153,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
       .catch(() => setSystemDepartments([]))
   }, [])
 
-  const rawById = (id: string) => rawSubmissions.find((s) => s.id === id)
+  const rawById = (id: string) => rawSubmissions.find((s) => s.documentId === id)
 
   const refresh = () => {
     load().catch(() => {})
@@ -163,19 +164,27 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
     setPreviewOpen(true)
   }
 
-  const handleOpenReturnModal = () => {
+  const handleOpenReturnModal = (doc?: Document) => {
+    if (doc) {
+      const sid = rawById(doc.id)?.id
+      setReturnSubmissionId(sid ?? null)
+      setSelectedSubmission(null)
+    }
     setPreviewOpen(false)
     setTimeout(() => setIsReturnModalOpen(true), 150)
   }
 
   const handleCloseReturnModal = () => {
     setIsReturnModalOpen(false)
+    setReturnSubmissionId(null)
     refresh()
   }
 
   const handleApprove = async (documentId: string) => {
+    const raw = rawById(documentId)
+    if (!raw) return
     try {
-      await reviewOnlineSubmission(documentId, { decision: "APPROVED" })
+      await reviewOnlineSubmission(raw.id, { decision: "APPROVED" })
       refresh()
     } catch {
       window.alert("Failed to approve submission.")
@@ -184,8 +193,10 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
 
   const handleReject = async (documentId: string) => {
     if (!window.confirm("Reject this submission? This closes the review and notifies the submitter.")) return
+    const raw = rawById(documentId)
+    if (!raw) return
     try {
-      await reviewOnlineSubmission(documentId, { decision: "REJECTED" })
+      await reviewOnlineSubmission(raw.id, { decision: "REJECTED" })
       refresh()
     } catch {
       window.alert("Failed to reject submission.")
@@ -384,14 +395,20 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
             onClearSelection={() => setSelectedIds(new Set())}
             onBulkApprove={async () => {
               for (const id of selectedIds) {
-                try { await reviewOnlineSubmission(id, { decision: "APPROVED" }) } catch {}
+                try {
+                  const raw = rawById(id)
+                  if (raw) await reviewOnlineSubmission(raw.id, { decision: "APPROVED" })
+                } catch {}
               }
               setSelectedIds(new Set())
               refresh()
             }}
             onBulkReject={async () => {
               for (const id of selectedIds) {
-                try { await reviewOnlineSubmission(id, { decision: "REJECTED" }) } catch {}
+                try {
+                  const raw = rawById(id)
+                  if (raw) await reviewOnlineSubmission(raw.id, { decision: "REJECTED" })
+                } catch {}
               }
               setSelectedIds(new Set())
               refresh()
@@ -408,9 +425,9 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
               if (!window.confirm(`Delete ${selectedIds.size} submission(s) and their documents?`)) return
               for (const id of selectedIds) {
                 try {
-                  await archiveOnlineSubmission(id)
                   const raw = rawById(id)
-                  if (raw) await deleteOnlineDocument(raw.documentId)
+                  if (raw) await archiveOnlineSubmission(raw.id)
+                  await deleteOnlineDocument(id)
                 } catch {}
               }
               setSelectedIds(new Set())
@@ -534,7 +551,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
                                 size="icon"
                                 className="h-8 w-8 text-amber-600 hover:bg-amber-50"
                                 title="Return for revision"
-                                onClick={handleOpenReturnModal}
+                                onClick={() => handleOpenReturnModal(submission)}
                               >
                                 <RotateCcw className="w-4 h-4" />
                               </Button>
@@ -598,15 +615,17 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
         />
       )}
 
-      {isReview && (
+      {isReview && (() => {
+        const sid = returnSubmissionId ?? (selectedSubmission ? rawById(selectedSubmission.id)?.id : null)
+        return sid ? (
         <ReturnSubmissionModal
           open={isReturnModalOpen}
           onOpenChange={handleCloseReturnModal}
-          submissionId={selectedSubmission?.id ?? ""}
+          submissionId={sid}
           submissionTitle={selectedSubmission?.name}
           onSuccess={refresh}
         />
-      )}
+      ) : null})()}
     </div>
   )
 }

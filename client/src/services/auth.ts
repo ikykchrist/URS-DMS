@@ -1,11 +1,14 @@
 import type { User, UserRole, ServerUser, UserSession } from "@/types/domain"
 import { apiGet, apiPost, apiPatch, getAccessToken, clearServerToken, setServerToken } from "@/lib/http"
 
+export type AuthStatus = "INITIALIZING" | "AUTHENTICATED" | "UNAUTHENTICATED"
+
 interface AuthState {
   isLoading: boolean
   isAuthenticated: boolean
   user: User | null
   token: string | null
+  authStatus: AuthStatus
 }
 
 type AuthListener = (state: AuthState) => void
@@ -48,6 +51,7 @@ class AuthService {
     isAuthenticated: false,
     user: null,
     token: null,
+    authStatus: "INITIALIZING",
   }
   private listeners: Set<AuthListener> = new Set()
   private initialized = false
@@ -72,7 +76,7 @@ class AuthService {
     this.initialized = true
 
     if (!getAccessToken()) {
-      this.update({ isLoading: false, isAuthenticated: false, user: null, token: null })
+      this.update({ isLoading: false, isAuthenticated: false, user: null, token: null, authStatus: "UNAUTHENTICATED" })
       return
     }
 
@@ -83,10 +87,11 @@ class AuthService {
         isAuthenticated: true,
         user: toClientUser(server),
         token: getAccessToken(),
+        authStatus: "AUTHENTICATED",
       })
     } catch {
       clearServerToken()
-      this.update({ isLoading: false, isAuthenticated: false, user: null, token: null })
+      this.update({ isLoading: false, isAuthenticated: false, user: null, token: null, authStatus: "UNAUTHENTICATED" })
     }
   }
 
@@ -98,10 +103,10 @@ class AuthService {
       })
       setServerToken(data.accessToken)
       const user = toClientUser(data.user)
-      this.update({ isAuthenticated: true, user, token: data.accessToken })
+      this.update({ isAuthenticated: true, user, token: data.accessToken, authStatus: "AUTHENTICATED" })
       return { success: true, user }
     } catch (err) {
-      this.update({ isAuthenticated: false, user: null, token: null })
+      this.update({ isAuthenticated: false, user: null, token: null, authStatus: "UNAUTHENTICATED" })
       return { success: false, error: "Invalid email or password" }
     }
   }
@@ -114,7 +119,7 @@ class AuthService {
     } finally {
       clearServerToken()
     }
-    this.update({ isAuthenticated: false, user: null, token: null })
+    this.update({ isAuthenticated: false, user: null, token: null, authStatus: "UNAUTHENTICATED" })
   }
 
   async forgotPassword(email: string): Promise<{ success: boolean; message: string }> {
@@ -135,7 +140,7 @@ class AuthService {
       // The reset revoked every session; clear local tokens so the app
       // returns to the login screen.
       clearServerToken()
-      this.update({ isAuthenticated: false, user: null, token: null })
+      this.update({ isAuthenticated: false, user: null, token: null, authStatus: "UNAUTHENTICATED" })
       return { success: true }
     } catch (err) {
       return {
@@ -150,7 +155,7 @@ class AuthService {
     try {
       const server = await apiGet<ServerUser>("/auth/me")
       const user = toClientUser(server)
-      this.update({ user })
+      this.update({ user, authStatus: "AUTHENTICATED" })
       return user
     } catch {
       return this.state.user
@@ -166,7 +171,7 @@ class AuthService {
     try {
       const server = await apiPatch<ServerUser>("/users/me", patch)
       const user = toClientUser(server)
-      this.update({ user })
+      this.update({ user, authStatus: "AUTHENTICATED" })
       return { success: true, user }
     } catch (err) {
       return {

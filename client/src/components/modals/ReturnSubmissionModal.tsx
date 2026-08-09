@@ -73,6 +73,7 @@ export function ReturnSubmissionModal({
 
   const handleReturn = async () => {
     if (!returnReason.trim()) return
+    if (!submissionId) { setError("No submission selected"); return }
     setSaving(true)
     setError("")
     try {

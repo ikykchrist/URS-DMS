@@ -56,7 +56,18 @@ function canRead(actor: Actor, folder: { ownerId: string | null; departmentId: s
 
 async function assertCanManage(actor: Actor, folder: { id: string; ownerId: string | null }): Promise<void> {
   if (folder.ownerId === actor.id) return;
-  // Rule 1: unauthorized direct-ID access never reveals existence.
+  void writeAudit({
+    action: AUDIT_ACTIONS.ACCESS_DENIED,
+    userId: actor.id,
+    entity: "folder",
+    entityId: folder.id,
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+    category: "SECURITY",
+    severity: "WARNING",
+    result: "DENIED",
+    newValue: { reason: "cross_user_folder_manage_attempt", ownerId: folder.ownerId },
+  });
   throw new NotFoundError("Folder not found");
 }
 
@@ -88,6 +99,18 @@ export async function getFolder(id: string, actor: Actor): Promise<FolderDetail>
   const folder = await repo.findById(id);
   if (!folder) throw new NotFoundError("Folder not found");
   if (!canRead(actor, folder)) {
+    void writeAudit({
+      action: AUDIT_ACTIONS.ACCESS_DENIED,
+      userId: actor.id,
+      entity: "folder",
+      entityId: folder.id,
+      ipAddress: actor.ipAddress,
+      userAgent: actor.userAgent,
+      category: "SECURITY",
+      severity: "WARNING",
+      result: "DENIED",
+      newValue: { reason: "cross_user_folder_read_attempt", ownerId: folder.ownerId },
+    });
     throw new NotFoundError("Folder not found");
   }
   // Record the folder in the owner's recents (best-effort, owner only).
@@ -210,6 +233,18 @@ export async function softDeleteFolder(id: string, actor: Actor): Promise<void> 
   // Rule 1: only the owner can delete a personal folder; direct-ID access to
   // another account's folder never reveals existence.
   if (existing.ownerId !== actor.id) {
+    void writeAudit({
+      action: AUDIT_ACTIONS.ACCESS_DENIED,
+      userId: actor.id,
+      entity: "folder",
+      entityId: id,
+      ipAddress: actor.ipAddress,
+      userAgent: actor.userAgent,
+      category: "SECURITY",
+      severity: "WARNING",
+      result: "DENIED",
+      newValue: { reason: "cross_user_folder_delete_attempt", ownerId: existing.ownerId },
+    });
     throw new NotFoundError("Folder not found");
   }
 
@@ -234,8 +269,20 @@ export async function softDeleteFolder(id: string, actor: Actor): Promise<void> 
 // -----------------------------------------------------------------------------
 const MAX_FOLDER_DEPTH = 5;
 
-function assertOwner(actor: Actor, folder: { ownerId: string | null }): void {
+function assertOwner(actor: Actor, folder: { id: string; ownerId: string | null }): void {
   if (folder.ownerId !== actor.id) {
+    void writeAudit({
+      action: AUDIT_ACTIONS.ACCESS_DENIED,
+      userId: actor.id,
+      entity: "folder",
+      entityId: folder.id,
+      ipAddress: actor.ipAddress,
+      userAgent: actor.userAgent,
+      category: "SECURITY",
+      severity: "WARNING",
+      result: "DENIED",
+      newValue: { reason: "cross_user_folder_access_attempt", ownerId: folder.ownerId },
+    });
     throw new NotFoundError("Folder not found");
   }
 }

@@ -104,6 +104,18 @@ async function assertCanRead(actor: Actor, doc: { ownerId: string; id: string })
   if (await hasManagedReadAccess(actor, doc.id)) return;
   // Rule 1: direct-ID access to another account's item must NOT reveal
   // existence — always 404.
+  void writeAudit({
+    action: AUDIT_ACTIONS.ACCESS_DENIED,
+    userId: actor.id,
+    entity: "document",
+    entityId: doc.id,
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+    category: "SECURITY",
+    severity: "WARNING",
+    result: "DENIED",
+    newValue: { reason: "cross_user_read_attempt", ownerId: doc.ownerId },
+  });
   throw new NotFoundError("Document not found");
 }
 
@@ -132,15 +144,37 @@ async function hasManagedReadAccess(actor: Actor, documentId: string): Promise<b
 
 async function assertCanWrite(actor: Actor, doc: { ownerId: string; id: string }): Promise<void> {
   if (actor.id === doc.ownerId) return;
-  // Rule 1: only the owner may modify a repository document. An active
-  // WRITE/OWNER share grants write access to the shared copy.
   const share = await repo.findActiveShare(doc.id, actor.id);
   if (share && (share.permission === "WRITE" || share.permission === "OWNER")) return;
+  void writeAudit({
+    action: AUDIT_ACTIONS.ACCESS_DENIED,
+    userId: actor.id,
+    entity: "document",
+    entityId: doc.id,
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+    category: "SECURITY",
+    severity: "WARNING",
+    result: "DENIED",
+    newValue: { reason: "cross_user_write_attempt", ownerId: doc.ownerId },
+  });
   throw new NotFoundError("Document not found");
 }
 
 async function assertCanManage(actor: Actor, doc: { ownerId: string; id: string }): Promise<void> {
   if (actor.id === doc.ownerId) return;
+  void writeAudit({
+    action: AUDIT_ACTIONS.ACCESS_DENIED,
+    userId: actor.id,
+    entity: "document",
+    entityId: doc.id,
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+    category: "SECURITY",
+    severity: "WARNING",
+    result: "DENIED",
+    newValue: { reason: "cross_user_manage_attempt", ownerId: doc.ownerId },
+  });
   throw new NotFoundError("Document not found");
 }
 
@@ -415,7 +449,21 @@ export async function restoreDocument(
 ): Promise<DocumentDetail> {
   const existing = await repo.findByIdIncludingDeleted(id);
   if (!existing) throw new NotFoundError("Document not found");
-  if (existing.ownerId !== actor.id) throw new NotFoundError("Document not found");
+  if (existing.ownerId !== actor.id) {
+    void writeAudit({
+      action: AUDIT_ACTIONS.ACCESS_DENIED,
+      userId: actor.id,
+      entity: "document",
+      entityId: id,
+      ipAddress: actor.ipAddress,
+      userAgent: actor.userAgent,
+      category: "SECURITY",
+      severity: "WARNING",
+      result: "DENIED",
+      newValue: { reason: "cross_user_restore_attempt", ownerId: existing.ownerId },
+    });
+    throw new NotFoundError("Document not found");
+  }
 
   // Resolve the destination folder: explicit target, else original parent if
   // it still exists and is owned + active, else repository root.
@@ -709,7 +757,21 @@ async function uniqueCopyTitle(ownerId: string, folderId: string | null, base: s
 export async function permanentDeleteDocument(id: string, actor: Actor): Promise<void> {
   const doc = await prisma.document.findUnique({ where: { id } });
   if (!doc) throw new NotFoundError("Document not found");
-  if (doc.ownerId !== actor.id) throw new NotFoundError("Document not found");
+  if (doc.ownerId !== actor.id) {
+    void writeAudit({
+      action: AUDIT_ACTIONS.ACCESS_DENIED,
+      userId: actor.id,
+      entity: "document",
+      entityId: id,
+      ipAddress: actor.ipAddress,
+      userAgent: actor.userAgent,
+      category: "SECURITY",
+      severity: "WARNING",
+      result: "DENIED",
+      newValue: { reason: "cross_user_permanent_delete_attempt", ownerId: doc.ownerId },
+    });
+    throw new NotFoundError("Document not found");
+  }
 
   const snapshotRefs = await prisma.aaccupSubmission.count({ where: { documentId: id } });
   if (snapshotRefs > 0) {

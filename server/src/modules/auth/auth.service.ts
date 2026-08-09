@@ -169,6 +169,8 @@ export async function login(
       newValue: { reason: "unknown_user", identifier },
       ipAddress,
       userAgent,
+      category: "AUTHENTICATION",
+      severity: "WARNING",
     });
     throw new InvalidCredentialsError();
   }
@@ -181,6 +183,8 @@ export async function login(
       newValue: { reason: "account_locked", lockedUntil: user.lockedUntil },
       ipAddress,
       userAgent,
+      category: "AUTHENTICATION",
+      severity: "WARNING",
     });
     throw new AccountLockedError(user.lockedUntil);
   }
@@ -193,6 +197,8 @@ export async function login(
       newValue: { reason: "account_inactive", status: user.status },
       ipAddress,
       userAgent,
+      category: "AUTHENTICATION",
+      severity: "WARNING",
     });
     throw new AccountInactiveError(user.status);
   }
@@ -219,6 +225,8 @@ export async function login(
       newValue: { reason: "bad_password", failedAttempts, locked: shouldLock },
       ipAddress,
       userAgent,
+      category: "AUTHENTICATION",
+      severity: "WARNING",
     });
     if (shouldLock) {
       throw new AccountLockedError(new Date(Date.now() + env.LOCK_DURATION_MIN * 60 * 1000));
@@ -250,6 +258,10 @@ export async function login(
     entityId: sessionId,
     ipAddress,
     userAgent,
+    category: "AUTHENTICATION",
+    severity: "INFO",
+    actorName: [user.firstName, user.lastName].filter(Boolean).join(" ") || undefined,
+    actorRole: user.role?.name ?? undefined,
   });
 
   const userView = await buildUserView(user.id);
@@ -278,6 +290,8 @@ export async function refresh(
       newValue: { reason: "session_not_found" },
       ipAddress,
       userAgent,
+      category: "AUTHENTICATION",
+      severity: "WARNING",
     });
     throw new TokenInvalidError();
   }
@@ -302,6 +316,8 @@ export async function refresh(
         entityId: existing.id,
         ipAddress,
         userAgent,
+        category: "SECURITY",
+        severity: "WARNING",
       });
       throw new RefreshReuseDetectedError();
     }
@@ -326,6 +342,8 @@ export async function refresh(
     entityId: issued.sessionId,
     ipAddress,
     userAgent,
+    category: "AUTHENTICATION",
+    severity: "INFO",
   });
 
   const userView = await buildUserView(existing.userId);
@@ -356,6 +374,8 @@ export async function logout(
     userId: userId ?? null,
     ipAddress,
     userAgent,
+    category: "AUTHENTICATION",
+    severity: "INFO",
   });
 }
 
@@ -402,6 +422,8 @@ export async function changePassword(
     userId,
     ipAddress,
     userAgent,
+    category: "SECURITY",
+    severity: "INFO",
   });
 }
 
@@ -466,6 +488,8 @@ export async function revokeSession(
     entityId: sessionId,
     ipAddress,
     userAgent,
+    category: "SECURITY",
+    severity: "INFO",
   });
 }
 
@@ -487,6 +511,8 @@ export async function revokeOtherSessions(
     newValue: { revoked: result.count },
     ipAddress,
     userAgent,
+    category: "SECURITY",
+    severity: "INFO",
   });
   return result.count;
 }

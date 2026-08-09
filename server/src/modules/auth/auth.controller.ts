@@ -50,7 +50,7 @@ export async function logoutHandler(req: Request, res: Response): Promise<void> 
 
 export async function meHandler(req: Request, res: Response): Promise<void> {
   const user = await service.getCurrentUser(req.auth!.userId);
-  sendSuccess(res, { user });
+  sendSuccess(res, user);
 }
 
 export async function changePasswordHandler(req: Request, res: Response): Promise<void> {
