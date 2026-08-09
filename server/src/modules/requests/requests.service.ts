@@ -359,7 +359,7 @@ export async function decideRequest(
     // into their Requested Documents (linked via metadata.requestId). The
     // source documents' privacy and ownership are preserved; each delivered
     // copy references the same immutable version object.
-    if (decision === "FULFILLED") {
+    if (decision === "APPROVED") {
       await deliverRequestedDocument(tx, existing, actor);
     }
 
@@ -403,12 +403,12 @@ async function safeNotifyRequester(
 ): Promise<void> {
   try {
     if (decision === "APPROVED") {
-      await notifyUser(requesterId, "REQUEST_APPROVED", {
-        title: "Request approved",
-        message: "Your document access request has been approved.",
+      await notifyUser(requesterId, "DOCUMENT_DELIVERED", {
+        title: "Documents delivered",
+        message: "Your requested documents have been delivered to your Requested Documents folder.",
         entity: "request",
         entityId: requestId,
-        actionUrl: "/user/requests",
+        actionUrl: "/user/documents",
       });
     } else if (decision === "REJECTED") {
       await notifyUser(requesterId, "REQUEST_REJECTED", {

@@ -8,7 +8,7 @@ import { notificationService } from "@/services/notifications"
 import { resolveNotificationRoute, buildNotificationUrl } from "@/lib/notificationNav"
 import type { Notification } from "@/types/domain"
 
-const POLL_INTERVAL_MS = 10_000
+const POLL_INTERVAL_MS = 3_000
 
 const typeMeta: Record<string, { label: string; color: string; bg: string }> = {
   approval:     { label: "Approvals",    color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/30" },
@@ -34,12 +34,11 @@ export function NotificationCenter() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const load = useCallback(async () => {
-    setLoading(true)
     try {
       const n = await notificationService.listAll()
       setNotifications(n)
+      setLoading(false)
     } catch { /* silent */ }
-    finally { setLoading(false) }
   }, [])
 
   useEffect(() => {

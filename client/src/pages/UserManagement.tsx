@@ -61,6 +61,7 @@ import {
   listSystemDepartments,
   archiveSystemUser,
   updateUserStatus,
+  updateSystemUser,
   type SystemUser,
 } from "@/services/admin"
 import { ROLE_LABELS } from "@/lib/permissions"
@@ -482,10 +483,18 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
         onDelete={selectedUser ? () => handleDeleteUser(selectedUser.id) : undefined}
         onSave={async (id, data) => {
           if (!id) return
-          await updateUserStatus(
-            id,
-            data.status === "Active" ? "ACTIVE" : data.status === "Suspended" ? "SUSPENDED" : "INACTIVE",
-          )
+          if (data.departmentId || data.roleId) {
+            await updateSystemUser(id, {
+              status: data.status === "Active" ? "ACTIVE" : data.status === "Suspended" ? "SUSPENDED" : "INACTIVE",
+              ...(data.departmentId !== undefined ? { departmentId: data.departmentId || null } : {}),
+              ...(data.roleId ? { roleId: data.roleId } : {}),
+            } as Parameters<typeof updateSystemUser>[1])
+          } else {
+            await updateUserStatus(
+              id,
+              data.status === "Active" ? "ACTIVE" : data.status === "Suspended" ? "SUSPENDED" : "INACTIVE",
+            )
+          }
           refresh()
         }}
       />

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   User as UserIcon,
   Mail,
@@ -7,6 +7,7 @@ import {
   KeyRound,
   Trash2,
   AlertTriangle,
+  Loader2,
 } from "lucide-react"
 import {
   Dialog,
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/Select"
 import { cn } from "@/lib/utils"
 import type { User } from "@/types/domain"
+import { listSystemDepartments, listSystemRoles, type SystemDepartment, type SystemRole } from "@/services/admin"
 
 interface UserDetailsModalProps {
   open: boolean
@@ -38,7 +40,7 @@ interface UserDetailsModalProps {
   user: User | null
   onResetPassword?: () => void
   onDelete?: () => void
-  onSave?: (userId: string, data: { status: "Active" | "Inactive" | "Suspended" }) => void
+  onSave?: (userId: string, data: { status: "Active" | "Inactive" | "Suspended"; departmentId?: string; roleId?: string }) => void
 }
 
 const roleBadgeVariant: Record<string, "default" | "secondary" | "success" | "warning" | "danger"> = {
@@ -60,10 +62,36 @@ export function UserDetailsModal({
 }: UserDetailsModalProps) {
   const [isActive, setIsActive] = useState(user?.status === "Active")
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+  const [departments, setDepartments] = useState<SystemDepartment[]>([])
+  const [roles, setRoles] = useState<SystemRole[]>([])
+  const [selectedDepartment, setSelectedDepartment] = useState(user?.departmentId ?? "")
+  const [selectedRole, setSelectedRole] = useState("")
+  const [loadingOptions, setLoadingOptions] = useState(false)
+
+  useEffect(() => {
+    if (!open || !user) return
+    setIsActive(user.status === "Active")
+    setSelectedDepartment(user.departmentId ?? "")
+    setSelectedRole("")
+    setLoadingOptions(true)
+    Promise.all([
+      listSystemDepartments({ page: 1, pageSize: 200 }),
+      listSystemRoles({ page: 1, pageSize: 50 }),
+    ])
+      .then(([deptPage, rolePage]) => {
+        setDepartments(deptPage.items.filter((d) => !d.deletedAt))
+        setRoles(rolePage.items.filter((r) => !r.deletedAt))
+      })
+      .finally(() => setLoadingOptions(false))
+  }, [open, user])
 
   const handleSave = () => {
     if (!user) return
-    onSave?.(user.id, { status: isActive ? "Active" : "Inactive" })
+    onSave?.(user.id, {
+      status: isActive ? "Active" : "Inactive",
+      ...(selectedDepartment ? { departmentId: selectedDepartment } : {}),
+      ...(selectedRole ? { roleId: selectedRole } : {}),
+    })
     onOpenChange(false)
   }
 
@@ -135,17 +163,14 @@ export function UserDetailsModal({
                     <Building2 className="w-3 h-3" />
                     Department
                   </Label>
-                  <Select defaultValue={user.department}>
+                  <Select value={selectedDepartment} onValueChange={setSelectedDepartment} disabled={loadingOptions}>
                     <SelectTrigger className="h-9 text-[14px]">
-                      <SelectValue />
+                      {loadingOptions ? <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" /> : <SelectValue placeholder="Select department..." />}
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cosi">College of Info Sciences</SelectItem>
-                      <SelectItem value="coe">College of Engineering</SelectItem>
-                      <SelectItem value="cas">College of Arts & Sciences</SelectItem>
-                      <SelectItem value="cba">College of Business Admin</SelectItem>
-                      <SelectItem value="con">College of Nursing</SelectItem>
-                      <SelectItem value="dean">Dean Office</SelectItem>
+                      {departments.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -154,17 +179,14 @@ export function UserDetailsModal({
                     <Shield className="w-3 h-3" />
                     Role
                   </Label>
-                  <Select defaultValue={user.role.toLowerCase().replace(" ", "_")}>
+                  <Select value={selectedRole} onValueChange={setSelectedRole} disabled={loadingOptions}>
                     <SelectTrigger className="h-9 text-[14px]">
-                      <SelectValue />
+                      {loadingOptions ? <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" /> : <SelectValue placeholder="Select role..." />}
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="system_administrator">System Administrator</SelectItem>
-                      <SelectItem value="document_manager">Document Manager</SelectItem>
-                      <SelectItem value="reviewer">Reviewer</SelectItem>
-                      <SelectItem value="editor">Editor</SelectItem>
-                      <SelectItem value="viewer">Viewer</SelectItem>
-                      <SelectItem value="department_user">Department User</SelectItem>
+                      {roles.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
