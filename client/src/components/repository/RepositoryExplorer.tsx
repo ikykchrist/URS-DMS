@@ -21,6 +21,7 @@ import {
   LayoutGrid,
   List,
   X,
+  Filter,
   RefreshCw,
   ArchiveRestore,
   Palette,
@@ -82,6 +83,7 @@ import {
   uploadOnlineDocumentWithProgress,
   addOnlineDocumentVersion,
   openOnlineDocument,
+  getOnlineDocumentUrl,
   getFolderInfo,
   downloadFolderZip,
   listCopyJobs,
@@ -143,13 +145,119 @@ function formatSize(bytes: number): string {
 
 function fileIconClasses(doc: Document): string {
   const type = doc.type?.toLowerCase() ?? ""
-  if (["pdf"].includes(type)) return "bg-red-50 text-red-500"
-  if (["xls", "xlsx", "csv"].includes(type)) return "bg-emerald-50 text-emerald-600"
-  if (["doc", "docx", "txt"].includes(type)) return "bg-blue-50 text-blue-600"
-  if (["ppt", "pptx"].includes(type)) return "bg-orange-50 text-orange-600"
-  if (["png", "jpg", "jpeg", "gif", "webp"].includes(type)) return "bg-purple-50 text-purple-600"
-  if (["mp4", "webm", "mov", "avi", "mkv"].includes(type)) return "bg-rose-50 text-rose-600"
-  return "bg-gray-100 text-gray-500"
+  if (["pdf"].includes(type)) return "bg-red-50 text-red-500 dark:bg-red-900/30 dark:text-red-400"
+  if (["xls", "xlsx", "csv"].includes(type)) return "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+  if (["doc", "docx", "txt"].includes(type)) return "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+  if (["ppt", "pptx"].includes(type)) return "bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
+  if (["png", "jpg", "jpeg", "gif", "webp"].includes(type)) return "bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
+  if (["mp4", "webm", "mov", "avi", "mkv"].includes(type)) return "bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400"
+  return "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+}
+
+function isImageType(doc: Document): boolean {
+  const t = doc.type?.toLowerCase() ?? ""
+  return ["png", "jpg", "jpeg", "gif", "webp"].includes(t)
+}
+
+function isPdfType(doc: Document): boolean {
+  return (doc.type?.toLowerCase() ?? "") === "pdf"
+}
+
+function isVideoType(doc: Document): boolean {
+  const t = doc.type?.toLowerCase() ?? ""
+  return ["mp4", "webm", "mov", "avi", "mkv"].includes(t)
+}
+
+function fileTypeLabel(doc: Document): string {
+  return (doc.type?.toUpperCase() ?? "") || "FILE"
+}
+
+// Lazy thumbnail — fetches presigned URL only when visible via IntersectionObserver
+function LazyThumbnail({ doc }: { doc: Document; className?: string }) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [errored, setErrored] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const ref = useRef<HTMLDivElement | null>(null)
+  const fetched = useRef(false)
+
+  useEffect(() => {
+    if (!ref.current || fetched.current) return
+    if (!isImageType(doc) && !isPdfType(doc) && !isVideoType(doc)) return
+    const el = ref.current
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !fetched.current) {
+          fetched.current = true
+          setLoading(true)
+          getOnlineDocumentUrl(doc, true)
+            .then((u) => setUrl(u))
+            .catch(() => setErrored(true))
+            .finally(() => setLoading(false))
+        }
+      },
+      { rootMargin: "200px" },
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [doc])
+
+  const showFallback = errored || !isImageType(doc) && !isPdfType(doc) && !isVideoType(doc)
+
+  if (showFallback) {
+    return (
+      <div className={cn("w-full h-full flex items-center justify-center rounded-t-xl", fileIconClasses(doc))}>
+        <FileText className="w-8 h-8" />
+      </div>
+    )
+  }
+
+  if (loading && !url) {
+    return (
+      <div className="w-full h-full flex items-center justify-center rounded-t-xl bg-gray-50 dark:bg-gray-800">
+        <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+      </div>
+    )
+  }
+
+  if (isImageType(doc) && url) {
+    return (
+      <img
+        src={url}
+        alt={doc.name}
+        className="w-full h-full object-cover rounded-t-xl"
+        loading="lazy"
+        onError={() => setErrored(true)}
+      />
+    )
+  }
+
+  if (isPdfType(doc) && url) {
+    return (
+      <div className="w-full h-full relative rounded-t-xl overflow-hidden bg-gray-100 dark:bg-gray-800">
+        <iframe src={url} className="w-full h-full pointer-events-none border-0" title={doc.name} sandbox="" />
+        <div className="absolute inset-0 rounded-t-xl ring-1 ring-inset ring-black/5 pointer-events-none" />
+      </div>
+    )
+  }
+
+  if (isVideoType(doc) && url) {
+    return (
+      <div className="w-full h-full relative rounded-t-xl overflow-hidden bg-gray-900">
+        <video src={url} preload="metadata" className="w-full h-full object-cover" muted />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
+          <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
+            <div className="w-0 h-0 border-l-[12px] border-l-white border-y-[8px] border-y-transparent ml-0.5" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full h-full flex items-center justify-center rounded-t-xl bg-gray-50 dark:bg-gray-800">
+      <FileText className="w-8 h-8 text-gray-400" />
+    </div>
+  )
 }
 
 const UPLOAD_MIME_TYPES = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.csv,.txt,.mp3,.wav,.ogg,.m4a,.aac,.mp4,.webm,.mov,.avi,.mkv"
@@ -889,6 +997,15 @@ export function RepositoryExplorer() {
     }
   }
 
+  const submitBulkDownload = () => {
+    const selected = sortedDocs.filter((d) => selectedIds.has(d.id))
+    for (const doc of selected) void openOnlineDocument(doc)
+    setSelectedIds(new Set())
+  }
+
+  const submitBulkMove = () => { const first = sortedDocs.find((d) => selectedIds.has(d.id)); if (first) openMove("file", first.id) }
+  const submitBulkCopy = () => { const first = sortedDocs.find((d) => selectedIds.has(d.id)); if (first) void handleCopyFile(first) }
+
   const handleReplaceVersion = async (files: FileList | null) => {
     if (!files?.[0] || !versionTarget) return
     try {
@@ -902,6 +1019,8 @@ export function RepositoryExplorer() {
   }
 
   // ── Selection / interactions ───────────────────────────────────────────────
+
+  const [typeFilter, setTypeFilter] = useState("all")
 
   const toggleSelect = (id: string) => {
     setSelectedId(id)
@@ -1074,12 +1193,18 @@ export function RepositoryExplorer() {
     drag?: { type: "folder" | "file"; id: string }
     dropTarget?: { folderId: string | null }
     badge?: React.ReactNode
-  }) => (
+  }) => {
+    const isSelected = selectedIds.has(id)
+    return (
     <div
       key={id}
       className={cn(
-        "flex items-center gap-3 px-3 py-2.5 border-b border-gray-50 cursor-pointer select-none transition-colors",
-        selectedId === id ? "bg-primary/5" : dragOverFolderId === (opts?.dropTarget?.folderId ?? null) ? "bg-blue-50/70" : "hover:bg-gray-50/70",
+        "flex items-center gap-3 px-3 py-2.5 border-b border-gray-50 dark:border-gray-700/50 cursor-pointer select-none transition-colors",
+        isSelected
+          ? "bg-gray-100 dark:bg-gray-800/70"
+          : selectedId === id ? "bg-gray-50/70 dark:bg-gray-800/50"
+          : dragOverFolderId === (opts?.dropTarget?.folderId ?? null) ? "bg-blue-50/70 dark:bg-blue-900/20"
+          : "hover:bg-gray-50/70 dark:hover:bg-gray-800/50",
       )}
       onClick={() => setSelectedId(id)}
       onDoubleClick={open}
@@ -1091,29 +1216,35 @@ export function RepositoryExplorer() {
     >
       <input
         type="checkbox"
-        className="w-4 h-4 rounded accent-primary"
+        className="w-4 h-4 rounded accent-primary flex-shrink-0"
         onClick={(e) => e.stopPropagation()}
-        checked={selectedIds.has(id)}
+        checked={isSelected}
         onChange={() => toggleSelect(id)}
       />
       {icon}
-      <span className="flex-1 min-w-0 text-[14px] font-medium text-gray-900 truncate">{name}</span>
+      <span className="flex-1 min-w-0 text-[14px] font-medium text-gray-900 dark:text-gray-100 truncate">{name}</span>
       {opts?.badge}
-      <span className="text-[12px] text-gray-500 hidden sm:inline">{meta}</span>
-      <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>{actions}</div>
+      <span className="text-[12px] text-gray-500 dark:text-gray-400 hidden sm:inline">{meta}</span>
+      <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>{actions}</div>
     </div>
-  )
+  )}
 
-  const renderCard = (icon: React.ReactNode, name: string, meta: string, id: string, actions: React.ReactNode, open: () => void, opts?: {
+  const renderCard = (doc: Document | null, folder: RepositoryFolderRow | null, name: string, meta: string, id: string, open: () => void, opts?: {
     drag?: { type: "folder" | "file"; id: string }
     dropTarget?: { folderId: string | null }
     badge?: React.ReactNode
-  }) => (
+  }) => {
+    const isSelected = selectedIds.has(id)
+    const isFolder = Boolean(folder)
+    return (
     <div
       key={id}
       className={cn(
-        "border border-gray-200 rounded-xl p-4 cursor-pointer select-none transition-all hover:shadow-sm",
-        selectedId === id ? "bg-primary/5 border-primary/30" : dragOverFolderId === (opts?.dropTarget?.folderId ?? null) ? "bg-blue-50/70 border-blue-300" : "hover:bg-gray-50/70",
+        "relative border rounded-xl cursor-pointer select-none transition-all duration-150 group bg-white dark:bg-gray-900",
+        isSelected
+          ? "border-gray-400 dark:border-gray-500 shadow-sm"
+          : dragOverFolderId === (opts?.dropTarget?.folderId ?? null) ? "border-blue-300 dark:border-blue-700 bg-blue-50/30 dark:bg-blue-900/10"
+          : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md",
       )}
       onClick={() => setSelectedId(id)}
       onDoubleClick={open}
@@ -1123,17 +1254,59 @@ export function RepositoryExplorer() {
       onDragLeave={() => setDragOverFolderId(null)}
       onDrop={opts?.dropTarget ? (e) => void onFolderDrop(e, opts.dropTarget!.folderId) : undefined}
     >
-      <div className="flex items-start justify-between">
-        {icon}
-        <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>{actions}</div>
+      <div className="aspect-[4/3] overflow-hidden rounded-t-xl">
+        {isFolder ? (
+          <div className="w-full h-full flex items-center justify-center bg-amber-50 dark:bg-amber-900/20">
+            <Folder className="w-12 h-12 text-amber-500 dark:text-amber-400" />
+          </div>
+        ) : doc ? (
+          <LazyThumbnail doc={doc} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-800">
+            <FileText className="w-8 h-8 text-gray-400" />
+          </div>
+        )}
       </div>
-      <p className="text-[13px] font-medium text-gray-900 mt-3 truncate" title={name}>{name}</p>
-      <div className="flex items-center gap-1.5 mt-0.5">
-        {opts?.badge}
-        <p className="text-[11px] text-gray-400 truncate">{meta}</p>
+      <div className="p-3">
+        <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100 truncate" title={name}>{name}</p>
+        <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {opts?.badge}
+            {!isFolder && doc && (
+              <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate">{fileTypeLabel(doc)} · {formatSize(doc.size)}</span>
+            )}
+            {isFolder && (
+              <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate">{meta}</span>
+            )}
+          </div>
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+            {!isFolder && doc && (
+              <>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="Preview" onClick={(e) => { e.stopPropagation(); setPreview(doc) }}>
+                  <Eye className="w-3 h-3" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="Download" onClick={(e) => { e.stopPropagation(); void openOnlineDocument(doc) }}>
+                  <Download className="w-3 h-3" />
+                </Button>
+              </>
+            )}
+            {isFolder && (
+              <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="Open" onClick={(e) => { e.stopPropagation(); open() }}>
+                <FolderOpen className="w-3 h-3" />
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
+      <input
+        type="checkbox"
+        className="absolute top-2 right-2 w-4 h-4 rounded accent-primary"
+        onClick={(e) => e.stopPropagation()}
+        checked={isSelected}
+        onChange={() => toggleSelect(id)}
+      />
     </div>
-  )
+  )}
 
   const commonActions = {
     file: (doc: Document) => (
@@ -1309,21 +1482,35 @@ export function RepositoryExplorer() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 placeholder="Search files and folders..."
-                className="pl-10 h-10 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white"
+                className="pl-10 h-10 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white dark:bg-gray-800 dark:hover:bg-gray-700"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50/50">
+              {section === "all" && (
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-[130px] h-9"><Filter className="w-3.5 h-3.5 mr-1.5" /><SelectValue placeholder="File Type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="pdf">PDF</SelectItem>
+                    <SelectItem value="doc,docx,txt">Documents</SelectItem>
+                    <SelectItem value="xls,xlsx,csv">Spreadsheets</SelectItem>
+                    <SelectItem value="jpg,jpeg,png,gif,webp">Images</SelectItem>
+                    <SelectItem value="mp4,webm,mov,avi,mkv">Videos</SelectItem>
+                    <SelectItem value="mp3,wav,ogg,m4a,aac">Audio</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 p-1 bg-gray-50/50 dark:bg-gray-800">
                 <button type="button" onClick={() => setView("list")}
                   className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors",
-                    view === "list" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+                    view === "list" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm" : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200")}>
                   <List className="w-3.5 h-3.5" /> List
                 </button>
                 <button type="button" onClick={() => setView("grid")}
                   className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors",
-                    view === "grid" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+                    view === "grid" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm" : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200")}>
                   <LayoutGrid className="w-3.5 h-3.5" /> Grid
                 </button>
               </div>
@@ -1351,9 +1538,14 @@ export function RepositoryExplorer() {
                 </Button>
               )}
               {selectedIds.size > 0 && section === "all" && (
-                <Button variant="destructive" size="sm" className="h-9" onClick={() => setBulkDeleteConfirm(true)}>
-                  <Trash2 className="w-4 h-4 mr-2" /> Delete ({selectedIds.size})
-                </Button>
+                <div className="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-600">
+                  <span className="text-[12px] font-medium text-gray-600 dark:text-gray-300">{selectedIds.size} selected</span>
+                  <Button variant="outline" size="sm" className="h-8" onClick={submitBulkDownload}><Download className="w-3.5 h-3.5 mr-1" /> DL</Button>
+                  <Button variant="outline" size="sm" className="h-8" onClick={submitBulkMove}><Move className="w-3.5 h-3.5 mr-1" /> Move</Button>
+                  <Button variant="outline" size="sm" className="h-8" onClick={submitBulkCopy}><Copy className="w-3.5 h-3.5 mr-1" /> Copy</Button>
+                  <Button variant="destructive" size="sm" className="h-8" onClick={() => setBulkDeleteConfirm(true)}><Trash2 className="w-3.5 h-3.5 mr-1" /> Delete</Button>
+                  <Button variant="ghost" size="sm" className="h-8 text-gray-400" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /></Button>
+                </div>
               )}
             </div>
           </div>
@@ -1523,15 +1715,14 @@ export function RepositoryExplorer() {
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 p-3">
                   {deletedFolders.map((folder) => renderCard(
-                    <Folder className="w-5 h-5 text-amber-500" />, folder.name,
+                    null, folder, folder.name,
                     folder.deletedAt ? `Deleted ${new Date(folder.deletedAt).toLocaleDateString()} · expires ${expiresAt(folder.deletedAt)} · ${daysRemaining(folder.deletedAt)}d left` : "Folder",
                     folder.id,
-                    recycleActions("folder", folder.id, folder.name), () => undefined,
+                    () => undefined,
                   ))}
                   {deletedDocs.map((doc) => renderCard(
-                    <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", fileIconClasses(doc))}><FileText className="w-5 h-5" /></div>,
-                    doc.name, `${doc.type} · ${formatSize(doc.size)}`, doc.id,
-                    recycleActions("file", doc.id, doc.name), () => setPreview(doc),
+                    doc, null, doc.name, `${doc.type} · ${formatSize(doc.size)}`, doc.id,
+                    () => setPreview(doc),
                     { badge: submissionBadge(doc) },
                   ))}
                 </div>
@@ -1589,14 +1780,12 @@ export function RepositoryExplorer() {
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 p-3">
                   {visibleDocs.folders.map((folder) => renderCard(
-                    <Folder className="w-5 h-5 text-amber-500" />, folder.name, `${folder.documentCount} files`, folder.id,
-                    commonActions.folder(folder), () => navigate(folder.id),
+                    null, folder, folder.name, `${folder.documentCount} files`, folder.id,
+                    () => navigate(folder.id),
                     { drag: { type: "folder", id: folder.id }, dropTarget: { folderId: folder.id } },
                   ))}
                   {sortedDocs.map((doc) => renderCard(
-                    <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", fileIconClasses(doc))}><FileText className="w-5 h-5" /></div>,
-                    doc.name, `${doc.type} · ${formatSize(doc.size)}`, doc.id,
-                    <>{commonActions.file(doc)}<Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="Preview" onClick={() => setPreview(doc)}><Eye className="w-3.5 h-3.5" /></Button><Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="Replace version" onClick={() => setVersionTarget(doc)}><RefreshCw className="w-3.5 h-3.5" /></Button></>,
+                    doc, null, doc.name, `${doc.type} · ${formatSize(doc.size)}`, doc.id,
                     () => setPreview(doc),
                     { drag: { type: "file", id: doc.id }, badge: submissionBadge(doc) },
                   ))}

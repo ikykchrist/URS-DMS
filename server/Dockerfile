@@ -16,7 +16,7 @@ COPY package.json package-lock.json* ./
 COPY prisma ./prisma
 
 # Install ALL deps (including devDependencies) so the seed/build stage has them
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Generate the Prisma client (needs the schema in this stage)
 RUN npx prisma generate
@@ -45,7 +45,7 @@ RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
 
 # Production-only dependencies (no devDeps)
 COPY package.json package-lock.json* ./
-RUN npm install --omit=dev && npm cache clean --force
+RUN npm install --omit=dev --legacy-peer-deps && npm cache clean --force
 
 # Bring in the compiled output, the Prisma client, and the seed/migration tooling
 COPY --from=build /app/dist ./dist

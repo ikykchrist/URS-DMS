@@ -22,6 +22,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return { hasError: true }
   }
 
+  componentDidCatch(error: Error, info: { componentStack: string }) {
+    console.error("[ErrorBoundary]", error.message, error.stack?.slice(0, 300), info.componentStack?.slice(0, 300))
+  }
+
   handleReload = () => {
     window.location.reload()
   }
@@ -29,13 +33,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0B1121] p-6">
           <div className="max-w-md w-full text-center">
-            <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-7 h-7 text-red-500" />
+            <div className="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-7 h-7 text-red-500 dark:text-red-400" />
             </div>
-            <h1 className="text-[18px] font-semibold text-gray-900">Something went wrong</h1>
-            <p className="text-[14px] text-gray-500 mt-2">
+            <h1 className="text-[18px] font-semibold text-gray-900 dark:text-gray-100">Something went wrong</h1>
+            <p className="text-[14px] text-gray-500 dark:text-gray-400 mt-2">
               An unexpected error occurred. Reload the page to continue — your data is safe.
             </p>
             <Button className="h-10 px-6 shadow-sm mt-6" onClick={this.handleReload}>
