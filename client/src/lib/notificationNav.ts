@@ -15,12 +15,13 @@ export function resolveNotificationRoute(notif: Notification): ResolvedRoute | n
   const mapping: Record<string, ResolvedRoute> = {
     aaccup_submission: { page: "aaccup", tab: "submissions", portal: "admin" },
     aaccup_task: { page: "aaccup", tab: "tasks", portal: "user" },
+    aaccup_area: { page: "aaccup", portal: "admin" },
     request: { page: "requests", portal: "user" },
     document: { page: "documents", portal: "user" },
     folder: { page: "documents", portal: "user" },
-    aaccup_area: { page: "aaccup", portal: "admin" },
     audit_log: { page: "audit", portal: "admin" },
     notification: { page: "notifications", portal: "user" },
+    session: { page: "profile", portal: "user" },
   }
 
   if (entity && mapping[entity]) {
@@ -28,12 +29,16 @@ export function resolveNotificationRoute(notif: Notification): ResolvedRoute | n
   }
 
   if (link) {
+    const [path, query] = link.split("?")
+    const params = new URLSearchParams(query ?? "")
+    const tab = params.get("tab") ?? undefined
+
     if (link.startsWith("/user/")) {
-      const page = link.replace("/user/", "").split("?")[0]
-      return { page, portal: "user" }
+      const page = path.replace("/user/", "")
+      return { page, tab, portal: "user" }
     }
-    const page = link.replace("/", "").split("?")[0]
-    return { page, portal: "admin" }
+    const page = path.replace("/", "")
+    return { page, tab, portal: "admin" }
   }
 
   return null
