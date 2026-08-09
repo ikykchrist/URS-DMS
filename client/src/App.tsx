@@ -261,7 +261,7 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
           }
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
           <StatCard
             title="Total Folders"
             value={report ? String(report.documents.totalFolders) : "â€”"}
@@ -317,7 +317,7 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
           {(
             [
               { key: "AACCUP", label: "AACCUP Compliance", bg: "bg-amber-50", text: "text-amber-600" },
@@ -1048,7 +1048,7 @@ function UserAppContent() {
         </main>
       </div>
     </div>
-    <MobileBottomBar activePage={activePage} onNavigate={handleNavigate} unreadNotifications={unreadCount} />
+    <MobileBottomBar activePage={activePage} onNavigate={handleNavigate} />
     </>
   )
 }

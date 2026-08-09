@@ -32,7 +32,6 @@ interface MobileBottomBarProps {
   activePage: string
   onNavigate: (page: string) => void
   showRoot?: boolean
-  unreadNotifications?: number
 }
 
 const adminMainTabs: BottomTab[] = [
@@ -59,17 +58,17 @@ const userMainTabs: BottomTab[] = [
   { id: "dashboard", icon: LayoutDashboard, label: "Home" },
   { id: "documents", icon: FolderOpen, label: "Docs" },
   { id: "aaccup", icon: GraduationCap, label: "AACCUP" },
-  { id: "notifications", icon: Bell, label: "Alerts" },
+  { id: "requests", icon: Inbox, label: "Requests" },
 ]
 
 const userMoreTabs: BottomTab[] = [
-  { id: "requests", icon: Inbox, label: "My Requests" },
+  { id: "notifications", icon: Bell, label: "Notifications" },
   { id: "activity", icon: Clock, label: "My Activity" },
   { id: "profile", icon: User, label: "Profile" },
   { id: "settings", icon: Settings, label: "Settings" },
 ]
 
-export function MobileBottomBar({ activePage, onNavigate, showRoot, unreadNotifications = 0 }: MobileBottomBarProps) {
+export function MobileBottomBar({ activePage, onNavigate, showRoot }: MobileBottomBarProps) {
   const isUser = !showRoot && activePage !== "users" && activePage !== "audit" && activePage !== "settings"
   const mainTabs = isUser ? userMainTabs : adminMainTabs
   const moreTabs = isUser
@@ -94,14 +93,7 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, unreadNotifi
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
               )}
             >
-              <div className="relative">
-                <tab.icon className="w-5 h-5" />
-                {tab.id === "notifications" && unreadNotifications > 0 && (
-                  <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
-                    {unreadNotifications > 9 ? "9+" : unreadNotifications}
-                  </span>
-                )}
-              </div>
+              <tab.icon className="w-5 h-5" />
               <span className="text-[10px] font-medium leading-none">{tab.label}</span>
             </button>
           )
