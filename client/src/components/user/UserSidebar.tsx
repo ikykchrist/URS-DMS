@@ -41,6 +41,7 @@ interface UserSidebarProps {
   onNavigate?: (page: string) => void
   onLogout?: () => void
   unreadNotifications?: number
+  className?: string
 }
 
 export function UserSidebar({
@@ -50,6 +51,7 @@ export function UserSidebar({
   onNavigate,
   onLogout,
   unreadNotifications = 0,
+  className,
 }: UserSidebarProps) {
   const { logout } = useAuth()
 
@@ -69,7 +71,8 @@ export function UserSidebar({
     <aside
       className={cn(
         "h-screen bg-white dark:bg-[#0F1520] border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-shrink-0",
-        collapsed ? "w-20" : "w-64"
+        collapsed ? "w-20" : "w-64",
+        className,
       )}
     >
       <div className="flex flex-col h-full">

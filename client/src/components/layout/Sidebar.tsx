@@ -61,9 +61,10 @@ interface SidebarProps {
   activePage?: string
   onNavigate?: (page: string) => void
   showRoot?: boolean
+  className?: string
 }
 
-export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard", onNavigate, showRoot = false }: SidebarProps) {
+export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard", onNavigate, showRoot = false, className }: SidebarProps) {
   // Rule 6: warn before navigating away while uploads are active.
   const handleNavigate = (page: string) => {
     if (!confirmLeaveIfUploading()) return
@@ -73,7 +74,8 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
     <aside
       className={cn(
         "h-screen bg-white dark:bg-[#0F1520] border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-shrink-0",
-        collapsed ? "w-20" : "w-64"
+        collapsed ? "w-20" : "w-64",
+        className,
       )}
     >
       <div className="flex flex-col h-full">

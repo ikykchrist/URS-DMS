@@ -71,6 +71,7 @@ import AccountSecurity from "@/pages/AccountSecurity"
 import { CommandPalette } from "@/components/layout/CommandPalette"
 import { AuthProvider, useAuth } from "@/context/AuthContext"
 import { ThemeProvider } from "@/lib/theme"
+import { MobileBottomBar } from "@/components/layout/MobileBottomBar"
 import { ToastContainer, toast } from "@/lib/toast"
 import { isAdminRole, isRootRole } from "@/lib/permissions"
 import { getDashboardOverview, type DashboardOverview } from "@/services/dashboard"
@@ -811,6 +812,7 @@ function AppContent() {
   // AppContent return â€” admin sees this
 
   return (
+    <>
     <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC] dark:bg-[#0B1121]">
       <Sidebar
         collapsed={sidebarCollapsed}
@@ -818,6 +820,7 @@ function AppContent() {
         activePage={activePage}
         onNavigate={handleNavigate}
         showRoot={isRootRole(user.role)}
+        className="hidden lg:flex"
       />
 
       <div className="flex flex-col flex-1 min-w-0 w-full">
@@ -830,7 +833,7 @@ function AppContent() {
           onOpenChange={setIsCommandPaletteOpen}
           onNavigate={handleNavigate}
         />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
           <Suspense
             fallback={
               <div className="min-h-[320px] flex items-center justify-center">
@@ -865,6 +868,8 @@ function AppContent() {
         </main>
       </div>
     </div>
+    <MobileBottomBar activePage={activePage} onNavigate={handleNavigate} showRoot={isRootRole(user.role)} />
+    </>
   )
 }
 
@@ -989,6 +994,7 @@ function UserAppContent() {
   // UserAppContent return â€” non-admin sees this
 
   return (
+    <>
     <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC] dark:bg-[#0B1121]">
       <UserSidebar
         collapsed={sidebarCollapsed}
@@ -997,6 +1003,7 @@ function UserAppContent() {
         onNavigate={handleNavigate}
         onLogout={handleLogout}
         unreadNotifications={unreadCount}
+        className="hidden lg:flex"
       />
 
       <div className="flex flex-col flex-1 min-w-0 w-full">
@@ -1010,7 +1017,7 @@ function UserAppContent() {
           onOpenChange={setIsCommandPaletteOpen}
           onNavigate={handleNavigate}
         />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
           {activePage === "dashboard" && <UserDashboard onNavigate={handleNavigate} />}
           {activePage === "documents" && <UserDocuments />}
           {activePage === "requests" && !showBrowseArchive && (
@@ -1041,6 +1048,8 @@ function UserAppContent() {
         </main>
       </div>
     </div>
+    <MobileBottomBar activePage={activePage} onNavigate={handleNavigate} unreadNotifications={unreadCount} />
+    </>
   )
 }
 
