@@ -124,7 +124,7 @@ export default function UserNotifications() {
               />
             </div>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-              <TabsList className="h-9 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+              <TabsList className="h-9 w-full justify-start overflow-x-auto p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
                 <TabsTrigger value="all" className="text-[12px] h-7 px-3">All</TabsTrigger>
                 <TabsTrigger value="unread" className="text-[12px] h-7 px-3">Unread</TabsTrigger>
                 <TabsTrigger value="requests" className="text-[12px] h-7 px-3">Requests</TabsTrigger>

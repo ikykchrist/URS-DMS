@@ -1179,7 +1179,7 @@ export default function RootFolderBuilder() {
       />
 
       <Tabs value={mainTab} onValueChange={handleMainTabChange}>
-        <TabsList className="mb-4 grid h-auto w-full grid-cols-3 sm:inline-grid sm:w-auto">
+        <TabsList className="mb-4 grid h-auto w-full grid-cols-3 sm:inline-grid sm:w-auto overflow-x-auto">
           <TabsTrigger value="templates" className="gap-1.5 px-2 sm:px-4">
             <GitBranch className="h-4 w-4" />
             Templates

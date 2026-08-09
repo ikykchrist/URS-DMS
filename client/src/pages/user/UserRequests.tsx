@@ -100,7 +100,7 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
       <Card className="border-gray-200/60 shadow-sm mb-6">
         <CardContent className="p-4">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4 h-10 p-1 bg-gray-100 rounded-xl">
+            <TabsList className="grid w-full grid-cols-4 h-10 p-1 bg-gray-100 rounded-xl overflow-x-auto">
               <TabsTrigger value="all" className="text-[13px]">All</TabsTrigger>
               <TabsTrigger value="pending" className="text-[13px]">Pending</TabsTrigger>
               <TabsTrigger value="approved" className="text-[13px]">Approved</TabsTrigger>

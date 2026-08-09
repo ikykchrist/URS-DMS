@@ -55,8 +55,8 @@ const rootMoreTabs: BottomTab[] = [
 ]
 
 const userMainTabs: BottomTab[] = [
-  { id: "dashboard", icon: LayoutDashboard, label: "Home" },
-  { id: "documents", icon: FolderOpen, label: "Docs" },
+  { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { id: "documents", icon: FolderOpen, label: "Documents" },
   { id: "aaccup", icon: GraduationCap, label: "AACCUP" },
   { id: "requests", icon: Inbox, label: "Requests" },
 ]

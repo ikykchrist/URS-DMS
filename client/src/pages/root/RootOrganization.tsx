@@ -390,7 +390,7 @@ export default function RootOrganization() {
       />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as OrgEntity)}>
-        <TabsList className="mb-4">
+        <TabsList className="mb-4 h-auto w-full justify-start overflow-x-auto p-1">
           {ENTITIES.map((e) => {
             const Icon = e.icon
             return (

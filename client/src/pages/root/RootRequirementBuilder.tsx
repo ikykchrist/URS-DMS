@@ -1068,7 +1068,7 @@ export default function RootRequirementBuilder() {
         onValueChange={(value) => setMainTab(value as MainTab)}
         className="mt-6"
       >
-        <TabsList className="grid w-full max-w-xl grid-cols-3">
+        <TabsList className="grid w-full max-w-xl grid-cols-3 overflow-x-auto">
           <TabsTrigger value="builder">
             <FolderTree className="mr-2 h-4 w-4" />
             Builder
