@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { UserAccreditationView } from "@/pages/user/UserAccreditationView"
 import { UserTasksTab } from "@/pages/user/UserTasksTab"
@@ -29,6 +29,10 @@ export default function UserAACCUPGroup({ initialTab = "AACCUP" }: UserAACCUPGro
   const [searchParams, setSearchParams] = useSearchParams()
   const urlTab = searchParams.get("tab")
   const [tab, setTab] = useState<string>(urlTab && TABS.some((t) => t.value === urlTab) ? urlTab : initialTab)
+
+  useEffect(() => {
+    setTab(urlTab && TABS.some((t) => t.value === urlTab) ? urlTab : initialTab)
+  }, [initialTab, urlTab])
 
   const handleTabChange = (value: string) => {
     setTab(value)

@@ -177,9 +177,7 @@ export function NotificationCenter() {
                         "flex items-start gap-3 px-4 py-3 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer",
                         !notif.read && "bg-primary/5 dark:bg-primary/10"
                       )}
-                      onClick={() => markRead(notif.id)}
-                      onDoubleClick={() => handleViewNotification(notif)}
-                      title={route ? "Double-click to view" : undefined}
+                      onClick={() => handleViewNotification(notif)}
                     >
                       <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5", meta.bg)}>
                         <Check className={cn("w-4 h-4", meta.color)} />

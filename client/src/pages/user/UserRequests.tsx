@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import { useSearchParams } from "react-router-dom"
 import { Search, FileText, FilePlus, FolderArchive, Eye, XCircle, FileCheck2 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent } from "@/components/ui/Card"
@@ -13,15 +14,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/Dialog"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs"
 import { toast } from "@/lib/toast"
 import { useAuth } from "@/context/AuthContext"
 import { listRequests, cancelRequest } from "@/services/requests"
 import type { DocumentRequest } from "@/types/domain"
+import { cn } from "@/lib/utils"
 
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Approved": return <Badge variant="success">{status}</Badge>
+    case "Fulfilled": return <Badge variant="default">{status}</Badge>
     case "Rejected": return <Badge variant="danger">{status}</Badge>
     case "Pending": return <Badge variant="warning">{status}</Badge>
     default: return <Badge variant="secondary">{status}</Badge>
@@ -42,10 +44,13 @@ interface UserRequestsProps {
 
 export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [requests, setRequests] = useState<DocumentRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [activeTab, setActiveTab] = useState("all")
+  const urlTab = searchParams.get("tab")
+  const highlightId = searchParams.get("highlight")
+  const [activeTab, setActiveTab] = useState<string>(urlTab && ["all", "pending", "approved", "fulfilled", "rejected"].includes(urlTab) ? urlTab : "all")
   const [selected, setSelected] = useState<DocumentRequest | null>(null)
   const [cancelling, setCancelling] = useState(false)
 
@@ -61,10 +66,19 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
 
   useEffect(() => { void refresh() }, [refresh])
 
+  useEffect(() => {
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous)
+      if (activeTab === "all") next.delete("tab")
+      else next.set("tab", activeTab)
+      return next
+    }, { replace: true })
+  }, [activeTab, setSearchParams])
+
   const filteredRequests = requests.filter((req) => {
     const matchesSearch = req.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       req.purpose.toLowerCase().includes(searchQuery.toLowerCase())
-    const tabMap: Record<string, string> = { pending: "Pending", approved: "Approved", rejected: "Rejected" }
+    const tabMap: Record<string, string> = { pending: "Pending", approved: "Approved", fulfilled: "Fulfilled", rejected: "Rejected" }
     const matchesTab = activeTab === "all" || req.status === tabMap[activeTab]
     return matchesSearch && matchesTab
   })
@@ -99,14 +113,22 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
 
       <Card className="border-gray-200/60 shadow-sm mb-6">
         <CardContent className="p-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4 h-10 p-1 bg-gray-100 rounded-xl overflow-x-auto">
-              <TabsTrigger value="all" className="text-[13px]">All</TabsTrigger>
-              <TabsTrigger value="pending" className="text-[13px]">Pending</TabsTrigger>
-              <TabsTrigger value="approved" className="text-[13px]">Approved</TabsTrigger>
-              <TabsTrigger value="rejected" className="text-[13px]">Rejected</TabsTrigger>
-            </TabsList>
-          </Tabs>
+            <div className="flex items-center gap-1 overflow-x-auto">
+              {(["all", "pending", "approved", "fulfilled", "rejected"] as const).map((tab) => (
+                <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors whitespace-nowrap",
+                      activeTab === tab
+                        ? "bg-gray-900 text-white"
+                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
+                    )}
+                  >
+                    {tab === "all" ? "All" : tab === "pending" ? "Pending" : tab === "approved" ? "Approved" : tab === "fulfilled" ? "Fulfilled" : "Rejected"}
+                  </button>
+                ))}
+              </div>
         </CardContent>
       </Card>
 
@@ -144,7 +166,7 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
       ) : (
         <div className="space-y-3">
           {filteredRequests.map((request) => (
-            <Card key={request.id} className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow">
+              <Card key={request.id} className={cn("border-gray-200/60 shadow-sm hover:shadow-md transition-shadow", request.id === highlightId && "ring-2 ring-blue-300 bg-blue-50")}>
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex items-start gap-3">

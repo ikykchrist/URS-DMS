@@ -32,6 +32,7 @@ interface MobileBottomBarProps {
   activePage: string
   onNavigate: (page: string) => void
   showRoot?: boolean
+  badges?: Record<string, number>
 }
 
 const adminMainTabs: BottomTab[] = [
@@ -68,7 +69,7 @@ const userMoreTabs: BottomTab[] = [
   { id: "settings", icon: Settings, label: "Settings" },
 ]
 
-export function MobileBottomBar({ activePage, onNavigate, showRoot }: MobileBottomBarProps) {
+export function MobileBottomBar({ activePage, onNavigate, showRoot, badges }: MobileBottomBarProps) {
   const isUser = !showRoot && activePage !== "users" && activePage !== "audit" && activePage !== "settings"
   const mainTabs = isUser ? userMainTabs : adminMainTabs
   const moreTabs = isUser
@@ -82,12 +83,13 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot }: MobileBott
       <div className="flex justify-around items-center h-16 px-1">
         {mainTabs.map((tab) => {
           const isActive = activePage === tab.id
+          const badgeCount = badges?.[tab.id] ?? 0
           return (
             <button
               key={tab.id}
               onClick={() => onNavigate(tab.id)}
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full py-1 transition-colors",
+                "relative flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full py-1 transition-colors",
                 isActive
                   ? "text-primary dark:text-blue-400"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
@@ -95,6 +97,11 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot }: MobileBott
             >
               <tab.icon className="w-5 h-5" />
               <span className="text-[10px] font-medium leading-none">{tab.label}</span>
+              {badgeCount > 0 && (
+                <span className="absolute -top-0.5 right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                  {badgeCount > 99 ? "99+" : badgeCount}
+                </span>
+              )}
             </button>
           )
         })}

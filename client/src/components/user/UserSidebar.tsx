@@ -41,6 +41,7 @@ interface UserSidebarProps {
   onNavigate?: (page: string) => void
   onLogout?: () => void
   unreadNotifications?: number
+  attention?: { returned: number; tasks: number; requests: number; documents: number }
   className?: string
 }
 
@@ -51,6 +52,7 @@ export function UserSidebar({
   onNavigate,
   onLogout,
   unreadNotifications = 0,
+  attention,
   className,
 }: UserSidebarProps) {
   const { logout } = useAuth()
@@ -93,7 +95,12 @@ export function UserSidebar({
             {sidebarItems.map((item) => {
               const Icon = item.icon
               const isActive = activePage === item.id
-              const showBadge = item.id === "notifications" && unreadNotifications > 0
+              let badgeCount = 0
+              if (item.id === "notifications") badgeCount = unreadNotifications
+              else if (item.id === "aaccup" && attention) badgeCount = attention.returned + attention.tasks
+              else if (item.id === "requests" && attention) badgeCount = attention.requests
+              else if (item.id === "documents" && attention) badgeCount = attention.documents
+              const showBadge = badgeCount > 0
 
               return (
                 <button
@@ -111,7 +118,7 @@ export function UserSidebar({
                   {!collapsed && <span>{item.label}</span>}
                   {showBadge && !collapsed && (
                     <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                      {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                      {badgeCount > 99 ? "99+" : badgeCount}
                     </span>
                   )}
                   {showBadge && collapsed && (

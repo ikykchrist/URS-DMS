@@ -79,6 +79,7 @@ import { getUploadsAnalytics, type UploadsAnalytics } from "@/services/analytics
 import { listRequests } from "@/services/requests"
 import type { DocumentRequest } from "@/types/domain"
 import { notificationService } from "@/services/notifications"
+import { subscribeUserAttention, type UserAttention } from "@/lib/userAttention"
 import { listOnlineDocuments, openOnlineDocument } from "@/services/documents"
 import AdminDashboard from "@/pages/AdminDashboard"
 import LoginPage from "@/pages/Login"
@@ -873,11 +874,18 @@ function UserAppContent() {
   const [showBrowseArchive, setShowBrowseArchive] = useState(false)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [attention, setAttention] = useState<UserAttention>({
+    returnedSubmissions: 0, dueSoonTasks: 0, overdueTasks: 0, openTasks: 0,
+    pendingRequests: 0, fulfilledRequests: 0, refusedRequests: 0,
+    returnedSubmissionsList: [], overdueTasksList: [], dueSoonTasksList: [], recentRequestUpdates: [],
+    loading: true,
+  })
 
   useEffect(() => {
     if (!user) return
     const unsub = notificationService.subscribeUnread(setUnreadCount)
-    return unsub
+    const unsubAttn = subscribeUserAttention(setAttention)
+    return () => { unsub(); unsubAttn() }
   }, [user])
 
   useEffect(() => {
@@ -914,7 +922,7 @@ function UserAppContent() {
     }
   }, [location.pathname, location.search])
 
-  const handleNavigate = (page: string) => {
+  const handleNavigate = (page: string, query?: Record<string, string>) => {
     setActivePage(page)
     setShowBrowseArchive(false)
     const pageToRouteMap: Record<string, string> = {
@@ -931,7 +939,9 @@ function UserAppContent() {
       profile: "/user/profile",
       settings: "/user/settings",
     }
-    navigate(pageToRouteMap[page] || "/user/dashboard")
+    const route = pageToRouteMap[page] || "/user/dashboard"
+    const search = query ? new URLSearchParams(query).toString() : ""
+    navigate(search ? `${route}?${search}` : route)
   }
 
   const userPageTitles: Record<string, string> = {
@@ -997,6 +1007,7 @@ function UserAppContent() {
         onNavigate={handleNavigate}
         onLogout={handleLogout}
         unreadNotifications={unreadCount}
+        attention={{ returned: attention.returnedSubmissions, tasks: attention.dueSoonTasks + attention.overdueTasks, requests: attention.pendingRequests + attention.fulfilledRequests, documents: attention.fulfilledRequests }}
         className="hidden lg:flex"
       />
 
@@ -1046,7 +1057,7 @@ function UserAppContent() {
         </main>
       </div>
     </div>
-    <MobileBottomBar activePage={activePage} onNavigate={handleNavigate} />
+    <MobileBottomBar activePage={activePage} onNavigate={handleNavigate} badges={{ documents: attention.fulfilledRequests, aaccup: attention.returnedSubmissions + attention.dueSoonTasks + attention.overdueTasks, requests: attention.pendingRequests + attention.fulfilledRequests, notifications: unreadCount }} />
     </>
   )
 }
