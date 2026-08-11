@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   CheckCircle,
   XCircle,
@@ -53,6 +54,7 @@ import { cn } from "@/lib/utils"
 const statusVariant: Record<string, "success" | "warning" | "danger" | "secondary"> = {
   Pending: "warning",
   Approved: "success",
+  Fulfilled: "success",
   Rejected: "danger",
 }
 
@@ -69,9 +71,14 @@ function formatDate(value: string): string {
 type DecisionKind = "Approved" | "Rejected" | null
 
 export default function RequestsReview() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [requests, setRequests] = useState<DocumentRequest[]>([])
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const initialStatus = searchParams.get("status")
+  const highlightId = searchParams.get("highlight")
+  const [statusFilter, setStatusFilter] = useState<string>(
+    initialStatus === "PENDING" ? "Pending" : initialStatus === "APPROVED" ? "Approved" : initialStatus === "FULFILLED" ? "Fulfilled" : initialStatus === "REJECTED" ? "Rejected" : "all",
+  )
   const [searchQuery, setSearchQuery] = useState("")
   const [target, setTarget] = useState<DocumentRequest | null>(null)
   const [decision, setDecision] = useState<DecisionKind>(null)
@@ -91,6 +98,15 @@ export default function RequestsReview() {
   }, [])
 
   useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous)
+      if (statusFilter === "all") next.delete("status")
+      else next.set("status", statusFilter === "Pending" ? "PENDING" : statusFilter === "Approved" ? "APPROVED" : statusFilter === "Fulfilled" ? "FULFILLED" : "REJECTED")
+      return next
+    }, { replace: true })
+  }, [statusFilter, setSearchParams])
 
   const filtered = requests.filter((r) => {
     if (statusFilter !== "all" && r.status !== statusFilter) return false
@@ -193,6 +209,7 @@ export default function RequestsReview() {
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="Pending">Pending</SelectItem>
                 <SelectItem value="Approved">Approved</SelectItem>
+                <SelectItem value="Fulfilled">Fulfilled</SelectItem>
                 <SelectItem value="Rejected">Rejected</SelectItem>
               </SelectContent>
             </Select>
@@ -227,7 +244,7 @@ export default function RequestsReview() {
                 </TableRow>
               )}
               {filtered.map((request) => (
-                <TableRow key={request.id} className="hover:bg-gray-50/50 transition-colors align-top">
+                  <TableRow key={request.id} className={cn("hover:bg-gray-50/50 transition-colors align-top", request.id === highlightId && "bg-blue-50 ring-1 ring-inset ring-blue-300")}>
                   <TableCell>
                     <div>
                       <p className="text-[14px] font-medium text-gray-900 max-w-[220px] truncate">{request.title}</p>

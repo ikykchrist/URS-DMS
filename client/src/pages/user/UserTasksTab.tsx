@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   AlertCircle,
   CheckCircle2,
@@ -46,6 +47,7 @@ function formatDate(value: string | null): string {
 }
 
 export function UserTasksTab() {
+  const [searchParams] = useSearchParams()
   const [tasks, setTasks] = useState<OnlineAaccupTask[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -80,6 +82,22 @@ export function UserTasksTab() {
   }
 
   const actionable = (task: OnlineAaccupTask) => task.status === "OPEN" || task.status === "IN_PROGRESS"
+  const taskFilter = searchParams.get("taskFilter")
+  const highlightTaskId = searchParams.get("highlight")
+  const visibleTasks = tasks.filter((task) => {
+    if (taskFilter === "completed") return task.status === "COMPLETED"
+    if (taskFilter === "overdue") return task.status !== "COMPLETED" && task.status !== "CANCELLED" && Boolean(task.dueDate) && new Date(task.dueDate!).getTime() < Date.now()
+    if (taskFilter === "due-soon") {
+      const due = task.dueDate ? new Date(task.dueDate).getTime() : NaN
+      return task.status !== "COMPLETED" && task.status !== "CANCELLED" && Number.isFinite(due) && due >= Date.now() && due <= Date.now() + 7 * 24 * 60 * 60 * 1000
+    }
+    return true
+  })
+
+  useEffect(() => {
+    if (!highlightTaskId) return
+    document.getElementById(`task-${highlightTaskId}`)?.scrollIntoView({ block: "center" })
+  }, [highlightTaskId, visibleTasks.length])
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -110,7 +128,7 @@ export function UserTasksTab() {
       <div className="grid gap-4">
         {loading ? (
           Array.from({ length: 3 }, (_, index) => <Skeleton key={index} variant="rectangular" className="h-28" />)
-        ) : tasks.length === 0 ? (
+        ) : visibleTasks.length === 0 ? (
           <Card className="border-slate-200/70">
             <CardContent className="p-8">
               <EmptyState
@@ -121,10 +139,10 @@ export function UserTasksTab() {
             </CardContent>
           </Card>
         ) : (
-          tasks.map((task) => {
+          visibleTasks.map((task) => {
             const canChange = actionable(task)
             return (
-              <Card key={task.id} className="border-slate-200/70 shadow-sm">
+              <Card id={`task-${task.id}`} key={task.id} className={task.id === highlightTaskId ? "border-blue-400 shadow-md ring-2 ring-blue-100" : "border-slate-200/70 shadow-sm"}>
                 <CardContent className="p-5">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex min-w-0 items-start gap-3">
