@@ -700,13 +700,11 @@ function AppContent() {
       "/root-maintenance": "root-maintenance", "/root-roles-permissions": "root-roles-permissions", "/root-audit": "root-audit",
       "/root-users": "root-users",
     }
-    const path = location.pathname
-    const page = routeToPageMap[path]
-    if (page && page !== activePage) {
-      setActivePage(page)
-      localStorage.setItem("activePage", page)
-    }
-  }, [location.pathname, activePage])
+    const page = routeToPageMap[location.pathname]
+    if (!page) return
+    setActivePage((prev) => prev !== page ? page : prev)
+    localStorage.setItem("activePage", page)
+  }, [location.pathname])
 
   const pageTitles: Record<string, string> = {
     dashboard: "Dashboard",
