@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Skeleton } from "@/components/ui/Skeleton"
 import { useAuth } from "@/context/AuthContext"
-import { getOnlineComplianceOverview, type OnlineComplianceOverview } from "@/services/aaccup"
 import { listOnlineDocuments } from "@/services/documents"
 import { listRepositoryFolders } from "@/services/documents"
 import { listFavoriteOnlineDocuments } from "@/services/documents"
@@ -41,10 +40,9 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
   const [attention, setAttention] = useState<UserAttention>({
     returnedSubmissions: 0, dueSoonTasks: 0, overdueTasks: 0, openTasks: 0,
     pendingRequests: 0, fulfilledRequests: 0, refusedRequests: 0,
-    returnedSubmissionsList: [], overdueTasksList: [], dueSoonTasksList: [], recentRequestUpdates: [],
+    allSubmissions: [], returnedSubmissionsList: [], overdueTasksList: [], dueSoonTasksList: [], recentRequestUpdates: [],
     loading: true,
   })
-  const [compliance, setCompliance] = useState<SectionState<{ iso: OnlineComplianceOverview; aaccup: OnlineComplianceOverview; cert: OnlineComplianceOverview }>>({ data: null, error: false })
   const [docCount, setDocCount] = useState<SectionState<{ files: number; folders: number; favorites: number }>>({ data: null, error: false })
   const [activity, setActivity] = useState<SectionState<AuditEntry[]>>({ data: null, error: false })
 
@@ -64,17 +62,6 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
 
   useEffect(() => {
     void Promise.all([
-      getOnlineComplianceOverview({ areaSet: "AACCUP" }).then((d) => ({ key: "aaccup", data: d })),
-      getOnlineComplianceOverview({ areaSet: "ISO" }).then((d) => ({ key: "iso", data: d })),
-      getOnlineComplianceOverview({ areaSet: "CERT" }).then((d) => ({ key: "cert", data: d })),
-    ]).then((results) => {
-      const aaccup = results.find((r) => r.key === "aaccup")!.data
-      const iso = results.find((r) => r.key === "iso")!.data
-      const cert = results.find((r) => r.key === "cert")!.data
-      setCompliance({ data: { aaccup, iso, cert }, error: false })
-    }).catch(() => setCompliance({ data: null, error: true }))
-
-    void Promise.all([
       listOnlineDocuments({ ownerId: user!.id, archived: false }),
       listRepositoryFolders({ ownerId: user!.id }),
       listFavoriteOnlineDocuments(),
@@ -87,11 +74,22 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
     }).catch(() => setActivity({ data: null, error: true }))
   }, [user])
 
-  const progressRows = [
-    { key: "AACCUP" as const, label: "AACCUP", page: "aaccup", data: compliance.data?.aaccup ?? null },
-    { key: "ISO" as const, label: "ISO", page: "iso", data: compliance.data?.iso ?? null },
-    { key: "CERT" as const, label: "Certification", page: "cert", data: compliance.data?.cert ?? null },
-  ]
+  const progressRows = useMemo(() => {
+    const sets: Array<{ key: "AACCUP" | "ISO" | "CERT"; label: string; page: string }> = [
+      { key: "AACCUP", label: "AACCUP", page: "aaccup" },
+      { key: "ISO", label: "ISO", page: "iso" },
+      { key: "CERT", label: "Certification", page: "cert" },
+    ]
+    return sets.map((set) => {
+      const subs = attention.allSubmissions.filter((s) => s.areaSet === set.key)
+      const total = subs.length
+      const approved = subs.filter((s) => s.status === "APPROVED").length
+      const pending = subs.filter((s) => s.status === "PENDING").length
+      const returned = subs.filter((s) => s.status === "NEEDS_REVISION").length
+      const pct = total > 0 ? Math.round((approved / total) * 100) : 0
+      return { ...set, subs, total, approved, pending, returned, pct }
+    })
+  }, [attention.allSubmissions])
 
   const attentionItems = useMemo(() => {
     const items: Array<{ type: string; title: string; subtitle: string; badge: string; badgeVariant: "warning" | "danger" | "default" | "success" | "secondary"; page: string; query: Record<string, string> }> = []
@@ -140,14 +138,16 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
       <Card className="mb-7 border-gray-200/70 shadow-sm">
         <CardHeader><CardTitle className="text-base">My Accreditation Progress</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          {compliance.error ? <p className="text-sm text-red-600">Unable to load accreditation progress.</p> : progressRows.map((row) => (
+          {attention.loading && attention.allSubmissions.length === 0 ? (
+            <div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-12" />)}</div>
+          ) : progressRows.map((row) => (
             <button type="button" key={row.key} className="block w-full rounded-lg p-2 text-left transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" onClick={() => nav(row.page)}>
-              <div className="mb-1 flex items-center justify-between text-sm"><span className="font-medium text-gray-800">{row.label}</span><span className="font-semibold text-gray-900">{row.data ? `${row.data.compliancePercentage}%` : "—"}</span></div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${row.data?.compliancePercentage ?? 0}%` }} /></div>
+              <div className="mb-1 flex items-center justify-between text-sm"><span className="font-medium text-gray-800">{row.label}</span><span className="font-semibold text-gray-900">{row.pct}%</span></div>
+              <div className="h-2 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${row.pct}%` }} /></div>
               <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs">
-                <button type="button" className="text-green-700 hover:underline" onClick={(e) => { e.stopPropagation(); nav("aaccup", { tab: "submissions", status: "APPROVED" }) }}>Approved {row.data?.totalApproved ?? "—"}</button>
-                <button type="button" className="text-amber-700 hover:underline" onClick={(e) => { e.stopPropagation(); nav("aaccup", { tab: "submissions", status: "PENDING" }) }}>Pending {row.data?.totalPending ?? "—"}</button>
-                <button type="button" className="text-orange-700 hover:underline" onClick={(e) => { e.stopPropagation(); nav("aaccup", { tab: "submissions", status: "NEEDS_REVISION" }) }}>Returned {row.data?.pendingReviews ?? "—"}</button>
+                <button type="button" className="text-green-700 hover:underline" onClick={(e) => { e.stopPropagation(); nav("aaccup", { tab: "submissions", status: "APPROVED" }) }}>Approved {row.approved}</button>
+                <button type="button" className="text-amber-700 hover:underline" onClick={(e) => { e.stopPropagation(); nav("aaccup", { tab: "submissions", status: "PENDING" }) }}>Pending {row.pending}</button>
+                <button type="button" className="text-orange-700 hover:underline" onClick={(e) => { e.stopPropagation(); nav("aaccup", { tab: "submissions", status: "NEEDS_REVISION" }) }}>Returned {row.returned}</button>
               </div>
             </button>
           ))}

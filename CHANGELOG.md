@@ -6,6 +6,20 @@
 
 ---
 
+---
+
+## User UI baseline - Revised responsive user dashboard (2026-08-11)
+
+- Replaced analytics-heavy user dashboard with clean operational layout:
+  Tasks Due Soon, Returned Submissions, Request Updates attention cards;
+  clickable accreditation progress rows; Needs Your Attention;
+  My Documents/Requests cards; Recent Activity with entity deep-links.
+- Red attention badges on sidebar/mobile/topnav (actionable counts,
+  independent of notification reads).
+- NotificationCenter single-click; enhanced notificationNav (query/status).
+- UserRequests URL tabs; shared userAttention module.
+- Baseline commit: `20a1d3b`
+
 ## Sprint 8.5 — Background Jobs, Concurrency & Heavy-Load Reliability (2026-08-08)
 
 **Infrastructure**

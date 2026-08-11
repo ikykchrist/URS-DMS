@@ -12,6 +12,7 @@ export interface UserAttention {
   pendingRequests: number
   fulfilledRequests: number
   refusedRequests: number
+  allSubmissions: OnlineSubmissionListItem[]
   returnedSubmissionsList: OnlineSubmissionListItem[]
   overdueTasksList: OnlineAaccupTask[]
   dueSoonTasksList: OnlineAaccupTask[]
@@ -65,6 +66,7 @@ export async function refreshUserAttention(userId: string): Promise<void> {
       pendingRequests: pendingReqs.length,
       fulfilledRequests: fulfilledReqs.length,
       refusedRequests: rejectedReqs.length,
+      allSubmissions: submissions,
       returnedSubmissionsList: returnedSubs,
       overdueTasksList: overdue,
       dueSoonTasksList: dueSoon,
@@ -82,6 +84,7 @@ export async function refreshUserAttention(userId: string): Promise<void> {
       pendingRequests: 0,
       fulfilledRequests: 0,
       refusedRequests: 0,
+      allSubmissions: [],
       returnedSubmissionsList: [],
       overdueTasksList: [],
       dueSoonTasksList: [],
@@ -101,6 +104,7 @@ export function getCachedAttention(): UserAttention {
     pendingRequests: 0,
     fulfilledRequests: 0,
     refusedRequests: 0,
+    allSubmissions: [],
     returnedSubmissionsList: [],
     overdueTasksList: [],
     dueSoonTasksList: [],
