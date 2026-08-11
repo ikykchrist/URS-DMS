@@ -47,10 +47,17 @@ function mapServerType(serverType: string): NotificationType {
 
 type Listener = (notifications: Notification[]) => void
 type UnreadCountListener = (count: number) => void
+type AttentionListener = (counts: AttentionCounts) => void
+
+export interface AttentionCounts {
+  unread: number; aaccup: number; aaccupSubmissions: number; aaccupMySubmissions: number; aaccupTasks: number;
+  requests: number; documents: number;
+}
 
 class NotificationService {
   private listListeners: Set<Listener> = new Set()
   private unreadListeners: Set<UnreadCountListener> = new Set()
+  private attentionListeners: Set<AttentionListener> = new Set()
 
   subscribe(fn: Listener): () => void {
     this.listListeners.add(fn)
@@ -64,9 +71,20 @@ class NotificationService {
     return () => this.unreadListeners.delete(fn)
   }
 
+  subscribeAttention(fn: AttentionListener): () => void {
+    this.attentionListeners.add(fn)
+    this.refreshAttention()
+    return () => this.attentionListeners.delete(fn)
+  }
+
   private notify() {
     this.refresh()
     this.refreshUnread()
+    this.refreshAttention()
+  }
+
+  async refreshAttention() {
+    try { const data = await apiGet<AttentionCounts>("/notifications/attention"); this.attentionListeners.forEach((l) => l(data)) } catch { /* Notifications are best-effort. */ }
   }
 
   async refresh() {
@@ -146,4 +164,16 @@ class NotificationService {
   }
 }
 
+
 export const notificationService = new NotificationService()
+
+import { useState, useEffect } from "react"
+
+export function useAttention(): AttentionCounts {
+  const [counts, setCounts] = useState<AttentionCounts>({
+    unread: 0, aaccup: 0, aaccupSubmissions: 0, aaccupMySubmissions: 0, aaccupTasks: 0,
+    requests: 0, documents: 0,
+  })
+  useEffect(() => { return notificationService.subscribeAttention(setCounts) }, [])
+  return counts
+}

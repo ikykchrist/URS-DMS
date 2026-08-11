@@ -264,6 +264,19 @@ export async function login(
     actorRole: user.role?.name ?? undefined,
   });
 
+  if (user.role?.name === "ROOT") {
+    await writeAudit({
+      action: AUDIT_ACTIONS.ROOT_LOGIN,
+      userId: user.id,
+      entity: "session",
+      entityId: sessionId,
+      ipAddress,
+      userAgent,
+      category: "AUTHENTICATION",
+      severity: "INFO",
+    });
+  }
+
   const userView = await buildUserView(user.id);
   return { accessToken, refreshToken, user: userView };
 }
@@ -362,20 +375,36 @@ export async function logout(
   userAgent: string,
 ): Promise<void> {
   const token = refreshToken ?? cookieToken;
+  const tokenHash = token ? sha256(token) : null;
+  const session = tokenHash
+    ? await prisma.session.findUnique({
+        where: { refreshTokenHash: tokenHash },
+        select: { id: true, userId: true },
+      })
+    : null;
+  let revoked = 0;
   if (token) {
-    const tokenHash = sha256(token);
-    await prisma.session.updateMany({
-      where: { refreshTokenHash: tokenHash, revokedAt: null },
+    const result = await prisma.session.updateMany({
+      where: { refreshTokenHash: tokenHash!, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    revoked = result.count;
   }
+  // A repeated logout presents an already-revoked token. Do not create a
+  // second business event, while still attributing anonymous logout requests
+  // through the session behind the refresh token.
+  if (revoked === 0) return;
+  const attributedUserId = userId ?? session?.userId;
   await writeAudit({
     action: AUDIT_ACTIONS.LOGOUT,
-    userId: userId ?? null,
+    userId: attributedUserId ?? null,
+    entity: "session",
+    entityId: session?.id,
     ipAddress,
     userAgent,
     category: "AUTHENTICATION",
     severity: "INFO",
+    result: "SUCCESS",
   });
 }
 

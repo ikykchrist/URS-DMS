@@ -156,6 +156,7 @@ export interface OnlineSubmissionListItem {
   areaId: string
   areaCode: string
   areaName: string
+  areaSet: string
   departmentId: string | null
   departmentName: string | null
   taskId: string | null
@@ -372,8 +373,20 @@ export async function listOnlineAreaTasks(
   return everyPage<OnlineAaccupTask>(`/aaccup/tasks?${params.toString()}`)
 }
 
-export async function listMyOnlineTasks(): Promise<OnlineAaccupTask[]> {
-  return everyPage<OnlineAaccupTask>("/aaccup/tasks?mine=true")
+export async function listOnlineTasks(query?: {
+  status?: OnlineTaskStatus
+  mine?: boolean
+  q?: string
+}): Promise<OnlineAaccupTask[]> {
+  const params = new URLSearchParams()
+  if (query?.status) params.set("status", query.status)
+  if (query?.mine) params.set("mine", "true")
+  if (query?.q) params.set("q", query.q)
+  return everyPage<OnlineAaccupTask>(`/aaccup/tasks${params.size ? `?${params.toString()}` : ""}`)
+}
+
+export async function listMyOnlineTasks(query?: { status?: OnlineTaskStatus; q?: string }): Promise<OnlineAaccupTask[]> {
+  return listOnlineTasks({ ...query, mine: true })
 }
 
 function inferredMimeType(file: File): string {

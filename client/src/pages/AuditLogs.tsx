@@ -45,7 +45,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
 import { LogDetailsModal } from "@/components/modals/LogDetailsModal"
 import { ExportLogsModal } from "@/components/modals/ExportLogsModal"
-import { listAuditEntries, exportAuditEntries, clearAuditLogs, type AuditEntry } from "@/services/admin"
+import { listAuditEntries, getAuditEntry, exportAuditEntries, clearAuditLogs, type AuditEntry } from "@/services/admin"
 import { API_BASE } from "@/lib/http"
 import { toast } from "@/lib/toast"
 
@@ -66,6 +66,8 @@ interface AuditLog {
   category: string
   severity: string
   result: string
+  userAgent: string
+  reason: string
 }
 
 interface LoginGroup {
@@ -145,6 +147,28 @@ export default function AuditLogs() {
       category: entry.category || "",
       severity: entry.severity || "",
       result: entry.result || "",
+      userAgent: entry.userAgent ?? "—",
+      reason: getAuditReason(entry),
+    }
+  }
+
+  function getAuditReason(entry: AuditEntry): string {
+    const values = [entry.changes?.newValue, entry.metadata]
+    for (const value of values) {
+      if (value && typeof value === "object" && "reason" in value) {
+        return String((value as { reason: unknown }).reason)
+      }
+    }
+    return ""
+  }
+
+  async function handleViewLog(log: AuditLog) {
+    setSelectedLog(log)
+    setIsLogDetailsModalOpen(true)
+    try {
+      setSelectedLog(toAuditLog(await getAuditEntry(log.id)))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load audit details")
     }
   }
 
@@ -436,7 +460,7 @@ export default function AuditLogs() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-gray-900" onClick={() => { setSelectedLog(log); setIsLogDetailsModalOpen(true) }}>
+                     <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-gray-900" onClick={() => void handleViewLog(log)}>
                       <Eye className="w-4 h-4" />
                     </Button>
                   </TableCell>

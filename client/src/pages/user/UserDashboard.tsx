@@ -175,7 +175,7 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
             <Card
               key={key}
               className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => onNavigate?.("aaccup")}
+              onClick={() => onNavigate?.(key === "AACCUP" ? "aaccup" : key === "ISO" ? "iso" : "certification")}
             >
               <CardContent className="p-4 md:p-5">
                 <div className="flex items-center justify-between">

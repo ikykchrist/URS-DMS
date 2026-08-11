@@ -118,9 +118,9 @@ async function notifyRootOnCritical(entry: AuditWrite): Promise<void> {
       title,
       message,
       priority: "HIGH",
-      isRead: false,
+      readAt: null,
       entity: "audit_log",
-      entityId: entry.userId ?? undefined,
+      entityId: entry.targetId ?? entry.entityId ?? undefined,
     })),
   });
 }
@@ -190,12 +190,13 @@ function maskDetail(detail: AuditLogDetail): AuditLogDetail {
 // =============================================================================
 
 function deriveCategory(action: string): AuditCategory {
+  if (action.startsWith("auth.password")
+    || action === AUDIT_ACTIONS.PERMISSION_DENIED
+    || action === AUDIT_ACTIONS.ACCESS_DENIED
+    || action.startsWith("auth.refresh.reuse")) return "SECURITY";
   if (action.startsWith("auth.")) return "AUTHENTICATION";
   if (action.startsWith("aaccup") || action.startsWith("submission")) return "SUBMISSION";
   if (action.startsWith("request")) return "REQUEST";
-  if (action.startsWith("auth.password") || action.startsWith("auth.password_reset")
-    || action === AUDIT_ACTIONS.PERMISSION_DENIED || action.startsWith("auth.refresh.reuse"))
-    return "SECURITY";
   if (action.startsWith("user.role") || action.startsWith("role") || action === AUDIT_ACTIONS.PERMISSIONS_UPDATED)
     return "ACCESS_CONTROL";
   if (action.startsWith("document") || action.startsWith("folder") || action.startsWith("repository")

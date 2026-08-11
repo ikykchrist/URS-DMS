@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   Search,
   Filter,
@@ -117,6 +118,7 @@ interface SubmissionsTableProps {
 
 export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
   const { user } = useAuth()
+  const [searchParams] = useSearchParams()
   const [rawSubmissions, setRawSubmissions] = useState<OnlineSubmissionListItem[]>([])
   const [submissions, setSubmissions] = useState<Document[]>([])
   const [setFilter, setSetFilter] = useState<SetFilter>(areaSet ?? "ALL")
@@ -126,9 +128,15 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
   const [returnSubmissionId, setReturnSubmissionId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [currentFilters, setCurrentFilters] = useState<Record<string, string>>({})
+  const [currentFilters, setCurrentFilters] = useState<Record<string, string>>((): Record<string, string> => {
+    const initialStatus = searchParams.get("status")
+    const normalized = initialStatus?.toUpperCase() === "NEEDS_REVISION" ? "returned" : initialStatus?.toLowerCase()
+    return normalized && ["pending", "approved", "rejected", "returned"].includes(normalized) ? { status: normalized } : {}
+  })
   const [searchQuery, setSearchQuery] = useState("")
   const [systemDepartments, setSystemDepartments] = useState<Array<{ id: string; name: string }>>([])
+  const highlightId = searchParams.get("highlight")
+  const queryStatus = searchParams.get("status")
 
   const isReview = mode === "review"
   const canReview = Boolean(user && (hasPermission(user.role, "canApprove") || hasPermission(user.role, "canReject")))
@@ -152,6 +160,21 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
       .then((page) => setSystemDepartments(page.items.map((d) => ({ id: d.id, name: d.name }))))
       .catch(() => setSystemDepartments([]))
   }, [])
+
+  useEffect(() => {
+    setSetFilter(areaSet ?? "ALL")
+  }, [areaSet])
+
+  useEffect(() => {
+    if (!highlightId) return
+    const highlighted = rawSubmissions.find((submission) => submission.id === highlightId || submission.documentId === highlightId)
+    if (highlighted) {
+      const document = toSubmissionDocument(highlighted)
+      setSelectedId(document.id)
+      setSelectedSubmission(document)
+      setPreviewOpen(true)
+    }
+  }, [highlightId, rawSubmissions])
 
   const rawById = (id: string) => rawSubmissions.find((s) => s.documentId === id)
 
@@ -207,7 +230,11 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
     if (searchQuery && !s.name.toLowerCase().includes(searchQuery.toLowerCase()) && !s.id.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false
     }
-    if (currentFilters.status && currentFilters.status !== "all" && s.status.toLowerCase() !== currentFilters.status.toLowerCase()) return false
+    const requestedStatus = currentFilters.status ?? queryStatus
+    if (requestedStatus && requestedStatus !== "all") {
+      const normalizedStatus = requestedStatus === "NEEDS_REVISION" || requestedStatus === "returned" ? "Returned" : requestedStatus === "REJECTED" ? "Rejected" : requestedStatus === "APPROVED" ? "Approved" : requestedStatus
+      if (s.status.toLowerCase() !== normalizedStatus.toLowerCase()) return false
+    }
     if (currentFilters.area && currentFilters.area !== "all" && s.area !== currentFilters.area) return false
     if (currentFilters.department && currentFilters.department !== "all" && s.department !== currentFilters.department) return false
     return true
@@ -398,7 +425,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
                 try {
                   const raw = rawById(id)
                   if (raw) await reviewOnlineSubmission(raw.id, { decision: "APPROVED" })
-                } catch {}
+                } catch { /* Continue processing the remaining selections. */ }
               }
               setSelectedIds(new Set())
               refresh()
@@ -408,7 +435,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
                 try {
                   const raw = rawById(id)
                   if (raw) await reviewOnlineSubmission(raw.id, { decision: "REJECTED" })
-                } catch {}
+                } catch { /* Continue processing the remaining selections. */ }
               }
               setSelectedIds(new Set())
               refresh()
@@ -416,7 +443,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
             onBulkExport={exportCsv}
             onBulkArchive={async () => {
               for (const id of selectedIds) {
-                try { await archiveOnlineSubmission(id) } catch {}
+                try { await archiveOnlineSubmission(id) } catch { /* Continue processing the remaining selections. */ }
               }
               setSelectedIds(new Set())
               refresh()
@@ -428,7 +455,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
                   const raw = rawById(id)
                   if (raw) await archiveOnlineSubmission(raw.id)
                   await deleteOnlineDocument(id)
-                } catch {}
+                } catch { /* Continue processing the remaining selections. */ }
               }
               setSelectedIds(new Set())
               refresh()

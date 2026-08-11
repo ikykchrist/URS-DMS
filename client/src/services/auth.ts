@@ -105,7 +105,7 @@ class AuthService {
       const user = toClientUser(data.user)
       this.update({ isAuthenticated: true, user, token: data.accessToken, authStatus: "AUTHENTICATED" })
       return { success: true, user }
-    } catch (err) {
+    } catch {
       this.update({ isAuthenticated: false, user: null, token: null, authStatus: "UNAUTHENTICATED" })
       return { success: false, error: "Invalid email or password" }
     }

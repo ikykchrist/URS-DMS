@@ -144,6 +144,7 @@ export type RequestStatus =
   | "Draft"
   | "Pending"
   | "Approved"
+  | "Fulfilled"
   | "Rejected"
   | "In Review"
 

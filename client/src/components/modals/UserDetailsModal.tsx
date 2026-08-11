@@ -40,7 +40,7 @@ interface UserDetailsModalProps {
   user: User | null
   onResetPassword?: () => void
   onDelete?: () => void
-  onSave?: (userId: string, data: { status: "Active" | "Inactive" | "Suspended"; departmentId?: string; roleId?: string }) => void
+  onSave?: (userId: string, data: { status: "Active" | "Inactive" | "Suspended"; statusChanged?: boolean; departmentId?: string; roleId?: string }) => void | Promise<void>
 }
 
 const roleBadgeVariant: Record<string, "default" | "secondary" | "success" | "warning" | "danger"> = {
@@ -67,38 +67,69 @@ export function UserDetailsModal({
   const [selectedDepartment, setSelectedDepartment] = useState(user?.departmentId ?? "")
   const [selectedRole, setSelectedRole] = useState("")
   const [loadingOptions, setLoadingOptions] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+  const [statusChanged, setStatusChanged] = useState(false)
+
+  useEffect(() => {
+    if (open) setError("")
+  }, [open, user?.id])
 
   useEffect(() => {
     if (!open || !user) return
+    let cancelled = false
     setIsActive(user.status === "Active")
     setSelectedDepartment(user.departmentId ?? "")
     setSelectedRole("")
+    setStatusChanged(false)
     setLoadingOptions(true)
+    setDepartments([])
+    setRoles([])
     Promise.all([
       listSystemDepartments({ page: 1, pageSize: 200 }),
       listSystemRoles({ page: 1, pageSize: 50 }),
     ])
       .then(([deptPage, rolePage]) => {
+        if (cancelled) return
         setDepartments(deptPage.items.filter((d) => !d.deletedAt))
         setRoles(rolePage.items.filter((r) => !r.deletedAt))
       })
-      .finally(() => setLoadingOptions(false))
+      .catch((loadError) => {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : "Failed to load departments and roles")
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingOptions(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [open, user])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!user) return
-    onSave?.(user.id, {
-      status: isActive ? "Active" : "Inactive",
-      ...(selectedDepartment ? { departmentId: selectedDepartment } : {}),
-      ...(selectedRole ? { roleId: selectedRole } : {}),
-    })
-    onOpenChange(false)
+    setError("")
+    setSaving(true)
+    try {
+      await onSave?.(user.id, {
+        status: statusChanged ? (isActive ? "Active" : "Inactive") : user.status,
+        statusChanged,
+        ...(selectedDepartment ? { departmentId: selectedDepartment } : {}),
+        ...(selectedRole ? { roleId: selectedRole } : {}),
+      })
+      onOpenChange(false)
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to update user")
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (!user) return null
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => !saving && onOpenChange(nextOpen)}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader className="pb-3">
           <DialogTitle className="text-lg">User Details</DialogTitle>
@@ -108,6 +139,11 @@ export function UserDetailsModal({
         </DialogHeader>
 
         <div className="grid gap-5 py-2">
+          {error && (
+            <div role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-600">
+              {error}
+            </div>
+          )}
           <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50/50 border border-gray-100">
             <Avatar className="h-14 w-14">
               <AvatarFallback className="text-lg bg-primary text-white">
@@ -204,7 +240,10 @@ export function UserDetailsModal({
                 <Switch
                   id="editUserActive"
                   checked={isActive}
-                  onCheckedChange={setIsActive}
+                  onCheckedChange={(checked) => {
+                    setIsActive(checked)
+                    setStatusChanged(true)
+                  }}
                 />
               </div>
             </div>
@@ -292,14 +331,16 @@ export function UserDetailsModal({
             variant="outline"
             onClick={() => onOpenChange(false)}
             className="h-10 px-5"
+            disabled={saving}
           >
             Cancel
           </Button>
           <Button
             onClick={handleSave}
             className="h-10 px-5 shadow-sm"
+            disabled={loadingOptions || saving}
           >
-            Save Changes
+            {saving ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

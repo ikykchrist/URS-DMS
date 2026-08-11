@@ -303,6 +303,14 @@ export interface AuditEntry {
   userAgent: string | null
   correlationId: string | null
   description: string | null
+  changes?: { oldValue: unknown; newValue: unknown }
+  metadata?: unknown
+}
+
+export type AuditEntryDetail = AuditEntry
+
+export async function getAuditEntry(id: string): Promise<AuditEntryDetail> {
+  return apiGet<AuditEntryDetail>(`/audit/${encodeURIComponent(id)}`)
 }
 
 export async function listAuditEntries(query?: {

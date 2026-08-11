@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react"
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom"
 import {
   FileText,
   Users,
@@ -80,6 +80,7 @@ import { listRequests } from "@/services/requests"
 import type { DocumentRequest } from "@/types/domain"
 import { notificationService } from "@/services/notifications"
 import { listOnlineDocuments, openOnlineDocument } from "@/services/documents"
+import AdminDashboard from "@/pages/AdminDashboard"
 import LoginPage from "@/pages/Login"
 const RootDashboard = lazy(() => import("@/pages/root/RootDashboard"))
 const RootConfigurations = lazy(() => import("@/pages/root/RootConfigurations"))
@@ -170,7 +171,7 @@ function ActionWidget({ icon, iconBg, iconColor, title, subtitle, badge, badgeVa
   )
 }
 
-function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
+export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [filterStatus, setFilterStatus] = useState("all")
   const [report, setReport] = useState<DashboardOverview | null>(null)
   const [uploads, setUploads] = useState<UploadsAnalytics | null>(null)
@@ -664,6 +665,7 @@ function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
 function AppContent() {
   const { isAuthenticated, authStatus, user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed")
     return saved ? JSON.parse(saved) : false
@@ -673,36 +675,6 @@ function AppContent() {
     return saved || "dashboard"
   })
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
-
-  const routeToPageMap: Record<string, string> = {
-    "/": "dashboard",
-    "/dashboard": "dashboard",
-    "/documents": "documents",
-    "/repository": "documents",
-    "/submissions": "submissions",
-    "/requests": "requests",
-    "/profile": "profile",
-    "/users": "users",
-    "/user-management": "users",
-    "/audit": "audit",
-    "/audit-logs": "audit",
-    "/settings": "settings",
-    "/aaccup": "aaccup",
-    "/aaccup-management": "aaccup",
-    "/iso": "iso",
-    "/certification": "certification",
-    "/root": "root",
-    "/root-organization": "root-organization",
-    "/root-folder-builder": "root-folder-builder",
-    "/root-requirement-builder": "root-requirement-builder",
-    "/root-form-builder": "root-form-builder",
-    "/root-setup-wizard": "root-setup-wizard",
-    "/root-config": "root-config",
-    "/root-maintenance": "root-maintenance",
-    "/root-roles-permissions": "root-roles-permissions",
-    "/root-audit": "root-audit",
-    "/root-users": "root-users",
-  }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -716,13 +688,24 @@ function AppContent() {
   }, [])
 
   useEffect(() => {
-    const path = window.location.pathname
+    const routeToPageMap: Record<string, string> = {
+      "/": "dashboard", "/dashboard": "dashboard", "/documents": "documents", "/repository": "documents",
+      "/submissions": "submissions", "/requests": "requests", "/profile": "profile", "/users": "users",
+      "/user-management": "users", "/audit": "audit", "/audit-logs": "audit", "/settings": "settings",
+      "/notifications": "notifications", "/aaccup": "aaccup", "/aaccup-management": "aaccup", "/iso": "iso",
+      "/certification": "certification", "/root": "root", "/root-organization": "root-organization",
+      "/root-folder-builder": "root-folder-builder", "/root-requirement-builder": "root-requirement-builder",
+      "/root-form-builder": "root-form-builder", "/root-setup-wizard": "root-setup-wizard", "/root-config": "root-config",
+      "/root-maintenance": "root-maintenance", "/root-roles-permissions": "root-roles-permissions", "/root-audit": "root-audit",
+      "/root-users": "root-users",
+    }
+    const path = location.pathname
     const page = routeToPageMap[path]
     if (page && page !== activePage) {
       setActivePage(page)
       localStorage.setItem("activePage", page)
     }
-  }, [])
+  }, [location.pathname, activePage])
 
   const pageTitles: Record<string, string> = {
     dashboard: "Dashboard",
@@ -733,6 +716,7 @@ function AppContent() {
     users: "User Management",
     audit: "Audit Logs",
     settings: "Settings",
+    notifications: "Notifications",
     aaccup: "AACCUP",
     iso: "AACCUP Â· ISO",
     certification: "AACCUP Â· Certification",
@@ -755,7 +739,7 @@ function AppContent() {
       : "URS-DMS"
   }, [activePage])
 
-  const handleNavigate = (page: string) => {
+  const handleNavigate = (page: string, query?: Record<string, string>) => {
     setActivePage(page)
     localStorage.setItem("activePage", page)
     const pageToRouteMap: Record<string, string> = {
@@ -767,6 +751,7 @@ function AppContent() {
       users: "/users",
       audit: "/audit",
       settings: "/settings",
+      notifications: "/notifications",
       aaccup: "/aaccup",
       iso: "/iso",
       certification: "/certification",
@@ -782,7 +767,9 @@ function AppContent() {
       "root-audit": "/root-audit",
       "root-users": "/root-users",
     }
-    navigate(pageToRouteMap[page] || "/dashboard")
+    const route = pageToRouteMap[page] || "/dashboard"
+    const search = query ? new URLSearchParams(query).toString() : ""
+    navigate(search ? `${route}?${search}` : route)
   }
 
   const handleToggleSidebar = () => {
@@ -853,13 +840,14 @@ function AppContent() {
           {activePage === "root-roles-permissions" && <RootRolesPermissions />}
           {activePage === "root-audit" && <RootAudit />}
           {activePage === "root-users" && <RootUsers />}
-          {activePage === "dashboard" && <Dashboard onNavigate={handleNavigate} />}
+           {activePage === "dashboard" && <AdminDashboard onNavigate={handleNavigate} />}
           {activePage === "documents" && <DocumentRepository />}
           {activePage === "requests" && <RequestsReview />}
           {activePage === "profile" && <AccountSecurity />}
           {activePage === "users" && <UserManagement />}
           {activePage === "audit" && <AuditLogs />}
-          {activePage === "settings" && <Settings />}
+           {activePage === "settings" && <Settings />}
+           {activePage === "notifications" && <UserNotifications />}
           {activePage === "aaccup" && <AACCUPGroupPage initialTab="AACCUP" />}
           {activePage === "iso" && <AACCUPGroupPage initialTab="ISO" />}
           {activePage === "certification" && <AACCUPGroupPage initialTab="CERT" />}
@@ -876,6 +864,7 @@ function AppContent() {
 function UserAppContent() {
   const { isAuthenticated, authStatus, user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("userSidebarCollapsed")
     return saved ? JSON.parse(saved) : false
@@ -908,8 +897,10 @@ function UserAppContent() {
     "/user/documents": "documents",
     "/user/requests": "requests",
     "/user/aaccup": "aaccup",
-    "/user/iso": "aaccup",
-    "/user/certification": "aaccup",
+    "/user/iso": "iso",
+    "/user/certification": "certification",
+    "/user/submissions": "submissions",
+    "/user/tasks": "tasks",
     "/user/notifications": "notifications",
     "/user/activity": "activity",
     "/user/profile": "profile",
@@ -917,12 +908,11 @@ function UserAppContent() {
   }
 
   useEffect(() => {
-    const path = window.location.pathname
-    const page = userRouteToPageMap[path]
+    const page = userRouteToPageMap[location.pathname]
     if (page) {
       setActivePage(page)
     }
-  }, [])
+  }, [location.pathname, location.search])
 
   const handleNavigate = (page: string) => {
     setActivePage(page)
@@ -932,6 +922,10 @@ function UserAppContent() {
       documents: "/user/documents",
       requests: "/user/requests",
       aaccup: "/user/aaccup",
+      iso: "/user/iso",
+      certification: "/user/certification",
+      submissions: "/user/aaccup?tab=submissions",
+      tasks: "/user/aaccup?tab=tasks",
       notifications: "/user/notifications",
       activity: "/user/activity",
       profile: "/user/profile",
@@ -1029,16 +1023,20 @@ function UserAppContent() {
               onSuccess={() => handleNavigate("requests")}
             />
           )}
-          {activePage === "aaccup" && (
-            <UserAACCUPGroup
-              key={window.location.pathname}
-              initialTab={
-                window.location.pathname.includes("/iso")
-                  ? "ISO"
-                  : window.location.pathname.includes("/certification")
-                  ? "CERT"
-                  : "AACCUP"
-              }
+           {(activePage === "aaccup" || activePage === "iso" || activePage === "certification" || activePage === "submissions" || activePage === "tasks") && (
+               <UserAACCUPGroup
+               key={`${location.pathname}${location.search}`}
+               initialTab={
+                 activePage === "iso"
+                   ? "ISO"
+                   : activePage === "certification"
+                   ? "CERT"
+                   : activePage === "submissions"
+                   ? "submissions"
+                   : activePage === "tasks"
+                   ? "tasks"
+                   : "AACCUP"
+               }
             />
           )}
           {activePage === "notifications" && <UserNotifications />}
@@ -1118,6 +1116,10 @@ function AppRoutes() {
       />
       <Route
         path="/settings"
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/notifications"
         element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { Bell, Check, CheckCheck, X } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
@@ -31,6 +31,7 @@ export function NotificationCenter() {
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<string>("All")
   const navigate = useNavigate()
+  const location = useLocation()
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const load = useCallback(async () => {
@@ -77,7 +78,7 @@ export function NotificationCenter() {
 
   const handleViewNotification = (notif: Notification) => {
     if (!notif.read) markRead(notif.id)
-    const route = resolveNotificationRoute(notif)
+    const route = resolveNotificationRoute(notif, location.pathname.startsWith("/user/") ? "user" : "admin")
     if (!route) return
     const url = buildNotificationUrl(route, notif.entityId)
     setIsOpen(false)
@@ -169,7 +170,7 @@ export function NotificationCenter() {
               ) : (
                 displayedNotifications.map((notif) => {
                   const meta = getMeta(notif)
-                  const route = resolveNotificationRoute(notif)
+                  const route = resolveNotificationRoute(notif, location.pathname.startsWith("/user/") ? "user" : "admin")
                   return (
                     <div
                       key={notif.id}
@@ -177,9 +178,7 @@ export function NotificationCenter() {
                         "flex items-start gap-3 px-4 py-3 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer",
                         !notif.read && "bg-primary/5 dark:bg-primary/10"
                       )}
-                      onClick={() => markRead(notif.id)}
-                      onDoubleClick={() => handleViewNotification(notif)}
-                      title={route ? "Double-click to view" : undefined}
+                      onClick={() => handleViewNotification(notif)}
                     >
                       <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5", meta.bg)}>
                         <Check className={cn("w-4 h-4", meta.color)} />
@@ -212,7 +211,7 @@ export function NotificationCenter() {
 
             <div className="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
               <button
-                onClick={() => { setIsOpen(false); navigate("/user/notifications") }}
+                onClick={() => { setIsOpen(false); navigate("/notifications") }}
                 className="w-full text-center text-[12px] text-primary hover:text-primary font-medium"
               >
                 View all notifications

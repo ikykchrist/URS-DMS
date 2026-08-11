@@ -25,6 +25,7 @@ import { writeAudit } from "@/modules/audit/audit.service";
 const POLL_INTERVAL_MS = 30_000;
 
 const knownSessionIds = new Set<string>();
+const knownSessionUsers = new Map<string, string>();
 
 async function loadRootSessions(): Promise<
   { id: string; userId: string; revokedAt: Date | null; createdAt: Date }[]
@@ -35,7 +36,11 @@ async function loadRootSessions(): Promise<
   });
   if (rootUsers.length === 0) return [];
   return prisma.session.findMany({
-    where: { userId: { in: rootUsers.map((u) => u.id) } },
+    where: {
+      userId: { in: rootUsers.map((u) => u.id) },
+      revokedAt: null,
+      expiresAt: { gt: new Date() },
+    },
     select: { id: true, userId: true, revokedAt: true, createdAt: true },
   });
 }
@@ -49,20 +54,16 @@ async function poll(): Promise<void> {
     for (const id of knownSessionIds) {
       if (seen.has(id)) continue;
       knownSessionIds.delete(id);
-      await writeAudit({ action: AUDIT_ACTIONS.ROOT_LOGOUT, entity: "session", entityId: id });
+      const userId = knownSessionUsers.get(id);
+      knownSessionUsers.delete(id);
+      await writeAudit({ action: AUDIT_ACTIONS.ROOT_LOGOUT, userId, entity: "session", entityId: id });
     }
 
-    // Logins: brand-new sessions (revoked sessions are never logged in).
+    // Login auditing is emitted by auth.login after the session is created.
+    // The watcher only observes active-session disappearance for ROOT logout.
     for (const s of sessions) {
-      if (knownSessionIds.has(s.id) || s.revokedAt) continue;
       knownSessionIds.add(s.id);
-      await writeAudit({
-        action: AUDIT_ACTIONS.ROOT_LOGIN,
-        userId: s.userId,
-        entity: "session",
-        entityId: s.id,
-        newValue: { sessionCreatedAt: s.createdAt.toISOString() },
-      });
+      knownSessionUsers.set(s.id, s.userId);
     }
   } catch (err) {
     console.error("[root-session] watcher poll failed", {
@@ -77,6 +78,7 @@ export function startRootSessionWatcher(): void {
   void loadRootSessions().then((sessions) => {
     for (const s of sessions) {
       if (!s.revokedAt) knownSessionIds.add(s.id);
+      if (!s.revokedAt) knownSessionUsers.set(s.id, s.userId);
     }
   });
 

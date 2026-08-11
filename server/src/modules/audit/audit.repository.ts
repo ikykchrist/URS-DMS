@@ -27,6 +27,7 @@ export const FAILED_AUDIT_ACTIONS: readonly string[] = [
   "auth.refresh.reuse_detected",
   "auth.permission_denied",
   "auth.access_denied",
+  "auth.password_reset.failed",
 ] as const;
 
 const FAILED_ACTIONS = new Set<string>(FAILED_AUDIT_ACTIONS);

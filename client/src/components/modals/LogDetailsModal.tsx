@@ -31,6 +31,8 @@ interface AuditLog {
   device: string
   browser: string
   os: string
+  userAgent: string
+  reason: string
 }
 
 interface LogDetailsModalProps {
@@ -130,11 +132,11 @@ export function LogDetailsModal({ open, onOpenChange, log }: LogDetailsModalProp
             <div className="grid grid-cols-2 gap-3 mt-3">
               <div>
                 <p className="text-[11px] text-gray-400">Browser</p>
-                <p className="text-[13px] text-gray-700 font-medium">{log.browser}</p>
+                <p className="text-[13px] text-gray-700 font-medium break-all">{log.userAgent || log.browser}</p>
               </div>
               <div>
                 <p className="text-[11px] text-gray-400">Operating System</p>
-                <p className="text-[13px] text-gray-700 font-medium">{log.os}</p>
+                <p className="text-[13px] text-gray-700 font-medium">{log.os || "—"}</p>
               </div>
             </div>
           </div>
@@ -145,7 +147,7 @@ export function LogDetailsModal({ open, onOpenChange, log }: LogDetailsModalProp
               <p className="text-[11px] text-gray-500 uppercase tracking-wide">Event Description</p>
             </div>
             <p className="text-[14px] text-gray-700 leading-relaxed mt-3">
-              {log.details}
+              {log.reason ? `Reason: ${log.reason}` : log.details}
             </p>
           </div>
         </div>

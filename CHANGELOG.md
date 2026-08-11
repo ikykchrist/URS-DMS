@@ -6,6 +6,72 @@
 
 ---
 
+## Cross-module stabilization - Audit, dashboards, notifications, repository (2026-08-11)
+
+- Fixed auth audit attribution/classification, ROOT refresh-as-login
+  duplication, audit filters/date presets, null actor rendering, detail
+  loading, and password-reset failure classification.
+- Fixed user accreditation navigation for AACCUP/ISO/Certification,
+  Returned/Needs Revision deep links, notification single-click routing, and
+  admin notification navigation.
+- Fixed repository current-level folder rendering, visible list names,
+  accessible action menus, touch-safe Open actions, pinned-first ordering,
+  folder color persistence/rendering, and file/folder/bulk Copy confirmation.
+- Verified client/server typechecks and builds plus 46 server tests. No
+  migrations, resets, deployments, or Docker volume operations performed.
+
+## Admin dashboard workflow upgrade (2026-08-11)
+
+- Replaced the analytics-heavy admin dashboard view with real operational
+  attention counts, accreditation progress, recent submissions, requests,
+  tasks, and recent audit activity.
+- Added keyboard-accessible dashboard navigation with URL-backed submission,
+  request, task, accreditation, and entity highlighting destinations.
+- Preserved task/request/submission filters through refresh and browser
+  navigation, including the backend `NEEDS_REVISION` status as Returned.
+
+## User Management - Department assignment fix (2026-08-11)
+
+- Fixed User Details sending `status` through the strict general user-update
+  endpoint when assigning a department. Department/role updates and explicit
+  status changes now use their correct endpoints.
+- User Details now awaits saves, keeps API failures inside the dialog, blocks
+  dismissal while saving, and reconciles successful responses directly into
+  the selected user and table.
+- Suspended users retain `SUSPENDED` when only their department changes; status
+  mutates only after the Active Status switch is explicitly changed.
+- Department/role option loading now clears stale options, handles failures,
+  and ignores completions after the dialog changes or closes.
+- Verified through the real modal: Department A to Department B, PATCH `200`,
+  persisted `departmentId`, immediate table update, no uncaught console error;
+  temporary users archived afterward. No API or database changes.
+
+## ROOT Organization - New Department crash fix (2026-08-11)
+
+**Client**
+
+- Fixed `New Department` crashing the global error boundary because the form
+  rendered Radix Select items with forbidden empty-string values. Optional
+  parent choices now use a UI-only sentinel that maps back to the existing
+  nullable API fields.
+- Organization writes now send entity-specific payloads, so Department create
+  no longer includes `departmentId`, which its strict ROOT DTO rejects.
+- Added contract-matched inline validation for required values, code format,
+  and field lengths; API conflicts remain recoverable inside the dialog.
+- Added latest-request protection and current-query refresh generation so fast
+  tab changes or late mutations cannot overwrite the visible entity list.
+
+**Verification**
+
+- ROOT browser flow: modal open/cancel, empty and invalid validation, create
+  (`201`), duplicate (`409` with a friendly message), immediate list refresh,
+  browser refresh, logout/login persistence, and no uncaught console exception.
+- ROOT-only route enforcement verified for ADMINISTRATOR and STAFF (`403`);
+  Add User and AACCUP department selectors both exposed the created department.
+- Dialog verified at 1366x768, 768x1024, and 390x844. Server RBAC tests pass
+  (24/24). The smoke department/user were archived through audited API paths.
+- No API, Prisma schema, migration, or destructive database changes.
+
 ## Sprint 8.5 — Background Jobs, Concurrency & Heavy-Load Reliability (2026-08-08)
 
 **Infrastructure**

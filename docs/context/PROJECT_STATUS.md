@@ -7,6 +7,7 @@
 
 | Sprint | Scope | Status |
 |---|---|---|
+| V1 stabilization (2026-08-11) | **ROOT Organization + User Management + Audit/Dashboard/Repository stabilization** — corrected New Department, user assignment, auth audit, operational admin dashboard, notification/navigation, accreditation Returned/ISO/CERT, repository folders/color/pin/copy issues; verified typechecks/builds and 46 server tests; no API/schema/migration changes | ✅ done |
 | 1 | Client skeleton (Vite + React + TS + Tailwind) | ✅ done |
 | 2 | Auth + RBAC + Users + Sessions + AuditLog + Prisma + Docker | ✅ done |
 | 3 | Documents + Folders + Versioning + Upload/Download + Tags + Shares + MinIO | ✅ done |

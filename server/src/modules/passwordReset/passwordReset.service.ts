@@ -34,7 +34,9 @@ const GENERIC_TOKEN_ERROR =
 
 function resetBaseUrl(clientOrigin?: string): string {
   if (clientOrigin) {
-    try { new URL(clientOrigin); return clientOrigin; } catch {}
+    try { new URL(clientOrigin); return clientOrigin; } catch {
+      // Fall back to the configured client origin when the request origin is invalid.
+    }
   }
   const envUrl = env.CLIENT_URL?.[0];
   if (envUrl) return envUrl;
@@ -86,6 +88,7 @@ export async function requestPasswordReset(
     entityId: user.id,
     ipAddress,
     userAgent,
+    category: "SECURITY",
   });
 
   return { message: GENERIC_RESPONSE };
@@ -103,6 +106,15 @@ export async function resetPassword(
   const valid = await repo.findValidByHash(tokenHash);
   if (!valid) {
     // Generic: invalid, expired, or already used tokens are indistinguishable.
+    await writeAudit({
+      action: AUDIT_ACTIONS.PASSWORD_RESET_FAILED,
+      ipAddress,
+      userAgent,
+      category: "SECURITY",
+      severity: "WARNING",
+      result: "FAILED",
+      newValue: { reason: "invalid_or_expired_token" },
+    });
     throw new TokenInvalidError(GENERIC_TOKEN_ERROR);
   }
 
@@ -111,12 +123,33 @@ export async function resetPassword(
     select: { id: true, passwordHash: true, status: true },
   });
   if (!user) {
+    await writeAudit({
+      action: AUDIT_ACTIONS.PASSWORD_RESET_FAILED,
+      ipAddress,
+      userAgent,
+      category: "SECURITY",
+      severity: "WARNING",
+      result: "FAILED",
+      newValue: { reason: "user_not_found" },
+    });
     throw new TokenInvalidError(GENERIC_TOKEN_ERROR);
   }
 
   // Do not allow resetting to the current password.
   const same = await verifyPassword(user.passwordHash, input.newPassword);
   if (same) {
+    await writeAudit({
+      action: AUDIT_ACTIONS.PASSWORD_RESET_FAILED,
+      userId: user.id,
+      entity: "user",
+      entityId: user.id,
+      ipAddress,
+      userAgent,
+      category: "SECURITY",
+      severity: "WARNING",
+      result: "FAILED",
+      newValue: { reason: "same_password" },
+    });
     throw new BadRequestError("New password must be different from the current one");
   }
 
@@ -156,6 +189,9 @@ export async function resetPassword(
       entityId: valid.userId,
       ipAddress,
       userAgent,
+      category: "SECURITY",
+      severity: "WARNING",
+      result: "FAILED",
     });
     throw err;
   }
@@ -167,6 +203,9 @@ export async function resetPassword(
     entityId: valid.userId,
     ipAddress,
     userAgent,
+    category: "SECURITY",
+    severity: "INFO",
+    result: "SUCCESS",
   });
 
   return { success: true };

@@ -152,6 +152,7 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
   const [deptFilter, setDeptFilter] = useState("all")
   const [systemDepartments, setSystemDepartments] = useState<Array<{ id: string; name: string }>>([])
   const [statusFilter, setStatusFilter] = useState("all")
+  const highlightId = searchParams.get("highlight")
 
   useEffect(() => {
     listSystemUsers({ pageSize: 100 }).then((page) => setUsers(page.items.map(toDomainUser)))
@@ -160,7 +161,21 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
       .catch(() => setSystemDepartments([]))
   }, [])
 
+  useEffect(() => {
+    const highlighted = users.find((user) => user.id === highlightId)
+    if (highlighted) {
+      setSelectedUser(highlighted)
+      setIsUserDetailsModalOpen(true)
+    }
+  }, [highlightId, users])
+
   const refresh = () => listSystemUsers({ pageSize: 100 }).then((page) => setUsers(page.items.map(toDomainUser)))
+
+  const applyUpdatedUser = (updated: SystemUser) => {
+    const nextUser = toDomainUser(updated)
+    setUsers((current) => current.map((user) => user.id === nextUser.id ? nextUser : user))
+    setSelectedUser((current) => current?.id === nextUser.id ? nextUser : current)
+  }
 
   const handleCloseAddUserModal = (open: boolean) => {
     setIsAddUserModalOpen(open)
@@ -483,19 +498,23 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
         onDelete={selectedUser ? () => handleDeleteUser(selectedUser.id) : undefined}
         onSave={async (id, data) => {
           if (!id) return
-          if (data.departmentId || data.roleId) {
-            await updateSystemUser(id, {
-              status: data.status === "Active" ? "ACTIVE" : data.status === "Suspended" ? "SUSPENDED" : "INACTIVE",
-              ...(data.departmentId !== undefined ? { departmentId: data.departmentId || null } : {}),
-              ...(data.roleId ? { roleId: data.roleId } : {}),
-            } as Parameters<typeof updateSystemUser>[1])
-          } else {
-            await updateUserStatus(
-              id,
-              data.status === "Active" ? "ACTIVE" : data.status === "Suspended" ? "SUSPENDED" : "INACTIVE",
+          const patch: Parameters<typeof updateSystemUser>[1] = {}
+          if (data.departmentId !== undefined && data.departmentId !== selectedUser?.departmentId) {
+            patch.departmentId = data.departmentId || null
+          }
+          if (data.roleId) patch.roleId = data.roleId
+          if (Object.keys(patch).length > 0) {
+            applyUpdatedUser(await updateSystemUser(id, patch))
+          }
+
+          if (data.statusChanged && data.status !== selectedUser?.status) {
+            applyUpdatedUser(
+              await updateUserStatus(
+                id,
+                data.status === "Active" ? "ACTIVE" : data.status === "Suspended" ? "SUSPENDED" : "INACTIVE",
+              ),
             )
           }
-          refresh()
         }}
       />
 

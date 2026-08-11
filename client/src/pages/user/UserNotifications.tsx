@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { Bell, Check, CheckCheck, Search, FileText, GraduationCap, Inbox, Upload } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent } from "@/components/ui/Card"
@@ -40,6 +40,7 @@ const getTimeAgo = (dateStr: string) => {
 export default function UserNotifications() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [notifs, setNotifs] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
@@ -77,7 +78,9 @@ export default function UserNotifications() {
     try {
       await notificationService.markRead(id)
       setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n))
-    } catch { }
+    } catch {
+      // Keep the local read state unchanged when the notification service is unavailable.
+    }
   }
 
   const markAllAsRead = async () => {
@@ -85,12 +88,14 @@ export default function UserNotifications() {
     try {
       await notificationService.markAllReadForUser()
       setNotifs((prev) => prev.map((n) => ({ ...n, read: true })))
-    } catch { }
+    } catch {
+      // Keep the local read state unchanged when the notification service is unavailable.
+    }
   }
 
   const handleViewNotification = (notif: Notification) => {
     if (!notif.read) markAsRead(notif.id)
-    const route = resolveNotificationRoute(notif)
+    const route = resolveNotificationRoute(notif, location.pathname.startsWith("/user/") ? "user" : "admin")
     if (!route) return
     const url = buildNotificationUrl(route, notif.entityId)
     navigate(url)
@@ -153,12 +158,11 @@ export default function UserNotifications() {
           </Card>
         ) : (
           filteredNotifs.map((notif) => {
-            const route = resolveNotificationRoute(notif)
+            const route = resolveNotificationRoute(notif, location.pathname.startsWith("/user/") ? "user" : "admin")
             return (
               <Card
                 key={notif.id}
-                onDoubleClick={() => handleViewNotification(notif)}
-                title={route ? "Double-click to view" : undefined}
+                onClick={() => handleViewNotification(notif)}
                 className={cn(
                   "border-gray-200/60 dark:border-gray-700 shadow-sm transition-all cursor-pointer",
                   !notif.read && "bg-primary/5 dark:bg-primary/10 border-l-4 border-l-primary"

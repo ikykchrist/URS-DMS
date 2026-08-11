@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import {
   Search,
   RefreshCw,
@@ -84,6 +84,8 @@ import { ApiRequestError } from "@/lib/http"
 // =============================================================================
 
 const PAGE_SIZE = 10
+const UNASSIGNED_VALUE = "__unassigned__"
+const ORG_CODE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 
 const ENTITIES: { id: OrgEntity; label: string; icon: React.ElementType }[] = [
   { id: "college", label: "Colleges", icon: GraduationCap },
@@ -117,6 +119,13 @@ interface FormState {
   departmentId: string
 }
 
+interface FormErrors {
+  name?: string
+  code?: string
+  description?: string
+  submit?: string
+}
+
 const EMPTY_FORM: FormState = {
   name: "",
   code: "",
@@ -140,6 +149,8 @@ export default function RootOrganization() {
   const [departmentFilter, setDepartmentFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const loadRequestId = useRef(0)
+  const [refreshVersion, setRefreshVersion] = useState(0)
 
   // ── option lists (colleges/departments for parent selects + filters) ───────
   const [colleges, setColleges] = useState<OrgRecord[]>([])
@@ -149,6 +160,7 @@ export default function RootOrganization() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<OrgRecord | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [saving, setSaving] = useState(false)
 
   const [versionTarget, setVersionTarget] = useState<OrgRecord | null>(null)
@@ -161,6 +173,7 @@ export default function RootOrganization() {
   const [treeLoading, setTreeLoading] = useState(false)
 
   const load = useCallback(async () => {
+    const requestId = ++loadRequestId.current
     setLoading(true)
     setError(null)
     try {
@@ -174,19 +187,21 @@ export default function RootOrganization() {
         departmentId:
           departmentFilter !== "all" ? departmentFilter : undefined,
       })
+      if (requestId !== loadRequestId.current) return
       setRecords(result.items)
       setTotal(result.meta.total)
       setTotalPages(Math.max(1, result.meta.totalPages))
     } catch (err) {
+      if (requestId !== loadRequestId.current) return
       setError(err instanceof Error ? err.message : "Failed to load records")
     } finally {
-      setLoading(false)
+      if (requestId === loadRequestId.current) setLoading(false)
     }
   }, [tab, page, search, includeArchived, collegeFilter, departmentFilter])
 
   useEffect(() => {
     void load()
-  }, [load])
+  }, [load, refreshVersion])
 
   useEffect(() => {
     setPage(1)
@@ -236,6 +251,7 @@ export default function RootOrganization() {
   const openCreate = () => {
     setEditing(null)
     setForm(EMPTY_FORM)
+    setFormErrors({})
     setFormOpen(true)
   }
 
@@ -249,26 +265,38 @@ export default function RootOrganization() {
       collegeId: record.collegeId ?? "",
       departmentId: record.departmentId ?? "",
     })
+    setFormErrors({})
     setFormOpen(true)
   }
 
   const handleSave = async () => {
-    if (!form.name.trim() || !form.code.trim()) {
-      toast.error("Name and code are required")
-      return
+    const name = form.name.trim()
+    const code = form.code.trim()
+    const description = form.description.trim()
+    const nextErrors: FormErrors = {}
+    if (!name) nextErrors.name = "Name is required"
+    else if (name.length > 120) nextErrors.name = "Name must be 120 characters or fewer"
+    if (!code) nextErrors.code = "Code is required"
+    else if (code.length > 20) nextErrors.code = "Code must be 20 characters or fewer"
+    else if (!ORG_CODE_PATTERN.test(code)) {
+      nextErrors.code = "Code must be alphanumeric with dots, underscores, or hyphens"
     }
+    if (description.length > 500) {
+      nextErrors.description = "Description must be 500 characters or fewer"
+    }
+    setFormErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
+
     setSaving(true)
     const input: OrgWriteInput = {
-      name: form.name.trim(),
-      code: form.code.trim(),
-      description: form.description.trim() || null,
-      collegeId:
-        form.collegeId && tab !== "college" ? form.collegeId : null,
-      departmentId:
-        form.departmentId && (tab === "office" || tab === "program")
-          ? form.departmentId
-          : null,
-      level: tab === "program" ? form.level : undefined,
+      name,
+      code,
+      description: description || null,
+      ...(tab !== "college" ? { collegeId: form.collegeId || null } : {}),
+      ...(tab === "office" || tab === "program"
+        ? { departmentId: form.departmentId || null }
+        : {}),
+      ...(tab === "program" ? { level: form.level } : {}),
     }
     try {
       if (editing) {
@@ -279,9 +307,11 @@ export default function RootOrganization() {
         toast.success(`${entityLabel(tab).slice(0, -1)} "${created.name}" created`)
       }
       setFormOpen(false)
-      void load()
+      setRefreshVersion((version) => version + 1)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Save failed")
+      const message = err instanceof Error ? err.message : "Save failed"
+      setFormErrors({ submit: message })
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -291,7 +321,7 @@ export default function RootOrganization() {
     try {
       const archived = await archiveOrgRecord(tab, record.id)
       toast.success(`"${archived.name}" archived`)
-      void load()
+      setRefreshVersion((version) => version + 1)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Archive failed")
     }
@@ -301,7 +331,7 @@ export default function RootOrganization() {
     try {
       const restored = await restoreOrgRecord(tab, record.id)
       toast.success(`"${restored.name}" restored`)
-      void load()
+      setRefreshVersion((version) => version + 1)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Restore failed")
     }
@@ -328,7 +358,7 @@ export default function RootOrganization() {
       const updated = await rollbackOrgRecord(tab, versionTarget.id, rollbackTarget.version)
       toast.success(`"${updated.name}" rolled back to v${rollbackTarget.version} (now v${updated.version})`)
       setVersionTarget(null)
-      void load()
+      setRefreshVersion((version) => version + 1)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Rollback failed")
     } finally {
@@ -382,7 +412,12 @@ export default function RootOrganization() {
         title="Organization"
         description="Colleges, departments, offices and programs — versioned master data managed by the system administrator"
         actions={
-          <Button variant="outline" size="sm" onClick={() => void load()} className="shadow-sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setRefreshVersion((version) => version + 1)}
+            className="shadow-sm"
+          >
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -683,7 +718,7 @@ export default function RootOrganization() {
 
       {/* ── Create / edit dialog ─────────────────────────────────────────────── */}
       {formOpen && (
-        <Dialog open onOpenChange={(open) => !open && setFormOpen(false)}>
+        <Dialog open onOpenChange={(open) => !open && !saving && setFormOpen(false)}>
           <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-[520px]">
             <DialogHeader className="pb-2">
               <DialogTitle className="text-lg">
@@ -696,23 +731,47 @@ export default function RootOrganization() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              {formErrors.submit && (
+                <div role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-600">
+                  {formErrors.submit}
+                </div>
+              )}
               <div className="grid gap-2">
-                <Label className="text-[13px] font-medium">Name</Label>
+                <Label htmlFor="organization-name" className="text-[13px] font-medium">Name</Label>
                 <Input
+                  id="organization-name"
+                  autoFocus
                   className="h-10"
                   value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, name: e.target.value }))
+                    setFormErrors((errors) => ({ ...errors, name: undefined, submit: undefined }))
+                  }}
                   placeholder={`e.g. College of Engineering`}
+                  aria-invalid={Boolean(formErrors.name)}
+                  aria-describedby={formErrors.name ? "organization-name-error" : undefined}
                 />
+                {formErrors.name && (
+                  <p id="organization-name-error" className="text-xs text-red-500">{formErrors.name}</p>
+                )}
               </div>
               <div className="grid gap-2">
-                <Label className="text-[13px] font-medium">Code</Label>
+                <Label htmlFor="organization-code" className="text-[13px] font-medium">Code</Label>
                 <Input
+                  id="organization-code"
                   className="h-10"
                   value={form.code}
-                  onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, code: e.target.value }))
+                    setFormErrors((errors) => ({ ...errors, code: undefined, submit: undefined }))
+                  }}
                   placeholder="e.g. COE"
+                  aria-invalid={Boolean(formErrors.code)}
+                  aria-describedby={formErrors.code ? "organization-code-error" : undefined}
                 />
+                {formErrors.code && (
+                  <p id="organization-code-error" className="text-xs text-red-500">{formErrors.code}</p>
+                )}
               </div>
               {tab === "program" && (
                 <div className="grid gap-2">
@@ -738,16 +797,20 @@ export default function RootOrganization() {
                 <div className="grid gap-2">
                   <Label className="text-[13px] font-medium">College (optional)</Label>
                   <Select
-                    value={form.collegeId}
+                    value={form.collegeId || UNASSIGNED_VALUE}
                     onValueChange={(v) =>
-                      setForm((f) => ({ ...f, collegeId: v, departmentId: "" }))
+                      setForm((f) => ({
+                        ...f,
+                        collegeId: v === UNASSIGNED_VALUE ? "" : v,
+                        departmentId: "",
+                      }))
                     }
                   >
                     <SelectTrigger className="h-10">
                       <SelectValue placeholder="Select college" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value={UNASSIGNED_VALUE}>None</SelectItem>
                       {colleges.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
@@ -761,14 +824,19 @@ export default function RootOrganization() {
                 <div className="grid gap-2">
                   <Label className="text-[13px] font-medium">Department (optional)</Label>
                   <Select
-                    value={form.departmentId}
-                    onValueChange={(v) => setForm((f) => ({ ...f, departmentId: v }))}
+                    value={form.departmentId || UNASSIGNED_VALUE}
+                    onValueChange={(v) =>
+                      setForm((f) => ({
+                        ...f,
+                        departmentId: v === UNASSIGNED_VALUE ? "" : v,
+                      }))
+                    }
                   >
                     <SelectTrigger className="h-10">
                       <SelectValue placeholder="Select department" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value={UNASSIGNED_VALUE}>None</SelectItem>
                       {availableDepartments.map((d) => (
                         <SelectItem key={d.id} value={d.id}>
                           {d.name}
@@ -779,17 +847,28 @@ export default function RootOrganization() {
                 </div>
               )}
               <div className="grid gap-2">
-                <Label className="text-[13px] font-medium">Description (optional)</Label>
+                <Label htmlFor="organization-description" className="text-[13px] font-medium">Description (optional)</Label>
                 <Textarea
+                  id="organization-description"
                   className="min-h-[70px]"
                   value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, description: e.target.value }))
+                    setFormErrors((errors) => ({ ...errors, description: undefined, submit: undefined }))
+                  }}
                   placeholder="Short description"
+                  aria-invalid={Boolean(formErrors.description)}
+                  aria-describedby={formErrors.description ? "organization-description-error" : undefined}
                 />
+                {formErrors.description && (
+                  <p id="organization-description-error" className="text-xs text-red-500">
+                    {formErrors.description}
+                  </p>
+                )}
               </div>
             </div>
             <DialogFooter className="gap-2">
-              <Button variant="outline" className="h-9" onClick={() => setFormOpen(false)}>
+              <Button variant="outline" className="h-9" onClick={() => setFormOpen(false)} disabled={saving}>
                 Cancel
               </Button>
               <Button className="h-9 shadow-sm" onClick={() => void handleSave()} disabled={saving}>
@@ -802,7 +881,7 @@ export default function RootOrganization() {
 
       {/* ── Version history / rollback dialog ────────────────────────────────── */}
       {versionTarget && (
-        <Dialog open onOpenChange={(open) => !open && setVersionTarget(null)}>
+        <Dialog open onOpenChange={(open) => !open && !saving && setVersionTarget(null)}>
           <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-[640px]">
             <DialogHeader className="pb-2">
               <DialogTitle className="text-lg">
@@ -877,7 +956,12 @@ export default function RootOrganization() {
                   will be created with the restored values.
                 </div>
                 <DialogFooter className="gap-2 mt-4">
-                  <Button variant="outline" className="h-9" onClick={() => setRollbackTarget(null)}>
+                  <Button
+                    variant="outline"
+                    className="h-9"
+                    onClick={() => setRollbackTarget(null)}
+                    disabled={saving}
+                  >
                     Cancel
                   </Button>
                   <Button className="h-9 shadow-sm" onClick={() => void handleRollback()} disabled={saving}>

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import AACCUPManagement from "@/pages/AACCUPManagement"
 import Submissions from "@/pages/Submissions"
@@ -29,7 +29,12 @@ interface AACCUPGroupPageProps {
 export default function AACCUPGroupPage({ initialTab = "AACCUP" }: AACCUPGroupPageProps) {
   const [searchParams, setSearchParams] = useSearchParams()
   const urlTab = searchParams.get("tab")
+  const urlAreaSet = searchParams.get("areaSet")
   const [tab, setTab] = useState<string>(urlTab && TABS.some((t) => t.value === urlTab) ? urlTab : initialTab)
+
+  useEffect(() => {
+    setTab(urlTab && TABS.some((t) => t.value === urlTab) ? urlTab : initialTab)
+  }, [initialTab, urlTab])
 
   const handleTabChange = (value: string) => {
     setTab(value)
@@ -47,7 +52,7 @@ export default function AACCUPGroupPage({ initialTab = "AACCUP" }: AACCUPGroupPa
         <AACCUPGroupTabs value={tab} onValueChange={handleTabChange} tabs={TABS} />
       </div>
       {tab === "submissions" ? (
-        <Submissions />
+        <Submissions areaSet={urlAreaSet === "AACCUP" || urlAreaSet === "ISO" || urlAreaSet === "CERT" ? urlAreaSet : undefined} />
       ) : tab === "tasks" ? (
         <UserTasksTab />
       ) : (

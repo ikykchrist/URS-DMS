@@ -33,15 +33,15 @@ import { listSystemAudit, type RootAuditEntry } from "@/services/root"
 const PAGE_SIZE = 15
 
 const PRESETS = [
-  { label: "Today", params: {} as Record<string, string> },
-  { label: "Last 7 Days", params: {} as Record<string, string> },
-  { label: "Last 30 Days", params: {} as Record<string, string> },
-  { label: "Login Activity", params: { category: "AUTHENTICATION" } },
-  { label: "Failed Security", params: { category: "SECURITY", result: "FAILED" } },
-  { label: "Submissions", params: { category: "SUBMISSION" } },
-  { label: "Requests", params: { category: "REQUEST" } },
-  { label: "Role/Permission", params: { category: "ACCESS_CONTROL" } },
-  { label: "Critical Events", params: { severity: "CRITICAL" } },
+  { label: "Today", key: "today", params: {} },
+  { label: "Last 7 Days", key: "last7", params: {} },
+  { label: "Last 30 Days", key: "last30", params: {} },
+  { label: "Login Activity", key: "login_activity", params: { category: "AUTHENTICATION" } },
+  { label: "Failed Security", key: "failed_security", params: { category: "SECURITY", result: "FAILED" } },
+  { label: "Submissions", key: "submissions", params: { category: "SUBMISSION" } },
+  { label: "Requests", key: "requests", params: { category: "REQUEST" } },
+  { label: "Role/Permission", key: "role_changes", params: { category: "ACCESS_CONTROL" } },
+  { label: "Critical Events", key: "critical", params: { severity: "CRITICAL" } },
 ]
 
 const SEV_BADGES: Record<string, "success" | "warning" | "danger" | "default"> = {
@@ -61,18 +61,32 @@ export default function RootAudit() {
   const [activePreset, setActivePreset] = useState("")
   const [loading, setLoading] = useState(true)
 
+  function presetDates(key?: string) {
+    if (!key) return {}
+    const now = new Date()
+    const start = new Date(now)
+    if (key === "today") {
+      start.setHours(0, 0, 0, 0)
+    } else {
+      start.setDate(start.getDate() - (key === "last7" ? 7 : 30))
+    }
+    return { from: start.toISOString(), to: now.toISOString() }
+  }
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
     const preset = PRESETS.find((p) => p.label === activePreset)
+    const dates = presetDates(preset?.key)
     const result = await listSystemAudit({
         page,
         pageSize: PAGE_SIZE,
         q: search.trim() || undefined,
         module: module === "all" ? undefined : module,
         status: status === "all" ? undefined : status,
-        ...preset?.params,
-      } as Parameters<typeof listSystemAudit>[0])
+         ...dates,
+         ...preset?.params,
+       })
       setEntries(result.items)
       setTotal(result.meta.total)
       setTotalPages(Math.max(1, result.meta.totalPages))
@@ -155,7 +169,7 @@ export default function RootAudit() {
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
               <SelectItem value="SUCCESS">Success</SelectItem>
-              <SelectItem value="FAILURE">Failure</SelectItem>
+               <SelectItem value="FAILED">Failure</SelectItem>
               <SelectItem value="PENDING">Pending</SelectItem>
             </SelectContent>
           </Select>
@@ -188,7 +202,6 @@ export default function RootAudit() {
               </TableHeader>
               <TableBody>
                 {(entries as RootAuditEntry[]).map((entry) => {
-                  const e = entry as any
                   return (
                   <TableRow key={entry.id}>
                     <TableCell className="text-[12px] text-gray-500 whitespace-nowrap">
@@ -198,31 +211,31 @@ export default function RootAudit() {
                       {entry.action}
                     </TableCell>
                     <TableCell>
-                      {e.category ? (
-                        <Badge variant="secondary" className="text-[11px]">{e.category}</Badge>
+                      {entry.category ? (
+                        <Badge variant="secondary" className="text-[11px]">{entry.category}</Badge>
                       ) : (
                         <Badge variant="secondary">{entry.module}</Badge>
                       )}
                     </TableCell>
                     <TableCell>
-                      {e.severity ? (
-                        <Badge variant={SEV_BADGES[e.severity] ?? "default"} className="text-[11px]">{e.severity}</Badge>
+                      {entry.severity ? (
+                        <Badge variant={SEV_BADGES[entry.severity] ?? "default"} className="text-[11px]">{entry.severity}</Badge>
                       ) : "—"}
                     </TableCell>
                     <TableCell className="text-[13px] text-gray-600">
-                      {entry.user ? (
+                      {entry.user?.name || entry.actorName ? (
                         <div>
-                          <div>{e.actorName || entry.user.name}</div>
-                          <div className="text-[11px] text-gray-400">{e.actorRole || entry.user.role}</div>
+                          <div>{entry.actorName || entry.user?.name || "Unknown actor"}</div>
+                          <div className="text-[11px] text-gray-400">{entry.actorRole || entry.user?.role || "—"}</div>
                         </div>
-                      ) : "—"}
+                      ) : <span className="text-gray-400">Unknown actor</span>}
                     </TableCell>
                     <TableCell className="text-[13px] text-gray-600">
                       {entry.entity ? (
                         <div>
                           <div>{entry.entity.type}</div>
                           <div className="text-[11px] text-gray-400 truncate max-w-[120px]">
-                            {e.targetName || entry.entity.id}
+                            {entry.targetName || entry.entity.id}
                           </div>
                         </div>
                       ) : "—"}
@@ -230,16 +243,16 @@ export default function RootAudit() {
                     <TableCell>
                       <Badge
                         variant={
-                          e.result === "SUCCESS" ? "success"
-                          : e.result === "FAILED" ? "danger"
-                          : e.result === "DENIED" ? "warning"
+                          entry.result === "SUCCESS" ? "success"
+                          : entry.result === "FAILED" ? "danger"
+                          : entry.result === "DENIED" ? "warning"
                           : entry.status === "SUCCESS" ? "success"
-                          : entry.status === "FAILURE" ? "danger"
+                           : entry.status === "FAILED" ? "danger"
                           : "default"
                         }
                         className="text-[11px]"
                       >
-                        {e.result || entry.status}
+                        {entry.result || entry.status}
                       </Badge>
                     </TableCell>
                   </TableRow>

@@ -59,6 +59,8 @@ export interface CreateArgs {
   parentId: string | null;
   departmentId: string | null;
   ownerId: string;
+  color?: string | null;
+  icon?: string | null;
 }
 
 export async function create(args: CreateArgs): Promise<FolderDetail> {
@@ -68,6 +70,8 @@ export async function create(args: CreateArgs): Promise<FolderDetail> {
       parentId: args.parentId,
       departmentId: args.departmentId,
       ownerId: args.ownerId,
+      color: args.color,
+      icon: args.icon,
     },
     select: folderSelect,
   });

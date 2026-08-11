@@ -145,8 +145,14 @@ export interface RootAuditEntry {
   action: string
   module: string
   status: string
-  user: { id: string; name: string; email: string; role: string } | null
-  entity: { type: string; id: string } | null
+  user: { id: string | null; name: string | null; email: string | null; role: string | null } | null
+  entity: { type: string | null; id: string | null } | null
+  category?: string
+  severity?: string
+  result?: string
+  actorName?: string | null
+  actorRole?: string | null
+  targetName?: string | null
   ipAddress: string | null
   userAgent: string | null
 }
@@ -329,6 +335,11 @@ export async function listSystemAudit(query?: {
   module?: string
   action?: string
   status?: string
+  category?: string
+  severity?: string
+  result?: string
+  from?: string
+  to?: string
 }): Promise<RootListResult<RootAuditEntry>> {
   const params = new URLSearchParams()
   if (query?.page) params.set("page", String(query.page))
@@ -337,6 +348,11 @@ export async function listSystemAudit(query?: {
   if (query?.module) params.set("module", query.module)
   if (query?.action) params.set("action", query.action)
   if (query?.status) params.set("status", query.status)
+  if (query?.category) params.set("category", query.category)
+  if (query?.severity) params.set("severity", query.severity)
+  if (query?.result) params.set("result", query.result)
+  if (query?.from) params.set("from", query.from)
+  if (query?.to) params.set("to", query.to)
   const qs = params.toString() ? `?${params.toString()}` : ""
   return apiGetPage<RootAuditEntry>(`/audit${qs}`)
 }

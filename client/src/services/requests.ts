@@ -59,8 +59,8 @@ function adaptStatusFromBackend(s: BackendRequest["status"]): RequestStatus {
   switch (s) {
     case "PENDING": return "Pending"
     case "APPROVED": return "Approved"
+    case "FULFILLED": return "Fulfilled"
     case "REJECTED": return "Rejected"
-    case "FULFILLED": return "Approved"
     default: return "Pending"
   }
 }
@@ -69,6 +69,7 @@ function adaptStatusToBackend(s: RequestStatus | "all"): "PENDING" | "APPROVED" 
   switch (s) {
     case "Pending": return "PENDING"
     case "Approved": return "APPROVED"
+    case "Fulfilled": return "FULFILLED"
     case "Rejected": return "REJECTED"
     case "In Review": return "PENDING"
     case "Draft": return "PENDING"
