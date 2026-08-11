@@ -25,67 +25,77 @@ export async function processFolderCopyJob(job: Job<FolderCopyJobData>): Promise
   const { jobRecordId, sourceFolderId, targetParentId, conflictMode, totalItems, actorId, repositoryId } =
     job.data;
 
-  await prisma.repositoryCopyJob.update({
-    where: { id: jobRecordId },
-    data: { status: "RUNNING", startedAt: new Date() },
-  });
+  try {
+    await prisma.repositoryCopyJob.update({
+      where: { id: jobRecordId },
+      data: { status: "RUNNING", startedAt: new Date() },
+    });
 
-  const source = await repo.findById(sourceFolderId);
-  if (!source) throw new Error(`Source folder ${sourceFolderId} no longer exists`);
+    const source = await repo.findById(sourceFolderId);
+    if (!source) throw new Error(`Source folder ${sourceFolderId} no longer exists`);
 
-  const conflict = await repo.findSameNameFolder(targetParentId, source.name, actorId, sourceFolderId);
-  let resultFolderId: string | null = null;
+    const conflict = await repo.findSameNameFolder(targetParentId, source.name, actorId, sourceFolderId);
+    let resultFolderId: string | null = null;
 
-  if (conflict && conflict.id !== sourceFolderId && conflictMode === "merge") {
-    await repo.copyChildrenInto(sourceFolderId, conflict.id, actorId, repositoryId, async (processed) => {
-      const pct = Math.round((processed / totalItems) * 100);
-      await job.updateProgress(pct);
-      await prisma.repositoryCopyJob.update({
-        where: { id: jobRecordId },
-        data: { processedItems: processed },
+    if (conflict && conflict.id !== sourceFolderId && conflictMode === "merge") {
+      await repo.copyChildrenInto(sourceFolderId, conflict.id, actorId, repositoryId, async (processed) => {
+        const pct = Math.round((processed / totalItems) * 100);
+        await job.updateProgress(pct);
+        await prisma.repositoryCopyJob.update({
+          where: { id: jobRecordId },
+          data: { processedItems: processed },
+        });
       });
-    });
-    resultFolderId = conflict.id;
-  } else {
-    let usedName = source.name;
-    if (conflict && conflict.id !== sourceFolderId) {
-      if (conflictMode === "cancel") throw new ConflictError(`Folder "${source.name}" already exists`);
-      usedName = await repo.uniqueFolderName(targetParentId, source.name, actorId);
+      resultFolderId = conflict.id;
+    } else {
+      let usedName = source.name;
+      if (conflict && conflict.id !== sourceFolderId) {
+        if (conflictMode === "cancel") throw new ConflictError(`Folder "${source.name}" already exists`);
+        usedName = await repo.uniqueFolderName(targetParentId, source.name, actorId);
+      }
+      let throttled = 0;
+      resultFolderId = await repo.copySubtree({
+        sourceId: sourceFolderId,
+        newParentId: targetParentId,
+        ownerId: actorId,
+        repositoryId,
+        total: totalItems,
+        onProgress: async (processed) => {
+          throttled += 1;
+          if (throttled % 25 === 0 || processed === totalItems) {
+            const pct = Math.round((processed / totalItems) * 100);
+            await job.updateProgress(pct);
+            await prisma.repositoryCopyJob.update({
+              where: { id: jobRecordId },
+              data: { processedItems: processed },
+            });
+          }
+        },
+      });
+      if (usedName !== source.name) {
+        await repo.update({ id: resultFolderId, data: { name: usedName } });
+      }
     }
-    let throttled = 0;
-    resultFolderId = await repo.copySubtree({
-      sourceId: sourceFolderId,
-      newParentId: targetParentId,
-      ownerId: actorId,
-      repositoryId,
-      total: totalItems,
-      onProgress: async (processed) => {
-        throttled += 1;
-        if (throttled % 25 === 0 || processed === totalItems) {
-          const pct = Math.round((processed / totalItems) * 100);
-          await job.updateProgress(pct);
-          await prisma.repositoryCopyJob.update({
-            where: { id: jobRecordId },
-            data: { processedItems: processed },
-          });
-        }
-      },
+
+    await prisma.repositoryCopyJob.update({
+      where: { id: jobRecordId },
+      data: { status: "COMPLETED", processedItems: totalItems, resultFolderId, completedAt: new Date() },
     });
-    if (usedName !== source.name) {
-      await repo.update({ id: resultFolderId, data: { name: usedName } });
-    }
+
+    await writeAudit({
+      action: AUDIT_ACTIONS.FOLDER_COPIED,
+      userId: actorId,
+      entity: "folder",
+      entityId: resultFolderId ?? jobRecordId,
+      newValue: { source: sourceFolderId, targetParentId, mode: "bullmq_job", conflictMode },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await prisma.repositoryCopyJob.update({
+      where: { id: jobRecordId },
+      data: { status: "FAILED", error: message, completedAt: new Date() },
+    });
+    if (err instanceof ConflictError) return;
+    throw err;
   }
-
-  await prisma.repositoryCopyJob.update({
-    where: { id: jobRecordId },
-    data: { status: "COMPLETED", processedItems: totalItems, resultFolderId, completedAt: new Date() },
-  });
-
-  await writeAudit({
-    action: AUDIT_ACTIONS.FOLDER_COPIED,
-    userId: actorId,
-    entity: "folder",
-    entityId: resultFolderId ?? jobRecordId,
-    newValue: { source: sourceFolderId, targetParentId, mode: "bullmq_job", conflictMode },
-  });
 }
