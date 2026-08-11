@@ -696,7 +696,8 @@ function AppContent() {
       "/notifications": "notifications", "/aaccup": "aaccup", "/aaccup-management": "aaccup", "/iso": "iso",
       "/certification": "certification", "/root": "root", "/root-organization": "root-organization",
       "/root-folder-builder": "root-folder-builder", "/root-requirement-builder": "root-requirement-builder",
-      "/root-form-builder": "root-form-builder", "/root-setup-wizard": "root-setup-wizard", "/root-config": "root-config",
+      "/root-workflow-builder": "root-workflow-builder", "/root-form-builder": "root-form-builder",
+      "/root-setup-wizard": "root-setup-wizard", "/root-config": "root-config",
       "/root-maintenance": "root-maintenance", "/root-roles-permissions": "root-roles-permissions", "/root-audit": "root-audit",
       "/root-users": "root-users",
     }
@@ -723,6 +724,7 @@ function AppContent() {
     "root-organization": "Organization",
     "root-folder-builder": "Folder Builder",
     "root-requirement-builder": "Requirement Builder",
+    "root-workflow-builder": "Workflow Builder",
     "root-form-builder": "Form Builder",
     "root-setup-wizard": "Setup Wizard",
     "root-config": "Configuration Engine",
@@ -756,6 +758,7 @@ function AppContent() {
       "root-organization": "/root-organization",
       "root-folder-builder": "/root-folder-builder",
       "root-requirement-builder": "/root-requirement-builder",
+      "root-workflow-builder": "/root-workflow-builder",
       "root-form-builder": "/root-form-builder",
       "root-setup-wizard": "/root-setup-wizard",
       "root-config": "/root-config",
@@ -1096,6 +1099,10 @@ function AppRoutes() {
         element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
+        path="/repository"
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
         path="/submissions"
         element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
@@ -1161,6 +1168,18 @@ function AppRoutes() {
       />
       <Route
         path="/root-requirement-builder"
+        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/root-workflow-builder"
+        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/root-form-builder"
+        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/root-setup-wizard"
         element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route

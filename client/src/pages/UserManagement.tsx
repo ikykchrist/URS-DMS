@@ -154,13 +154,17 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
   const [statusFilter, setStatusFilter] = useState("all")
 
   useEffect(() => {
-    listSystemUsers({ pageSize: 100 }).then((page) => setUsers(page.items.map(toDomainUser)))
+    listSystemUsers({ pageSize: 100 })
+      .then((page) => setUsers(page.items.map(toDomainUser)))
+      .catch((err) => console.error("Failed to load users:", err))
     listSystemDepartments({ pageSize: 100 })
       .then((page) => setSystemDepartments(page.items.map((d) => ({ id: d.id, name: d.name }))))
       .catch(() => setSystemDepartments([]))
   }, [])
 
-  const refresh = () => listSystemUsers({ pageSize: 100 }).then((page) => setUsers(page.items.map(toDomainUser)))
+  const refresh = () => listSystemUsers({ pageSize: 100 })
+    .then((page) => setUsers(page.items.map(toDomainUser)))
+    .catch((err) => console.error("Failed to refresh user list:", err))
 
   const handleCloseAddUserModal = (open: boolean) => {
     setIsAddUserModalOpen(open)
@@ -182,8 +186,12 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
 
   const handleDeleteUser = async (id?: string) => {
     if (!id) return
-    await archiveSystemUser(id)
-    refresh()
+    try {
+      await archiveSystemUser(id)
+      refresh()
+    } catch (err) {
+      console.error("Failed to delete user:", err)
+    }
   }
 
   const displayUsers = users
@@ -422,7 +430,7 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                                 className="text-red-600 focus:text-red-600"
                                 onClick={async () => {
                                   if (window.confirm(`Delete user "${user.name}"? This can be undone.`)) {
-                                    await handleDeleteUser(user.id)
+                                    try { await handleDeleteUser(user.id) } catch { /* handled internally */ }
                                   }
                                 }}
                               >
@@ -470,9 +478,7 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
       <AddUserModal
         open={isAddUserModalOpen}
         onOpenChange={handleCloseAddUserModal}
-        onSuccess={async () => {
-          refresh()
-        }}
+        onSuccess={() => { refresh() }}
       />
 
       <UserDetailsModal
@@ -483,19 +489,23 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
         onDelete={selectedUser ? () => handleDeleteUser(selectedUser.id) : undefined}
         onSave={async (id, data) => {
           if (!id) return
-          if (data.departmentId || data.roleId) {
-            await updateSystemUser(id, {
-              status: data.status === "Active" ? "ACTIVE" : data.status === "Suspended" ? "SUSPENDED" : "INACTIVE",
-              ...(data.departmentId !== undefined ? { departmentId: data.departmentId || null } : {}),
-              ...(data.roleId ? { roleId: data.roleId } : {}),
-            } as Parameters<typeof updateSystemUser>[1])
-          } else {
-            await updateUserStatus(
-              id,
-              data.status === "Active" ? "ACTIVE" : data.status === "Suspended" ? "SUSPENDED" : "INACTIVE",
-            )
+          try {
+            if (data.departmentId || data.roleId) {
+              await updateSystemUser(id, {
+                status: data.status === "Active" ? "ACTIVE" : data.status === "Suspended" ? "SUSPENDED" : "INACTIVE",
+                ...(data.departmentId !== undefined ? { departmentId: data.departmentId || null } : {}),
+                ...(data.roleId ? { roleId: data.roleId } : {}),
+              } as Parameters<typeof updateSystemUser>[1])
+            } else {
+              await updateUserStatus(
+                id,
+                data.status === "Active" ? "ACTIVE" : data.status === "Suspended" ? "SUSPENDED" : "INACTIVE",
+              )
+            }
+            refresh()
+          } catch (err) {
+            console.error("Failed to save user:", err)
           }
-          refresh()
         }}
       />
 

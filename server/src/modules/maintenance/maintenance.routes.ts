@@ -3,6 +3,7 @@ import { asyncHandler } from "@/utils/asyncHandler";
 import { requirePermission } from "@/middlewares/authorize";
 import { validateBody } from "@/middlewares/validate";
 import { sendSuccess } from "@/utils/apiResponse";
+import { BadRequestError } from "@/utils/errors";
 import { z } from "zod";
 import {
   getMaintenanceStatus,
@@ -105,7 +106,7 @@ maintenanceRouter.post(
   asyncHandler(async (req, res) => {
     const body = cleanupBody.parse(req.body ?? {});
     if (!body.confirm && !body.dryRun) {
-      throw new Error("Manual destructive cleanup requires confirmation");
+      throw new BadRequestError("Manual destructive cleanup requires confirmation");
     }
     await writeAudit({
       action: AUDIT_ACTIONS.MANUAL_MAINTENANCE_TRIGGERED,
@@ -126,7 +127,7 @@ maintenanceRouter.post(
   asyncHandler(async (req, res) => {
     const body = cleanupBody.parse(req.body ?? {});
     if (!body.confirm && !body.dryRun) {
-      throw new Error("Manual destructive cleanup requires confirmation");
+      throw new BadRequestError("Manual destructive cleanup requires confirmation");
     }
     await writeAudit({
       action: AUDIT_ACTIONS.MANUAL_MAINTENANCE_TRIGGERED,

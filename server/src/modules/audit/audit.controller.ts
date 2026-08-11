@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { sendSuccess } from "@/utils/apiResponse";
+import { NotFoundError } from "@/utils/errors";
 import * as service from "@/modules/audit/audit.service";
 import type {
   ExportAuditQuery,
@@ -152,7 +153,7 @@ export async function getLoginGroupsHandler(req: Request, res: Response): Promis
 export async function downloadArchiveHandler(req: Request, res: Response): Promise<void> {
   const { id } = req.params as { id: string };
   const archive = await service.getArchiveForDownload(id);
-  if (!archive) throw new Error("Archive not found");
+  if (!archive) throw new NotFoundError("Archive not found");
 
   await service.logArchiveDownload(
     id,

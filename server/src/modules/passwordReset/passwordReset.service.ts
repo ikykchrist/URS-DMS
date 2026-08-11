@@ -34,7 +34,7 @@ const GENERIC_TOKEN_ERROR =
 
 function resetBaseUrl(clientOrigin?: string): string {
   if (clientOrigin) {
-    try { new URL(clientOrigin); return clientOrigin; } catch {}
+    try { new URL(clientOrigin); return clientOrigin; } catch { /* invalid URL — fall through to env */ }
   }
   const envUrl = env.CLIENT_URL?.[0];
   if (envUrl) return envUrl;

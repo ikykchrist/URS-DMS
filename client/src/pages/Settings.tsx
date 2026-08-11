@@ -72,8 +72,8 @@ export default function Settings() {
   })
 
   useEffect(() => {
-    getSystemSettings().then(setSettings)
-    getDashboardStorage().then(setStorageStats)
+    getSystemSettings().then(setSettings).catch((err) => console.error("Failed to load settings:", err))
+    getDashboardStorage().then(setStorageStats).catch((err) => console.error("Failed to load storage stats:", err))
   }, [])
 
   const handleSaveSettings = async (patch: Partial<Omit<SystemSettingsView, "updatedAt" | "updatedById">>) => {

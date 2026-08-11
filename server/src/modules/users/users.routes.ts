@@ -22,6 +22,8 @@ import {
   updateSelfHandler,
   updateUserHandler,
 } from "@/modules/users/users.controller";
+import { sendSuccess, sendNoContent } from "@/utils/apiResponse";
+import { exportUserData, deactivateOwnAccount } from "@/modules/users/users.service";
 
 // =============================================================================
 // URS-DMS — users routes
@@ -46,8 +48,6 @@ usersRouter.get(
   "/me/export",
   requirePermission("users.self.update"),
   asyncHandler(async (req, res) => {
-    const { sendSuccess } = await import("@/utils/apiResponse");
-    const { exportUserData } = await import("@/modules/users/users.service");
     const data = await exportUserData(req.auth!.userId);
     sendSuccess(res, data);
   }),
@@ -57,8 +57,6 @@ usersRouter.delete(
   "/me",
   requirePermission("users.self.update"),
   asyncHandler(async (req, res) => {
-    const { sendNoContent } = await import("@/utils/apiResponse");
-    const { deactivateOwnAccount } = await import("@/modules/users/users.service");
     await deactivateOwnAccount(req.auth!.userId, req.context.ipAddress, req.context.userAgent);
     sendNoContent(res);
   }),
