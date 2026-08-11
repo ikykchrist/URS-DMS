@@ -362,21 +362,33 @@ export async function logout(
   userAgent: string,
 ): Promise<void> {
   const token = refreshToken ?? cookieToken;
+  let resolvedUserId = userId ?? null;
+
   if (token) {
     const tokenHash = sha256(token);
+    if (!resolvedUserId) {
+      const session = await prisma.session.findFirst({
+        where: { refreshTokenHash: tokenHash, revokedAt: null },
+        select: { userId: true },
+      });
+      resolvedUserId = session?.userId ?? null;
+    }
     await prisma.session.updateMany({
       where: { refreshTokenHash: tokenHash, revokedAt: null },
       data: { revokedAt: new Date() },
     });
   }
-  await writeAudit({
-    action: AUDIT_ACTIONS.LOGOUT,
-    userId: userId ?? null,
-    ipAddress,
-    userAgent,
-    category: "AUTHENTICATION",
-    severity: "INFO",
-  });
+
+  if (resolvedUserId) {
+    await writeAudit({
+      action: AUDIT_ACTIONS.LOGOUT,
+      userId: resolvedUserId,
+      ipAddress,
+      userAgent,
+      category: "AUTHENTICATION",
+      severity: "INFO",
+    });
+  }
 }
 
 export async function getCurrentUser(userId: string): Promise<AuthenticatedUser> {
