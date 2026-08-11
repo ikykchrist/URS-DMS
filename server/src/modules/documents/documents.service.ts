@@ -670,7 +670,7 @@ export async function copyDocument(
 
   const repositoryId = await ensureRepository(actor.id);
   let title = source.title;
-  if (input.conflictMode === "keep_both" || input.conflictMode === "cancel") {
+  if (input.conflictMode === "keep_both" || input.conflictMode === "replace" || input.conflictMode === "cancel") {
     const conflict = await prisma.document.findFirst({
       where: { ownerId: actor.id, folderId: input.targetFolderId ?? null, title, deletedAt: null },
       select: { id: true },
@@ -678,7 +678,10 @@ export async function copyDocument(
     if (conflict && input.conflictMode === "cancel") {
       throw new ConflictError("A file with this name already exists in the destination");
     }
-    if (conflict) {
+    if (conflict && input.conflictMode === "replace") {
+      await prisma.document.update({ where: { id: conflict.id }, data: { deletedAt: new Date() } });
+    }
+    if (conflict && input.conflictMode === "keep_both") {
       title = await uniqueCopyTitle(actor.id, input.targetFolderId ?? null, source.title);
     }
   }

@@ -31,6 +31,7 @@ import {
   FileArchive,
   HardDrive,
   Loader2,
+  MoreHorizontal,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
@@ -98,6 +99,11 @@ import { registerUpload } from "@/lib/uploadBus"
 import type { Document } from "@/types/domain"
 import { FilePreviewModal } from "@/components/preview/FilePreviewModal"
 import { cn } from "@/lib/utils"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/DropdownMenu"
 
 // =============================================================================
 // RepositoryExplorer — personal, owner-scoped file management with the full
@@ -295,6 +301,8 @@ export function RepositoryExplorer() {
   const [folderInfo, setFolderInfo] = useState<FolderInfo | null>(null)
   const [jobs, setJobs] = useState<FolderCopyJob[]>([])
   const [copyDialog, setCopyDialog] = useState<{ folder: RepositoryFolderRow; targetParentId: string; conflictMode: "keep_both" | "merge" | "cancel" } | null>(null)
+  const [fileCopyDialog, setFileCopyDialog] = useState<{ docs: Document[]; targetFolderId: string; conflictMode: "keep_both" | "replace" | "cancel" } | null>(null)
+  const [bulkCopyDialog, setBulkCopyDialog] = useState<{ items: Array<{ type: "folder" | "file"; id: string; name: string }>; targetFolderId: string; conflictMode: "keep_both" | "replace" | "cancel" } | null>(null)
   const [restoreDialog, setRestoreDialog] = useState<{ type: "folder" | "file"; id: string; name: string } | null>(null)
   const [restoreTargetFolderId, setRestoreTargetFolderId] = useState<string>("original")
   const [restoreConflictMode, setRestoreConflictMode] = useState<"keep_both" | "replace" | "cancel">("keep_both")
@@ -890,9 +898,19 @@ export function RepositoryExplorer() {
   }
 
   const handleCopyFile = async (doc: Document) => {
+    setFileCopyDialog({ docs: [doc], targetFolderId: currentFolderId ?? "root", conflictMode: "keep_both" })
+  }
+
+  const submitFileCopyDialog = async () => {
+    if (!fileCopyDialog) return
     try {
-      const copy = await copyOnlineDocument(doc.id, { targetFolderId: currentFolderId, conflictMode: "keep_both" })
-      toast.success(`Copied as "${copy.name}"`)
+      const targetFolderId = fileCopyDialog.targetFolderId === "root" ? null : fileCopyDialog.targetFolderId
+      for (const doc of fileCopyDialog.docs) {
+        await copyOnlineDocument(doc.id, { targetFolderId, conflictMode: fileCopyDialog.conflictMode })
+      }
+      toast.success(`${fileCopyDialog.docs.length} file(s) copied`)
+      setFileCopyDialog(null)
+      setSelectedIds(new Set())
       await load()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Copy failed")
@@ -1004,7 +1022,35 @@ export function RepositoryExplorer() {
   }
 
   const submitBulkMove = () => { const first = sortedDocs.find((d) => selectedIds.has(d.id)); if (first) openMove("file", first.id) }
-  const submitBulkCopy = () => { const first = sortedDocs.find((d) => selectedIds.has(d.id)); if (first) void handleCopyFile(first) }
+  const submitBulkCopy = () => {
+    const selectedDocs = sortedDocs.filter((doc) => selectedIds.has(doc.id))
+    const selectedFolders = sortedFolders.filter((folder) => selectedIds.has(folder.id))
+    if (selectedFolders.length > 0) {
+      setBulkCopyDialog({ items: [...selectedFolders.map((folder) => ({ type: "folder" as const, id: folder.id, name: folder.name })), ...selectedDocs.map((doc) => ({ type: "file" as const, id: doc.id, name: doc.name }))], targetFolderId: currentFolderId ?? "root", conflictMode: "keep_both" })
+    } else if (selectedDocs.length > 0) {
+      setFileCopyDialog({ docs: selectedDocs, targetFolderId: currentFolderId ?? "root", conflictMode: "keep_both" })
+    }
+  }
+
+  const submitBulkCopyDialog = async () => {
+    if (!bulkCopyDialog) return
+    try {
+      const targetFolderId = bulkCopyDialog.targetFolderId === "root" ? null : bulkCopyDialog.targetFolderId
+      for (const item of bulkCopyDialog.items) {
+        if (item.type === "folder") {
+          await copyRepositoryFolder(item.id, { targetParentId: targetFolderId, conflictMode: bulkCopyDialog.conflictMode === "replace" ? "merge" : bulkCopyDialog.conflictMode })
+        } else {
+          await copyOnlineDocument(item.id, { targetFolderId, conflictMode: bulkCopyDialog.conflictMode })
+        }
+      }
+      toast.success(`${bulkCopyDialog.items.length} item(s) copied`)
+      setBulkCopyDialog(null)
+      setSelectedIds(new Set())
+      await load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Copy failed")
+    }
+  }
 
   const handleReplaceVersion = async (files: FileList | null) => {
     if (!files?.[0] || !versionTarget) return
@@ -1036,9 +1082,9 @@ export function RepositoryExplorer() {
     const q = search.trim().toLowerCase()
     const searching = section === "all" && q.length > 0
     const visibleFolders = searching
-      ? folders.filter((f) => f.name.toLowerCase().includes(q))
+      ? folders.filter((f) => f.parentId === currentFolderId && f.name.toLowerCase().includes(q))
       : section === "all"
-        ? folders
+        ? folders.filter((f) => f.parentId === currentFolderId)
         : []
     const visibleFiles =
       section === "favorites"
@@ -1051,7 +1097,7 @@ export function RepositoryExplorer() {
               ? searchResults ?? []
               : docs.filter((d) => !q || d.name.toLowerCase().includes(q))
     return { folders: visibleFolders, docs: visibleFiles }
-  }, [folders, docs, favorites, requestedDocs, deletedDocs, section, search, searchResults])
+  }, [folders, docs, favorites, requestedDocs, deletedDocs, section, search, searchResults, currentFolderId])
 
   const sortedDocs = useMemo(() => {
     const items = [...visibleDocs.docs]
@@ -1063,6 +1109,18 @@ export function RepositoryExplorer() {
     }
     return items
   }, [visibleDocs.docs, sort])
+
+  const sortedFolders = useMemo(() => {
+    const items = [...visibleDocs.folders]
+    items.sort((a, b) => {
+      const pinOrder = Number(pins.some((pin) => pin.id === b.id)) - Number(pins.some((pin) => pin.id === a.id))
+      if (pinOrder !== 0) return pinOrder
+      if (sort === "oldest") return a.createdAt.localeCompare(b.createdAt)
+      if (sort === "newest") return b.updatedAt.localeCompare(a.updatedAt)
+      return a.name.localeCompare(b.name)
+    })
+    return items
+  }, [visibleDocs.folders, sort, pins])
 
   const moveOptions = useMemo(
     () => {
@@ -1157,7 +1215,7 @@ export function RepositoryExplorer() {
                 <span className="w-3.5 h-3.5 inline-block" />
               )}
             </button>
-            {isCurrent ? <FolderOpen className="w-4 h-4 text-white" /> : <Folder className="w-4 h-4 text-amber-500" />}
+            {isCurrent ? <FolderOpen className="w-4 h-4 text-white" /> : <Folder className="w-4 h-4" style={{ color: node.folder.color ?? undefined }} />}
             <span className="truncate flex-1">{node.folder.name}</span>
             {isPinned(node.folder.id) && <Pin className="w-3 h-3 text-amber-500" />}
           </div>
@@ -1187,6 +1245,19 @@ export function RepositoryExplorer() {
         <span className={cn("text-[11px]", active ? "text-gray-300" : "text-gray-400")}>{count}</span>
       )}
     </button>
+  )
+
+  const ActionMenu = ({ children, label = "More actions" }: { children: React.ReactNode; label?: string }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500" aria-label={label} title={label}>
+          <MoreHorizontal className="w-4 h-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[180px]">
+        {children}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 
   const renderRow = (icon: React.ReactNode, name: string, meta: string, id: string, actions: React.ReactNode, open: () => void, opts?: {
@@ -1222,10 +1293,12 @@ export function RepositoryExplorer() {
         onChange={() => toggleSelect(id)}
       />
       {icon}
-      <span className="flex-1 min-w-0 text-[14px] font-medium text-gray-900 dark:text-gray-100 truncate">{name}</span>
+      <span className="flex-1 min-w-0 text-[14px] font-medium text-gray-900 dark:text-gray-100 break-words">{name}</span>
       {opts?.badge}
       <span className="text-[12px] text-gray-500 dark:text-gray-400 hidden sm:inline">{meta}</span>
-      <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>{actions}</div>
+      <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+        <ActionMenu>{actions}</ActionMenu>
+      </div>
     </div>
   )}
 
@@ -1233,6 +1306,7 @@ export function RepositoryExplorer() {
     drag?: { type: "folder" | "file"; id: string }
     dropTarget?: { folderId: string | null }
     badge?: React.ReactNode
+    actions?: React.ReactNode
   }) => {
     const isSelected = selectedIds.has(id)
     const isFolder = Boolean(folder)
@@ -1257,7 +1331,7 @@ export function RepositoryExplorer() {
       <div className="aspect-[4/3] overflow-hidden rounded-t-xl">
         {isFolder ? (
           <div className="w-full h-full flex items-center justify-center bg-amber-50 dark:bg-amber-900/20">
-            <Folder className="w-12 h-12 text-amber-500 dark:text-amber-400" />
+             <Folder className="w-12 h-12" style={{ color: folder?.color ?? undefined }} />
           </div>
         ) : doc ? (
           <LazyThumbnail doc={doc} />
@@ -1268,7 +1342,7 @@ export function RepositoryExplorer() {
         )}
       </div>
       <div className="p-3">
-        <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100 truncate" title={name}>{name}</p>
+        <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100 break-words" title={name}>{name}</p>
         <div className="flex items-center justify-between mt-1">
           <div className="flex items-center gap-1.5 min-w-0">
             {opts?.badge}
@@ -1279,7 +1353,7 @@ export function RepositoryExplorer() {
               <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate">{meta}</span>
             )}
           </div>
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
             {!isFolder && doc && (
               <>
                 <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="Preview" onClick={(e) => { e.stopPropagation(); setPreview(doc) }}>
@@ -1295,6 +1369,7 @@ export function RepositoryExplorer() {
                 <FolderOpen className="w-3 h-3" />
               </Button>
             )}
+            {opts?.actions && <ActionMenu>{opts.actions}</ActionMenu>}
           </div>
         </div>
       </div>
@@ -1327,6 +1402,10 @@ export function RepositoryExplorer() {
     ),
     folder: (folder: RepositoryFolderRow) => (
       <>
+        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="Open"
+          onClick={() => navigate(folder.id)}>
+          <FolderOpen className="w-3.5 h-3.5" />
+        </Button>
         <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-amber-500" title="Pin"
           onClick={() => void handleTogglePin(folder)}>
           <Pin className={cn("w-3.5 h-3.5", isPinned(folder.id) && "fill-amber-500 text-amber-500")} />
@@ -1683,7 +1762,7 @@ export function RepositoryExplorer() {
                   onClick={() => item.itemType === "FOLDER" ? navigate(item.itemId) : setPreview(docs.find((d) => d.id === item.itemId) ?? null)}
                   onDoubleClick={() => item.itemType === "FOLDER" ? navigate(item.itemId) : setPreview(docs.find((d) => d.id === item.itemId) ?? null)}>
                   {item.itemType === "FOLDER"
-                    ? <Folder className="w-[18px] h-[18px] text-amber-500" />
+                     ? <Folder className="w-[18px] h-[18px]" style={{ color: item.itemType === "FOLDER" ? folderById.get(item.itemId)?.color ?? undefined : undefined }} />
                     : <FileText className="w-[18px] h-[18px] text-gray-400" />}
                   <span className="flex-1 text-[14px] font-medium text-gray-900 truncate">{item.name}</span>
                   <span className="text-[12px] text-gray-400">{new Date(item.lastOpenedAt).toLocaleDateString()}</span>
@@ -1698,7 +1777,7 @@ export function RepositoryExplorer() {
               {view === "list" ? (
                 <>
                   {deletedFolders.map((folder) => renderRow(
-                    <Folder className="w-[18px] h-[18px] text-amber-500" />, folder.name,
+                     <Folder className="w-[18px] h-[18px]" style={{ color: folder.color ?? undefined }} />, folder.name,
                     folder.deletedAt ? `Deleted ${new Date(folder.deletedAt).toLocaleDateString()} · expires ${expiresAt(folder.deletedAt)} · ${daysRemaining(folder.deletedAt)}d left` : "Folder",
                     folder.id,
                     recycleActions("folder", folder.id, folder.name), () => undefined,
@@ -1742,14 +1821,14 @@ export function RepositoryExplorer() {
               )}
               {view === "list" ? (
                 <>
-                  {visibleDocs.folders.map((folder) => renderRow(
-                    <Folder className="w-[18px] h-[18px] text-amber-500" />,
+                   {sortedFolders.map((folder) => renderRow(
+                    <Folder className="w-[18px] h-[18px]" style={{ color: folder.color ?? undefined }} />,
                     folder.name,
                     `${folder.documentCount} files · ${folder.childCount} folders`,
                     folder.id,
                     commonActions.folder(folder),
-                    () => navigate(folder.id),
-                    { drag: { type: "folder", id: folder.id }, dropTarget: { folderId: folder.id } },
+                     () => navigate(folder.id),
+                      { drag: { type: "folder", id: folder.id }, dropTarget: { folderId: folder.id } },
                   ))}
                   {sortedDocs.map((doc) => renderRow(
                     <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", fileIconClasses(doc))}><FileText className="w-4 h-4" /></div>,
@@ -1779,15 +1858,15 @@ export function RepositoryExplorer() {
                 </>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 p-3">
-                  {visibleDocs.folders.map((folder) => renderCard(
+                   {sortedFolders.map((folder) => renderCard(
                     null, folder, folder.name, `${folder.documentCount} files`, folder.id,
-                    () => navigate(folder.id),
-                    { drag: { type: "folder", id: folder.id }, dropTarget: { folderId: folder.id } },
+                     () => navigate(folder.id),
+                     { drag: { type: "folder", id: folder.id }, dropTarget: { folderId: folder.id }, actions: commonActions.folder(folder) },
                   ))}
                   {sortedDocs.map((doc) => renderCard(
                     doc, null, doc.name, `${doc.type} · ${formatSize(doc.size)}`, doc.id,
-                    () => setPreview(doc),
-                    { drag: { type: "file", id: doc.id }, badge: submissionBadge(doc) },
+                     () => setPreview(doc),
+                     { drag: { type: "file", id: doc.id }, badge: submissionBadge(doc), actions: commonActions.file(doc) },
                   ))}
                 </div>
               )}
@@ -2072,6 +2151,79 @@ export function RepositoryExplorer() {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setRestoreDialog(null)} className="h-10 px-5">Cancel</Button>
             <Button onClick={() => void submitRestoreDialog()} className="h-10 px-5 shadow-sm">Restore</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Copy folder dialog (rule 8/9) — destination + conflict mode ── */}
+      <Dialog open={fileCopyDialog !== null} onOpenChange={(open) => !open && setFileCopyDialog(null)}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-lg">Copy {fileCopyDialog?.docs.length === 1 ? "File" : "Files"}</DialogTitle>
+            <DialogDescription className="text-[14px]">Choose a destination and how to handle same-name files. Nothing is copied until you confirm.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-1.5">
+              <Label className="text-[13px] font-medium text-gray-700">Destination</Label>
+              <Select value={fileCopyDialog?.targetFolderId ?? "root"} onValueChange={(v) => setFileCopyDialog((prev) => prev ? { ...prev, targetFolderId: v } : prev)}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Destination" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="root">My Documents (root)</SelectItem>
+                  {folders.map((folder) => <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-[13px] font-medium text-gray-700">If a same-name file exists</Label>
+              <Select value={fileCopyDialog?.conflictMode ?? "keep_both"} onValueChange={(v) => setFileCopyDialog((prev) => prev ? { ...prev, conflictMode: v as "keep_both" | "replace" | "cancel" } : prev)}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Conflict mode" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="keep_both">Keep both (suffix the name)</SelectItem>
+                  <SelectItem value="replace">Replace the existing file</SelectItem>
+                  <SelectItem value="cancel">Cancel copy</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setFileCopyDialog(null)} className="h-10 px-5">Cancel</Button>
+            <Button onClick={() => void submitFileCopyDialog()} className="h-10 px-5 shadow-sm">Copy Here</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkCopyDialog !== null} onOpenChange={(open) => !open && setBulkCopyDialog(null)}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-lg">Copy {bulkCopyDialog?.items.length ?? 0} Selected Items</DialogTitle>
+            <DialogDescription className="text-[14px]">Choose one destination and conflict behavior. Every selected file and folder will be processed after confirmation.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-1.5">
+              <Label className="text-[13px] font-medium text-gray-700">Destination</Label>
+              <Select value={bulkCopyDialog?.targetFolderId ?? "root"} onValueChange={(v) => setBulkCopyDialog((prev) => prev ? { ...prev, targetFolderId: v } : prev)}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Destination" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="root">My Documents (root)</SelectItem>
+                  {folders.map((folder) => <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-[13px] font-medium text-gray-700">If a same-name item exists</Label>
+              <Select value={bulkCopyDialog?.conflictMode ?? "keep_both"} onValueChange={(v) => setBulkCopyDialog((prev) => prev ? { ...prev, conflictMode: v as "keep_both" | "replace" | "cancel" } : prev)}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Conflict mode" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="keep_both">Keep both (suffix names)</SelectItem>
+                  <SelectItem value="replace">Replace/merge same-name items</SelectItem>
+                  <SelectItem value="cancel">Cancel copy</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setBulkCopyDialog(null)} className="h-10 px-5">Cancel</Button>
+            <Button onClick={() => void submitBulkCopyDialog()} className="h-10 px-5 shadow-sm">Copy Here</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

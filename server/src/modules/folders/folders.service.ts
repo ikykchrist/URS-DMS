@@ -198,6 +198,8 @@ export async function updateFolder(
       name: input.name,
       parentId: input.parentId,
       departmentId: input.departmentId,
+      color: input.color,
+      icon: input.icon,
     },
   });
 
@@ -215,6 +217,8 @@ export async function updateFolder(
       name: updated.name,
       parentId: updated.parentId,
       departmentId: updated.departmentId,
+      color: updated.color,
+      icon: updated.icon,
     },
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
@@ -648,15 +652,15 @@ export async function listPinnedFolders(actor: Actor): Promise<{ items: FolderLi
   });
   const items = pins
     .map((pin) => pin.folder)
-    .filter((folder) => folder !== null && folder.deletedAt === null)
+    .filter((folder): folder is NonNullable<typeof folder> => folder !== null && folder.deletedAt === null)
     .map((folder) => ({
       id: folder.id,
       name: folder.name,
       parentId: folder.parentId,
       departmentId: folder.departmentId,
       ownerId: folder.ownerId,
-      color: (folder as any).color ?? null,
-      icon: (folder as any).icon ?? null,
+      color: folder.color ?? null,
+      icon: folder.icon ?? null,
       documentCount: 0,
       childCount: 0,
       createdAt: folder.createdAt,
