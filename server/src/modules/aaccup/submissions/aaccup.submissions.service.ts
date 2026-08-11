@@ -376,8 +376,10 @@ export async function createSubmission(
 ): Promise<AaccupSubmissionDetail> {
   assertCanCreate(actor);
 
-  const requirement = await assertRequirementUsable(input.requirementId);
-  const document = await assertDocumentUsable(input.documentId, actor);
+  const [requirement, document] = await Promise.all([
+    assertRequirementUsable(input.requirementId),
+    assertDocumentUsable(input.documentId, actor),
+  ]);
   assertDocumentBelongsToAreaDepartment(document, requirement);
   await assertDynamicRules(requirement, document);
   await assertTaskUsable(input.taskId, input.requirementId, requirement.area.id);

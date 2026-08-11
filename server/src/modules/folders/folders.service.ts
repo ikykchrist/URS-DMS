@@ -572,16 +572,16 @@ export async function listCopyJobs(actor: Actor): Promise<FolderCopyJobView[]> {
     orderBy: { createdAt: "desc" },
     take: 20,
   });
-  return Promise.all(
-    jobs.map(async (job) => {
-      const view = toCopyJobView(job);
-      const source = job.sourceFolderId
-        ? await prisma.folder.findUnique({ where: { id: job.sourceFolderId }, select: { name: true } })
-        : null;
-      view.sourceFolderName = source?.name ?? null;
-      return view;
-    }),
-  );
+  const sourceIds = [...new Set(jobs.map((job) => job.sourceFolderId).filter(Boolean))] as string[]
+  const sources = sourceIds.length > 0
+    ? await prisma.folder.findMany({ where: { id: { in: sourceIds } }, select: { id: true, name: true } })
+    : []
+  const sourceMap = new Map(sources.map((s) => [s.id, s.name]))
+  return jobs.map((job) => {
+    const view = toCopyJobView(job)
+    view.sourceFolderName = job.sourceFolderId ? sourceMap.get(job.sourceFolderId) ?? null : null
+    return view
+  })
 }
 
 export async function getCopyJob(id: string, actor: Actor): Promise<FolderCopyJobView> {
@@ -589,7 +589,12 @@ export async function getCopyJob(id: string, actor: Actor): Promise<FolderCopyJo
     where: { id, ownerId: actor.id },
   });
   if (!job) throw new NotFoundError("Copy job not found");
-  return (await listCopyJobs(actor)).find((j) => j.id === id) ?? toCopyJobView(job);
+  const view = toCopyJobView(job);
+  if (job.sourceFolderId) {
+    const source = await prisma.folder.findUnique({ where: { id: job.sourceFolderId }, select: { name: true } })
+    view.sourceFolderName = source?.name ?? null
+  }
+  return view
 }
 
 /** Permanently delete a folder subtree (hard delete). */

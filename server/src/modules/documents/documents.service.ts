@@ -739,16 +739,14 @@ async function uniqueCopyTitle(ownerId: string, folderId: string | null, base: s
   const dot = base.lastIndexOf(".");
   const stem = dot > 0 ? base.slice(0, dot) : base;
   const ext = dot > 0 ? base.slice(dot) : "";
-  let n = 1;
-  while (true) {
-    const candidate = `${stem} (${n})${ext}`;
-    const clash = await prisma.document.findFirst({
-      where: { ownerId, folderId, title: candidate, deletedAt: null },
-      select: { id: true },
-    });
-    if (!clash) return candidate;
-    n += 1;
-  }
+  const clashes = await prisma.document.findMany({
+    where: { ownerId, folderId, title: { startsWith: stem }, deletedAt: null },
+    select: { title: true },
+  });
+  const clashSet = new Set(clashes.map((c) => c.title))
+  let n = 1
+  while (clashSet.has(`${stem} (${n})${ext}`)) n += 1
+  return `${stem} (${n})${ext}`
 }
 
 /**
@@ -957,18 +955,28 @@ export async function listRecents(actor: Actor): Promise<RecentItem[]> {
     orderBy: { lastOpenedAt: "desc" },
     take: 50,
   });
-  const items: RecentItem[] = [];
+  const fileIds = rows.filter((r) => r.itemType === "FILE").map((r) => r.itemId)
+  const folderIds = rows.filter((r) => r.itemType === "FOLDER").map((r) => r.itemId)
+  const [files, folders] = await Promise.all([
+    fileIds.length > 0
+      ? prisma.document.findMany({ where: { id: { in: fileIds } }, select: { id: true, title: true } })
+      : Promise.resolve([] as { id: string; title: string }[]),
+    folderIds.length > 0
+      ? prisma.folder.findMany({ where: { id: { in: folderIds } }, select: { id: true, name: true } })
+      : Promise.resolve([] as { id: string; name: string }[]),
+  ])
+  const fileMap = new Map(files.map((f) => [f.id, f.title]))
+  const folderMap = new Map(folders.map((f) => [f.id, f.name]))
+  const items: RecentItem[] = []
   for (const row of rows) {
-    const name = row.itemType === "FILE"
-      ? (await prisma.document.findUnique({ where: { id: row.itemId }, select: { title: true } }))?.title
-      : (await prisma.folder.findUnique({ where: { id: row.itemId }, select: { name: true } }))?.name;
+    const name = row.itemType === "FILE" ? fileMap.get(row.itemId) : folderMap.get(row.itemId)
     if (name) {
       items.push({
         itemType: row.itemType as "FILE" | "FOLDER",
         itemId: row.itemId,
         name,
         lastOpenedAt: row.lastOpenedAt.toISOString(),
-      });
+      })
     }
   }
   return items;

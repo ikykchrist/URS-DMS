@@ -20,8 +20,8 @@ function toListItem(f: FolderWithRelations): FolderListItem {
     ownerId: f.ownerId,
     color: f.color,
     icon: f.icon,
-    documentCount: f.documents.length,
-    childCount: f.children.length,
+    documentCount: f._count.documents,
+    childCount: f._count.children,
     createdAt: f.createdAt,
     updatedAt: f.updatedAt,
   };

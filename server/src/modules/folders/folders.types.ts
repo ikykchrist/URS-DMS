@@ -77,6 +77,10 @@ export const folderSelect = {
   updatedAt: true,
   deletedAt: true,
   parent: { select: { id: true, name: true } },
-  children: { select: { id: true }, where: { deletedAt: null } },
-  documents: { select: { id: true }, where: { deletedAt: null } },
+  _count: {
+    select: {
+      children: { where: { deletedAt: null } },
+      documents: { where: { deletedAt: null } },
+    },
+  },
 };
