@@ -10,6 +10,7 @@ import { listAllOnlineSubmissions, listOnlineTasks, type OnlineAaccupTask, type 
 import { listRequests } from "@/services/requests"
 import { listAuditEntries, type AuditEntry } from "@/services/admin"
 import type { DocumentRequest } from "@/types/domain"
+import { cn } from "@/lib/utils"
 
 interface AdminDashboardProps {
   onNavigate: (page: string, query?: Record<string, string>) => void
@@ -30,10 +31,6 @@ function formatDate(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
-function actionButton(onClick: () => void, label: string, children: React.ReactNode) {
-  return <Button variant="ghost" size="sm" className="h-8 px-2 text-gray-500" onClick={onClick}>{children}<span className="sr-only">{label}</span></Button>
-}
-
 function isDueSoon(task: OnlineAaccupTask, now = Date.now()): boolean {
   if (!task.dueDate || task.status === "COMPLETED" || task.status === "CANCELLED") return false
   const due = new Date(task.dueDate).getTime()
@@ -43,17 +40,6 @@ function isDueSoon(task: OnlineAaccupTask, now = Date.now()): boolean {
 function isOverdue(task: OnlineAaccupTask, now = Date.now()): boolean {
   if (!task.dueDate || task.status === "COMPLETED" || task.status === "CANCELLED") return false
   return new Date(task.dueDate).getTime() < now
-}
-
-function activityDestination(entry: AuditEntry): { page: string; query?: Record<string, string> } | null {
-  const entity = entry.entity?.type?.toLowerCase()
-  const id = entry.entity?.id ?? entry.targetId ?? undefined
-  if ((entity === "submission" || entity === "aaccup_submission") && id) return { page: "submissions", query: { tab: "submissions", highlight: id } }
-  if ((entity === "request" || entity === "document_request") && id) return { page: "requests", query: { highlight: id } }
-  if ((entity === "task" || entity === "aaccup_task") && id) return { page: "aaccup", query: { tab: "tasks", highlight: id } }
-  if (entity === "document" && id) return { page: "documents" }
-  if (entity === "user" && id) return { page: "users", query: { highlight: id } }
-  return null
 }
 
 export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
@@ -73,82 +59,241 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     ])
   }, [])
 
-  const pendingSubmissions = submissions.data?.filter((item) => item.status === "PENDING").length ?? 0
-  const pendingRequests = requests.data?.filter((item) => item.status === "Pending").length ?? 0
+  const pendingSubmissions = submissions.data?.filter((s) => s.status === "PENDING").length ?? 0
+  const pendingRequests = requests.data?.filter((r) => r.status === "Pending").length ?? 0
   const now = Date.now()
-  const overdueTasks = tasks.data?.filter((task) => isOverdue(task, now)).length ?? 0
-  const dueSoonTasks = tasks.data?.filter((task) => isDueSoon(task, now)).length ?? 0
-  const completedTasks = tasks.data?.filter((task) => task.status === "COMPLETED").length ?? 0
+  const overdueTasks = tasks.data?.filter((t) => isOverdue(t, now)).length ?? 0
+  const dueSoonTasks = tasks.data?.filter((t) => isDueSoon(t, now)).length ?? 0
+  const completedTasks = tasks.data?.filter((t) => t.status === "COMPLETED").length ?? 0
 
   const recentSubmissions = useMemo(
     () => [...(submissions.data ?? [])].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)).slice(0, 5),
     [submissions.data],
   )
-  const progressRows = [
-    { key: "AACCUP" as const, label: "AACCUP", page: "aaccup" },
-    { key: "ISO" as const, label: "ISO", page: "iso" },
-    { key: "CERT" as const, label: "Certification", page: "certification" },
-  ]
 
-  const renderError = (message: string) => <p className="text-sm text-red-600">{message}</p>
-  const count = (value: number, loaded: boolean) => loaded ? String(value) : <span className="inline-block h-7 w-10 animate-pulse rounded bg-gray-200" aria-label="Loading" />
+  const nav = (page: string, query?: Record<string, string>) => onNavigate(page, query)
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <PageHeader title="Good morning, Admin" description="Review what needs attention and monitor accreditation progress." />
 
-      <section aria-labelledby="attention-heading" className="mb-7">
-        <h2 id="attention-heading" className="mb-3 text-sm font-semibold text-gray-900">Needs Your Attention</h2>
-        <div className="grid gap-3 md:grid-cols-3">
-          <button type="button" className="rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500" onClick={() => onNavigate("submissions", { tab: "submissions", status: "PENDING" })}>
-            <div className="flex items-start justify-between"><FileCheck2 className="h-5 w-5 text-blue-600" /><Badge variant="warning">Pending</Badge></div>
-            <p className="mt-4 text-2xl font-semibold text-gray-900">{count(pendingSubmissions, submissions.data !== null)}</p>
-            <p className="text-sm text-gray-500">Submissions</p><span className="mt-3 flex items-center text-xs font-medium text-blue-600">Review <ArrowRight className="ml-1 h-3.5 w-3.5" /></span>
-          </button>
-          <button type="button" className="rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-500" onClick={() => onNavigate("requests", { status: "PENDING" })}>
-            <div className="flex items-start justify-between"><Send className="h-5 w-5 text-amber-600" /><Badge variant="warning">Pending</Badge></div>
-            <p className="mt-4 text-2xl font-semibold text-gray-900">{count(pendingRequests, requests.data !== null)}</p>
-            <p className="text-sm text-gray-500">Requests</p><span className="mt-3 flex items-center text-xs font-medium text-amber-700">Review <ArrowRight className="ml-1 h-3.5 w-3.5" /></span>
-          </button>
-          <button type="button" className="rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-red-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-500" onClick={() => onNavigate("aaccup", { tab: "tasks", taskFilter: "due-soon" })}>
-            <div className="flex items-start justify-between"><Clock3 className="h-5 w-5 text-red-600" /><Badge variant="danger">Due Soon</Badge></div>
-            <p className="mt-4 text-2xl font-semibold text-gray-900">{count(dueSoonTasks, tasks.data !== null)}</p>
-            <p className="text-sm text-gray-500">Tasks due within 7 days</p><span className="mt-3 flex items-center text-xs font-medium text-red-600">View <ArrowRight className="ml-1 h-3.5 w-3.5" /></span>
-          </button>
-        </div>
-      </section>
-
-      <Card className="mb-7 border-gray-200/70 shadow-sm">
-        <CardHeader><CardTitle className="text-base">Accreditation Progress</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {overview.error ? renderError("Accreditation progress is unavailable.") : progressRows.map((row) => {
-            const stats = overview.data?.aaccup.byAreaSet[row.key]
-            return <button type="button" key={row.key} className="block w-full rounded-lg p-2 text-left transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" onClick={() => onNavigate(row.page)}>
-              <div className="mb-1 flex items-center justify-between text-sm"><span className="font-medium text-gray-800">{row.label}</span><span className="font-semibold text-gray-900">{stats ? `${stats.overallCompliancePercentage}%` : "—"}</span></div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${stats?.overallCompliancePercentage ?? 0}%` }} /></div>
-            </button>
-          })}
-          {overview.data && <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-gray-100 pt-4 text-sm">
-            <button type="button" className="text-green-700 hover:underline" onClick={() => onNavigate("submissions", { status: "APPROVED" })}>Approved {overview.data.aaccup.approved}</button>
-            <button type="button" className="text-amber-700 hover:underline" onClick={() => onNavigate("submissions", { status: "PENDING" })}>Pending {overview.data.aaccup.pending}</button>
-            <button type="button" className="text-orange-700 hover:underline" onClick={() => onNavigate("submissions", { status: "NEEDS_REVISION" })}>Returned {overview.data.aaccup.needsRevision}</button>
-          </div>}
-        </CardContent>
-      </Card>
-
-      <Card className="mb-7 border-gray-200/70 shadow-sm">
-        <CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">Recent Submissions</CardTitle><Button variant="ghost" size="sm" onClick={() => onNavigate("submissions", { tab: "submissions" })}>View All <ArrowRight className="ml-1 h-4 w-4" /></Button></CardHeader>
-        <CardContent className="p-0">
-          {submissions.error ? <div className="p-5">{renderError("Recent submissions are unavailable.")}</div> : submissions.data === null ? <div className="space-y-3 p-5">{[1, 2, 3].map((item) => <Skeleton key={item} variant="rectangular" className="h-10" />)}</div> : recentSubmissions.length === 0 ? <p className="p-5 text-sm text-gray-500">No submissions recorded yet.</p> : <div className="divide-y divide-gray-100">{recentSubmissions.map((item) => <button type="button" key={item.id} className="grid w-full grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] gap-3 px-5 py-3 text-left transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]" onClick={() => onNavigate("submissions", { tab: "submissions", highlight: item.id, areaSet: item.areaSet })}><span className="min-w-0 truncate text-sm font-medium text-gray-800">{item.documentTitle}</span><span className="hidden truncate text-sm text-gray-500 sm:block">{item.submittedByName ?? "Unknown"}</span><span className="hidden text-sm text-gray-500 sm:block">{item.areaSet} · {item.areaName}</span><span className="whitespace-nowrap text-xs text-gray-500">{statusLabel[item.status]} · {formatDate(item.submittedAt)}</span></button>)}</div>}
-        </CardContent>
-      </Card>
-
-      <div className="mb-7 grid gap-5 lg:grid-cols-2">
-        <Card className="border-gray-200/70 shadow-sm"><CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">Requests</CardTitle><Button variant="ghost" size="sm" onClick={() => onNavigate("requests")}>Manage Requests <ArrowRight className="ml-1 h-4 w-4" /></Button></CardHeader><CardContent className="space-y-2">{requests.error ? renderError("Requests are unavailable.") : (<><button type="button" className="flex w-full justify-between rounded px-2 py-2 text-sm hover:bg-gray-50" onClick={() => onNavigate("requests", { status: "PENDING" })}><span>Pending</span><span className="font-semibold text-amber-700">{count(pendingRequests, requests.data !== null)}</span></button><button type="button" className="flex w-full justify-between rounded px-2 py-2 text-sm hover:bg-gray-50" onClick={() => onNavigate("requests", { status: "APPROVED" })}><span>Approved</span><span className="font-semibold text-green-700">{count(requests.data?.filter((item) => item.status === "Approved").length ?? 0, requests.data !== null)}</span></button><button type="button" className="flex w-full justify-between rounded px-2 py-2 text-sm hover:bg-gray-50" onClick={() => onNavigate("requests", { status: "FULFILLED" })}><span>Fulfilled</span><span className="font-semibold text-blue-700">{count(requests.data?.filter((item) => item.status === "Fulfilled").length ?? 0, requests.data !== null)}</span></button></>)}</CardContent></Card>
-        <Card className="border-gray-200/70 shadow-sm"><CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">Tasks</CardTitle><Button variant="ghost" size="sm" onClick={() => onNavigate("aaccup", { tab: "tasks" })}>View Tasks <ArrowRight className="ml-1 h-4 w-4" /></Button></CardHeader><CardContent className="space-y-2"><button type="button" className="flex w-full justify-between rounded px-2 py-2 text-sm hover:bg-gray-50" onClick={() => onNavigate("aaccup", { tab: "tasks", taskFilter: "overdue" })}><span>Overdue</span><span className="font-semibold text-red-700">{count(overdueTasks, tasks.data !== null)}</span></button><button type="button" className="flex w-full justify-between rounded px-2 py-2 text-sm hover:bg-gray-50" onClick={() => onNavigate("aaccup", { tab: "tasks", taskFilter: "due-soon" })}><span>Due Soon</span><span className="font-semibold text-amber-700">{count(dueSoonTasks, tasks.data !== null)}</span></button><button type="button" className="flex w-full justify-between rounded px-2 py-2 text-sm hover:bg-gray-50" onClick={() => onNavigate("aaccup", { tab: "tasks", taskFilter: "completed" })}><span>Completed</span><span className="font-semibold text-green-700">{count(completedTasks, tasks.data !== null)}</span></button></CardContent></Card>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <Card className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => nav("submissions", { tab: "submissions", status: "PENDING" })}>
+          <CardContent className="p-4 md:p-5">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 md:w-11 md:h-11 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                <FileCheck2 className="w-5 h-5" />
+              </div>
+              {pendingSubmissions > 0 && <Badge variant="warning" className="text-[10px]">Pending</Badge>}
+            </div>
+            <p className="text-[12px] md:text-[13px] text-gray-500 font-medium mt-3 md:mt-4">Submissions</p>
+            <p className="text-[22px] md:text-[28px] font-semibold text-gray-900 mt-0.5 tracking-tight">{submissions.data ? pendingSubmissions : "…"}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => nav("requests", { status: "PENDING" })}>
+          <CardContent className="p-4 md:p-5">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 md:w-11 md:h-11 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+                <Send className="w-5 h-5" />
+              </div>
+              {pendingRequests > 0 && <Badge variant="warning" className="text-[10px]">Pending</Badge>}
+            </div>
+            <p className="text-[12px] md:text-[13px] text-gray-500 font-medium mt-3 md:mt-4">Requests</p>
+            <p className="text-[22px] md:text-[28px] font-semibold text-gray-900 mt-0.5 tracking-tight">{requests.data ? pendingRequests : "…"}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "due-soon" })}>
+          <CardContent className="p-4 md:p-5">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 md:w-11 md:h-11 rounded-lg bg-red-50 flex items-center justify-center text-red-600">
+                <Clock3 className="w-5 h-5" />
+              </div>
+              {dueSoonTasks > 0 && <Badge variant="danger" className="text-[10px]">Due Soon</Badge>}
+            </div>
+            <p className="text-[12px] md:text-[13px] text-gray-500 font-medium mt-3 md:mt-4">Tasks</p>
+            <p className="text-[22px] md:text-[28px] font-semibold text-gray-900 mt-0.5 tracking-tight">{tasks.data ? dueSoonTasks : "…"}</p>
+          </CardContent>
+        </Card>
       </div>
 
-      <Card className="border-gray-200/70 shadow-sm"><CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">Recent Activity</CardTitle><Button variant="ghost" size="sm" onClick={() => onNavigate("audit")}>View Audit <ArrowRight className="ml-1 h-4 w-4" /></Button></CardHeader><CardContent className="p-0">{activity.error ? <div className="p-5">{renderError("Recent activity is unavailable.")}</div> : activity.data === null ? <div className="space-y-3 p-5">{[1, 2, 3].map((item) => <Skeleton key={item} variant="rectangular" className="h-9" />)}</div> : activity.data.length === 0 ? <p className="p-5 text-sm text-gray-500">No recent activity.</p> : <div className="divide-y divide-gray-100">{activity.data.slice(0, 8).map((entry) => { const destination = activityDestination(entry); return <div key={entry.id} className="flex items-center gap-3 px-5 py-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500"><ClipboardList className="h-4 w-4" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm text-gray-800">{entry.description ?? entry.action}</p><p className="text-xs text-gray-500">{entry.actorName ?? "System"} · {formatDate(entry.timestamp)}</p></div>{destination ? actionButton(() => onNavigate(destination.page, destination.query), "Open activity", <ArrowRight className="h-4 w-4" />) : actionButton(() => onNavigate("audit"), "Open audit entry", <ArrowRight className="h-4 w-4" />)}</div> })}</div>}</CardContent></Card>
+      <Card className="border-gray-200/60 shadow-sm mb-6 lg:mb-8">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-[15px] font-semibold">Accreditation Progress</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {overview.error ? (
+            <p className="text-sm text-red-600">Accreditation progress is unavailable.</p>
+          ) : overview.data === null ? (
+            <div className="space-y-4">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-12" />)}</div>
+          ) : (
+            (["AACCUP", "ISO", "CERT"] as const).map((key) => {
+              const stats = overview.data!.aaccup.byAreaSet[key]
+              const label = key === "AACCUP" ? "AACCUP" : key === "ISO" ? "ISO" : "Certification"
+              const page = key === "AACCUP" ? "aaccup" : key === "ISO" ? "iso" : "certification"
+              return (
+                <div key={key}>
+                  <button type="button" className="block w-full rounded-lg p-2 text-left transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" onClick={() => nav(page)}>
+                    <div className="mb-1.5 flex items-center justify-between text-sm">
+                      <span className="font-medium text-gray-800">{label}</span>
+                      <span className="font-semibold text-gray-900">{stats ? `${stats.overallCompliancePercentage}%` : "—"}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                      <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${stats?.overallCompliancePercentage ?? 0}%` }} />
+                    </div>
+                  </button>
+                  <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 px-2 text-xs">
+                    <button type="button" className="text-emerald-600 hover:underline font-medium" onClick={() => nav("submissions", { status: "APPROVED" })}>Approved {overview.data!.aaccup.approved}</button>
+                    <button type="button" className="text-amber-600 hover:underline font-medium" onClick={() => nav("submissions", { status: "PENDING" })}>Pending {overview.data!.aaccup.pending}</button>
+                    <button type="button" className="text-orange-600 hover:underline font-medium" onClick={() => nav("submissions", { status: "NEEDS_REVISION" })}>Returned {overview.data!.aaccup.needsRevision}</button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-gray-200/60 shadow-sm mb-6 lg:mb-8">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-[15px] font-semibold">Recent Submissions</CardTitle>
+            <Button variant="ghost" size="sm" className="h-8 text-[12px] text-primary" onClick={() => nav("submissions", { tab: "submissions" })}>View All</Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {submissions.error ? (
+            <p className="text-[13px] text-red-500 py-2">Recent submissions are unavailable.</p>
+          ) : submissions.data === null ? (
+            <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-10" />)}</div>
+          ) : recentSubmissions.length === 0 ? (
+            <p className="text-[13px] text-gray-400 py-2 text-center">No submissions recorded yet.</p>
+          ) : (
+            recentSubmissions.map((item) => (
+              <button key={item.id} type="button" onClick={() => nav("submissions", { tab: "submissions", highlight: item.id, areaSet: item.areaSet })} className="w-full flex items-center justify-between gap-3 p-2.5 rounded-lg hover:bg-gray-50/50 transition-colors text-left">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <FileCheck2 className="w-4 h-4 text-gray-500" />
+                  </div>
+                  <div className="min-w-0 flex-1 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 items-baseline sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+                    <span className="text-[13px] font-medium text-gray-900 truncate">{item.documentTitle}</span>
+                    <span className="hidden sm:block text-[12px] text-gray-500 truncate">{item.submittedByName ?? "Unknown"}</span>
+                    <span className="hidden sm:block text-[12px] text-gray-500 truncate">{item.areaSet} · {item.areaName}</span>
+                    <span className="text-[11px] text-gray-400 whitespace-nowrap">{statusLabel[item.status]} · {formatDate(item.submittedAt)}</span>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+              </button>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <Card className="border-gray-200/60 shadow-sm">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-[15px] font-semibold">Requests</CardTitle>
+              <Button variant="ghost" size="sm" className="h-8 text-[12px] text-primary" onClick={() => nav("requests")}>Manage<ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {requests.error ? (
+              <p className="text-[13px] text-red-500">Requests are unavailable.</p>
+            ) : requests.data === null ? (
+              <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-8" />)}</div>
+            ) : (
+              <div className="space-y-1">
+                <button type="button" onClick={() => nav("requests", { status: "PENDING" })} className="flex w-full items-center justify-between rounded-md px-2 py-2 text-[13px] hover:bg-gray-50 transition-colors">
+                  <span className="text-gray-600">Pending</span>
+                  <span className={cn("font-semibold", pendingRequests > 0 ? "text-amber-600" : "text-gray-400")}>{pendingRequests}</span>
+                </button>
+                <button type="button" onClick={() => nav("requests", { status: "APPROVED" })} className="flex w-full items-center justify-between rounded-md px-2 py-2 text-[13px] hover:bg-gray-50 transition-colors">
+                  <span className="text-gray-600">Approved</span>
+                  <span className={cn("font-semibold", (requests.data?.filter((r) => r.status === "Approved").length ?? 0) > 0 ? "text-emerald-600" : "text-gray-400")}>{requests.data?.filter((r) => r.status === "Approved").length ?? 0}</span>
+                </button>
+                <button type="button" onClick={() => nav("requests", { status: "FULFILLED" })} className="flex w-full items-center justify-between rounded-md px-2 py-2 text-[13px] hover:bg-gray-50 transition-colors">
+                  <span className="text-gray-600">Fulfilled</span>
+                  <span className={cn("font-semibold", (requests.data?.filter((r) => r.status === "Fulfilled").length ?? 0) > 0 ? "text-blue-600" : "text-gray-400")}>{requests.data?.filter((r) => r.status === "Fulfilled").length ?? 0}</span>
+                </button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-gray-200/60 shadow-sm">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-[15px] font-semibold">Tasks</CardTitle>
+              <Button variant="ghost" size="sm" className="h-8 text-[12px] text-primary" onClick={() => nav("aaccup", { tab: "tasks" })}>View Tasks<ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {tasks.data === null ? (
+              <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-8" />)}</div>
+            ) : (
+              <div className="space-y-1">
+                <button type="button" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "overdue" })} className="flex w-full items-center justify-between rounded-md px-2 py-2 text-[13px] hover:bg-gray-50 transition-colors">
+                  <span className="text-gray-600">Overdue</span>
+                  <span className={cn("font-semibold", overdueTasks > 0 ? "text-red-600" : "text-gray-400")}>{overdueTasks}</span>
+                </button>
+                <button type="button" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "due-soon" })} className="flex w-full items-center justify-between rounded-md px-2 py-2 text-[13px] hover:bg-gray-50 transition-colors">
+                  <span className="text-gray-600">Due Soon</span>
+                  <span className={cn("font-semibold", dueSoonTasks > 0 ? "text-amber-600" : "text-gray-400")}>{dueSoonTasks}</span>
+                </button>
+                <button type="button" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "completed" })} className="flex w-full items-center justify-between rounded-md px-2 py-2 text-[13px] hover:bg-gray-50 transition-colors">
+                  <span className="text-gray-600">Completed</span>
+                  <span className={cn("font-semibold", completedTasks > 0 ? "text-emerald-600" : "text-gray-400")}>{completedTasks}</span>
+                </button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-gray-200/60 shadow-sm">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-[15px] font-semibold">Recent Activity</CardTitle>
+            <Button variant="ghost" size="sm" className="h-8 text-[12px] text-primary" onClick={() => nav("audit")}>View Audit<ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {activity.error ? (
+            <p className="text-[13px] text-red-500 py-2">Recent activity is unavailable.</p>
+          ) : activity.data === null ? (
+            <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-9" />)}</div>
+          ) : activity.data.length === 0 ? (
+            <p className="text-[13px] text-gray-400 py-2 text-center">No recent activity.</p>
+          ) : (
+            activity.data.slice(0, 6).map((entry) => {
+              const entity = entry.entity?.type?.toLowerCase()
+              const id = entry.entity?.id ?? entry.targetId ?? undefined
+              let dest: { page: string; query?: Record<string, string> } | null = null
+              if ((entity === "submission" || entity === "aaccup_submission") && id) dest = { page: "submissions", query: { tab: "submissions", highlight: id } }
+              else if ((entity === "request" || entity === "document_request") && id) dest = { page: "requests", query: { highlight: id } }
+              else if ((entity === "task" || entity === "aaccup_task") && id) dest = { page: "aaccup", query: { tab: "tasks", highlight: id } }
+              else if (entity === "user" && id) dest = { page: "users", query: { highlight: id } }
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => dest ? nav(dest.page, dest.query) : nav("audit")}
+                  className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50/50 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <ClipboardList className="w-4 h-4 text-gray-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] text-gray-900 truncate">{entry.description ?? entry.action}</p>
+                    <p className="text-[12px] text-gray-400">{entry.actorName ?? "System"} · {formatDate(entry.timestamp)}</p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                </button>
+              )
+            })
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

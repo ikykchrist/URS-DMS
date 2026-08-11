@@ -10,6 +10,7 @@ export interface UserAttention {
   overdueTasks: number
   openTasks: number
   pendingRequests: number
+  approvedRequests: number
   fulfilledRequests: number
   refusedRequests: number
   allSubmissions: OnlineSubmissionListItem[]
@@ -51,6 +52,7 @@ export async function refreshUserAttention(userId: string): Promise<void> {
     const overdue = tasks.filter((t) => isOverdue(t.dueDate, t.status))
     const openTaskList = tasks.filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS")
     const pendingReqs = requests.filter((r) => r.status === "Pending")
+    const approvedReqs = requests.filter((r) => r.status === "Approved")
     const fulfilledReqs = requests.filter((r) => r.status === "Fulfilled")
     const rejectedReqs = requests.filter((r) => r.status === "Rejected")
     const requestUpdates = requests
@@ -64,6 +66,7 @@ export async function refreshUserAttention(userId: string): Promise<void> {
       overdueTasks: overdue.length,
       openTasks: openTaskList.length,
       pendingRequests: pendingReqs.length,
+      approvedRequests: approvedReqs.length,
       fulfilledRequests: fulfilledReqs.length,
       refusedRequests: rejectedReqs.length,
       allSubmissions: submissions,
@@ -82,6 +85,7 @@ export async function refreshUserAttention(userId: string): Promise<void> {
       overdueTasks: 0,
       openTasks: 0,
       pendingRequests: 0,
+      approvedRequests: 0,
       fulfilledRequests: 0,
       refusedRequests: 0,
       allSubmissions: [],
@@ -102,6 +106,7 @@ export function getCachedAttention(): UserAttention {
     overdueTasks: 0,
     openTasks: 0,
     pendingRequests: 0,
+    approvedRequests: 0,
     fulfilledRequests: 0,
     refusedRequests: 0,
     allSubmissions: [],

@@ -876,7 +876,7 @@ function UserAppContent() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [attention, setAttention] = useState<UserAttention>({
     returnedSubmissions: 0, dueSoonTasks: 0, overdueTasks: 0, openTasks: 0,
-    pendingRequests: 0, fulfilledRequests: 0, refusedRequests: 0,
+    pendingRequests: 0, approvedRequests: 0, fulfilledRequests: 0, refusedRequests: 0,
     allSubmissions: [], returnedSubmissionsList: [], overdueTasksList: [], dueSoonTasksList: [], recentRequestUpdates: [],
     loading: true,
   })
