@@ -67,6 +67,12 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
   useEffect(() => { void refresh() }, [refresh])
 
   useEffect(() => {
+    const tab = searchParams.get("tab")
+    if (tab && ["all", "pending", "approved", "fulfilled", "rejected"].includes(tab)) setActiveTab(tab)
+    else setActiveTab("all")
+  }, [searchParams])
+
+  useEffect(() => {
     setSearchParams((previous) => {
       const next = new URLSearchParams(previous)
       if (activeTab === "all") next.delete("tab")

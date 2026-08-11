@@ -741,8 +741,6 @@ function AppContent() {
   }, [activePage])
 
   const handleNavigate = (page: string, query?: Record<string, string>) => {
-    setActivePage(page)
-    localStorage.setItem("activePage", page)
     const pageToRouteMap: Record<string, string> = {
       dashboard: "/dashboard",
       documents: "/documents",
@@ -771,6 +769,8 @@ function AppContent() {
     const route = pageToRouteMap[page] || "/dashboard"
     const search = query ? new URLSearchParams(query).toString() : ""
     navigate(search ? `${route}?${search}` : route)
+    setActivePage(page)
+    localStorage.setItem("activePage", page)
   }
 
   const handleToggleSidebar = () => {
@@ -923,8 +923,6 @@ function UserAppContent() {
   }, [location.pathname, location.search])
 
   const handleNavigate = (page: string, query?: Record<string, string>) => {
-    setActivePage(page)
-    setShowBrowseArchive(false)
     const pageToRouteMap: Record<string, string> = {
       dashboard: "/user/dashboard",
       documents: "/user/documents",
@@ -942,6 +940,8 @@ function UserAppContent() {
     const route = pageToRouteMap[page] || "/user/dashboard"
     const search = query ? new URLSearchParams(query).toString() : ""
     navigate(search ? `${route}?${search}` : route)
+    setActivePage(page)
+    setShowBrowseArchive(false)
   }
 
   const userPageTitles: Record<string, string> = {

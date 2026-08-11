@@ -100,6 +100,15 @@ export default function RequestsReview() {
   useEffect(() => { void load() }, [load])
 
   useEffect(() => {
+    const status = searchParams.get("status")
+    if (!status) { setStatusFilter("all"); return }
+    if (status === "PENDING") setStatusFilter("Pending")
+    else if (status === "APPROVED") setStatusFilter("Approved")
+    else if (status === "FULFILLED") setStatusFilter("Fulfilled")
+    else if (status === "REJECTED") setStatusFilter("Rejected")
+  }, [searchParams])
+
+  useEffect(() => {
     setSearchParams((previous) => {
       const next = new URLSearchParams(previous)
       if (statusFilter === "all") next.delete("status")
