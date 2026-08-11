@@ -1448,7 +1448,19 @@ export function RepositoryExplorer() {
   )
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-5">
+    <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-5 relative"
+      onDragOver={(e) => { e.preventDefault(); onPaneDragOver(e) }}
+      onDragLeave={() => setDragOverPane(false)}
+      onDrop={(e) => onPaneDrop(e)}>
+      {dragOverPane && (
+        <div className="absolute inset-0 z-30 rounded-xl border-2 border-dashed border-blue-400 bg-blue-50/80 flex items-center justify-center backdrop-blur-[2px]">
+          <div className="text-center">
+            <Upload className="w-10 h-10 text-blue-500 mx-auto mb-3" />
+            <p className="text-lg font-semibold text-blue-700">Drop files to upload</p>
+            <p className="text-sm text-blue-500 mt-1">into {currentFolderId ? folderById.get(currentFolderId)?.name ?? "this folder" : "My Documents"}</p>
+          </div>
+        </div>
+      )}
       {/* ── Sidebar ── */}
       <Card className="border-gray-200/60 shadow-sm h-fit">
         <CardContent className="p-3">
@@ -1519,16 +1531,7 @@ export function RepositoryExplorer() {
 
       {/* ── Main pane ── */}
       <Card className="border-gray-200/60 shadow-sm">
-        <CardContent className="p-4"
-          onDragOver={(e) => { e.preventDefault(); onPaneDragOver(e) }}
-          onDragLeave={() => setDragOverPane(false)}
-          onDrop={(e) => onPaneDrop(e)}>
-          {dragOverPane && (
-            <div className="mb-3 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/50 p-6 text-center">
-              <p className="text-[13px] font-medium text-blue-700">Drop files to upload into {currentFolderId ? folderById.get(currentFolderId)?.name ?? "this folder" : "My Documents"}</p>
-            </div>
-          )}
-
+        <CardContent className="p-4">
           {/* Background copy jobs (rule 9) */}
           {jobs.filter((job) => job.status === "PENDING" || job.status === "RUNNING").length > 0 && (
             <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/40 p-3">
@@ -1608,6 +1611,9 @@ export function RepositoryExplorer() {
                     onChange={(e) => { handleFiles(e.target.files); e.target.value = "" }} />
                   <Button size="sm" className="h-9 shadow-sm" onClick={() => fileInputRef.current?.click()}>
                     <Upload className="w-4 h-4 mr-2" /> Upload
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-9" onClick={openCreateFolder}>
+                    <Folder className="w-4 h-4 mr-2" /> New Folder
                   </Button>
                 </>
               )}
