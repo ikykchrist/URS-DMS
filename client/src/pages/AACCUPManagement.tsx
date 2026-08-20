@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, type ReactNode } from "react"
 import { useSearchParams } from "react-router-dom"
 import {
   Search,
@@ -58,6 +58,7 @@ interface AACCUPArea {
 
 interface AACCUPManagementProps {
   areaSet?: AreaSet
+  navigation?: ReactNode
 }
 
 const statusColors = {
@@ -89,7 +90,7 @@ const SET_TITLES: Record<AreaSet, { title: string; description: string }> = {
   },
 }
 
-export default function AACCUPManagement({ areaSet = "AACCUP" }: AACCUPManagementProps) {
+export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AACCUPManagementProps) {
   const setMeta = SET_TITLES[areaSet]
   const [searchParams, setSearchParams] = useSearchParams()
   const [areas, setAreas] = useState<OnlineAaccupArea[]>([])
@@ -275,7 +276,9 @@ export default function AACCUPManagement({ areaSet = "AACCUP" }: AACCUPManagemen
               Add Area
             </Button>
           }
-        />
+          />
+
+          {navigation && <div className="mb-6 lg:mb-8">{navigation}</div>}
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-5 mb-6 lg:mb-8">
             <StatCard

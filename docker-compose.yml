@@ -49,6 +49,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-urs_minio_admin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-urs_minio_secret}
+      MINIO_API_CORS_ALLOW_ORIGIN: http://localhost:5173,http://127.0.0.1:5173
     volumes:
       - urs-minio-data:/data
     ports:
@@ -122,10 +123,15 @@ services:
       MINIO_ENDPOINT: urs-minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: "false"
+      # Use a .localhost hostname so the browser resolves it to this machine
+      # while Docker maps it to the host gateway for server-side signing.
+      MINIO_PUBLIC_ENDPOINT: http://minio.localhost:9000
       REDIS_HOST: urs-redis
       REDIS_PORT: 6379
       NODE_ENV: production
       PORT: 4000
+    extra_hosts:
+      - "minio.localhost:host-gateway"
     volumes:
       - urs-server-logs:/app/logs
     ports:

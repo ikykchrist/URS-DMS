@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { SubmissionsTable } from "@/components/aaccup/SubmissionsTable"
 import type { AreaSet } from "@/services/aaccup"
@@ -8,14 +9,15 @@ import type { AreaSet } from "@/services/aaccup"
 // itself is shared with the user portal (SubmissionsTable mode="view").
 // =============================================================================
 
-export default function Submissions({ areaSet }: { areaSet?: AreaSet }) {
+export default function Submissions({ areaSet, navigation }: { areaSet?: AreaSet; navigation?: ReactNode }) {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="Submissions"
         description="Review and manage AACCUP, ISO, and certification submissions."
       />
-        <SubmissionsTable mode="review" areaSet={areaSet} />
+      {navigation && <div className="mb-6 lg:mb-8">{navigation}</div>}
+      <SubmissionsTable mode="review" areaSet={areaSet} />
     </div>
   )
 }

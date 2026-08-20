@@ -46,15 +46,16 @@ export default function UserAACCUPGroup({ initialTab = "AACCUP" }: UserAACCUPGro
 
   return (
     <div>
-      <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-0">
-        <AACCUPGroupTabs value={tab} onValueChange={handleTabChange} tabs={TABS} />
-      </div>
       {tab === "submissions" ? (
-        <UserSubmissionsTab />
+        <UserSubmissionsTab navigation={<AACCUPGroupTabs value={tab} onValueChange={handleTabChange} tabs={TABS} />} />
       ) : tab === "tasks" ? (
-        <UserTasksTab />
+        <UserTasksTab navigation={<AACCUPGroupTabs value={tab} onValueChange={handleTabChange} tabs={TABS} />} />
       ) : (
-        <UserAccreditationView key={tab} areaSet={tab as AreaSet} />
+        <UserAccreditationView
+          key={tab}
+          areaSet={tab as AreaSet}
+          navigation={<AACCUPGroupTabs value={tab} onValueChange={handleTabChange} tabs={TABS} />}
+        />
       )}
     </div>
   )

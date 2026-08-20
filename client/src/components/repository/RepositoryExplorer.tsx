@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 import {
   Folder,
   FolderOpen,
@@ -102,6 +102,8 @@ import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu"
 
@@ -136,6 +138,11 @@ interface UploadItem {
 
 type ViewMode = "list" | "grid"
 type Section = "all" | "favorites" | "recent" | "requested" | "recycle"
+
+export interface RepositoryExplorerHandle {
+  openCreateFolder: () => void
+  openUpload: () => void
+}
 
 function formatSize(bytes: number): string {
   if (!bytes) return "—"
@@ -268,7 +275,7 @@ function LazyThumbnail({ doc }: { doc: Document; className?: string }) {
 
 const UPLOAD_MIME_TYPES = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.csv,.txt,.mp3,.wav,.ogg,.m4a,.aac,.mp4,.webm,.mov,.avi,.mkv"
 
-export function RepositoryExplorer() {
+export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function RepositoryExplorer(_props, ref) {
   const { user } = useAuth()
   const [folders, setFolders] = useState<RepositoryFolderRow[]>([])
   const [docs, setDocs] = useState<Document[]>([])
@@ -278,7 +285,7 @@ export function RepositoryExplorer() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState("")
-  const [sort, setSort] = useState<"newest" | "oldest" | "name" | "size">("newest")
+  const [sort, setSort] = useState<"newest" | "oldest" | "name" | "name-desc" | "size" | "size-asc">("newest")
   const [view, setView] = useState<ViewMode>("list")
   const [loading, setLoading] = useState(true)
 
@@ -286,6 +293,7 @@ export function RepositoryExplorer() {
   const [queue, setQueue] = useState<UploadItem[]>([])
   const [queueOpen, setQueueOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const handleFilesRef = useRef<((files: FileList | null, targetFolderId?: string | null) => void) | null>(null)
   const versionInputRef = useRef<HTMLInputElement>(null)
   const [versionTarget, setVersionTarget] = useState<Document | null>(null)
 
@@ -299,6 +307,7 @@ export function RepositoryExplorer() {
   const [searchResults, setSearchResults] = useState<Document[] | null>(null)
   const [storage, setStorage] = useState<StorageSummary | null>(null)
   const [folderInfo, setFolderInfo] = useState<FolderInfo | null>(null)
+  const [folderDetailsTarget, setFolderDetailsTarget] = useState<{ folder: RepositoryFolderRow; info: FolderInfo | null } | null>(null)
   const [jobs, setJobs] = useState<FolderCopyJob[]>([])
   const [copyDialog, setCopyDialog] = useState<{ folder: RepositoryFolderRow; targetParentId: string; conflictMode: "keep_both" | "merge" | "cancel" } | null>(null)
   const [fileCopyDialog, setFileCopyDialog] = useState<{ docs: Document[]; targetFolderId: string; conflictMode: "keep_both" | "replace" | "cancel" } | null>(null)
@@ -538,6 +547,7 @@ export function RepositoryExplorer() {
 
   const onPaneDrop = (e: React.DragEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     setDragOverPane(false)
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFiles(e.dataTransfer.files)
@@ -589,6 +599,7 @@ export function RepositoryExplorer() {
 
   const navigate = (folderId: string | null) => {
     setCurrentFolderId(folderId)
+    setFolderFilter(folderId ?? "current")
     setSection("all")
     setSelectedId(null)
     setSelectedIds(new Set())
@@ -606,10 +617,15 @@ export function RepositoryExplorer() {
 
   // ── Folder actions ────────────────────────────────────────────────────────
 
-  const openCreateFolder = () => {
+  const openCreateFolder = useCallback(() => {
     setFolderName("")
     setFolderDialog({ open: true, mode: "create" })
-  }
+  }, [])
+
+  useImperativeHandle(ref, () => ({
+    openCreateFolder,
+    openUpload: () => fileInputRef.current?.click(),
+  }), [openCreateFolder])
 
   const submitFolderDialog = async () => {
     const name = folderName.trim()
@@ -631,6 +647,12 @@ export function RepositoryExplorer() {
 
   const handleCopyFolder = async (folder: RepositoryFolderRow) => {
     setCopyDialog({ folder, targetParentId: "root", conflictMode: "keep_both" })
+  }
+
+  const openFolderDetails = async (folder: RepositoryFolderRow) => {
+    setFolderDetailsTarget({ folder, info: null })
+    const info = await getFolderInfo(folder.id).catch(() => null)
+    setFolderDetailsTarget((current) => current?.folder.id === folder.id ? { folder, info } : current)
   }
 
   const submitCopyDialog = async () => {
@@ -789,11 +811,13 @@ export function RepositoryExplorer() {
           setQueue((q) => q.map((it) => (it.id === item.id ? { ...it, status: "Cancelled" } : it)))
           return
         }
+        const message = err instanceof Error ? err.message : "Upload failed"
         setQueue((q) =>
           q.map((it) =>
-            it.id === item.id ? { ...it, status: "Failed", error: err instanceof Error ? err.message : "Upload failed" } : it,
+            it.id === item.id ? { ...it, status: "Failed", error: message } : it,
           ),
         )
+        toast.error(`${file.name}: ${message}`)
       } finally {
         release()
       }
@@ -839,6 +863,37 @@ export function RepositoryExplorer() {
     setQueueOpen(true)
     items.forEach((item, index) => setTimeout(() => performUpload(item), index * 150))
   }
+  handleFilesRef.current = handleFiles
+
+  useEffect(() => {
+    const hasFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes("Files")
+    const onWindowDragOver = (event: DragEvent) => {
+      if (!hasFiles(event)) return
+      event.preventDefault()
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy"
+      setDragOverPane(true)
+    }
+    const onWindowDrop = (event: DragEvent) => {
+      if (!hasFiles(event)) return
+      event.preventDefault()
+      setDragOverPane(false)
+      if (event.dataTransfer?.files.length) handleFilesRef.current?.(event.dataTransfer.files)
+    }
+    const clearDragState = (event?: DragEvent) => {
+      if (!event || !event.relatedTarget) setDragOverPane(false)
+    }
+
+    window.addEventListener("dragover", onWindowDragOver)
+    window.addEventListener("drop", onWindowDrop)
+    window.addEventListener("dragend", clearDragState)
+    window.addEventListener("dragleave", clearDragState)
+    return () => {
+      window.removeEventListener("dragover", onWindowDragOver)
+      window.removeEventListener("drop", onWindowDrop)
+      window.removeEventListener("dragend", clearDragState)
+      window.removeEventListener("dragleave", clearDragState)
+    }
+  }, [])
 
   const cancelUpload = (id: string) => {
     const item = queue.find((it) => it.id === id)
@@ -1067,6 +1122,8 @@ export function RepositoryExplorer() {
   // ── Selection / interactions ───────────────────────────────────────────────
 
   const [typeFilter, setTypeFilter] = useState("all")
+  const [modifiedFilter, setModifiedFilter] = useState("all")
+  const [folderFilter, setFolderFilter] = useState("current")
 
   const toggleSelect = (id: string) => {
     setSelectedId(id)
@@ -1081,6 +1138,18 @@ export function RepositoryExplorer() {
   const visibleDocs = useMemo(() => {
     const q = search.trim().toLowerCase()
     const searching = section === "all" && q.length > 0
+    const matchesType = (doc: Document) => {
+      if (typeFilter === "all") return true
+      return typeFilter.split(",").includes(doc.type.toLowerCase())
+    }
+    const matchesModified = (doc: Document) => {
+      if (modifiedFilter === "all") return true
+      const age = Date.now() - new Date(doc.dateModified).getTime()
+      const day = 24 * 60 * 60 * 1000
+      if (modifiedFilter === "today") return age <= day
+      if (modifiedFilter === "week") return age <= day * 7
+      return age <= day * 30
+    }
     const visibleFolders = searching
       ? folders.filter((f) => f.parentId === currentFolderId && f.name.toLowerCase().includes(q))
       : section === "all"
@@ -1096,14 +1165,16 @@ export function RepositoryExplorer() {
             : searching
               ? searchResults ?? []
               : docs.filter((d) => !q || d.name.toLowerCase().includes(q))
-    return { folders: visibleFolders, docs: visibleFiles }
-  }, [folders, docs, favorites, requestedDocs, deletedDocs, section, search, searchResults, currentFolderId])
+    return { folders: visibleFolders, docs: visibleFiles.filter((doc) => matchesType(doc) && matchesModified(doc)) }
+  }, [folders, docs, favorites, requestedDocs, deletedDocs, section, search, searchResults, currentFolderId, typeFilter, modifiedFilter])
 
   const sortedDocs = useMemo(() => {
     const items = [...visibleDocs.docs]
     switch (sort) {
       case "name": items.sort((a, b) => a.name.localeCompare(b.name)); break
+      case "name-desc": items.sort((a, b) => b.name.localeCompare(a.name)); break
       case "size": items.sort((a, b) => b.size - a.size); break
+      case "size-asc": items.sort((a, b) => a.size - b.size); break
       case "oldest": items.sort((a, b) => a.dateModified.localeCompare(b.dateModified)); break
       default: items.sort((a, b) => b.dateModified.localeCompare(a.dateModified))
     }
@@ -1314,11 +1385,11 @@ export function RepositoryExplorer() {
     <div
       key={id}
       className={cn(
-        "relative border rounded-xl cursor-pointer select-none transition-all duration-150 group bg-white dark:bg-gray-900",
+        "relative border rounded-xl cursor-pointer select-none transition-all duration-150 group bg-white",
         isSelected
-          ? "border-gray-400 dark:border-gray-500 shadow-sm"
-          : dragOverFolderId === (opts?.dropTarget?.folderId ?? null) ? "border-blue-300 dark:border-blue-700 bg-blue-50/30 dark:bg-blue-900/10"
-          : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md",
+           ? "border-gray-400 bg-gray-50/70 shadow-sm"
+           : dragOverFolderId === (opts?.dropTarget?.folderId ?? null) ? "border-primary/50 bg-primary/5"
+           : "border-gray-200/80 hover:border-gray-300 hover:shadow-md",
       )}
       onClick={() => setSelectedId(id)}
       onDoubleClick={open}
@@ -1328,108 +1399,88 @@ export function RepositoryExplorer() {
       onDragLeave={() => setDragOverFolderId(null)}
       onDrop={opts?.dropTarget ? (e) => void onFolderDrop(e, opts.dropTarget!.folderId) : undefined}
     >
-      <div className="aspect-[4/3] overflow-hidden rounded-t-xl">
-        {isFolder ? (
-          <div className="w-full h-full flex items-center justify-center bg-amber-50 dark:bg-amber-900/20">
-             <Folder className="w-12 h-12" style={{ color: folder?.color ?? undefined }} />
+      {isFolder && folder ? (
+        <div className="flex items-center gap-3 p-3 min-h-[76px]">
+          <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+            <Folder className="w-5 h-5" style={{ color: folder.color ?? "#F59E0B" }} />
           </div>
-        ) : doc ? (
-          <LazyThumbnail doc={doc} />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-800">
-            <FileText className="w-8 h-8 text-gray-400" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className="text-[13px] font-semibold text-gray-900 truncate" title={name}>{name}</p>
+              {isPinned(folder.id) && <Pin className="w-3 h-3 text-amber-500 flex-shrink-0" />}
+            </div>
+            <p className="text-[11px] text-gray-500 truncate mt-0.5">{meta}</p>
           </div>
-        )}
-      </div>
-      <div className="p-3">
-        <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100 break-words" title={name}>{name}</p>
-        <div className="flex items-center justify-between mt-1">
-          <div className="flex items-center gap-1.5 min-w-0">
-            {opts?.badge}
-            {!isFolder && doc && (
-              <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate">{fileTypeLabel(doc)} · {formatSize(doc.size)}</span>
-            )}
-            {isFolder && (
-              <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate">{meta}</span>
-            )}
-          </div>
-          <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-            {!isFolder && doc && (
-              <>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="Preview" onClick={(e) => { e.stopPropagation(); setPreview(doc) }}>
-                  <Eye className="w-3 h-3" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="Download" onClick={(e) => { e.stopPropagation(); void openOnlineDocument(doc) }}>
-                  <Download className="w-3 h-3" />
-                </Button>
-              </>
-            )}
-            {isFolder && (
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="Open" onClick={(e) => { e.stopPropagation(); open() }}>
-                <FolderOpen className="w-3 h-3" />
-              </Button>
-            )}
+          <div onClick={(e) => e.stopPropagation()}>
             {opts?.actions && <ActionMenu>{opts.actions}</ActionMenu>}
           </div>
+          <input
+            type="checkbox"
+            className="w-4 h-4 rounded accent-primary flex-shrink-0"
+            onClick={(e) => e.stopPropagation()}
+            checked={isSelected}
+            onChange={() => toggleSelect(id)}
+            aria-label={`Select folder ${name}`}
+          />
         </div>
-      </div>
-      <input
-        type="checkbox"
-        className="absolute top-2 right-2 w-4 h-4 rounded accent-primary"
-        onClick={(e) => e.stopPropagation()}
-        checked={isSelected}
-        onChange={() => toggleSelect(id)}
-      />
+      ) : (
+        <>
+          <div className="aspect-[4/3] overflow-hidden rounded-t-xl bg-gray-50">
+            {doc ? <LazyThumbnail doc={doc} /> : <FileText className="w-8 h-8 text-gray-400 mx-auto mt-10" />}
+          </div>
+          <div className="p-3">
+            <p className="text-[13px] font-semibold text-gray-900 truncate" title={name}>{name}</p>
+            <div className="flex items-center justify-between gap-2 mt-1.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                {opts?.badge}
+                {doc && <span className="text-[11px] text-gray-500 truncate">{fileTypeLabel(doc)} · {formatSize(doc.size)}</span>}
+              </div>
+              <div onClick={(e) => e.stopPropagation()}>
+                {opts?.actions && <ActionMenu>{opts.actions}</ActionMenu>}
+              </div>
+            </div>
+            {doc && <p className="text-[11px] text-gray-400 mt-1.5">Modified {new Date(doc.dateModified).toLocaleDateString()}</p>}
+          </div>
+          <input
+            type="checkbox"
+            className="absolute top-2 right-2 w-4 h-4 rounded accent-primary"
+            onClick={(e) => e.stopPropagation()}
+            checked={isSelected}
+            onChange={() => toggleSelect(id)}
+            aria-label={`Select file ${name}`}
+          />
+        </>
+      )}
     </div>
   )}
 
   const commonActions = {
     file: (doc: Document) => (
       <>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-amber-500" title="Favorite"
-          onClick={() => void handleToggleFavorite(doc)}>
-          <Star className={cn("w-3.5 h-3.5", isFavorite(doc.id) && "fill-amber-500 text-amber-500")} />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="Copy"
-          onClick={() => void handleCopyFile(doc)}>
-          <Copy className="w-3.5 h-3.5" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="Download"
-          onClick={() => void openOnlineDocument(doc)}>
-          <Download className="w-3.5 h-3.5" />
-        </Button>
+        <DropdownMenuItem onClick={() => setPreview(doc)}><Eye className="mr-2.5 w-4 h-4" />Preview</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setPreview(doc)}><FileText className="mr-2.5 w-4 h-4" />Details</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { setRenameTarget(doc); setRenameValue(doc.name) }}><Pencil className="mr-2.5 w-4 h-4" />Rename</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => openMove("file", doc.id)}><Move className="mr-2.5 w-4 h-4" />Move</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void handleCopyFile(doc)}><Copy className="mr-2.5 w-4 h-4" />Copy</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void openOnlineDocument(doc)}><Download className="mr-2.5 w-4 h-4" />Download</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void handleToggleFavorite(doc)}><Star className={cn("mr-2.5 w-4 h-4", isFavorite(doc.id) && "fill-amber-500 text-amber-500")} />{isFavorite(doc.id) ? "Remove Favorite" : "Favorite"}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setVersionTarget(doc)}><RefreshCw className="mr-2.5 w-4 h-4" />Replace Version</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-red-600 focus:text-red-700" onClick={() => setDeleteTarget({ type: "file", id: doc.id, name: doc.name })}><Trash2 className="mr-2.5 w-4 h-4" />Delete</DropdownMenuItem>
       </>
     ),
     folder: (folder: RepositoryFolderRow) => (
       <>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="Open"
-          onClick={() => navigate(folder.id)}>
-          <FolderOpen className="w-3.5 h-3.5" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-amber-500" title="Pin"
-          onClick={() => void handleTogglePin(folder)}>
-          <Pin className={cn("w-3.5 h-3.5", isPinned(folder.id) && "fill-amber-500 text-amber-500")} />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="Copy"
-          onClick={() => void handleCopyFolder(folder)}>
-          <Copy className="w-3.5 h-3.5" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="Download ZIP"
-          onClick={() => void downloadFolderZip(folder.id, folder.name).catch((err) => toast.error(err instanceof Error ? err.message : "ZIP download failed"))}>
-          <FileArchive className="w-3.5 h-3.5" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="Rename"
-          onClick={() => { setFolderName(folder.name); setFolderDialog({ open: true, mode: "rename", folder }) }}>
-          <Pencil className="w-3.5 h-3.5" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-purple-600" title="Customize"
-          onClick={() => { setCustomizeTarget(folder); setCustomizeColor(folder.color ?? "#3b82f6") }}>
-          <Palette className="w-3.5 h-3.5" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-600" title="Delete"
-          onClick={() => setDeleteTarget({ type: "folder", id: folder.id, name: folder.name })}>
-          <Trash2 className="w-3.5 h-3.5" />
-        </Button>
+        <DropdownMenuItem onClick={() => navigate(folder.id)}><FolderOpen className="mr-2.5 w-4 h-4" />Open</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void openFolderDetails(folder)}><FileText className="mr-2.5 w-4 h-4" />Details</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { setFolderName(folder.name); setFolderDialog({ open: true, mode: "rename", folder }) }}><Pencil className="mr-2.5 w-4 h-4" />Rename</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => openMove("folder", folder.id)}><Move className="mr-2.5 w-4 h-4" />Move</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void handleCopyFolder(folder)}><Copy className="mr-2.5 w-4 h-4" />Copy</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void handleTogglePin(folder)}><Pin className={cn("mr-2.5 w-4 h-4", isPinned(folder.id) && "fill-amber-500 text-amber-500")} />{isPinned(folder.id) ? "Unpin" : "Pin to Top"}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { setCustomizeTarget(folder); setCustomizeColor(folder.color ?? "#3b82f6") }}><Palette className="mr-2.5 w-4 h-4" />Change Color</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void downloadFolderZip(folder.id, folder.name).catch((err) => toast.error(err instanceof Error ? err.message : "ZIP download failed"))}><FileArchive className="mr-2.5 w-4 h-4" />Download ZIP</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-red-600 focus:text-red-700" onClick={() => setDeleteTarget({ type: "folder", id: folder.id, name: folder.name })}><Trash2 className="mr-2.5 w-4 h-4" />Delete</DropdownMenuItem>
       </>
     ),
   }
@@ -1448,21 +1499,23 @@ export function RepositoryExplorer() {
   )
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-5 relative"
+    <div className="relative"
       onDragOver={(e) => { e.preventDefault(); onPaneDragOver(e) }}
       onDragLeave={() => setDragOverPane(false)}
       onDrop={(e) => onPaneDrop(e)}>
       {dragOverPane && (
-        <div className="absolute inset-0 z-30 rounded-xl border-2 border-dashed border-blue-400 bg-blue-50/80 flex items-center justify-center backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-[60] border-2 border-dashed border-primary bg-primary/10 flex items-center justify-center backdrop-blur-[2px] pointer-events-none">
           <div className="text-center">
-            <Upload className="w-10 h-10 text-blue-500 mx-auto mb-3" />
-            <p className="text-lg font-semibold text-blue-700">Drop files to upload</p>
-            <p className="text-sm text-blue-500 mt-1">into {currentFolderId ? folderById.get(currentFolderId)?.name ?? "this folder" : "My Documents"}</p>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-lg">
+              <Upload className="w-8 h-8 text-primary" />
+            </div>
+            <p className="text-lg font-semibold text-gray-900">Drop files to upload</p>
+            <p className="text-sm text-gray-600 mt-1">into {currentFolderId ? folderById.get(currentFolderId)?.name ?? "this folder" : "My Documents"}</p>
           </div>
         </div>
       )}
       {/* ── Sidebar ── */}
-      <Card className="border-gray-200/60 shadow-sm h-fit">
+      <Card className="hidden">
         <CardContent className="p-3">
           <div className="flex items-center justify-between mb-2 px-1">
             <span className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide">Repository</span>
@@ -1530,8 +1583,34 @@ export function RepositoryExplorer() {
       </Card>
 
       {/* ── Main pane ── */}
-      <Card className="border-gray-200/60 shadow-sm">
-        <CardContent className="p-4">
+      <Card className="border-0 bg-transparent shadow-none">
+        <CardContent className="p-0">
+          <div className="mb-5 flex items-center gap-1 overflow-x-auto border-b border-gray-200 pb-1">
+            {[
+              { id: "all" as const, label: "My Documents", icon: <FolderOpen className="w-4 h-4" /> },
+              { id: "favorites" as const, label: "Favorites", icon: <Star className="w-4 h-4" />, count: favorites.length },
+              { id: "requested" as const, label: "Requested Documents", icon: <Inbox className="w-4 h-4" />, count: requestedDocs.length },
+              { id: "recent" as const, label: "Recent", icon: <Clock className="w-4 h-4" />, count: recents.length },
+              { id: "recycle" as const, label: "Recycle Bin", icon: <Trash className="w-4 h-4" />, count: deletedDocs.length + deletedFolders.length },
+            ].map((item) => {
+              const active = item.id === "all" ? section === "all" : section === item.id
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => item.id === "all" ? navigate(null) : (setSection(item.id), setSelectedIds(new Set()))}
+                  className={cn(
+                    "flex min-h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-[13px] font-medium transition-colors",
+                    active ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900",
+                  )}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                  {item.count !== undefined && item.count > 0 && <span className={cn("rounded-full px-1.5 text-[10px]", active ? "bg-white/15 text-white" : "bg-gray-100 text-gray-500")}>{item.count}</span>}
+                </button>
+              )
+            })}
+          </div>
           {/* Background copy jobs (rule 9) */}
           {jobs.filter((job) => job.status === "PENDING" || job.status === "RUNNING").length > 0 && (
             <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/40 p-3">
@@ -1558,9 +1637,22 @@ export function RepositoryExplorer() {
               <p className="text-[11px] text-blue-600 mt-1.5">You can keep browsing — the copy continues in the background.</p>
             </div>
           )}
+          <input ref={fileInputRef} type="file" multiple accept={UPLOAD_MIME_TYPES} className="hidden"
+            onChange={(e) => { handleFiles(e.target.files); e.target.value = "" }} />
           {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-col gap-3 mb-5">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+            {section === "all" && (
+              <div className="flex items-center gap-2 shrink-0">
+                <Button variant="outline" size="sm" className="h-10" onClick={openCreateFolder}>
+                  <Folder className="w-4 h-4 mr-2" /> New Folder
+                </Button>
+                <Button size="sm" className="h-10 shadow-sm" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="w-4 h-4 mr-2" /> Upload
+                </Button>
+              </div>
+            )}
+            <div className="relative flex-1 lg:max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 placeholder="Search files and folders..."
@@ -1572,7 +1664,7 @@ export function RepositoryExplorer() {
             <div className="flex items-center gap-2 flex-wrap">
               {section === "all" && (
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-[130px] h-9"><Filter className="w-3.5 h-3.5 mr-1.5" /><SelectValue placeholder="File Type" /></SelectTrigger>
+                  <SelectTrigger className="w-[120px] h-9"><Filter className="w-3.5 h-3.5 mr-1.5" /><SelectValue placeholder="Type" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="pdf">PDF</SelectItem>
@@ -1584,39 +1676,53 @@ export function RepositoryExplorer() {
                   </SelectContent>
                 </Select>
               )}
-              <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 p-1 bg-gray-50/50 dark:bg-gray-800">
-                <button type="button" onClick={() => setView("list")}
-                  className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors",
-                    view === "list" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm" : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200")}>
-                  <List className="w-3.5 h-3.5" /> List
-                </button>
-                <button type="button" onClick={() => setView("grid")}
-                  className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors",
-                    view === "grid" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm" : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200")}>
-                  <LayoutGrid className="w-3.5 h-3.5" /> Grid
-                </button>
-              </div>
+              {section === "all" && (
+                <Select value={modifiedFilter} onValueChange={setModifiedFilter}>
+                  <SelectTrigger className="w-[132px] h-9"><Clock className="w-3.5 h-3.5 mr-1.5" /><SelectValue placeholder="Modified" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any time</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="week">Past week</SelectItem>
+                    <SelectItem value="month">Past month</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              {section === "all" && currentFolderId === null && (
+                <Select value={folderFilter} onValueChange={(value) => { setFolderFilter(value); navigate(value === "current" ? null : value) }}>
+                  <SelectTrigger className="w-[130px] h-9"><Folder className="w-3.5 h-3.5 mr-1.5" /><SelectValue placeholder="Folder" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="current">All folders</SelectItem>
+                    {folders.map((folder) => <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
               <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
-                <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Sort" /></SelectTrigger>
+                <SelectTrigger className="w-[145px] h-9"><SelectValue placeholder="Sort" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="newest">Newest first</SelectItem>
-                  <SelectItem value="oldest">Oldest first</SelectItem>
-                  <SelectItem value="name">Name (A–Z)</SelectItem>
-                  <SelectItem value="size">Size</SelectItem>
+                  <SelectItem value="newest">Recently modified</SelectItem>
+                  <SelectItem value="oldest">Oldest modified</SelectItem>
+                  <SelectItem value="name">Name A–Z</SelectItem>
+                  <SelectItem value="name-desc">Name Z–A</SelectItem>
+                  <SelectItem value="size">Largest first</SelectItem>
+                  <SelectItem value="size-asc">Smallest first</SelectItem>
                 </SelectContent>
               </Select>
-              {section === "all" && (
-                <>
-                  <input ref={fileInputRef} type="file" multiple accept={UPLOAD_MIME_TYPES} className="hidden"
-                    onChange={(e) => { handleFiles(e.target.files); e.target.value = "" }} />
-                  <Button size="sm" className="h-9 shadow-sm" onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="w-4 h-4 mr-2" /> Upload
-                  </Button>
-                  <Button variant="outline" size="sm" className="h-9" onClick={openCreateFolder}>
-                    <Folder className="w-4 h-4 mr-2" /> New Folder
-                  </Button>
-                </>
-              )}
+              <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50/50" aria-label="View mode">
+                <button type="button" onClick={() => setView("list")} aria-label="List view"
+                  className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors",
+                    view === "list" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+                  <List className="w-3.5 h-3.5" /> <span className="hidden sm:inline">List</span>
+                </button>
+                <button type="button" onClick={() => setView("grid")} aria-label="Grid view"
+                  className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors",
+                    view === "grid" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+                  <LayoutGrid className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Grid</span>
+                </button>
+              </div>
+              </div>
+            </div>
+            {(section === "recycle" && (deletedDocs.length + deletedFolders.length) > 0 || selectedIds.size > 0 && section === "all") && (
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               {section === "recycle" && (deletedDocs.length + deletedFolders.length) > 0 && (
                 <Button variant="destructive" size="sm" className="h-9" onClick={() => setEmptyBinConfirm(true)}>
                   <Trash2 className="w-4 h-4 mr-2" /> Empty Recycle Bin
@@ -1633,6 +1739,7 @@ export function RepositoryExplorer() {
                 </div>
               )}
             </div>
+            )}
           </div>
 
           {/* Upload queue */}
@@ -1706,7 +1813,7 @@ export function RepositoryExplorer() {
           )}
 
           {/* Breadcrumb (all view) */}
-          {section === "all" && (
+          {section === "all" && currentFolderId !== null && (
             <div className="flex items-center gap-1.5 flex-wrap text-[13px] mb-3">
               <button type="button" onClick={() => navigate(null)}
                 className={cn("px-2 py-1 rounded-md flex items-center gap-1.5 transition-colors",
@@ -1798,17 +1905,18 @@ export function RepositoryExplorer() {
                   ))}
                 </>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 p-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                   {deletedFolders.map((folder) => renderCard(
                     null, folder, folder.name,
                     folder.deletedAt ? `Deleted ${new Date(folder.deletedAt).toLocaleDateString()} · expires ${expiresAt(folder.deletedAt)} · ${daysRemaining(folder.deletedAt)}d left` : "Folder",
                     folder.id,
                     () => undefined,
+                    { actions: recycleActions("folder", folder.id, folder.name) },
                   ))}
                   {deletedDocs.map((doc) => renderCard(
                     doc, null, doc.name, `${doc.type} · ${formatSize(doc.size)}`, doc.id,
                     () => setPreview(doc),
-                    { badge: submissionBadge(doc) },
+                    { badge: submissionBadge(doc), actions: recycleActions("file", doc.id, doc.name) },
                   ))}
                 </div>
               )}
@@ -1827,6 +1935,14 @@ export function RepositoryExplorer() {
               )}
               {view === "list" ? (
                 <>
+                   {section === "all" && (sortedFolders.length > 0 || sortedDocs.length > 0) && (
+                     <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_260px_36px] items-center gap-3 px-3 py-2 border-b border-gray-100 bg-gray-50/60 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                       <span>Name</span><span>Details</span><span className="text-right"> </span>
+                     </div>
+                   )}
+                   {section === "all" && sortedFolders.length > 0 && (
+                     <p className="px-3 py-2 border-b border-gray-100 bg-white text-[11px] font-semibold uppercase tracking-wide text-gray-400">Folders</p>
+                   )}
                    {sortedFolders.map((folder) => renderRow(
                     <Folder className="w-[18px] h-[18px]" style={{ color: folder.color ?? undefined }} />,
                     folder.name,
@@ -1834,36 +1950,23 @@ export function RepositoryExplorer() {
                     folder.id,
                     commonActions.folder(folder),
                      () => navigate(folder.id),
-                      { drag: { type: "folder", id: folder.id }, dropTarget: { folderId: folder.id } },
-                  ))}
-                  {sortedDocs.map((doc) => renderRow(
+                     { drag: { type: "folder", id: folder.id }, dropTarget: { folderId: folder.id } },
+                   ))}
+                   {section === "all" && sortedDocs.length > 0 && (
+                     <p className="px-3 py-2 border-y border-gray-100 bg-white text-[11px] font-semibold uppercase tracking-wide text-gray-400">Files</p>
+                   )}
+                   {sortedDocs.map((doc) => renderRow(
                     <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", fileIconClasses(doc))}><FileText className="w-4 h-4" /></div>,
                     doc.name,
                     `${doc.type} · ${formatSize(doc.size)} · ${new Date(doc.dateModified).toLocaleDateString()}`,
                     doc.id,
-                    <>{commonActions.file(doc)}
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="Preview" onClick={() => setPreview(doc)}>
-                        <Eye className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="Move" onClick={() => openMove("file", doc.id)}>
-                        <Move className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="Replace version" onClick={() => setVersionTarget(doc)}>
-                        <RefreshCw className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="Rename" onClick={() => { setRenameTarget(doc); setRenameValue(doc.name) }}>
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-600" title="Delete" onClick={() => setDeleteTarget({ type: "file", id: doc.id, name: doc.name })}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </>,
+                     commonActions.file(doc),
                     () => setPreview(doc),
                     { drag: { type: "file", id: doc.id }, badge: submissionBadge(doc) },
                   ))}
                 </>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 p-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                    {sortedFolders.map((folder) => renderCard(
                     null, folder, folder.name, `${folder.documentCount} files`, folder.id,
                      () => navigate(folder.id),
@@ -1909,6 +2012,26 @@ export function RepositoryExplorer() {
             <Button onClick={() => void submitFolderDialog()} disabled={!folderName.trim()} className="h-10 px-5 shadow-sm">
               {folderDialog.mode === "create" ? "Create Folder" : "Rename"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={folderDetailsTarget !== null} onOpenChange={(open) => !open && setFolderDetailsTarget(null)}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-lg flex items-center gap-2">
+              <Folder className="w-5 h-5" style={{ color: folderDetailsTarget?.folder.color ?? "#F59E0B" }} />
+              {folderDetailsTarget?.folder.name}
+            </DialogTitle>
+            <DialogDescription>Folder details within your private repository.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-3">
+            <div className="rounded-lg bg-gray-50 p-3"><p className="text-[11px] text-gray-500">Files</p><p className="mt-1 text-[17px] font-semibold text-gray-900">{folderDetailsTarget?.info?.recursiveDocumentCount ?? folderDetailsTarget?.folder.documentCount ?? "—"}</p></div>
+            <div className="rounded-lg bg-gray-50 p-3"><p className="text-[11px] text-gray-500">Subfolders</p><p className="mt-1 text-[17px] font-semibold text-gray-900">{folderDetailsTarget?.info?.childCount ?? folderDetailsTarget?.folder.childCount ?? "—"}</p></div>
+            <div className="col-span-2 rounded-lg bg-gray-50 p-3"><p className="text-[11px] text-gray-500">Total size</p><p className="mt-1 text-[14px] font-medium text-gray-900">{folderDetailsTarget?.info ? formatSize(Number(folderDetailsTarget.info.recursiveSizeBytes)) : "Loading…"}</p></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFolderDetailsTarget(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2274,4 +2397,4 @@ export function RepositoryExplorer() {
       </Dialog>
     </div>
   )
-}
+})

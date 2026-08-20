@@ -1,4 +1,3 @@
-import { FileText } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { RepositoryExplorer } from "@/components/repository/RepositoryExplorer"
 
@@ -14,13 +13,7 @@ export default function UserDocuments() {
     <div className="p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="My Documents"
-        description="Your personal repository — folders and files belong to your account"
-        actions={
-          <div className="flex items-center gap-2 text-[13px] text-gray-500">
-            <FileText className="w-4 h-4" />
-            Double-click to open
-          </div>
-        }
+        description="Manage and organize your personal documents."
       />
       <RepositoryExplorer />
     </div>

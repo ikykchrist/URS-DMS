@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { ForbiddenError, NotFoundError } from "@/utils/errors";
 import { AUDIT_ACTIONS } from "@/config/constants";
 import { writeAudit } from "@/modules/audit/audit.service";
-import { sendEmail } from "@/modules/email/email.service";
 import {
   NOTIFICATION_EVENTS,
   type NotificationEventSpec,
@@ -221,7 +220,7 @@ export async function notifyUser(
 ): Promise<NotificationListItem | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { email: true, status: true },
+    select: { id: true },
   });
   if (!user) throw new NotFoundError("Recipient user not found");
 
@@ -237,10 +236,6 @@ export async function notifyUser(
     metadata: input.metadata,
   });
 
-  if (payload.email && user.status === "ACTIVE") {
-    void sendEmail({ to: user.email, subject: payload.email.subject, body: payload.email.body });
-  }
-
   return toListItem(row);
 }
 
@@ -254,7 +249,7 @@ export async function notifyUsers(
   const uniqueIds = [...new Set(userIds)];
   const users = await prisma.user.findMany({
     where: { id: { in: uniqueIds } },
-    select: { id: true, email: true, status: true },
+    select: { id: true },
   });
   const foundIds = users.map((u) => u.id);
   const created = await repo.createManyForUsers(foundIds, {
@@ -267,12 +262,6 @@ export async function notifyUsers(
     actionUrl: input.actionUrl,
     metadata: input.metadata,
   });
-  if (created > 0 && payload.email) {
-    for (const user of users) {
-      if (user.status !== "ACTIVE") continue;
-      void sendEmail({ to: user.email, subject: payload.email.subject, body: payload.email.body });
-    }
-  }
   return created;
 }
 

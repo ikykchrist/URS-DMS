@@ -64,7 +64,6 @@ export default function Settings() {
   const [dashboardView, setDashboardView] = useState<"overview" | "submissions" | "documents">("overview")
 
   const [notifications, setNotifications] = useState({
-    email: true,
     submissions: true,
     approvals: true,
     announcements: false,
@@ -107,10 +106,14 @@ export default function Settings() {
     await handleSaveSettings({ allowedFileTypes: current.filter((t) => t !== type) })
   }
 
-  const handleSaveNotifications = async () => {}
+  const handleSaveNotifications = async () => {
+    // Notification preferences are currently local-only.
+  }
 
   const handleLogoutAll = async () => {
-    try { await authService.logout(); logout() } catch { }
+    try { await authService.logout(); logout() } catch {
+      // The local session can still be cleared if the server is unavailable.
+    }
   }
 
   const roleLabel = user?.role ? ROLE_LABELS[user.role] ?? user.role : "User"
@@ -232,7 +235,6 @@ export default function Settings() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {[
-                      { key: "email", label: "Email Notifications", desc: "Receive notifications via email" },
                       { key: "submissions", label: "Submission Alerts", desc: "Get notified when documents are submitted" },
                       { key: "approvals", label: "Approval Alerts", desc: "Get notified on approval/rejection actions" },
                       { key: "announcements", label: "System Announcements", desc: "Receive system-wide announcements" },

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { ArrowRight, Clock3, FileCheck2, Send, ClipboardList } from "lucide-react"
+import { ArrowRight, Clock3, FileCheck2, Send, ClipboardList, Globe2, UserRound } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
@@ -29,6 +29,20 @@ function formatDate(value: string | null | undefined): string {
   if (!value) return "—"
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}
+
+function formatAuditDate(value: string): string {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+}
+
+function formatAuditTime(value: string): string {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" })
 }
 
 function isDueSoon(task: OnlineAaccupTask, now = Date.now()): boolean {
@@ -69,6 +83,16 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const recentSubmissions = useMemo(
     () => [...(submissions.data ?? [])].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)).slice(0, 5),
     [submissions.data],
+  )
+
+  const recentActivity = useMemo(
+    () => [...(activity.data ?? [])]
+      .sort((a, b) => {
+        const timestampOrder = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        return timestampOrder || b.id.localeCompare(a.id)
+      })
+      .slice(0, 6),
+    [activity.data],
   )
 
   const nav = (page: string, query?: Record<string, string>) => onNavigate(page, query)
@@ -262,10 +286,10 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             <p className="text-[13px] text-red-500 py-2">Recent activity is unavailable.</p>
           ) : activity.data === null ? (
             <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-9" />)}</div>
-          ) : activity.data.length === 0 ? (
+          ) : recentActivity.length === 0 ? (
             <p className="text-[13px] text-gray-400 py-2 text-center">No recent activity.</p>
           ) : (
-            activity.data.slice(0, 6).map((entry) => {
+            recentActivity.map((entry) => {
               const entity = entry.entity?.type?.toLowerCase()
               const id = entry.entity?.id ?? entry.targetId ?? undefined
               let dest: { page: string; query?: Record<string, string> } | null = null
@@ -278,16 +302,29 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                   key={entry.id}
                   type="button"
                   onClick={() => dest ? nav(dest.page, dest.query) : nav("audit")}
-                  className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50/50 transition-colors text-left"
+                  className="group w-full rounded-xl border border-transparent px-3 py-3 text-left transition-colors hover:border-gray-200 hover:bg-gray-50/70"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <ClipboardList className="w-4 h-4 text-gray-500" />
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                      <ClipboardList className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-medium text-gray-900">{entry.description ?? entry.action}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-gray-500">
+                        <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+                          <UserRound className="h-3 w-3 text-slate-400" />
+                          {entry.user?.name ?? entry.actorName ?? "System"}
+                        </span>
+                        <span>{formatAuditDate(entry.timestamp)}</span>
+                        <span>{formatAuditTime(entry.timestamp)}</span>
+                        <span className="inline-flex items-center gap-1 font-mono text-[10px] text-slate-400">
+                          <Globe2 className="h-3 w-3" />
+                          {entry.ipAddress ?? "IP unavailable"}
+                        </span>
+                      </div>
+                    </div>
+                    <ArrowRight className="mt-2 h-4 w-4 flex-shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-gray-500" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] text-gray-900 truncate">{entry.description ?? entry.action}</p>
-                    <p className="text-[12px] text-gray-400">{entry.actorName ?? "System"} · {formatDate(entry.timestamp)}</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
                 </button>
               )
             })

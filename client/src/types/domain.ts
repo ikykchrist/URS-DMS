@@ -295,7 +295,6 @@ export interface AppSettings {
   dateFormat: "mdy" | "dmy" | "ymd"
   defaultDashboardView: "overview" | "submissions" | "documents"
   notifications: {
-    email: boolean
     submissions: boolean
     approvals: boolean
     announcements: boolean

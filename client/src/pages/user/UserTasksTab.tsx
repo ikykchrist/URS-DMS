@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { useSearchParams } from "react-router-dom"
 import {
   AlertCircle,
@@ -46,7 +46,7 @@ function formatDate(value: string | null): string {
   return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
 }
 
-export function UserTasksTab() {
+export function UserTasksTab({ navigation }: { navigation?: ReactNode }) {
   const [searchParams] = useSearchParams()
   const [tasks, setTasks] = useState<OnlineAaccupTask[]>([])
   const [loading, setLoading] = useState(true)
@@ -111,6 +111,7 @@ export function UserTasksTab() {
           </Button>
         }
       />
+      {navigation && <div className="mb-6 lg:mb-8">{navigation}</div>}
 
       {error && (
         <div className="mb-5 flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">

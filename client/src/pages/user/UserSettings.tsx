@@ -32,7 +32,7 @@ export default function UserSettings() {
           timezone: "",
           dateFormat: "mdy",
           defaultDashboardView: "overview",
-          notifications: { email: true, submissions: true, approvals: true, announcements: true, security: true },
+           notifications: { submissions: true, approvals: true, announcements: true, security: true },
           compactMode: false,
           collapsedSidebar: false,
           storageQuotaGB: 10,
@@ -40,7 +40,9 @@ export default function UserSettings() {
         setCompactMode(false)
         setCollapsedSidebar(false)
       }
-    } catch { }
+    } catch {
+      // Settings are optional; retain the local defaults when unavailable.
+    }
   }, [])
 
   useEffect(() => { fetchSettings() }, [fetchSettings])
@@ -72,7 +74,6 @@ export default function UserSettings() {
           </CardHeader>
           <CardContent className="space-y-4">
             {[
-              { key: "email", label: "Email on Approval", desc: "Receive email when a request is approved" },
               { key: "submissions", label: "Submission Alerts", desc: "Get notified when documents are submitted" },
               { key: "approvals", label: "Approval Alerts", desc: "Get notified on approval/rejection actions" },
               { key: "announcements", label: "System Announcements", desc: "Receive system-wide announcements" },

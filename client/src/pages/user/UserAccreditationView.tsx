@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, type ReactNode } from "react"
 import {
   AlertCircle,
   CheckCircle2,
@@ -99,7 +99,7 @@ function groups(requirements: OnlineAaccupRequirement[]): Array<[string, OnlineA
   return [...map.entries()]
 }
 
-export function UserAccreditationView({ areaSet }: { areaSet: AreaSet }) {
+export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSet; navigation?: ReactNode }) {
   const { user } = useAuth()
   const canUpload = Boolean(user && hasPermission(user.role, "canUpload"))
   const [areas, setAreas] = useState<OnlineAaccupArea[]>([])
@@ -238,6 +238,7 @@ export function UserAccreditationView({ areaSet }: { areaSet: AreaSet }) {
         description={meta.description}
         actions={<Button variant="outline" onClick={() => void loadAreas()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>}
       />
+      {navigation && <div className="mb-6 lg:mb-8">{navigation}</div>}
 
       {error && (
         <div className="mb-5 flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">

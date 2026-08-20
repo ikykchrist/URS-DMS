@@ -48,15 +48,19 @@ export default function AACCUPGroupPage({ initialTab = "AACCUP" }: AACCUPGroupPa
 
   return (
     <div>
-      <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-0">
-        <AACCUPGroupTabs value={tab} onValueChange={handleTabChange} tabs={TABS} />
-      </div>
       {tab === "submissions" ? (
-        <Submissions areaSet={urlAreaSet === "AACCUP" || urlAreaSet === "ISO" || urlAreaSet === "CERT" ? urlAreaSet : undefined} />
+        <Submissions
+          areaSet={urlAreaSet === "AACCUP" || urlAreaSet === "ISO" || urlAreaSet === "CERT" ? urlAreaSet : undefined}
+          navigation={<AACCUPGroupTabs value={tab} onValueChange={handleTabChange} tabs={TABS} />}
+        />
       ) : tab === "tasks" ? (
-        <UserTasksTab />
+        <UserTasksTab navigation={<AACCUPGroupTabs value={tab} onValueChange={handleTabChange} tabs={TABS} />} />
       ) : (
-        <AACCUPManagement key={tab} areaSet={tab as AreaSet} />
+        <AACCUPManagement
+          key={tab}
+          areaSet={tab as AreaSet}
+          navigation={<AACCUPGroupTabs value={tab} onValueChange={handleTabChange} tabs={TABS} />}
+        />
       )}
     </div>
   )
