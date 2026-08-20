@@ -70,6 +70,12 @@ body {
   input, button, textarea, select {
     font: inherit;
   }
+
+  /* Keep the existing Lucide set visually consistent across the portals. */
+  svg.lucide {
+    flex-shrink: 0;
+    stroke-width: 1.9;
+  }
 }
 
 @layer utilities {

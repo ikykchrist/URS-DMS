@@ -154,3 +154,16 @@ export async function listRecentsHandler(req: Request, res: Response): Promise<v
   const items = await service.listRecents(toActor(req));
   sendSuccess(res, items);
 }
+
+export async function thumbnailDocumentHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  const result = await service.getThumbnailStream(id, toActor(req));
+  res.setHeader("Content-Type", result.mimeType);
+  res.setHeader("Content-Disposition", `inline; filename="${result.filename.replace(/[^A-Za-z0-9._-]/g, "_")}"`);
+  res.setHeader("Cache-Control", "private, max-age=300");
+  result.stream.on("error", () => {
+    if (!res.headersSent) res.status(500);
+    res.end();
+  });
+  result.stream.pipe(res);
+}

@@ -71,6 +71,9 @@ export const createAdminUserSchema = z.object({
 });
 export type CreateAdminUserBody = z.infer<typeof createAdminUserSchema>;
 
+export const inviteUserSchema = z.object({ email: emailSchema });
+export type InviteUserBody = z.infer<typeof inviteUserSchema>;
+
 export const updateAdminUserSchema = z
   .object({
     email: emailSchema.optional(),

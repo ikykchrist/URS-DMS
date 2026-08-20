@@ -216,6 +216,21 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+model RegistrationInvite {
+  id          String    @id @default(uuid())
+  email       String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  invitedById String?
+  createdAt   DateTime  @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+  @@index([usedAt])
+  @@map("registration_invites")
+}
+
 model AuditLog {
   id                String   @id @default(uuid())
   userId            String?

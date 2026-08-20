@@ -134,6 +134,9 @@ export function LoginForm() {
             "Sign In"
           )}
         </Button>
+        <Button type="button" variant="outline" disabled={isLoading} onClick={() => navigate("/register")} className="w-full h-11 rounded-lg">
+          Register
+        </Button>
       </form>
     </AuthCard>
   )

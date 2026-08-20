@@ -1,5 +1,14 @@
-import { presignDownload, presignUpload, statObject, getObjectStream, deleteObject } from "@/lib/storage";
+import {
+  presignDownload,
+  presignUpload,
+  statObject,
+  getObjectStream,
+  deleteObject,
+  objectExists,
+  thumbnailObjectKey,
+} from "@/lib/storage";
 import { createHash } from "node:crypto";
+import type { Readable } from "node:stream";
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS } from "@/config/constants";
 import { writeAudit } from "@/modules/audit/audit.service";
@@ -527,13 +536,20 @@ export async function restoreDocument(
 }
 
 // -----------------------------------------------------------------------------
-// getDownloadUrl
+// Resolve a document URL without deciding which user action caused it. Preview
+// and download share authorization, version selection, and recents behavior,
+// but they must emit different audit actions.
 // -----------------------------------------------------------------------------
-export async function getDownloadUrl(
+interface ResolvedDocumentUrl {
+  result: DownloadResult;
+  versionId: string;
+}
+
+async function resolveDocumentUrl(
   id: string,
   actor: Actor,
   versionId?: string,
-): Promise<DownloadResult> {
+): Promise<ResolvedDocumentUrl> {
   const doc = await repo.findById(id);
   if (!doc) throw new NotFoundError("Document not found");
   await assertCanRead(actor, doc);
@@ -556,32 +572,43 @@ export async function getDownloadUrl(
   // Record the file in the owner's recents (best-effort).
   await recordRecent(actor, "FILE", id);
 
+  return {
+    versionId: version.id,
+    result: {
+      url: dl.url,
+      objectKey: dl.objectKey,
+      expiresInSeconds: dl.expiresInSeconds,
+      filename: version.filename,
+      sizeBytes: version.sizeBytes,
+      mimeType: version.mimeType,
+    },
+  };
+}
+
+export async function getDownloadUrl(
+  id: string,
+  actor: Actor,
+  versionId?: string,
+): Promise<DownloadResult> {
+  const { result, versionId: resolvedVersionId } = await resolveDocumentUrl(id, actor, versionId);
   await writeAudit({
     action: AUDIT_ACTIONS.DOCUMENT_DOWNLOADED,
     userId: actor.id,
     entity: "document",
     entityId: id,
-    newValue: { versionId: version.id, objectKey: version.objectKey },
+    newValue: { versionId: resolvedVersionId, objectKey: result.objectKey },
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
   });
-
-  return {
-    url: dl.url,
-    objectKey: dl.objectKey,
-    expiresInSeconds: dl.expiresInSeconds,
-    filename: version.filename,
-    sizeBytes: version.sizeBytes,
-    mimeType: version.mimeType,
-  };
+  return result;
 }
 
 // -----------------------------------------------------------------------------
-// getPreviewUrl â€” same as download, distinct audit context omitted on purpose
-// (preview is a read of the latest version rendered inline).
+// getPreviewUrl - preview is a read of the latest version rendered inline and
+// must never emit document.downloaded.
 // -----------------------------------------------------------------------------
 export async function getPreviewUrl(id: string, actor: Actor): Promise<DownloadResult> {
-  const result = await getDownloadUrl(id, actor);
+  const { result } = await resolveDocumentUrl(id, actor);
   await writeAudit({
     action: AUDIT_ACTIONS.DOCUMENT_PREVIEWED,
     userId: actor.id,
@@ -591,6 +618,17 @@ export async function getPreviewUrl(id: string, actor: Actor): Promise<DownloadR
     userAgent: actor.userAgent,
   });
   return result;
+}
+
+export async function getThumbnailStream(id: string, actor: Actor): Promise<{ stream: Readable; mimeType: string; filename: string }> {
+  const doc = await repo.findById(id);
+  if (!doc) throw new NotFoundError("Document not found");
+  await assertCanRead(actor, doc);
+  const version = doc.versions[0];
+  if (!version) throw new NotFoundError("Document has no versions");
+  const key = thumbnailObjectKey(version.objectKey);
+  if (!(await objectExists(key))) throw new NotFoundError("Thumbnail is not ready");
+  return { stream: await getObjectStream(key), mimeType: "image/webp", filename: `${version.filename}.webp` };
 }
 
 // -----------------------------------------------------------------------------
@@ -1201,6 +1239,13 @@ export async function verifyUpload(
   // Rule 19: storage warning when a verified threshold is crossed (best-effort,
   // throttled to one warning per 24h).
   await maybeEmitStorageWarning();
+
+  const { enqueue, QUEUE_NAMES } = await import("@/lib/queue");
+  void enqueue(
+    QUEUE_NAMES.DOCUMENT_THUMBNAIL,
+    { objectKey: version.objectKey, mimeType: version.mimeType },
+    { jobId: `document-thumbnail:${version.id}` },
+  ).catch(() => undefined);
 }
 
 /**

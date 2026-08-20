@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import * as service from "@/modules/auth/auth.service";
 import { clearRefreshCookie, setRefreshCookie } from "@/modules/auth/auth.cookies";
 import { sendSuccess } from "@/utils/apiResponse";
+import * as registration from "@/modules/auth/registration.service";
 
 // =============================================================================
 // URS-DMS — auth controller (thin layer)
@@ -68,6 +69,24 @@ export async function changePasswordHandler(req: Request, res: Response): Promis
   // After password change, the user's current session was also revoked.
   clearRefreshCookie(res);
   sendSuccess(res, { success: true });
+}
+
+export async function registrationOptionsHandler(_req: Request, res: Response): Promise<void> {
+  sendSuccess(res, await registration.getRegistrationOptions());
+}
+
+export async function validateRegistrationTokenHandler(req: Request, res: Response): Promise<void> {
+  sendSuccess(res, await registration.validateRegistrationToken(req.body.token));
+}
+
+export async function registerHandler(req: Request, res: Response): Promise<void> {
+  const user = await registration.register(req.body, req.context.ipAddress, req.context.userAgent);
+  sendSuccess(res, user, 201);
+}
+
+export async function requestRegistrationHandler(req: Request, res: Response): Promise<void> {
+  await registration.requestInvitation(req.body.email);
+  sendSuccess(res, { message: "If the address is eligible, a registration link will be sent shortly." });
 }
 
 export async function listSessionsHandler(req: Request, res: Response): Promise<void> {

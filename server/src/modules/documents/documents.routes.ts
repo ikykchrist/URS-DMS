@@ -32,6 +32,7 @@ import {
   listVersionsHandler,
   permanentDeleteDocumentHandler,
   previewDocumentHandler,
+  thumbnailDocumentHandler,
   restoreDocumentHandler,
   shareDocumentHandler,
   unfavoriteDocumentHandler,
@@ -177,6 +178,13 @@ documentsRouter.get(
   requirePermission("documents.read"),
   validateParams(documentIdParamSchema),
   asyncHandler(previewDocumentHandler),
+);
+
+documentsRouter.get(
+  "/:id/thumbnail",
+  requirePermission("documents.read"),
+  validateParams(documentIdParamSchema),
+  asyncHandler(thumbnailDocumentHandler),
 );
 
 // POST /documents/:id/version â€” add a new version, return presigned PUT URL

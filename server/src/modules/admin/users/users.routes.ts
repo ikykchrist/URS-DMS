@@ -10,11 +10,13 @@ import {
   updateAdminUserSchema,
   updateStatusSchema,
   userIdParamSchema,
+  inviteUserSchema,
 } from "@/modules/admin/users/users.validator";
 import {
   archiveUserHandler,
   changeStatusHandler,
   createUserHandler,
+  inviteUserHandler,
   forcePasswordChangeHandler,
   getUserHandler,
   listUsersHandler,
@@ -62,6 +64,13 @@ adminUsersRouter.post(
   requirePermission("user.create"),
   validateBody(createAdminUserSchema),
   asyncHandler(createUserHandler),
+);
+
+adminUsersRouter.post(
+  "/invite",
+  requirePermission("user.create"),
+  validateBody(inviteUserSchema),
+  asyncHandler(inviteUserHandler),
 );
 
 // GET /admin/users/:id

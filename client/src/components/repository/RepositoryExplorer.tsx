@@ -85,6 +85,7 @@ import {
   addOnlineDocumentVersion,
   openOnlineDocument,
   getOnlineDocumentUrl,
+  getOnlineDocumentThumbnail,
   getFolderInfo,
   downloadFolderZip,
   listCopyJobs,
@@ -190,29 +191,23 @@ function LazyThumbnail({ doc }: { doc: Document; className?: string }) {
   const [url, setUrl] = useState<string | null>(null)
   const [errored, setErrored] = useState(false)
   const [loading, setLoading] = useState(false)
-  const ref = useRef<HTMLDivElement | null>(null)
   const fetched = useRef(false)
 
   useEffect(() => {
-    if (!ref.current || fetched.current) return
+    if (fetched.current) return
     if (!isImageType(doc) && !isPdfType(doc) && !isVideoType(doc)) return
-    const el = ref.current
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !fetched.current) {
-          fetched.current = true
-          setLoading(true)
-          getOnlineDocumentUrl(doc, true)
-            .then((u) => setUrl(u))
-            .catch(() => setErrored(true))
-            .finally(() => setLoading(false))
-        }
-      },
-      { rootMargin: "200px" },
-    )
-    obs.observe(el)
-    return () => obs.disconnect()
+    fetched.current = true
+    setLoading(true)
+    const previewRequest = isVideoType(doc) ? getOnlineDocumentUrl(doc, true) : getOnlineDocumentThumbnail(doc)
+    previewRequest
+      .then((u) => setUrl(u))
+      .catch(() => setErrored(true))
+      .finally(() => setLoading(false))
   }, [doc])
+
+  useEffect(() => () => {
+    if (url?.startsWith("blob:")) URL.revokeObjectURL(url)
+  }, [url])
 
   const showFallback = errored || !isImageType(doc) && !isPdfType(doc) && !isVideoType(doc)
 
@@ -247,7 +242,7 @@ function LazyThumbnail({ doc }: { doc: Document; className?: string }) {
   if (isPdfType(doc) && url) {
     return (
       <div className="w-full h-full relative rounded-t-xl overflow-hidden bg-gray-100 dark:bg-gray-800">
-        <iframe src={url} className="w-full h-full pointer-events-none border-0" title={doc.name} sandbox="" />
+        <img src={url} alt={doc.name} className="w-full h-full object-cover" loading="lazy" onError={() => setErrored(true)} />
         <div className="absolute inset-0 rounded-t-xl ring-1 ring-inset ring-black/5 pointer-events-none" />
       </div>
     )
@@ -256,7 +251,19 @@ function LazyThumbnail({ doc }: { doc: Document; className?: string }) {
   if (isVideoType(doc) && url) {
     return (
       <div className="w-full h-full relative rounded-t-xl overflow-hidden bg-gray-900">
-        <video src={url} preload="metadata" className="w-full h-full object-cover" muted />
+        <video
+          src={url}
+          preload="metadata"
+          crossOrigin="anonymous"
+          className="w-full h-full object-cover"
+          muted
+          playsInline
+          onLoadedData={(event) => {
+            // Ask the browser to paint the first decoded frame as the card preview.
+            event.currentTarget.currentTime = 0
+          }}
+          onError={() => setErrored(true)}
+        />
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
           <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
             <div className="w-0 h-0 border-l-[12px] border-l-white border-y-[8px] border-y-transparent ml-0.5" />

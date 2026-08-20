@@ -14,6 +14,7 @@ import {
   Pencil,
   Trash2,
   KeyRound,
+  Mail,
 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { StatCard } from "@/components/layout/StatCard"
@@ -66,6 +67,8 @@ import {
 } from "@/services/admin"
 import { ROLE_LABELS } from "@/lib/permissions"
 import type { User } from "@/types/domain"
+import { apiPost } from "@/lib/http"
+import { toast } from "@/lib/toast"
 
 interface UserManagementProps {
   sidebarCollapsed?: boolean
@@ -145,6 +148,9 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(() => searchParams.get("modal") === "add-user")
   const [isUserDetailsModalOpen, setIsUserDetailsModalOpen] = useState(false)
   const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false)
+  const [isInviteOpen, setIsInviteOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState("")
+  const [inviting, setInviting] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [searchQuery, setSearchQuery] = useState("")
@@ -171,6 +177,21 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
     if (!open) {
       searchParams.delete("modal")
       setSearchParams(searchParams)
+    }
+  }
+
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) return
+    setInviting(true)
+    try {
+      await apiPost("/admin/users/invite", { email: inviteEmail })
+      toast.success("Registration invitation sent")
+      setInviteEmail("")
+      setIsInviteOpen(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send invitation")
+    } finally {
+      setInviting(false)
     }
   }
 
@@ -218,13 +239,16 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
             title="User Management"
             description="Manage user accounts, roles, and access permissions."
             actions={
-              <Button
-                className="shadow-sm"
-                onClick={() => setIsAddUserModalOpen(true)}
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add User
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" className="shadow-sm" onClick={() => setIsInviteOpen(true)}>
+                  <Mail className="w-4 h-4 mr-2" />
+                  Invite User
+                </Button>
+                <Button className="shadow-sm" onClick={() => setIsAddUserModalOpen(true)}>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add User
+                </Button>
+              </div>
             }
           />
 
@@ -480,6 +504,23 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
         onOpenChange={handleCloseAddUserModal}
         onSuccess={() => { refresh() }}
       />
+
+      {isInviteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold text-slate-900">Invite a user</h2>
+            <p className="mt-1 text-sm text-slate-500">The user will receive a secure registration link valid for 24 hours.</p>
+            <div className="mt-5 space-y-2">
+              <label htmlFor="invite-email" className="text-sm font-medium text-slate-700">Email address</label>
+              <Input id="invite-email" type="email" autoFocus value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="user@example.com" />
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsInviteOpen(false)} disabled={inviting}>Cancel</Button>
+              <Button onClick={() => void handleInvite()} disabled={inviting || !inviteEmail.trim()}>{inviting ? "Sending..." : "Send invitation"}</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <UserDetailsModal
         open={isUserDetailsModalOpen}

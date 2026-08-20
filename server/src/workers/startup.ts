@@ -9,6 +9,7 @@ import { processFolderCopyJob } from "@/workers/folderCopy.worker";
 import { processFolderZipJob } from "@/workers/folderZip.worker";
 import { processEmailJob } from "@/workers/email.worker";
 import { processMaintenanceJob } from "@/workers/maintenance.worker";
+import { processDocumentThumbnailJob } from "@/workers/documentThumbnail.worker";
 import { env } from "@/config/env";
 
 export function startAllWorkers(): void {
@@ -30,5 +31,10 @@ export function startAllWorkers(): void {
   registerWorker(
     QUEUE_NAMES.MAINTENANCE,
     createWorker(QUEUE_NAMES.MAINTENANCE, processMaintenanceJob, 1),
+  );
+
+  registerWorker(
+    QUEUE_NAMES.DOCUMENT_THUMBNAIL,
+    createWorker(QUEUE_NAMES.DOCUMENT_THUMBNAIL, processDocumentThumbnailJob, 2),
   );
 }

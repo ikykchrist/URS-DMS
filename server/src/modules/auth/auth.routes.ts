@@ -4,7 +4,7 @@ import { validateBody } from "@/middlewares/validate";
 import { authenticate } from "@/middlewares/authenticate";
 import { requirePermission } from "@/middlewares/authorize";
 import { authLimiter } from "@/middlewares/rateLimiter";
-import { changePasswordSchema, loginSchema, refreshSchema } from "@/modules/auth/auth.validator";
+import { changePasswordSchema, loginSchema, refreshSchema, registrationRequestSchema, registrationSchema, registrationTokenSchema } from "@/modules/auth/auth.validator";
 import {
   changePasswordHandler,
   listSessionsHandler,
@@ -14,6 +14,10 @@ import {
   refreshHandler,
   revokeOtherSessionsHandler,
   revokeSessionHandler,
+  registrationOptionsHandler,
+  validateRegistrationTokenHandler,
+  registerHandler,
+  requestRegistrationHandler,
 } from "@/modules/auth/auth.controller";
 
 // =============================================================================
@@ -30,6 +34,11 @@ export const authRouter: Router = Router();
 authRouter.post("/login", authLimiter, validateBody(loginSchema), asyncHandler(loginHandler));
 
 authRouter.post("/refresh", authLimiter, validateBody(refreshSchema), asyncHandler(refreshHandler));
+
+authRouter.get("/registration-options", asyncHandler(registrationOptionsHandler));
+authRouter.post("/registration/validate", authLimiter, validateBody(registrationTokenSchema), asyncHandler(validateRegistrationTokenHandler));
+authRouter.post("/registration", authLimiter, validateBody(registrationSchema), asyncHandler(registerHandler));
+authRouter.post("/registration/request", authLimiter, validateBody(registrationRequestSchema), asyncHandler(requestRegistrationHandler));
 
 authRouter.post("/logout", asyncHandler(logoutHandler));
 

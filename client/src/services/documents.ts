@@ -1,4 +1,4 @@
-import { apiGet, apiGetPage, apiPost, apiPatch, apiDelete, getAccessToken } from "@/lib/http"
+import { API_BASE, apiGet, apiGetPage, apiPost, apiPatch, apiDelete, getAccessToken } from "@/lib/http"
 import type { Document, DocumentStatus } from "@/types/domain"
 
 interface OnlineDocumentRow {
@@ -421,6 +421,15 @@ export async function getOnlineDocumentUrl(document: Document, preview = false):
   const endpoint = preview ? "preview" : "download"
   const result = await apiGet<DownloadResult>(`/documents/${encodeURIComponent(document.id)}/${endpoint}`)
   return result.url
+}
+
+export async function getOnlineDocumentThumbnail(document: Document): Promise<string> {
+  const token = getAccessToken()
+  const response = await fetch(`${API_BASE}/documents/${encodeURIComponent(document.id)}/thumbnail`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
+  if (!response.ok) throw new Error(`Thumbnail request failed (${response.status})`)
+  return URL.createObjectURL(await response.blob())
 }
 
 export async function openOnlineDocument(document: Document, preview = false): Promise<void> {

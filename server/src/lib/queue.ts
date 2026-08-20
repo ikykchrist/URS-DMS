@@ -7,6 +7,7 @@ export const QUEUE_NAMES = {
   FOLDER_ZIP: "urs-folder-zip",
   EMAIL_DELIVERY: "urs-email-delivery",
   MAINTENANCE: "urs-maintenance",
+  DOCUMENT_THUMBNAIL: "urs-document-thumbnail",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];

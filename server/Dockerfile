@@ -34,7 +34,7 @@ RUN npx tsc -p tsconfig.build.json && npx tsc-alias -p tsconfig.build.json
 
 # ---- 3. runtime ------------------------------------------------------------
 FROM node:20-alpine AS runtime
-RUN apk add --no-cache openssl wget
+RUN apk add --no-cache openssl wget poppler-utils
 WORKDIR /app
 
 ENV NODE_ENV=production

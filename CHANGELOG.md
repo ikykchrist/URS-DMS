@@ -8,6 +8,19 @@
 
 ---
 
+## v1.2.0 - 2026-08-20
+
+- Added invitation-based registration with campus, department, and ID validation.
+- Added authenticated transactional registration and password-reset email support.
+- Added cached image and PDF thumbnails through background BullMQ workers.
+- Added PDF first-page rendering with Poppler in the server image.
+- Improved MinIO upload configuration, upload error feedback, and video previews.
+- Added ROOT administration flows for users, organization, configuration, builders,
+  maintenance, and audit management.
+- Corrected audit semantics so previews record `document.previewed` and explicit
+  downloads record `document.downloaded`.
+- Standardized browser tab titles and repository UI navigation.
+
 ## User UI baseline - Revised responsive user dashboard (2026-08-11)
 
 - Replaced analytics-heavy user dashboard with clean operational layout:

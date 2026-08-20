@@ -12,6 +12,33 @@
 name: urs-dms
 
 services:
+  # Optional self-hosted SMTP/IMAP server. Start with:
+  #   docker compose --profile mail up -d mailserver
+  # Configure a real domain and DNS records before sending external mail.
+  mailserver:
+    image: ghcr.io/docker-mailserver/docker-mailserver:latest
+    container_name: urs-mailserver
+    hostname: mail
+    domainname: ${MAIL_DOMAIN:-example.com}
+    profiles: ["mail"]
+    env_file:
+      - ./docker/mailserver/mailserver.env
+    ports:
+      - "25:25"
+      - "587:587"
+      - "993:993"
+    volumes:
+      - urs-mail-data:/var/mail
+      - urs-mail-state:/var/mail-state
+      - urs-mail-logs:/var/log/mail
+      - urs-mail-config:/tmp/docker-mailserver
+    cap_add:
+      - NET_ADMIN
+      - SYS_PTRACE
+    restart: unless-stopped
+    networks:
+      - urs-net
+
   # ────────────────────────────────────────────────────────
   # PostgreSQL 16 — primary database
   # ────────────────────────────────────────────────────────
@@ -156,6 +183,14 @@ services:
 # Named volumes (persist data across `docker compose down`)
 # ────────────────────────────────────────────────────────────
 volumes:
+  urs-mail-data:
+    driver: local
+  urs-mail-state:
+    driver: local
+  urs-mail-logs:
+    driver: local
+  urs-mail-config:
+    driver: local
   urs-postgres-data:
     driver: local
   urs-minio-data:

@@ -9,6 +9,7 @@ import type {
   UpdateAdminUserBody,
   UpdateStatusBody,
 } from "@/modules/admin/users/users.validator";
+import { createInvitation } from "@/modules/auth/registration.service";
 
 // =============================================================================
 // URS-DMS — Admin · Users controller (thin)
@@ -42,6 +43,11 @@ export async function createUserHandler(req: Request, res: Response): Promise<vo
   const input = req.body as CreateAdminUserBody;
   const user = await service.createUser(input, toActor(req));
   sendCreated(res, user);
+}
+
+export async function inviteUserHandler(req: Request, res: Response): Promise<void> {
+  const result = await createInvitation(req.body.email, req.auth!.userId);
+  sendCreated(res, result);
 }
 
 export async function updateUserHandler(req: Request, res: Response): Promise<void> {

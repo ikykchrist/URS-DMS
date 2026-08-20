@@ -215,6 +215,27 @@ export async function getObjectStream(objectKey: string): Promise<Readable> {
   }
 }
 
+export async function putObject(
+  objectKey: string,
+  body: Readable | Buffer,
+  size: number,
+  mimeType: string,
+): Promise<void> {
+  try {
+    await getClient().putObject(env.MINIO_BUCKET, objectKey, body, size, {
+      "Content-Type": mimeType,
+    });
+  } catch (err) {
+    throw new ServiceUnavailableError("Storage upload failed", {
+      reason: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+export function thumbnailObjectKey(objectKey: string): string {
+  return `${objectKey}.thumbnail.webp`;
+}
+
 export function publicDownloadUrl(objectKey: string): string {
   return `${publicEndpoint()}/${env.MINIO_BUCKET}/${objectKey}`;
 }

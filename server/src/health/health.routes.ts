@@ -40,17 +40,19 @@ healthRouter.get("/", async (_req, res, next) => {
 
     let queueMetrics: Record<string, unknown> = {};
     try {
-      const [copy, zip, email, maint] = await Promise.all([
+      const [copy, zip, email, maint, thumbnails] = await Promise.all([
         getQueueMetrics(QUEUE_NAMES.FOLDER_COPY).catch(() => null),
         getQueueMetrics(QUEUE_NAMES.FOLDER_ZIP).catch(() => null),
         getQueueMetrics(QUEUE_NAMES.EMAIL_DELIVERY).catch(() => null),
         getQueueMetrics(QUEUE_NAMES.MAINTENANCE).catch(() => null),
+        getQueueMetrics(QUEUE_NAMES.DOCUMENT_THUMBNAIL).catch(() => null),
       ]);
       queueMetrics = {
         folderCopy: copy ?? { status: "unavailable" },
         folderZip: zip ?? { status: "unavailable" },
         emailDelivery: email ?? { status: "unavailable" },
         maintenance: maint ?? { status: "unavailable" },
+        documentThumbnail: thumbnails ?? { status: "unavailable" },
       };
     } catch {
       queueMetrics = { status: "unavailable" };

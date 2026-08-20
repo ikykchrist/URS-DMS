@@ -83,6 +83,7 @@ import { subscribeUserAttention, type UserAttention } from "@/lib/userAttention"
 import { listOnlineDocuments, openOnlineDocument } from "@/services/documents"
 import AdminDashboard from "@/pages/AdminDashboard"
 import LoginPage from "@/pages/Login"
+import RegisterPage from "@/pages/Register"
 const RootDashboard = lazy(() => import("@/pages/root/RootDashboard"))
 const RootConfigurations = lazy(() => import("@/pages/root/RootConfigurations"))
 const RootAudit = lazy(() => import("@/pages/root/RootAudit"))
@@ -710,7 +711,7 @@ function AppContent() {
   const pageTitles: Record<string, string> = {
     dashboard: "Dashboard",
     documents: "My Documents",
-    submissions: "AACCUP Â· Submissions",
+    submissions: "AACCUP | Submissions",
     requests: "File Requests",
     profile: "Account & Security",
     users: "User Management",
@@ -718,8 +719,8 @@ function AppContent() {
     settings: "Settings",
     notifications: "Notifications",
     aaccup: "AACCUP",
-    iso: "AACCUP Â· ISO",
-    certification: "AACCUP Â· Certification",
+    iso: "AACCUP | ISO",
+    certification: "AACCUP | Certification",
     root: "Platform Overview",
     "root-organization": "Organization",
     "root-folder-builder": "Folder Builder",
@@ -736,7 +737,7 @@ function AppContent() {
 
   useEffect(() => {
     document.title = pageTitles[activePage]
-      ? `${pageTitles[activePage]} Â· URS-DMS`
+       ? `${pageTitles[activePage]} | URS-DMS`
       : "URS-DMS"
   }, [activePage])
 
@@ -958,7 +959,7 @@ function UserAppContent() {
 
   useEffect(() => {
     document.title = userPageTitles[activePage]
-      ? `${userPageTitles[activePage]} Â· URS-DMS`
+       ? `${userPageTitles[activePage]} | URS-DMS`
       : "URS-DMS"
   }, [activePage])
 
@@ -1090,6 +1091,7 @@ function AppRoutes() {
         path="/login"
         element={authStatus === "AUTHENTICATED" && user ? <Navigate to={isAdminRole(user.role) ? "/dashboard" : "/user/dashboard"} replace /> : <LoginPage />}
       />
+      <Route path="/register" element={authStatus === "AUTHENTICATED" && user ? <Navigate to={isAdminRole(user.role) ? "/dashboard" : "/user/dashboard"} replace /> : <RegisterPage />} />
       <Route
         path="/dashboard"
         element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}

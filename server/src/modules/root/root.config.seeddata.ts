@@ -154,7 +154,7 @@ export const SEED_CONFIGURATIONS: SeedConfiguration[] = [
     key: "upload.allowed_file_types",
     name: "Allowed File Types",
     description: "Accepted file extensions (no leading dot)",
-    value: ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "jpg", "jpeg", "png", "zip"],
+    value: ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "jpg", "jpeg", "png", "zip", "mp4", "webm", "mov", "avi", "mkv"],
     valueType: "LIST",
   },
   {

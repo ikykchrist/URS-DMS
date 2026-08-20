@@ -322,7 +322,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
           <DialogHeader><DialogTitle>Submit Evidence</DialogTitle><DialogDescription>{uploadRequirement?.title} ({uploadRequirement?.documentCode})</DialogDescription></DialogHeader>
           <div className="max-h-[68vh] space-y-4 overflow-y-auto py-3">
             <div className="space-y-2"><Label>Document Title</Label><Input value={title} onChange={(event) => setTitle(event.target.value)} /></div>
-            <div className="space-y-2"><Label>File</Label><Dropzone accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.csv,.txt" onChange={(files) => setFile(files[0] ?? null)} /></div>
+            <div className="space-y-2"><Label>File</Label><Dropzone accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.csv,.txt,.mp4,.webm,.mov,.avi,.mkv" onChange={(files) => setFile(files[0] ?? null)} /></div>
             {uploadRequirement?.validations.some((rule) => rule.type === "PAGE_COUNT") && <div className="space-y-2"><Label>Page Count</Label><Input type="number" min="1" value={pageCount} onChange={(event) => setPageCount(event.target.value)} /></div>}
             {uploadRequirement?.validations.some((rule) => rule.type === "EXPIRATION_DATE") && <div className="space-y-2"><Label>Expiration Date</Label><Input type="date" value={expirationDate} onChange={(event) => setExpirationDate(event.target.value)} /></div>}
             {uploadRequirement && requiredMetadataKeys(uploadRequirement).map((key) => <div key={key} className="space-y-2"><Label>{key}</Label><Input value={metadata[key] ?? ""} onChange={(event) => setMetadata((current) => ({ ...current, [key]: event.target.value }))} /></div>)}
