@@ -3,7 +3,7 @@ $root = 'C:\Dev\URS-DMS'
 
 Write-Host '============================================================'
 Write-Host ' URS-DMS - Deploy via Cloudflare quick tunnels'
-Write-Host ' App (5173, /api proxied) | MinIO S3 (9000) | Console (9001)'
+Write-Host ' App (5173) | API (4000) | MinIO S3 (9000) | Console (9001)'
 Write-Host '============================================================'
 
 # ── Pre-flight: verify all services are healthy locally ─────────────────────
@@ -47,13 +47,14 @@ Start-Sleep 2
 
 function Start-TunnelProcess($name, $port) {
     Start-Process -FilePath 'cloudflared' `
-        -ArgumentList 'tunnel', '--url', "http://localhost:$port", '--no-autoupdate' `
+        -ArgumentList 'tunnel', '--url', "http://localhost:$port", '--protocol', 'http2', '--no-autoupdate' `
         -RedirectStandardOutput "$root\urs-tunnel-$name.log" `
         -RedirectStandardError "$root\urs-tunnel-$name.err.log" `
         -WindowStyle Hidden
 }
 
 Start-TunnelProcess 'app' 5173
+Start-TunnelProcess 'backend' 4000
 Start-TunnelProcess 'minio' 9000
 Start-TunnelProcess 'console' 9001
 
@@ -70,15 +71,15 @@ function Get-TunnelUrl($name) {
 
 $appUrl = Get-TunnelUrl 'app'
 Write-Host "App tunnel:     $appUrl"
+$backendUrl = Get-TunnelUrl 'backend'
+Write-Host "Backend tunnel: $backendUrl"
 $minioUrl = Get-TunnelUrl 'minio'
 Write-Host "MinIO tunnel:   $minioUrl"
 $consoleUrl = Get-TunnelUrl 'console'
 Write-Host "Console tunnel: $consoleUrl"
 
-# 1. Back up the original .env once (restored by tunnel-stop.ps1).
-if (-not (Test-Path "$root\.env.tunnel-backup")) {
-    Copy-Item "$root\.env" "$root\.env.tunnel-backup" -Force
-}
+# 1. Back up the current .env before each launch (restored by tunnel-stop.ps1).
+Copy-Item "$root\.env" "$root\.env.tunnel-backup" -Force
 
 # 2. Point MinIO's public endpoint at the tunnel so presigned file URLs
 #    (preview/download) work for remote visitors.
@@ -94,9 +95,23 @@ if ($envContent -match 'MINIO_PUBLIC_ENDPOINT=https://[a-z0-9-]+\.trycloudflare\
 [IO.File]::WriteAllText("$root\.env", $envContent)
 Write-Host 'Updated .env MINIO_PUBLIC_ENDPOINT'
 
-# 3. Restart the API server so the new env is picked up.
-Write-Host 'Restarting API server...'
-& "$root\restart-server.ps1"
+# Keep browser origins and the local Pages build aligned with the fresh tunnels.
+$envContent = [IO.File]::ReadAllText("$root\.env")
+$envContent = [regex]::Replace($envContent, '(?m)^CLIENT_URL=.*$', "CLIENT_URL=http://localhost:5173,http://127.0.0.1:5173,https://urs-dms.pages.dev,$appUrl")
+$envContent = [regex]::Replace($envContent, '(?m)^MINIO_CORS_ORIGINS=.*$', "MINIO_CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,https://urs-dms.pages.dev,$appUrl")
+if ($envContent -notmatch '(?m)^CLIENT_URL=') {
+    $envContent = "$envContent`nCLIENT_URL=http://localhost:5173,http://127.0.0.1:5173,https://urs-dms.pages.dev,$appUrl"
+}
+if ($envContent -notmatch '(?m)^MINIO_CORS_ORIGINS=') {
+    $envContent = "$envContent`nMINIO_CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,https://urs-dms.pages.dev,$appUrl"
+}
+[IO.File]::WriteAllText("$root\.env", $envContent)
+[IO.File]::WriteAllText("$root\client\.env", "VITE_API_BASE=$backendUrl/api/v1`n")
+Write-Host 'Updated CORS origins and client VITE_API_BASE'
+
+# 3. Recreate the Docker API server so the new MinIO endpoint is picked up.
+Write-Host 'Recreating Docker API server...'
+docker compose -f "$root\docker-compose.yml" up -d --force-recreate server
 
 # 4. Restart the Vite client with a RELATIVE API base: the browser then
 #    calls the app tunnel itself (/api/v1/*) and Vite proxies it to :4000 —
@@ -146,6 +161,7 @@ Write-Host ''
 Write-Host '============================================================'
 Write-Host ' SHARE THESE URLS'
 Write-Host "  App:     $appUrl"
+Write-Host "  Backend: $backendUrl"
 Write-Host "  MinIO:   $minioUrl"
 Write-Host "  Console: $consoleUrl"
 Write-Host '============================================================'
