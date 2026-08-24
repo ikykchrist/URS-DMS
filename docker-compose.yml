@@ -76,7 +76,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-urs_minio_admin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-urs_minio_secret}
-      MINIO_API_CORS_ALLOW_ORIGIN: http://localhost:5173,http://127.0.0.1:5173
+      MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,https://urs-dms.pages.dev}
     volumes:
       - urs-minio-data:/data
     ports:
@@ -148,12 +148,12 @@ services:
     environment:
       # Override docker-internal hostnames
       DATABASE_URL: postgresql://${POSTGRES_USER:-urs_user}:${POSTGRES_PASSWORD:-urs_password}@urs-postgres:5432/${POSTGRES_DB:-urs_dms}?schema=public&connection_limit=20&pool_timeout=30
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:5173}
       MINIO_ENDPOINT: urs-minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: "false"
-      # Use a .localhost hostname so the browser resolves it to this machine
-      # while Docker maps it to the host gateway for server-side signing.
-      MINIO_PUBLIC_ENDPOINT: http://minio.localhost:9000
+      # This must be reachable by the browser for presigned upload/download URLs.
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://minio.localhost:9000}
       REDIS_HOST: urs-redis
       REDIS_PORT: 6379
       NODE_ENV: production

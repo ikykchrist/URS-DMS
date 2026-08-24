@@ -36,7 +36,7 @@ function resetBaseUrl(clientOrigin?: string): string {
   if (clientOrigin) {
     try { new URL(clientOrigin); return clientOrigin; } catch { /* invalid URL — fall through to env */ }
   }
-  const envUrl = env.CLIENT_URL?.[0];
+  const envUrl = env.PUBLIC_APP_URL ?? env.CLIENT_URL?.[0];
   if (envUrl) return envUrl;
   return "http://localhost:5173";
 }

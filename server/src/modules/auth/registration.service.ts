@@ -13,7 +13,8 @@ function hashToken(token: string): string {
 }
 
 function registrationUrl(token: string): string {
-  return `${(env.CLIENT_URL[0] ?? "http://localhost:5173").replace(/\/$/, "")}/register?token=${encodeURIComponent(token)}`;
+  const baseUrl = env.PUBLIC_APP_URL ?? env.CLIENT_URL[0] ?? "http://localhost:5173";
+  return `${baseUrl.replace(/\/$/, "")}/register?token=${encodeURIComponent(token)}`;
 }
 
 export async function createInvitation(email: string, invitedById?: string | null): Promise<{ email: string; expiresAt: string }> {
