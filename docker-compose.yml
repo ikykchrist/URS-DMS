@@ -137,6 +137,7 @@ services:
   # URS-DMS server — Node.js + Express + Prisma
   # ────────────────────────────────────────────────────────
   server:
+    image: ghcr.io/ikykchrist/urs-dms-server:v1.3
     build:
       context: ./server
       dockerfile: Dockerfile

@@ -14,6 +14,8 @@
   delivery.
 - Added account registration validation for campus, department, and university ID.
 - Added registration feedback for duplicate, expired, and invalid invitations.
+- Published the URS-DMS server Docker image to GitHub Container Registry for
+  transfer to other PCs.
 
 ## v1.2.0 - 2026-08-20
 

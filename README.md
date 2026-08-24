@@ -105,6 +105,21 @@ Backend (separate terminal):
 
 or launch a fresh AI session via `ai-dev.bat`.
 
+### Docker Deployment
+
+The v1.3 server image is published at GHCR. Pull it before starting the
+supporting services on another PC:
+
+```bash
+docker login ghcr.io
+docker pull ghcr.io/ikykchrist/urs-dms-server:v1.3
+docker compose up -d
+```
+
+Copy `.env.example` to `.env` and configure the deployment secrets first. The
+database, MinIO, Redis, and optional mail server images are pulled by Docker
+Compose; their named volumes persist application data across restarts.
+
 ## Project Structure
 
 ```
