@@ -19,6 +19,17 @@ Document Management System for University Recognition and Accreditation (URS)
 - **Audit Logs** - Track all system activities for compliance
 - **Settings** - Configure system preferences
 
+## v1.3 Email Account Creation
+
+This release adds a validated email account creation flow for invited users.
+
+- Users register with an invitation, email address, campus, department, and
+  university ID.
+- Registration validates invitation status and prevents duplicate accounts.
+- Successful registration sends transactional email through the configured email
+  provider.
+- Password reset uses the same authenticated email delivery service.
+
 ## v1.1 Revamped Features
 
 This release refreshes the Documents and AACCUP group experiences while
@@ -112,7 +123,7 @@ client/src/
 ## Current Known Bugs and Limitations
 
 These are confirmed open items in the current system. They are not release
-blockers for the v1.1 Documents and AACCUP UI revision unless noted otherwise.
+blockers for the v1.3 Email Account Creation release unless noted otherwise.
 
 - `prisma migrate dev` cannot replay the shadow database reliably; use the
   repository's manual SQL and `prisma migrate deploy` workflow instead.
@@ -147,5 +158,5 @@ npm --workspace server run test
 
 ## Release Backup
 
-The v1.1 release backup is tagged `v1.1`. The main development branch is
-`main`; the tag is immutable and can be used to restore this release state.
+The v1.3 release is tagged `v1.3`. The main development branch is `main`; the
+tag is immutable and can be used to restore this release state.

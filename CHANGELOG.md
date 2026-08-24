@@ -8,6 +8,13 @@
 
 ---
 
+## v1.3.0 - 2026-08-24
+
+- Added email account creation with invitation validation and transactional email
+  delivery.
+- Added account registration validation for campus, department, and university ID.
+- Added registration feedback for duplicate, expired, and invalid invitations.
+
 ## v1.2.0 - 2026-08-20
 
 - Added invitation-based registration with campus, department, and ID validation.

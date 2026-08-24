@@ -1,6 +1,6 @@
 {
   "name": "urs-dms-monorepo",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "description": "URS-DMS monorepo root (Sprint 1 client + Sprint 2 server)",
   "workspaces": [
