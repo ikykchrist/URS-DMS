@@ -51,7 +51,6 @@ const adminMoreTabs: BottomTab[] = [
 
 const rootMoreTabs: BottomTab[] = [
   { id: "root", icon: Shield, label: "Root Console" },
-  { id: "root-config", icon: Settings, label: "Config" },
   { id: "root-roles-permissions", icon: Shield, label: "Roles" },
 ]
 
