@@ -12,7 +12,6 @@ import {
   Clock,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useLocation } from "react-router-dom"
 import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import { Button } from "@/components/ui/Button"
 import { Logo } from "@/components/layout/Logo"
@@ -57,28 +56,9 @@ export function UserSidebar({
   className,
 }: UserSidebarProps) {
   const { logout } = useAuth()
-  const location = useLocation()
-
-  const isItemActive = (id: string) => {
-    const path = location.pathname
-    const isUserRoute = path === "/user" || path.startsWith("/user/")
-
-    if (!isUserRoute) return activePage === id
-
-    if (id === "dashboard") return path === "/user" || path === "/user/dashboard"
-    if (id === "documents") return path.startsWith("/user/documents")
-    if (id === "requests") return path.startsWith("/user/requests")
-    if (id === "aaccup") {
-      return ["/user/aaccup", "/user/iso", "/user/certification", "/user/submissions", "/user/tasks"].some(
-        (prefix) => path === prefix || path.startsWith(`${prefix}/`),
-      )
-    }
-    if (id === "notifications") return path.startsWith("/user/notifications")
-    if (id === "activity") return path.startsWith("/user/activity")
-    if (id === "profile") return path.startsWith("/user/profile")
-    if (id === "settings") return path.startsWith("/user/settings")
-    return false
-  }
+  const activeNavPage = ["iso", "certification", "submissions", "tasks"].includes(activePage)
+    ? "aaccup"
+    : activePage
 
   // Rule 6: warn before navigating away while uploads are active.
   const handleNavigate = (page: string) => {
@@ -117,7 +97,7 @@ export function UserSidebar({
           <div className="space-y-1">
             {sidebarItems.map((item) => {
               const Icon = item.icon
-              const isActive = isItemActive(item.id)
+              const isActive = activeNavPage === item.id
               let badgeCount = 0
               if (item.id === "notifications") badgeCount = unreadNotifications
               else if (item.id === "aaccup" && attention) badgeCount = attention.returned + attention.tasks
