@@ -6,6 +6,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   GraduationCap,
   Inbox,
   ServerCog,
@@ -16,6 +17,7 @@ import {
   HardDrive,
   Shield,
 } from "lucide-react"
+import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import { Button } from "@/components/ui/Button"
@@ -59,6 +61,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard", onNavigate, showRoot = false, className }: SidebarProps) {
+  const [rootConsoleOpen, setRootConsoleOpen] = useState(true)
+
   // Rule 6: warn before navigating away while uploads are active.
   const handleNavigate = (page: string) => {
     if (!confirmLeaveIfUploading()) return
@@ -87,7 +91,7 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
 
         <nav className="flex-1 px-3 py-4 overflow-y-auto">
           <div className="space-y-1">
-            {(showRoot ? rootConsoleItems : sidebarItems).map((item) => {
+            {sidebarItems.map((item) => {
               const Icon = item.icon
               const isActive = activePage === item.id
               return (
@@ -107,32 +111,49 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                 </button>
               )
             })}
-            {showRoot && !collapsed && (
-              <p className="pt-4 pb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                Root Console
-              </p>
+            {showRoot && (
+              <div className="pt-3">
+                <button
+                  onClick={() => setRootConsoleOpen((open) => !open)}
+                  aria-expanded={rootConsoleOpen}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-semibold transition-all duration-150",
+                    "text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+                    collapsed && "justify-center",
+                  )}
+                >
+                  <ServerCog className="w-[18px] h-[18px] flex-shrink-0" />
+                  {!collapsed && <span className="flex-1 text-left">Root Console</span>}
+                  {!collapsed && (
+                    <ChevronDown className={cn("w-4 h-4 transition-transform", !rootConsoleOpen && "-rotate-90")} />
+                  )}
+                </button>
+                {(rootConsoleOpen || collapsed) && (
+                  <div className={cn("mt-1 space-y-1", !collapsed && "border-l border-gray-200 ml-5 pl-2")}>
+                    {rootConsoleItems.map((item) => {
+                      const Icon = item.icon
+                      const isActive = activePage === item.id
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => handleNavigate(item.id)}
+                          className={cn(
+                            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150",
+                            isActive
+                              ? "bg-gray-900 text-white shadow-sm"
+                              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                            collapsed && "justify-center",
+                          )}
+                        >
+                          <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", isActive && "text-white")} />
+                          {!collapsed && <span>{item.label}</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )}
-            {showRoot &&
-              sidebarItems.map((item) => {
-                const Icon = item.icon
-                const isActive = activePage === item.id
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleNavigate(item.id)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150",
-                      isActive
-                        ? "bg-gray-900 text-white shadow-sm"
-                        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
-                      collapsed && "justify-center"
-                    )}
-                  >
-                    <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", isActive && "text-white")} />
-                    {!collapsed && <span>{item.label}</span>}
-                  </button>
-                )
-              })}
           </div>
         </nav>
 
