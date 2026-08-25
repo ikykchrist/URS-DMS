@@ -1,6 +1,6 @@
 import { useState, FormEvent } from "react"
 import { Loader2, AlertCircle } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { AuthCard, AuthCardHeader, AuthCardTitle, AuthCardDescription } from "./AuthCard"
 import { PasswordInput } from "./PasswordInput"
 import { Button } from "@/components/ui/Button"
@@ -105,7 +105,7 @@ export function LoginForm() {
           />
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Switch
               id="remember-me"
@@ -118,6 +118,9 @@ export function LoginForm() {
               Remember me
             </Label>
           </div>
+          <Link to="/forgot-password" className="text-sm font-medium text-[#2563EB] hover:underline">
+            Forgot password?
+          </Link>
         </div>
 
         <Button

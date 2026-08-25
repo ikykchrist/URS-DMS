@@ -82,8 +82,11 @@ import { notificationService } from "@/services/notifications"
 import { subscribeUserAttention, type UserAttention } from "@/lib/userAttention"
 import { listOnlineDocuments, openOnlineDocument } from "@/services/documents"
 import AdminDashboard from "@/pages/AdminDashboard"
+import AdminAreaDetailPage from "@/pages/AdminAreaDetailPage"
 import LoginPage from "@/pages/Login"
 import RegisterPage from "@/pages/Register"
+import ForgotPasswordPage from "@/pages/ForgotPassword"
+import ResetPasswordPage from "@/pages/ResetPassword"
 const RootDashboard = lazy(() => import("@/pages/root/RootDashboard"))
 const RootConfigurations = lazy(() => import("@/pages/root/RootConfigurations"))
 const RootAudit = lazy(() => import("@/pages/root/RootAudit"))
@@ -702,7 +705,8 @@ function AppContent() {
       "/root-maintenance": "root-maintenance", "/root-roles-permissions": "root-roles-permissions", "/root-audit": "root-audit",
       "/root-users": "root-users",
     }
-    const page = routeToPageMap[location.pathname]
+    const areaPage = location.pathname.match(/^\/(aaccup|iso)\/areas\/[^/]+$/)
+    const page = areaPage ? `${areaPage[1]}-area` : routeToPageMap[location.pathname]
     if (!page) return
     setActivePage((prev) => prev !== page ? page : prev)
     localStorage.setItem("activePage", page)
@@ -844,6 +848,8 @@ function AppContent() {
           {activePage === "root-audit" && <RootAudit />}
           {activePage === "root-users" && <RootUsers />}
            {activePage === "dashboard" && <AdminDashboard onNavigate={handleNavigate} />}
+           {activePage === "aaccup-area" && <AdminAreaDetailPage areaSet="AACCUP" />}
+           {activePage === "iso-area" && <AdminAreaDetailPage areaSet="ISO" />}
           {activePage === "documents" && <DocumentRepository />}
           {activePage === "requests" && <RequestsReview />}
           {activePage === "profile" && <AccountSecurity />}
@@ -1091,6 +1097,8 @@ function AppRoutes() {
         path="/login"
         element={authStatus === "AUTHENTICATED" && user ? <Navigate to={isAdminRole(user.role) ? "/dashboard" : "/user/dashboard"} replace /> : <LoginPage />}
       />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/register" element={authStatus === "AUTHENTICATED" && user ? <Navigate to={isAdminRole(user.role) ? "/dashboard" : "/user/dashboard"} replace /> : <RegisterPage />} />
       <Route
         path="/dashboard"
@@ -1145,11 +1153,19 @@ function AppRoutes() {
         element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
+        path="/aaccup/areas/:areaId"
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
         path="/aaccup-management"
         element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
         path="/iso"
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/iso/areas/:areaId"
         element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route

@@ -31,7 +31,7 @@ import {
 import { toast } from "@/lib/toast"
 import { authService } from "@/services/auth"
 import { useAuth } from "@/context/AuthContext"
-import { useAvatar, readFileAsDataUrl } from "@/lib/avatar"
+import { useAvatar, uploadAvatar } from "@/lib/avatar"
 import { ROLE_LABELS } from "@/lib/permissions"
 import { ChangePasswordModal } from "@/components/modals/ChangePasswordModal"
 import type { ServerUser, UserSession } from "@/types/domain"
@@ -79,8 +79,8 @@ export default function AccountSecurity() {
       return
     }
     try {
-      const dataUrl = await readFileAsDataUrl(file)
-      setAvatar(dataUrl)
+      const photoUrl = await uploadAvatar(file)
+      setAvatar(photoUrl)
       toast.success("Profile picture updated.")
     } catch {
       toast.error("Could not read the selected image.")

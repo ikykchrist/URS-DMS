@@ -51,6 +51,7 @@ export interface AuthenticatedUser {
   createdAt: string;
   lastLogin: string | null;
   permissions: string[];
+  profilePhotoKey: string | null;
 }
 
 export interface LoginResult {
@@ -74,6 +75,7 @@ async function buildUserView(userId: string): Promise<AuthenticatedUser> {
       departmentId: true,
       createdAt: true,
       lastLogin: true,
+      profilePhotoKey: true,
       roleId: true,
       role: { select: { name: true } },
     },
@@ -101,6 +103,7 @@ async function buildUserView(userId: string): Promise<AuthenticatedUser> {
     createdAt: user.createdAt.toISOString(),
     lastLogin: user.lastLogin?.toISOString() ?? null,
     permissions,
+    profilePhotoKey: user.profilePhotoKey,
   };
 }
 

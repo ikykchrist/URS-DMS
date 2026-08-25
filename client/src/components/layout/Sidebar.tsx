@@ -17,7 +17,7 @@ import {
   HardDrive,
   Shield,
 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import { Button } from "@/components/ui/Button"
@@ -62,8 +62,14 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard", onNavigate, showRoot = false, className }: SidebarProps) {
   const [rootConsoleOpen, setRootConsoleOpen] = useState(true)
+  const accreditationActive = ["aaccup", "iso", "aaccup-area", "iso-area", "certification", "submissions", "tasks"].includes(activePage)
+  const [aaccupOpen, setAaccupOpen] = useState(accreditationActive)
   const rootConsoleActive = rootConsoleItems.some((item) => item.id === activePage)
   const rootConsoleHighlighted = rootConsoleActive || (!collapsed && rootConsoleOpen)
+
+  useEffect(() => {
+    if (accreditationActive) setAaccupOpen(true)
+  }, [accreditationActive])
 
   // Rule 6: warn before navigating away while uploads are active.
   const handleNavigate = (page: string) => {
@@ -96,6 +102,43 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
             {sidebarItems.map((item) => {
               const Icon = item.icon
               const isActive = activePage === item.id
+              if (item.id === "aaccup") {
+                return (
+                  <div key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => setAaccupOpen((open) => !open)}
+                      aria-expanded={!collapsed && aaccupOpen}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150",
+                        accreditationActive ? "bg-gray-900 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                        collapsed && "justify-center",
+                      )}
+                    >
+                      <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", accreditationActive && "text-white")} />
+                      {!collapsed && <span className="flex-1 text-left">AACCUP</span>}
+                      {!collapsed && <ChevronDown className={cn("w-4 h-4 transition-transform", !aaccupOpen && "-rotate-90")} />}
+                    </button>
+                    {!collapsed && aaccupOpen && (
+                      <div className="mt-1 ml-5 space-y-1 border-l border-gray-200 pl-3">
+                        {[{ id: "aaccup", label: "AACCUP" }, { id: "iso", label: "ISO" }].map((child) => (
+                          <button
+                            key={child.id}
+                            type="button"
+                            onClick={() => handleNavigate(child.id)}
+                            className={cn(
+                              "w-full rounded-md px-3 py-2 text-left text-[13px] font-medium transition-colors",
+                              activePage === child.id ? "bg-gray-100 text-gray-950" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
+                            )}
+                          >
+                            {child.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
               return (
                 <button
                   key={item.id}

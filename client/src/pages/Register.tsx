@@ -4,6 +4,8 @@ import { AlertCircle, Loader2 } from "lucide-react"
 import { AuthLayout } from "@/components/auth"
 import { AuthCard, AuthCardDescription, AuthCardHeader, AuthCardTitle } from "@/components/auth/AuthCard"
 import { PasswordInput } from "@/components/auth/PasswordInput"
+import { PasswordStrength } from "@/components/auth/PasswordStrength"
+import { passwordMeetsRequirements } from "@/components/auth/passwordRules"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/Label"
@@ -57,10 +59,12 @@ export default function RegisterPage() {
       && form.employeeId.trim()
       && form.collegeId
       && form.departmentId
-      && form.password
+       && passwordMeetsRequirements(form.password)
       && form.confirmPassword
       && form.password === form.confirmPassword,
   )
+
+  const passwordValid = passwordMeetsRequirements(form.password)
 
   const update = (field: keyof typeof form, value: string) => setForm((current) => ({ ...current, [field]: value, ...(field === "collegeId" ? { departmentId: "" } : {}) }))
 
@@ -142,7 +146,12 @@ export default function RegisterPage() {
               <div className="space-y-2"><Label htmlFor="collegeId">Campus</Label><select id="collegeId" value={form.collegeId} onChange={(event) => update("collegeId", event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" required><option value="">Select campus</option>{options.colleges.map((college) => <option key={college.id} value={college.id}>{college.name}</option>)}</select></div>
               <div className="space-y-2"><Label htmlFor="departmentId">Department</Label><select id="departmentId" value={form.departmentId} onChange={(event) => update("departmentId", event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" required disabled={!form.collegeId}><option value="">Select department</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Password</Label><PasswordInput value={form.password} onChange={(event) => update("password", event.target.value)} /></div><div className="space-y-2"><Label>Confirm password</Label><PasswordInput value={form.confirmPassword} onChange={(event) => update("confirmPassword", event.target.value)} /></div></div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2"><Label htmlFor="registration-password">Password</Label><PasswordInput id="registration-password" value={form.password} onChange={(event) => update("password", event.target.value)} /></div>
+              <div className="space-y-2"><Label htmlFor="registration-confirm-password">Confirm password</Label><PasswordInput id="registration-confirm-password" value={form.confirmPassword} onChange={(event) => update("confirmPassword", event.target.value)} error={form.confirmPassword && form.password !== form.confirmPassword ? "Passwords do not match" : undefined} /></div>
+            </div>
+            {form.password && <PasswordStrength password={form.password} className="rounded-lg bg-slate-50 p-3" />}
+            {form.password && !passwordValid && <p className="text-xs font-medium text-red-600">Your password cannot be used yet. Complete all requirements before creating your account.</p>}
             <Button type="submit" disabled={submitting || !formIsComplete} className="h-11 w-full">{submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating account...</> : "Create account"}</Button>
           </form>
         ) : null}

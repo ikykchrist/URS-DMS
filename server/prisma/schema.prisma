@@ -96,6 +96,7 @@ model User {
   createdAt                     DateTime                @default(now())
   updatedAt                     DateTime                @updatedAt
   deletedAt                     DateTime?
+  profilePhotoKey               String?
   sessions                      Session[]
   passwordResetTokens           PasswordResetToken[]
   auditLogs                     AuditLog[]

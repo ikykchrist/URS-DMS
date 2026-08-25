@@ -13,6 +13,8 @@ import { writeAudit } from "@/modules/audit/audit.service";
 import type { Prisma, UserStatus } from "@prisma/client";
 import type { CreateUserInput, UpdateUserInput, UpdateSelfInput } from "@/modules/users/users.validator";
 import type { UserDetail, UserListItem } from "@/modules/users/users.types";
+import { deleteObject, presignDownload, presignProfilePhotoUpload, statObject } from "@/lib/storage";
+import type { ProfilePhotoFinalizeInput, ProfilePhotoPresignInput } from "@/modules/users/users.validator";
 
 // =============================================================================
 // URS-DMS — users service
@@ -21,6 +23,25 @@ import type { UserDetail, UserListItem } from "@/modules/users/users.types";
 export interface ListResult {
   items: UserListItem[];
   meta: { page: number; pageSize: number; total: number; totalPages: number };
+}
+
+export async function presignOwnProfilePhoto(userId: string, input: ProfilePhotoPresignInput) {
+  return presignProfilePhotoUpload(userId, input.mimeType, input.sizeBytes);
+}
+
+export async function finalizeOwnProfilePhoto(userId: string, input: ProfilePhotoFinalizeInput): Promise<{ photoUrl: string }> {
+  if (!input.objectKey.startsWith(`profile-photos/${userId}/`)) throw new ForbiddenError("Invalid profile photo object");
+  await statObject(input.objectKey);
+  const existing = await prisma.user.findUnique({ where: { id: userId }, select: { profilePhotoKey: true } });
+  await prisma.user.update({ where: { id: userId }, data: { profilePhotoKey: input.objectKey } });
+  if (existing?.profilePhotoKey && existing.profilePhotoKey !== input.objectKey) await deleteObject(existing.profilePhotoKey).catch(() => undefined);
+  return { photoUrl: (await presignDownload(input.objectKey)).url };
+}
+
+export async function getOwnProfilePhoto(userId: string): Promise<{ photoUrl: string } | null> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { profilePhotoKey: true } });
+  if (!user?.profilePhotoKey) return null;
+  return { photoUrl: (await presignDownload(user.profilePhotoKey)).url };
 }
 
 export async function listUsers(query: {

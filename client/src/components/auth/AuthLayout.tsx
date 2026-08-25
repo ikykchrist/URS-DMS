@@ -9,7 +9,7 @@ interface AuthLayoutProps {
 
 export function AuthLayout({ children, className }: AuthLayoutProps) {
   return (
-    <div className={cn("min-h-screen flex", className)}>
+    <div className={cn("min-h-[100dvh] flex", className)}>
       {/* Branding Panel - Left Side */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#2563EB] flex-col justify-between p-12 xl:p-16">
         <div>
@@ -55,7 +55,7 @@ export function AuthLayout({ children, className }: AuthLayoutProps) {
       </div>
 
       {/* Form Panel - Right Side */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-8 xl:p-12 bg-[#F5F7FB]">
+      <div className="flex-1 min-h-[100dvh] overflow-y-auto bg-[#F5F7FB] px-3 py-5 sm:flex sm:items-center sm:justify-center sm:p-6 md:p-8 xl:p-12">
         <div className="w-full max-w-md">
           {children}
         </div>

@@ -215,6 +215,22 @@ export async function getObjectStream(objectKey: string): Promise<Readable> {
   }
 }
 
+function buildProfilePhotoKey(userId: string): string {
+  return `profile-photos/${userId}/photo`;
+}
+
+export async function presignProfilePhotoUpload(userId: string, mimeType: string, sizeBytes: number): Promise<PresignedUpload> {
+  const c = getPublicSigningClient() ?? getClient();
+  const objectKey = buildProfilePhotoKey(userId);
+  const expiresInSeconds = 15 * 60;
+  try {
+    const url = await c.presignedPutObject(env.MINIO_BUCKET, objectKey, expiresInSeconds);
+    return { url, objectKey, headers: { "Content-Type": mimeType, "Content-Length": String(sizeBytes) }, expiresInSeconds };
+  } catch (err) {
+    throw new ServiceUnavailableError("Storage unavailable", { reason: err instanceof Error ? err.message : String(err) });
+  }
+}
+
 export async function putObject(
   objectKey: string,
   body: Readable | Buffer,

@@ -42,6 +42,7 @@ export function toClientUser(server: ServerUser): User {
     createdAt: createdAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     permissions: server.permissions,
+    avatarSeed: server.profilePhotoKey ?? undefined,
   }
 }
 

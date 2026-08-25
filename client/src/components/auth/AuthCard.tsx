@@ -8,7 +8,7 @@ interface AuthCardProps {
 
 export function AuthCard({ children, className }: AuthCardProps) {
   return (
-    <div className={cn("bg-white rounded-2xl shadow-xl border border-[#E5E7EB] p-8 sm:p-10", className)}>
+    <div className={cn("rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-xl sm:p-8 md:p-10", className)}>
       {children}
     </div>
   )

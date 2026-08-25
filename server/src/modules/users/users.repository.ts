@@ -22,6 +22,7 @@ const userSelect = {
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
+  profilePhotoKey: true,
 } satisfies Prisma.UserSelect;
 
 type UserRow = Prisma.UserGetPayload<{ select: typeof userSelect }>;
@@ -45,7 +46,7 @@ function toListItem(u: UserRow): UserListItem {
 }
 
 function toDetail(u: UserRow): UserDetail {
-  return { ...toListItem(u), updatedAt: u.updatedAt, deletedAt: u.deletedAt };
+  return { ...toListItem(u), updatedAt: u.updatedAt, deletedAt: u.deletedAt, profilePhotoKey: u.profilePhotoKey };
 }
 
 export async function findById(id: string): Promise<UserDetail | null> {

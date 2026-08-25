@@ -1,28 +1,28 @@
 import { Router } from "express";
+import { asyncHandler } from "@/utils/asyncHandler";
+import { validateBody } from "@/middlewares/validate";
+import { authLimiter } from "@/middlewares/rateLimiter";
+import { forgotPasswordSchema, resetPasswordSchema } from "@/modules/passwordReset/passwordReset.validator";
+import {
+  forgotPasswordHandler,
+  resetPasswordHandler,
+  devResetLinkHandler,
+} from "@/modules/passwordReset/passwordReset.controller";
 
 export const passwordResetRouter: Router = Router();
 
-// Sprint 8.9 — Self-service password reset disabled.
-// Passwords can only be changed by Root or Administrator through
-// the admin user management page (POST /admin/users/:id/reset-password).
+passwordResetRouter.post(
+  "/forgot-password",
+  authLimiter,
+  validateBody(forgotPasswordSchema),
+  asyncHandler(forgotPasswordHandler),
+);
 
-passwordResetRouter.post("/forgot-password", (_req, res) => {
-  res.status(410).json({
-    success: false,
-    error: { code: "GONE", message: "Self-service password reset has been disabled. Contact your administrator." },
-  });
-});
+passwordResetRouter.post(
+  "/reset-password",
+  authLimiter,
+  validateBody(resetPasswordSchema),
+  asyncHandler(resetPasswordHandler),
+);
 
-passwordResetRouter.post("/reset-password", (_req, res) => {
-  res.status(410).json({
-    success: false,
-    error: { code: "GONE", message: "Self-service password reset has been disabled. Contact your administrator." },
-  });
-});
-
-passwordResetRouter.get("/dev/reset-link", (_req, res) => {
-  res.status(410).json({
-    success: false,
-    error: { code: "GONE", message: "Self-service password reset has been disabled." },
-  });
-});
+passwordResetRouter.get("/dev/reset-link", asyncHandler(devResetLinkHandler));

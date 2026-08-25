@@ -1,37 +1,15 @@
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
+import { apiGet, apiPost } from "@/lib/http"
 
-function avatarKey(userId: string): string {
-  return `urs_dms_avatar_${userId}`
-}
-
-export function getAvatarUrl(userId: string | undefined | null): string | null {
-  if (!userId) return null
-  try {
-    return localStorage.getItem(avatarKey(userId))
-  } catch {
-    return null
-  }
-}
-
-export function setAvatarUrl(userId: string, dataUrl: string): void {
-  try {
-    localStorage.setItem(avatarKey(userId), dataUrl)
-  } catch {}
-}
-
-export function removeAvatarUrl(userId: string): void {
-  try {
-    localStorage.removeItem(avatarKey(userId))
-  } catch {}
-}
-
-export function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
+export async function uploadAvatar(file: File): Promise<string> {
+  const presign = await apiPost<{ url: string; objectKey: string; headers: Record<string, string> }>("/users/me/profile-photo/presign", {
+    mimeType: file.type,
+    sizeBytes: file.size,
   })
+  const upload = await fetch(presign.url, { method: "PUT", headers: presign.headers, body: file })
+  if (!upload.ok) throw new Error("Profile picture upload failed")
+  const result = await apiPost<{ photoUrl: string }>("/users/me/profile-photo/finalize", { objectKey: presign.objectKey })
+  return result.photoUrl
 }
 
 export function useAvatar(userId: string | undefined | null): {
@@ -39,12 +17,23 @@ export function useAvatar(userId: string | undefined | null): {
   set: (dataUrl: string) => void
   remove: () => void
 } {
-  const [url, setUrl] = useState<string | null>(() => getAvatarUrl(userId))
+  const [url, setUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!userId) {
+      setUrl(null)
+      return
+    }
+    let active = true
+    void apiGet<{ photoUrl: string } | null>("/users/me/profile-photo")
+      .then((result) => { if (active) setUrl(result?.photoUrl ?? null) })
+      .catch(() => undefined)
+    return () => { active = false }
+  }, [userId])
 
   const set = useCallback(
     (dataUrl: string) => {
       if (!userId) return
-      setAvatarUrl(userId, dataUrl)
       setUrl(dataUrl)
     },
     [userId],
@@ -52,7 +41,6 @@ export function useAvatar(userId: string | undefined | null): {
 
   const remove = useCallback(() => {
     if (!userId) return
-    removeAvatarUrl(userId)
     setUrl(null)
   }, [userId])
 

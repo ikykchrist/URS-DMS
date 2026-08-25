@@ -39,6 +39,7 @@ export interface ServerUser {
   createdAt: string
   lastLogin: string | null
   permissions: string[]
+  profilePhotoKey?: string | null
 }
 
 export interface Department {

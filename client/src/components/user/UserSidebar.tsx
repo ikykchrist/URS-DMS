@@ -10,7 +10,9 @@ import {
   ChevronRight,
   LogOut,
   Clock,
+  ChevronDown,
 } from "lucide-react"
+import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import { Button } from "@/components/ui/Button"
@@ -56,9 +58,15 @@ export function UserSidebar({
   className,
 }: UserSidebarProps) {
   const { logout } = useAuth()
-  const activeNavPage = ["iso", "certification", "submissions", "tasks"].includes(activePage)
+  const accreditationActive = ["aaccup", "iso", "certification", "submissions", "tasks"].includes(activePage)
+  const [aaccupOpen, setAaccupOpen] = useState(accreditationActive)
+  const activeNavPage = accreditationActive
     ? "aaccup"
     : activePage
+
+  useEffect(() => {
+    if (accreditationActive) setAaccupOpen(true)
+  }, [accreditationActive])
 
   // Rule 6: warn before navigating away while uploads are active.
   const handleNavigate = (page: string) => {
@@ -98,6 +106,45 @@ export function UserSidebar({
             {sidebarItems.map((item) => {
               const Icon = item.icon
               const isActive = activeNavPage === item.id
+              if (item.id === "aaccup") {
+                const badgeCount = attention ? attention.returned + attention.tasks : 0
+                return (
+                  <div key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleNavigate("tasks")}
+                      aria-expanded={!collapsed && aaccupOpen}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150 relative",
+                        accreditationActive ? "bg-slate-900 text-white shadow-sm shadow-slate-300/40 dark:bg-slate-700 dark:shadow-none" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
+                        collapsed && "justify-center",
+                      )}
+                    >
+                      <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", accreditationActive ? "text-sky-300" : "text-slate-500")} />
+                      {!collapsed && <span className="flex-1 text-left">AACCUP</span>}
+                      {badgeCount > 0 && !collapsed && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{badgeCount > 99 ? "99+" : badgeCount}</span>}
+                      {!collapsed && <ChevronDown className={cn("w-4 h-4 text-slate-300 transition-transform", !aaccupOpen && "-rotate-90")} />}
+                    </button>
+                    {!collapsed && aaccupOpen && (
+                      <div className="mt-1 ml-5 space-y-1 border-l border-slate-200 pl-3 dark:border-slate-700">
+                        {[{ id: "tasks", label: "My Tasks" }, { id: "aaccup", label: "AACCUP" }, { id: "iso", label: "ISO" }].map((child) => (
+                          <button
+                            key={child.id}
+                            type="button"
+                            onClick={() => handleNavigate(child.id)}
+                            className={cn(
+                              "w-full rounded-md px-3 py-2 text-left text-[13px] font-medium transition-colors",
+                              activePage === child.id ? "bg-slate-100 text-slate-950 dark:bg-slate-800 dark:text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800",
+                            )}
+                          >
+                            {child.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
               let badgeCount = 0
               if (item.id === "notifications") badgeCount = unreadNotifications
               else if (item.id === "aaccup" && attention) badgeCount = attention.returned + attention.tasks

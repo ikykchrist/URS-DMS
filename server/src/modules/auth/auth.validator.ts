@@ -11,6 +11,15 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
+export const strongPasswordSchema = z
+  .string()
+  .min(env.PASSWORD_MIN_LENGTH, `Password must be at least ${env.PASSWORD_MIN_LENGTH} characters`)
+  .max(128)
+  .refine((value) => /[A-Z]/.test(value), "Password must contain an uppercase letter")
+  .refine((value) => /[a-z]/.test(value), "Password must contain a lowercase letter")
+  .refine((value) => /[0-9]/.test(value), "Password must contain a number")
+  .refine((value) => /[!@#$%^&*(),.?":{}|<>]/.test(value), "Password must contain a special character");
+
 export const refreshSchema = z.object({
   refreshToken: z.string().min(20).optional(),
 });
@@ -19,7 +28,7 @@ export type RefreshInput = z.infer<typeof refreshSchema>;
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(8).max(128),
-    newPassword: z.string().min(8).max(128),
+    newPassword: strongPasswordSchema,
   })
   .refine((v) => v.currentPassword !== v.newPassword, {
     message: "New password must be different from the current one",
@@ -45,8 +54,8 @@ export const registrationSchema = z.object({
   employeeId: z.string().trim().min(2).max(64).regex(/^[A-Za-z0-9_-]+$/),
   collegeId: z.string().uuid(),
   departmentId: z.string().uuid(),
-  password: z.string().min(env.PASSWORD_MIN_LENGTH).max(128),
-  confirmPassword: z.string().min(env.PASSWORD_MIN_LENGTH).max(128),
+  password: strongPasswordSchema,
+  confirmPassword: strongPasswordSchema,
 }).refine((value) => value.password === value.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],

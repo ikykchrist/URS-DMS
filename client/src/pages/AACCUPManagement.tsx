@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactNode } from "react"
-import { useSearchParams } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import {
   Search,
   Filter,
@@ -91,11 +91,12 @@ const SET_TITLES: Record<AreaSet, { title: string; description: string }> = {
 }
 
 export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AACCUPManagementProps) {
+  const navigate = useNavigate()
   const setMeta = SET_TITLES[areaSet]
   const [searchParams, setSearchParams] = useSearchParams()
   const [areas, setAreas] = useState<OnlineAaccupArea[]>([])
   const [submissions, setSubmissions] = useState<OnlineSubmissionListItem[]>([])
-  const [selectedArea, setSelectedArea] = useState<AACCUPArea | null>(null)
+  const [selectedArea] = useState<AACCUPArea | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(() => searchParams.get("modal") === "create-task")
   const [isAddSubmissionOpen, setIsAddSubmissionOpen] = useState(false)
@@ -232,8 +233,8 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
     if (submissionFilter !== "all") {
       const areaSubs = submissions.filter((s) => s.areaId === area.serverId)
       const approved = areaSubs.filter((s) => s.status === "APPROVED").length
-      const pending = areaSubs.filter((s) => s.status === "PENDING" || s.status === "NEEDS_REVISION").length
-      const returned = areaSubs.filter((s) => s.status === "REJECTED").length
+        const pending = areaSubs.filter((s) => s.status === "PENDING").length
+        const returned = areaSubs.filter((s) => s.status === "NEEDS_REVISION" || s.status === "REJECTED").length
       if (submissionFilter === "approved" && approved === 0) return false
       if (submissionFilter === "pending" && pending === 0) return false
       if (submissionFilter === "returned" && returned === 0) return false
@@ -250,13 +251,13 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
   })
 
   const handleViewArea = (area: AACCUPArea) => {
-    setSelectedArea(area)
-    setIsDetailsOpen(true)
+    const basePath = areaSet === "ISO" ? "/iso" : "/aaccup"
+    navigate(`${basePath}/areas/${encodeURIComponent(area.serverId)}`)
   }
 
   const totalSubmissions = submissions.length
   const completedSubmissions = submissions.filter(s => s.status === "APPROVED").length
-  const pendingSubmissions = submissions.filter(s => s.status === "PENDING" || s.status === "NEEDS_REVISION").length
+  const pendingSubmissions = submissions.filter(s => s.status === "PENDING").length
 
   const calculateOverallCompliance = () => {
     if (localAreas.length === 0) return 0
@@ -410,8 +411,8 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
               const stats = {
                 total: areaSubs.length,
                 completed: areaSubs.filter(s => s.status === "APPROVED").length,
-                pending: areaSubs.filter(s => s.status === "PENDING" || s.status === "NEEDS_REVISION").length,
-                returned: areaSubs.filter(s => s.status === "REJECTED").length
+                 pending: areaSubs.filter(s => s.status === "PENDING").length,
+                 returned: areaSubs.filter(s => s.status === "NEEDS_REVISION" || s.status === "REJECTED").length
               }
 
               return (

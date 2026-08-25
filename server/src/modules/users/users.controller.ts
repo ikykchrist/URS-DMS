@@ -41,6 +41,21 @@ export async function updateSelfHandler(req: Request, res: Response): Promise<vo
   sendSuccess(res, { user });
 }
 
+export async function profilePhotoPresignHandler(req: Request, res: Response): Promise<void> {
+  const result = await service.presignOwnProfilePhoto(req.auth!.userId, req.body);
+  sendSuccess(res, result);
+}
+
+export async function profilePhotoFinalizeHandler(req: Request, res: Response): Promise<void> {
+  const result = await service.finalizeOwnProfilePhoto(req.auth!.userId, req.body);
+  sendSuccess(res, result);
+}
+
+export async function profilePhotoHandler(req: Request, res: Response): Promise<void> {
+  const result = await service.getOwnProfilePhoto(req.auth!.userId);
+  sendSuccess(res, result);
+}
+
 export async function updateUserHandler(req: Request, res: Response): Promise<void> {
   const id = (req.params as { id: string }).id;
   const data = req.body as Parameters<typeof service.updateUser>[1];

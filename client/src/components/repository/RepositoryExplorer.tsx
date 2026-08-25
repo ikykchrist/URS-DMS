@@ -198,7 +198,14 @@ function LazyThumbnail({ doc }: { doc: Document; className?: string }) {
     if (!isImageType(doc) && !isPdfType(doc) && !isVideoType(doc)) return
     fetched.current = true
     setLoading(true)
-    const previewRequest = isVideoType(doc) ? getOnlineDocumentUrl(doc, true) : getOnlineDocumentThumbnail(doc)
+    const previewRequest = isVideoType(doc)
+      ? getOnlineDocumentUrl(doc, true)
+      : getOnlineDocumentThumbnail(doc).catch((error) => {
+          // An older upload may not have a generated thumbnail yet. Images can
+          // still render safely from their authorized original preview URL.
+          if (isImageType(doc)) return getOnlineDocumentUrl(doc, true)
+          throw error
+        })
     previewRequest
       .then((u) => setUrl(u))
       .catch(() => setErrored(true))
@@ -293,7 +300,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState("")
   const [sort, setSort] = useState<"newest" | "oldest" | "name" | "name-desc" | "size" | "size-asc">("newest")
-  const [view, setView] = useState<ViewMode>("list")
+  const [view, setView] = useState<ViewMode>("grid")
   const [loading, setLoading] = useState(true)
 
   // Queue
@@ -344,6 +351,17 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
   const [conflictDialog, setConflictDialog] = useState<{ name: string; resolve: (mode: "replace" | "keep_both" | "cancel") => void } | null>(null)
 
   const ownerId = user?.id
+
+  useEffect(() => {
+    if (!ownerId) return
+    const saved = localStorage.getItem(`repository-view:${ownerId}`) ?? localStorage.getItem("userViewMode")
+    if (saved === "grid" || saved === "list") setView(saved)
+  }, [ownerId])
+
+  const changeView = (next: ViewMode) => {
+    setView(next)
+    if (ownerId) localStorage.setItem(`repository-view:${ownerId}`, next)
+  }
 
   const load = useCallback(async () => {
     if (!ownerId) return
@@ -1715,12 +1733,12 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
                 </SelectContent>
               </Select>
               <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50/50" aria-label="View mode">
-                <button type="button" onClick={() => setView("list")} aria-label="List view"
+                <button type="button" onClick={() => changeView("list")} aria-label="List view"
                   className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors",
                     view === "list" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
                   <List className="w-3.5 h-3.5" /> <span className="hidden sm:inline">List</span>
                 </button>
-                <button type="button" onClick={() => setView("grid")} aria-label="Grid view"
+                <button type="button" onClick={() => changeView("grid")} aria-label="Grid view"
                   className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors",
                     view === "grid" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
                   <LayoutGrid className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Grid</span>

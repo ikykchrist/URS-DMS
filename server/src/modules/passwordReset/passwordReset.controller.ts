@@ -12,7 +12,9 @@ import type {
 
 export async function forgotPasswordHandler(req: Request, res: Response): Promise<void> {
   const input = req.body as ForgotPasswordInput;
-  const clientOrigin = (req.get("origin") || req.get("referer") || "").replace(/\/+$/, "");
+  const requestOrigin = req.get("origin") || req.get("referer") || "";
+  let clientOrigin = "";
+  try { clientOrigin = new URL(requestOrigin).origin; } catch { /* use configured app URL */ }
   const result = await service.requestPasswordReset(
     input,
     clientOrigin,

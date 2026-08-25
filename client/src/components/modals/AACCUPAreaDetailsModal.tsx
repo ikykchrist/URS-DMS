@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react"
+import React, { useCallback, useState, useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   Plus,
   Upload,
@@ -44,9 +45,11 @@ import {
 import { ReturnSubmissionModal } from "@/components/modals/ReturnSubmissionModal"
 import { RequirementModal } from "@/components/modals/RequirementModal"
 import { TaskSubmitDialog } from "@/components/aaccup/TaskSubmitDialog"
+import { FilePreviewModal } from "@/components/preview/FilePreviewModal"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/context/AuthContext"
 import { hasPermission } from "@/lib/permissions"
+import type { Document, DocumentStatus } from "@/types/domain"
 
 interface AACCUPArea {
   id: number
@@ -66,6 +69,7 @@ interface AACCUPAreaDetailsModalProps {
   onAddSubmission: () => void
   onCreateTask: () => void
   onEditArea?: () => void
+  page?: boolean
 }
 
 interface AreaSubmission {
@@ -127,12 +131,17 @@ export function AACCUPAreaDetailsModal({
   onAddSubmission,
   onCreateTask,
   onEditArea,
+  page = false,
 }: AACCUPAreaDetailsModalProps) {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const canManageTasks = Boolean(user && hasPermission(user.role, "canManageAACCUP"))
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
-  const [view, setView] = useState<"submissions" | "tasks" | "requirements">("submissions")
+  const [view, setView] = useState<"submissions" | "tasks" | "requirements">(() => {
+    const tab = searchParams.get("tab")
+    return tab === "tasks" || tab === "requirements" ? tab : "submissions"
+  })
   const [submissions, setSubmissions] = useState<AreaSubmission[]>([])
   const [rawSubmissions, setRawSubmissions] = useState<OnlineSubmissionListItem[]>([])
   const [tasks, setTasks] = useState<OnlineAaccupTask[]>([])
@@ -144,8 +153,24 @@ export function AACCUPAreaDetailsModal({
   const [returnTarget, setReturnTarget] = useState<{ id: string; title: string } | null>(null)
   const [submitTask, setSubmitTask] = useState<OnlineAaccupTask | null>(null)
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null)
+  const [previewDocument, setPreviewDocument] = useState<Document | null>(null)
 
-  const loadSubmissions = () => {
+  useEffect(() => {
+    if (!page) return
+    const tab = searchParams.get("tab")
+    if ((tab === "submissions" || tab === "tasks" || tab === "requirements") && tab !== view) setView(tab)
+  }, [page, searchParams, view])
+
+  const changeView = (next: "submissions" | "tasks" | "requirements") => {
+    setView(next)
+    if (page) {
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.set("tab", next)
+      setSearchParams(nextParams, { replace: true })
+    }
+  }
+
+  const loadSubmissions = useCallback(() => {
     if (!area) return
     listAllOnlineSubmissions({ areaId: area.serverId, areaSet })
       .then((items) => {
@@ -163,8 +188,8 @@ export function AACCUPAreaDetailsModal({
         setSubmissions(mapped)
         setStats({
           completed: items.filter((s) => s.status === "APPROVED").length,
-          pending: items.filter((s) => s.status === "PENDING" || s.status === "NEEDS_REVISION").length,
-          returned: items.filter((s) => s.status === "REJECTED").length,
+          pending: items.filter((s) => s.status === "PENDING").length,
+          returned: items.filter((s) => s.status === "NEEDS_REVISION" || s.status === "REJECTED").length,
           total: items.length,
         })
       })
@@ -173,7 +198,7 @@ export function AACCUPAreaDetailsModal({
         setRawSubmissions([])
         setStats({ completed: 0, pending: 0, returned: 0, total: 0 })
       })
-  }
+  }, [area, areaSet])
 
   useEffect(() => {
     if (!open || !area) return
@@ -188,7 +213,7 @@ export function AACCUPAreaDetailsModal({
     listOnlineAreaRequirements(area.serverId)
       .then(setRequirements)
       .catch(() => setRequirements([]))
-  }, [open, area])
+  }, [open, area, loadSubmissions])
 
   const loadRequirements = () => {
     if (!area) return
@@ -257,10 +282,14 @@ export function AACCUPAreaDetailsModal({
     action: `submitted "${submission.title}"`,
     time: submission.dateSubmitted,
   }))
+  const completion = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : area.completion
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[92vw] max-h-[90vh] w-[92vw] h-[90vh] p-0 overflow-hidden flex flex-col [&>button]:hidden">
+  const content = (
+    <>
+      <div className={cn(
+        "flex flex-col overflow-hidden",
+        page ? "min-h-[calc(100vh-9rem)] rounded-xl border border-gray-200/70 bg-white shadow-sm" : "h-full",
+      )}>
         <DialogHeader className="px-6 py-4 border-b border-gray-100 flex-shrink-0 bg-white relative">
           <div className="flex items-center justify-between gap-4 pr-12">
             <div className="flex items-center gap-4 min-w-0">
@@ -268,16 +297,20 @@ export function AACCUPAreaDetailsModal({
                 {area.id}
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-lg truncate">Area {area.id}: {area.title}</DialogTitle>
+                {page ? (
+                  <h1 className="text-lg font-semibold text-gray-900 truncate">Area {area.id}: {area.title}</h1>
+                ) : (
+                  <DialogTitle className="text-lg truncate">Area {area.id}: {area.title}</DialogTitle>
+                )}
                 <div className="flex items-center gap-3 mt-1.5">
                   <div className="flex items-center gap-2">
                     <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-primary rounded-full"
-                        style={{ width: `${area.completion}%` }}
+                         style={{ width: `${completion}%` }}
                       />
                     </div>
-                    <span className="text-[13px] font-medium text-primary">{area.completion}%</span>
+                     <span className="text-[13px] font-medium text-primary">{completion}%</span>
                   </div>
                   <Badge variant={areaStatusVariant[area.status]} className="text-[10px] flex-shrink-0">
                     {area.status}
@@ -285,7 +318,7 @@ export function AACCUPAreaDetailsModal({
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex max-w-full flex-wrap items-center justify-end gap-2 flex-shrink-0">
               {canManageTasks && onEditArea && (
                 <Button variant="outline" size="sm" className="h-9" onClick={onEditArea}>
                   <Pencil className="w-4 h-4 mr-2" />
@@ -304,12 +337,15 @@ export function AACCUPAreaDetailsModal({
               </Button>
             </div>
           </div>
-          <button
-            onClick={() => onOpenChange(false)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {!page && (
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </DialogHeader>
 
         <div className="flex-1 flex overflow-hidden bg-gray-50/50">
@@ -319,7 +355,7 @@ export function AACCUPAreaDetailsModal({
                 <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50/50">
                   <button
                     type="button"
-                    onClick={() => setView("submissions")}
+                     onClick={() => changeView("submissions")}
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
                       view === "submissions" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
@@ -330,7 +366,7 @@ export function AACCUPAreaDetailsModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setView("tasks")}
+                     onClick={() => changeView("tasks")}
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
                       view === "tasks" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
@@ -341,7 +377,7 @@ export function AACCUPAreaDetailsModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setView("requirements")}
+                     onClick={() => changeView("requirements")}
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
                       view === "requirements" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
@@ -624,8 +660,35 @@ export function AACCUPAreaDetailsModal({
                     ) : (
                       submissions.map((submission) => (
                         <React.Fragment key={submission.id}>
-                          <TableRow
-                            className={cn(
+              <TableRow
+                onDoubleClick={() => {
+                  const raw = rawSubmissions.find((item) => item.id === submission.id)
+                  if (!raw) return
+                  setPreviewDocument({
+                    id: raw.documentId,
+                    name: raw.documentTitle,
+                    type: raw.documentTitle.split(".").pop()?.toUpperCase() || "FILE",
+                    categoryId: raw.requirementId,
+                    categoryName: raw.requirementCode,
+                    area: raw.areaName,
+                    department: raw.departmentName ?? "Unassigned",
+                    ownerId: raw.submittedById ?? "",
+                    ownerName: raw.submittedByName ?? "Unknown",
+                    size: 0,
+                    status: (raw.status === "APPROVED" ? "Approved" : raw.status === "REJECTED" ? "Rejected" : raw.status === "NEEDS_REVISION" ? "Returned" : "Pending") as DocumentStatus,
+                    blobId: `online:${raw.documentId}`,
+                    currentVersionId: "",
+                    versionCount: 1,
+                    archived: false,
+                    dateModified: raw.submittedAt,
+                    dateCreated: raw.submittedAt,
+                     mimeType: mimeTypeForFilename(raw.documentTitle),
+                    tags: [],
+                    createdAt: raw.submittedAt,
+                    updatedAt: raw.submittedAt,
+                  })
+                }}
+                className={cn(
                               "border-b border-gray-100 transition-colors cursor-pointer hover:bg-gray-50/50",
                               expandedRow === submission.id && "bg-primary/5"
                             )}
@@ -682,8 +745,7 @@ export function AACCUPAreaDetailsModal({
                               <div className="flex items-center justify-end gap-0.5">
                                 {(() => {
                                   const raw = rawSubmissions.find((s) => s.id === submission.id)
-                                  const reviewable =
-                                    canManageTasks && raw && (raw.status === "PENDING" || raw.status === "NEEDS_REVISION")
+                                   const reviewable = canManageTasks && raw?.status === "PENDING"
                                   return (
                                     <>
                                       {reviewable && (
@@ -825,10 +887,10 @@ export function AACCUPAreaDetailsModal({
                 <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[13px] font-medium text-gray-700">Area Completion</span>
-                    <span className="text-[20px] font-bold text-primary">{area.completion}%</span>
+                     <span className="text-[20px] font-bold text-primary">{completion}%</span>
                   </div>
                   <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary rounded-full" style={{ width: `${area.completion}%` }} />
+                     <div className="h-full bg-primary rounded-full" style={{ width: `${completion}%` }} />
                   </div>
                 </div>
 
@@ -853,25 +915,25 @@ export function AACCUPAreaDetailsModal({
 
                 <div className={cn(
                   "p-3 rounded-xl border",
-                  area.completion >= 80 ? "bg-emerald-50 border-emerald-100" : "bg-amber-50 border-amber-100"
+                   completion >= 80 ? "bg-emerald-50 border-emerald-100" : "bg-amber-50 border-amber-100"
                 )}>
                   <div className="flex items-center gap-2 mb-1">
                     <TrendingUp className={cn(
                       "w-4 h-4",
-                      area.completion >= 80 ? "text-emerald-600" : "text-amber-600"
+                       completion >= 80 ? "text-emerald-600" : "text-amber-600"
                     )} />
                     <span className={cn(
                       "text-[13px] font-medium",
-                      area.completion >= 80 ? "text-emerald-700" : "text-amber-700"
+                       completion >= 80 ? "text-emerald-700" : "text-amber-700"
                     )}>
-                      {area.completion >= 80 ? "Ready for Review" : "In Progress"}
+                       {completion >= 80 ? "Ready for Review" : "In Progress"}
                     </span>
                   </div>
                   <p className={cn(
                     "text-[12px]",
-                    area.completion >= 80 ? "text-emerald-600/80" : "text-amber-600/80"
+                     completion >= 80 ? "text-emerald-600/80" : "text-amber-600/80"
                   )}>
-                    {area.completion >= 80
+                     {completion >= 80
                       ? "This area meets the minimum requirements for accreditation review."
                       : "Additional documentation required before submission."}
                   </p>
@@ -904,7 +966,7 @@ export function AACCUPAreaDetailsModal({
             )}
           </div>
         </div>
-      </DialogContent>
+      </div>
 
       <ReturnSubmissionModal
         open={isReturnModalOpen}
@@ -938,6 +1000,42 @@ export function AACCUPAreaDetailsModal({
             .catch(() => setTasks([]))
         }}
       />
+      {previewDocument && (
+        <FilePreviewModal
+          document={previewDocument}
+          onClose={() => setPreviewDocument(null)}
+        />
+      )}
+    </>
+  )
+
+  if (page) return content
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[92vw] max-h-[90vh] w-[92vw] h-[90vh] p-0 overflow-hidden flex flex-col [&>button]:hidden">
+        {content}
+      </DialogContent>
     </Dialog>
   )
+}
+
+function mimeTypeForFilename(filename: string): string {
+  const extension = filename.split(".").pop()?.toLowerCase()
+  const types: Record<string, string> = {
+    pdf: "application/pdf",
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    gif: "image/gif",
+    webp: "image/webp",
+    doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    xls: "application/vnd.ms-excel",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ppt: "application/vnd.ms-powerpoint",
+    pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    txt: "text/plain",
+  }
+  return (extension && types[extension]) || "application/octet-stream"
 }

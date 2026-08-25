@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   ChevronLeft,
   ChevronRight,
@@ -83,6 +83,7 @@ export function DocumentPreviewModal({
   const [totalPages] = useState(1)
   const [zoomLevel, setZoomLevel] = useState(100)
   const [rotation, setRotation] = useState(0)
+  const previewFrameRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
     if (!open || !document?.id) {
@@ -124,7 +125,34 @@ export function DocumentPreviewModal({
   const handlePrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1))
   const handleNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages))
   const handleRotate = () => setRotation((prev) => (prev + 90) % 360)
-  const handlePrint = () => window.print()
+  const handlePrint = () => {
+    if (isImage && blobUrl) {
+      const printWindow = window.open("", "_blank")
+      if (!printWindow) return
+      const image = printWindow.document.createElement("img")
+      image.src = blobUrl
+      image.alt = document?.name ?? "Document"
+      image.style.maxWidth = "100%"
+      image.style.maxHeight = "100vh"
+      image.style.objectFit = "contain"
+      printWindow.document.body.style.margin = "0"
+      printWindow.document.body.style.display = "flex"
+      printWindow.document.body.style.justifyContent = "center"
+      printWindow.document.body.style.alignItems = "center"
+      image.onload = () => {
+        printWindow.focus()
+        printWindow.print()
+        printWindow.close()
+      }
+      printWindow.document.body.appendChild(image)
+      return
+    }
+    if (isPdf && previewFrameRef.current?.contentWindow) {
+      previewFrameRef.current.contentWindow.print()
+      return
+    }
+    window.print()
+  }
   const handleDownload = async () => {
     if (!document?.id) return
     const result = await apiGet<PreviewDownloadResult>(`/documents/${encodeURIComponent(document.id)}/download`)
@@ -230,6 +258,7 @@ export function DocumentPreviewModal({
               )}
               {!loading && !error && blobUrl && isPdf && (
                 <iframe
+                  ref={previewFrameRef}
                   src={blobUrl}
                   className="bg-white shadow-xl w-full max-w-[700px] aspect-[8.5/11]"
                   style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: "top center" }}

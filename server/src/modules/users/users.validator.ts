@@ -59,6 +59,17 @@ export const updateSelfSchema = z
   .strict();
 export type UpdateSelfInput = z.infer<typeof updateSelfSchema>;
 
+export const profilePhotoPresignSchema = z.object({
+  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  sizeBytes: z.number().int().positive().max(2 * 1024 * 1024),
+});
+export type ProfilePhotoPresignInput = z.infer<typeof profilePhotoPresignSchema>;
+
+export const profilePhotoFinalizeSchema = z.object({
+  objectKey: z.string().regex(/^profile-photos\/[0-9a-f-]{36}\/photo$/i),
+});
+export type ProfilePhotoFinalizeInput = z.infer<typeof profilePhotoFinalizeSchema>;
+
 export const changeUserStatusSchema = z.object({
   status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"]),
 });

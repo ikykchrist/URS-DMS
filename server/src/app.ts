@@ -28,7 +28,22 @@ export function createApp(): Express {
 
   app.use(
     cors({
-      origin: env.CLIENT_URL,
+      origin: (requestOrigin, callback) => {
+        if (!requestOrigin) {
+          callback(null, true);
+          return;
+        }
+
+        const allowed = env.CLIENT_URL.some((configuredOrigin) => {
+          const wildcardIndex = configuredOrigin.indexOf("*.");
+          if (wildcardIndex >= 0) {
+            return requestOrigin.startsWith(configuredOrigin.slice(0, wildcardIndex))
+              && requestOrigin.endsWith(configuredOrigin.slice(wildcardIndex + 1));
+          }
+          return configuredOrigin === requestOrigin;
+        });
+        callback(null, allowed);
+      },
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],

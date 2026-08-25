@@ -23,4 +23,5 @@ export interface UserListItem {
 export interface UserDetail extends UserListItem {
   updatedAt: Date;
   deletedAt: Date | null;
+  profilePhotoKey: string | null;
 }

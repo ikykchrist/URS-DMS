@@ -78,8 +78,8 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, isUser: user
       ? [...adminMoreTabs, ...rootMoreTabs]
       : adminMoreTabs
   const isTabActive = (id: string) => {
-    if (isUser && id === "aaccup") {
-      return ["aaccup", "iso", "certification", "submissions", "tasks"].includes(activePage)
+    if (id === "aaccup") {
+      return ["aaccup", "iso", "aaccup-area", "iso-area", "certification", "submissions", "tasks"].includes(activePage)
     }
     return id === activePage
   }
@@ -90,6 +90,32 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, isUser: user
         {mainTabs.map((tab) => {
           const isActive = isTabActive(tab.id)
           const badgeCount = badges?.[tab.id] ?? 0
+          if (tab.id === "aaccup") {
+            return (
+              <DropdownMenu key={tab.id}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={cn(
+                      "relative flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full py-1 transition-colors",
+                      isActive
+                        ? isUser
+                          ? "mx-1 my-1 h-[calc(100%-0.5rem)] rounded-lg bg-slate-900 text-white shadow-sm dark:bg-slate-700"
+                          : "text-primary dark:text-blue-400"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
+                    )}
+                  >
+                    <tab.icon className="w-5 h-5" />
+                    <span className="text-[10px] font-medium leading-none">{tab.label}</span>
+                    {badgeCount > 0 && <span className="absolute -top-0.5 right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{badgeCount > 99 ? "99+" : badgeCount}</span>}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" side="top" className="mb-2 w-40">
+                  <DropdownMenuItem onClick={() => onNavigate("aaccup")} className={cn("text-[13px]", activePage === "aaccup" && "bg-primary/10 dark:bg-primary/20")}>AACCUP</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onNavigate("iso")} className={cn("text-[13px]", activePage === "iso" && "bg-primary/10 dark:bg-primary/20")}>ISO</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )
+          }
           return (
             <button
               key={tab.id}

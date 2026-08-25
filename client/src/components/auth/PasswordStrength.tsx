@@ -1,27 +1,15 @@
 import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { passwordRequirements } from "@/components/auth/passwordRules"
 
 interface PasswordStrengthProps {
   password: string
   className?: string
 }
 
-interface Requirement {
-  test: (password: string) => boolean
-  label: string
-}
-
-const requirements: Requirement[] = [
-  { test: (p) => p.length >= 8, label: "At least 8 characters" },
-  { test: (p) => /[A-Z]/.test(p), label: "One uppercase letter" },
-  { test: (p) => /[a-z]/.test(p), label: "One lowercase letter" },
-  { test: (p) => /[0-9]/.test(p), label: "One number" },
-  { test: (p) => /[!@#$%^&*(),.?":{}|<>]/.test(p), label: "One special character" },
-]
-
 export function PasswordStrength({ password, className }: PasswordStrengthProps) {
-  const metRequirements = requirements.filter((req) => req.test(password))
-  const strengthPercent = (metRequirements.length / requirements.length) * 100
+  const metRequirements = passwordRequirements.filter((req) => req.test(password))
+  const strengthPercent = (metRequirements.length / passwordRequirements.length) * 100
 
   const getStrengthColor = () => {
     if (strengthPercent <= 20) return "bg-red-500"
@@ -65,7 +53,7 @@ export function PasswordStrength({ password, className }: PasswordStrengthProps)
       </div>
 
       <ul className="space-y-1.5">
-        {requirements.map((req, index) => {
+        {passwordRequirements.map((req, index) => {
           const isMet = req.test(password)
           return (
             <li key={index} className="flex items-center gap-2">

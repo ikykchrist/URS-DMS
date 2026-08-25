@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { env } from "@/config/env";
+import { strongPasswordSchema } from "@/modules/auth/auth.validator";
 
 // =============================================================================
 // URS-DMS — password recovery validators (Sprint 8.2)
@@ -13,10 +13,7 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export const resetPasswordSchema = z
   .object({
     token: z.string().trim().min(20).max(512),
-    newPassword: z
-      .string()
-      .min(env.PASSWORD_MIN_LENGTH, `Password must be at least ${env.PASSWORD_MIN_LENGTH} characters`)
-      .max(128),
+    newPassword: strongPasswordSchema,
   })
   .strict();
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

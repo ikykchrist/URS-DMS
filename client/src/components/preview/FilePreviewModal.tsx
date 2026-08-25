@@ -90,7 +90,30 @@ export function FilePreviewModal({ document, onClose, onRename, onMove, onDelete
     try { await onRename?.(document, title.trim()); setEditing(false) } finally { setSaving(false) }
   }
 
-  const printPreview = () => { try { iframeRef.current?.contentWindow?.print() } catch {} }
+  const printPreview = () => {
+    if (isImage && url) {
+      const printWindow = window.open("", "_blank")
+      if (!printWindow) return
+      const image = printWindow.document.createElement("img")
+      image.src = url
+      image.alt = document.name
+      image.style.maxWidth = "100%"
+      image.style.maxHeight = "100vh"
+      image.style.objectFit = "contain"
+      printWindow.document.body.style.margin = "0"
+      printWindow.document.body.style.display = "flex"
+      printWindow.document.body.style.justifyContent = "center"
+      printWindow.document.body.style.alignItems = "center"
+      image.onload = () => {
+        printWindow.focus()
+        printWindow.print()
+        printWindow.close()
+      }
+      printWindow.document.body.appendChild(image)
+      return
+    }
+    try { iframeRef.current?.contentWindow?.print() } catch { return }
+  }
 
   const mediaStyle = {
     transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
@@ -247,8 +270,8 @@ export function FilePreviewModal({ document, onClose, onRename, onMove, onDelete
               <audio src={url} controls className="w-full max-w-md" />
             </div>
           ) : isImage ? (
-            <div className="flex items-center justify-center h-full overflow-auto">
-              <img src={url} alt={document.name} className="max-w-full rounded-lg shadow-lg" style={mediaStyle} />
+            <div className="flex h-full w-full items-center justify-center overflow-auto p-2">
+              <img src={url} alt={document.name} className="block max-h-full max-w-full rounded-lg object-contain shadow-lg" style={mediaStyle} />
             </div>
           ) : (
             <iframe ref={iframeRef} src={url} title={document.name} className="w-full h-full min-h-[60vh] rounded-lg bg-white dark:bg-[#111827] shadow-sm" />

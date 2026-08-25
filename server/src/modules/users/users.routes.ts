@@ -9,6 +9,8 @@ import {
   listUsersQuerySchema,
   resetPasswordSchema,
   updateSelfSchema,
+  profilePhotoPresignSchema,
+  profilePhotoFinalizeSchema,
   updateUserSchema,
   userIdParamSchema,
 } from "@/modules/users/users.validator";
@@ -20,6 +22,9 @@ import {
   listUsersHandler,
   resetPasswordHandler,
   updateSelfHandler,
+  profilePhotoPresignHandler,
+  profilePhotoFinalizeHandler,
+  profilePhotoHandler,
   updateUserHandler,
 } from "@/modules/users/users.controller";
 import { sendSuccess, sendNoContent } from "@/utils/apiResponse";
@@ -43,6 +48,10 @@ usersRouter.patch(
   validateBody(updateSelfSchema),
   asyncHandler(updateSelfHandler),
 );
+
+usersRouter.get("/me/profile-photo", asyncHandler(profilePhotoHandler));
+usersRouter.post("/me/profile-photo/presign", validateBody(profilePhotoPresignSchema), asyncHandler(profilePhotoPresignHandler));
+usersRouter.post("/me/profile-photo/finalize", validateBody(profilePhotoFinalizeSchema), asyncHandler(profilePhotoFinalizeHandler));
 
 usersRouter.get(
   "/me/export",
