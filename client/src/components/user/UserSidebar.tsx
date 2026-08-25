@@ -12,6 +12,7 @@ import {
   Clock,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useLocation } from "react-router-dom"
 import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import { Button } from "@/components/ui/Button"
 import { Logo } from "@/components/layout/Logo"
@@ -56,6 +57,24 @@ export function UserSidebar({
   className,
 }: UserSidebarProps) {
   const { logout } = useAuth()
+  const location = useLocation()
+
+  const isItemActive = (id: string) => {
+    const path = location.pathname
+    if (id === "dashboard") return path === "/user" || path === "/user/dashboard"
+    if (id === "documents") return path.startsWith("/user/documents")
+    if (id === "requests") return path.startsWith("/user/requests")
+    if (id === "aaccup") {
+      return ["/user/aaccup", "/user/iso", "/user/certification", "/user/submissions", "/user/tasks"].some(
+        (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+      )
+    }
+    if (id === "notifications") return path.startsWith("/user/notifications")
+    if (id === "activity") return path.startsWith("/user/activity")
+    if (id === "profile") return path.startsWith("/user/profile")
+    if (id === "settings") return path.startsWith("/user/settings")
+    return activePage === id
+  }
 
   // Rule 6: warn before navigating away while uploads are active.
   const handleNavigate = (page: string) => {
@@ -94,7 +113,7 @@ export function UserSidebar({
           <div className="space-y-1">
             {sidebarItems.map((item) => {
               const Icon = item.icon
-              const isActive = activePage === item.id
+              const isActive = isItemActive(item.id)
               let badgeCount = 0
               if (item.id === "notifications") badgeCount = unreadNotifications
               else if (item.id === "aaccup" && attention) badgeCount = attention.returned + attention.tasks
@@ -109,12 +128,12 @@ export function UserSidebar({
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150 relative",
                     isActive
-                      ? "bg-gray-900 text-white shadow-sm"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                      ? "bg-slate-900 text-white shadow-sm shadow-slate-300/40 dark:bg-slate-700 dark:shadow-none"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
                     collapsed && "justify-center"
                   )}
                 >
-                  <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", isActive && "text-white")} />
+                  <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", isActive ? "text-sky-300" : "text-slate-500")} />
                   {!collapsed && <span>{item.label}</span>}
                   {showBadge && !collapsed && (
                     <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">

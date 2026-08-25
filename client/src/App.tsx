@@ -1059,7 +1059,7 @@ function UserAppContent() {
         </main>
       </div>
     </div>
-    <MobileBottomBar activePage={activePage} onNavigate={handleNavigate} badges={{ documents: attention.fulfilledRequests, aaccup: attention.returnedSubmissions + attention.dueSoonTasks + attention.overdueTasks, requests: attention.pendingRequests + attention.fulfilledRequests, notifications: unreadCount }} />
+     <MobileBottomBar isUser activePage={activePage} onNavigate={handleNavigate} badges={{ documents: attention.fulfilledRequests, aaccup: attention.returnedSubmissions + attention.dueSoonTasks + attention.overdueTasks, requests: attention.pendingRequests + attention.fulfilledRequests, notifications: unreadCount }} />
     </>
   )
 }

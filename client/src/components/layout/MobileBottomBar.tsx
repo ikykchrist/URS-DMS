@@ -32,6 +32,7 @@ interface MobileBottomBarProps {
   activePage: string
   onNavigate: (page: string) => void
   showRoot?: boolean
+  isUser?: boolean
   badges?: Record<string, number>
 }
 
@@ -68,20 +69,26 @@ const userMoreTabs: BottomTab[] = [
   { id: "settings", icon: Settings, label: "Settings" },
 ]
 
-export function MobileBottomBar({ activePage, onNavigate, showRoot, badges }: MobileBottomBarProps) {
-  const isUser = !showRoot && activePage !== "users" && activePage !== "audit" && activePage !== "settings"
+export function MobileBottomBar({ activePage, onNavigate, showRoot, isUser: userProp, badges }: MobileBottomBarProps) {
+  const isUser = userProp ?? (!showRoot && activePage !== "users" && activePage !== "audit" && activePage !== "settings")
   const mainTabs = isUser ? userMainTabs : adminMainTabs
   const moreTabs = isUser
     ? userMoreTabs
     : showRoot
       ? [...adminMoreTabs, ...rootMoreTabs]
       : adminMoreTabs
+  const isTabActive = (id: string) => {
+    if (isUser && id === "aaccup") {
+      return ["aaccup", "iso", "certification", "submissions", "tasks"].includes(activePage)
+    }
+    return id === activePage
+  }
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-[#0F1520] border-t border-gray-200 dark:border-gray-700 safe-bottom">
       <div className="flex justify-around items-center h-16 px-1">
         {mainTabs.map((tab) => {
-          const isActive = activePage === tab.id
+          const isActive = isTabActive(tab.id)
           const badgeCount = badges?.[tab.id] ?? 0
           return (
             <button
@@ -90,8 +97,10 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, badges }: Mo
               className={cn(
                 "relative flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full py-1 transition-colors",
                 isActive
-                  ? "text-primary dark:text-blue-400"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
+                   ? isUser
+                     ? "mx-1 my-1 h-[calc(100%-0.5rem)] rounded-lg bg-slate-900 text-white shadow-sm dark:bg-slate-700"
+                     : "text-primary dark:text-blue-400"
+                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
               )}
             >
               <tab.icon className="w-5 h-5" />
@@ -109,8 +118,10 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, badges }: Mo
             <button
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full py-1 transition-colors",
-                moreTabs.some((t) => t.id === activePage)
-                  ? "text-primary dark:text-blue-400"
+                moreTabs.some((t) => isTabActive(t.id))
+                  ? isUser
+                    ? "mx-1 my-1 h-[calc(100%-0.5rem)] rounded-lg bg-slate-900 text-white shadow-sm dark:bg-slate-700"
+                    : "text-primary dark:text-blue-400"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
               )}
             >
@@ -123,7 +134,7 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, badges }: Mo
               <DropdownMenuItem
                 key={tab.id}
                 onClick={() => onNavigate(tab.id)}
-                className={cn("text-[13px]", activePage === tab.id && "bg-primary/10 dark:bg-primary/20")}
+                className={cn("text-[13px]", isTabActive(tab.id) && "bg-primary/10 dark:bg-primary/20")}
               >
                 <tab.icon className="w-4 h-4 mr-2.5" />
                 {tab.label}
