@@ -60,6 +60,7 @@ export function UserSidebar({
   const location = useLocation()
 
   const isItemActive = (id: string) => {
+    if (activePage === id) return true
     const path = location.pathname
     if (id === "dashboard") return path === "/user" || path === "/user/dashboard"
     if (id === "documents") return path.startsWith("/user/documents")

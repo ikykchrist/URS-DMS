@@ -124,7 +124,7 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                   onClick={() => setRootConsoleOpen((open) => !open)}
                   aria-expanded={rootConsoleOpen}
                   className={cn(
-                    "w-full flex items-center gap-3 rounded-xl px-3 py-3 text-[14px] font-semibold transition-all duration-150",
+                    "w-full h-11 flex items-center gap-3 rounded-xl px-3 text-[14px] font-semibold transition-all duration-150",
                     rootConsoleHighlighted
                       ? "bg-slate-900 text-white shadow-sm shadow-slate-300/40 hover:bg-slate-800 dark:bg-slate-700 dark:shadow-none dark:hover:bg-slate-600"
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
