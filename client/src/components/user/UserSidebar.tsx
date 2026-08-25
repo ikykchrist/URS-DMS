@@ -60,8 +60,11 @@ export function UserSidebar({
   const location = useLocation()
 
   const isItemActive = (id: string) => {
-    if (activePage === id) return true
     const path = location.pathname
+    const isUserRoute = path === "/user" || path.startsWith("/user/")
+
+    if (!isUserRoute) return activePage === id
+
     if (id === "dashboard") return path === "/user" || path === "/user/dashboard"
     if (id === "documents") return path.startsWith("/user/documents")
     if (id === "requests") return path.startsWith("/user/requests")
@@ -74,7 +77,7 @@ export function UserSidebar({
     if (id === "activity") return path.startsWith("/user/activity")
     if (id === "profile") return path.startsWith("/user/profile")
     if (id === "settings") return path.startsWith("/user/settings")
-    return activePage === id
+    return false
   }
 
   // Rule 6: warn before navigating away while uploads are active.
