@@ -8,6 +8,17 @@
 
 ---
 
+## v1.4.0 - 2026-08-26
+
+- Added password reset flow with authenticated reset links.
+- Added user profile photo upload and display.
+- Added admin area details (password reset / profile photo management).
+- Redesigned user sidebar active states, grouped root tools into a dropdown,
+  and scoped active styling to the correct sidebar.
+- Fixed storage/launch tunnel-safety for the server.
+- Fixed email links to use the public app URL.
+- Published as v1.4 with a GitHub release.
+
 ## v1.3.0 - 2026-08-24
 
 - Added email account creation with invitation validation and transactional email
