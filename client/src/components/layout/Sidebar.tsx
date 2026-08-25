@@ -46,7 +46,7 @@ const rootConsoleItems: SidebarItem[] = [
   { id: "root-requirement-builder", icon: FileCheck2, label: "Requirement Builder" },
   { id: "root-form-builder", icon: ClipboardList, label: "Form Builder" },
   { id: "root-maintenance", icon: HardDrive, label: "Storage Maintenance" },
-  { id: "root-roles-permissions", icon: Shield, label: "Roles &amp; Permissions" },
+  { id: "root-roles-permissions", icon: Shield, label: "Roles & Permissions" },
   { id: "root-audit", icon: ScrollText, label: "System Audit" },
   { id: "root-users", icon: Users, label: "System Users" },
 ]
@@ -63,6 +63,7 @@ interface SidebarProps {
 export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard", onNavigate, showRoot = false, className }: SidebarProps) {
   const [rootConsoleOpen, setRootConsoleOpen] = useState(true)
   const rootConsoleActive = rootConsoleItems.some((item) => item.id === activePage)
+  const rootConsoleHighlighted = rootConsoleActive || (!collapsed && rootConsoleOpen)
 
   // Rule 6: warn before navigating away while uploads are active.
   const handleNavigate = (page: string) => {
@@ -99,15 +100,20 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                 <button
                   key={item.id}
                   onClick={() => handleNavigate(item.id)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150",
-                    isActive
-                      ? "bg-gray-900 text-white shadow-sm"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
-                    collapsed && "justify-center"
-                  )}
-                >
-                  <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", isActive && "text-white")} />
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150",
+                      isActive
+                       ? showRoot
+                         ? "bg-slate-900 text-white shadow-sm shadow-slate-300/40 dark:bg-slate-700 dark:shadow-none"
+                         : "bg-gray-900 text-white shadow-sm"
+                       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                      collapsed && "justify-center"
+                    )}
+                  >
+                    <Icon className={cn(
+                      "w-[18px] h-[18px] flex-shrink-0",
+                      isActive && (showRoot ? "text-sky-300" : "text-white"),
+                    )} />
                   {!collapsed && <span>{item.label}</span>}
                 </button>
               )
@@ -119,7 +125,7 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                   aria-expanded={rootConsoleOpen}
                   className={cn(
                     "w-full flex items-center gap-3 rounded-xl px-3 py-3 text-[14px] font-semibold transition-all duration-150",
-                    rootConsoleActive || rootConsoleOpen
+                    rootConsoleHighlighted
                       ? "bg-slate-900 text-white shadow-sm shadow-slate-300/40 hover:bg-slate-800 dark:bg-slate-700 dark:shadow-none dark:hover:bg-slate-600"
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
                     collapsed && "justify-center",
