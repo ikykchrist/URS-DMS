@@ -10,7 +10,7 @@ function Skeleton({ className, variant = "rectangular", width, height, style, ..
   return (
     <div
       className={cn(
-        "animate-pulse bg-gray-200",
+        "relative isolate overflow-hidden bg-slate-200/70 dark:bg-slate-700/60 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/55 before:to-transparent before:animate-[skeleton-shimmer_1.8s_ease-in-out_infinite] dark:before:via-white/10",
         variant === "circular" && "rounded-full",
         variant === "text" && "rounded h-4",
         variant === "rectangular" && "rounded-lg",
@@ -44,7 +44,7 @@ function SkeletonTable({ rows = 5, cols = 5 }: { rows?: number; cols?: number })
 
 function SkeletonCard() {
   return (
-    <div className="rounded-xl border border-gray-200/60 bg-white p-5 space-y-4">
+    <div className="rounded-xl border border-border/60 bg-white p-5 space-y-4">
       <div className="flex items-center gap-3">
         <Skeleton className="w-10 h-10" variant="circular" />
         <div className="space-y-2 flex-1">

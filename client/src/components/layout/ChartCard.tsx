@@ -11,7 +11,7 @@ interface ChartCardProps {
 
 export function ChartCard({ title, description, children, className }: ChartCardProps) {
   return (
-    <Card className={cn("border-gray-200/60 shadow-sm", className)}>
+    <Card className={cn("border-border/70 shadow-soft", className)}>
       <CardHeader className="px-5 pt-5 pb-3">
         <CardTitle className="text-[15px] font-semibold text-gray-900">{title}</CardTitle>
         {description && (

@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { asyncHandler } from "@/utils/asyncHandler";
-import { requirePermission } from "@/middlewares/authorize";
+import { requirePermission, requireRole } from "@/middlewares/authorize";
 import { validateBody, validateParams, validateQuery } from "@/middlewares/validate";
 import {
   submissionIdParamSchema,
   createSubmissionSchema,
+  exportSubmissionsQuerySchema,
   listSubmissionsQuerySchema,
   updateSubmissionSchema,
   reviewSubmissionSchema,
@@ -12,6 +13,7 @@ import {
 import {
   archiveSubmissionHandler,
   createSubmissionHandler,
+  exportSubmissionsZipHandler,
   getSubmissionHandler,
   listSubmissionsHandler,
   restoreSubmissionHandler,
@@ -24,7 +26,9 @@ import {
 // Mounted under /aaccup in aaccup.routes.ts. The parent authenticates, so
 // submission routes need only gate via the granular aaccup.submission.* codes.
 // Note: the sprint spec lists read / create / review / update / archive — the
-// restore endpoint reuses the archive permission.
+// restore endpoint reuses the archive permission. The approved-package ZIP
+// export is the single hard-role exception: it requires ROOT or ADMINISTRATOR
+// (requireRole), so QAO can review but never package approved submissions.
 // =============================================================================
 
 export const aaccupSubmissionsRouter: Router = Router();
@@ -43,6 +47,16 @@ aaccupSubmissionsRouter.post(
   requirePermission("aaccup.submission.create"),
   validateBody(createSubmissionSchema),
   asyncHandler(createSubmissionHandler),
+);
+
+// GET /aaccup/submissions/export — approved-package ZIP (ROOT / ADMINISTRATOR
+// only). Registered before /:id so the literal segment is never captured as a
+// UUID parameter.
+aaccupSubmissionsRouter.get(
+  "/export",
+  requireRole("ROOT", "ADMINISTRATOR"),
+  validateQuery(exportSubmissionsQuerySchema),
+  asyncHandler(exportSubmissionsZipHandler),
 );
 
 // GET /aaccup/submissions/:id

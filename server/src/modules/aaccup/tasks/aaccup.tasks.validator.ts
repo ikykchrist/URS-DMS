@@ -7,6 +7,7 @@ import { z } from "zod";
 const idParam = z.object({ id: z.string().uuid() });
 
 export const taskIdParamSchema = idParam;
+export const taskRequirementTemplatesQuerySchema = z.object({ areaId: z.string().uuid() });
 
 export const listTasksQuerySchema = z.object({
   areaId: z.string().uuid().optional(),
@@ -33,6 +34,7 @@ export const createTaskSchema = z
     priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).default("MEDIUM"),
     dueDate: z.coerce.date().nullable().optional(),
     requirementId: z.string().uuid().nullable().optional(),
+    requirementTemplateId: z.string().uuid().nullable().optional(),
     assigneeType: z.enum(["USER", "DEPARTMENT"]).default("USER"),
     assigneeId: z.string().trim().min(1).max(100),
   })
@@ -48,6 +50,7 @@ export const updateTaskSchema = z
     status: z.enum(["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
     dueDate: z.coerce.date().nullable().optional(),
     requirementId: z.string().uuid().nullable().optional(),
+    requirementTemplateId: z.string().uuid().nullable().optional(),
     assigneeType: z.enum(["USER", "DEPARTMENT"]).optional(),
     assigneeId: z.string().trim().min(1).max(100).optional(),
   })

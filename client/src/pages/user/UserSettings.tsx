@@ -68,7 +68,7 @@ export default function UserSettings() {
       <PageHeader title="Settings" description="Manage your preferences" />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-4">
             <CardTitle className="text-[15px] font-semibold text-gray-900">Notification Preferences</CardTitle>
           </CardHeader>
@@ -93,7 +93,7 @@ export default function UserSettings() {
           </CardContent>
         </Card>
 
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-4">
             <CardTitle className="text-[15px] font-semibold text-gray-900">Display Settings</CardTitle>
           </CardHeader>
@@ -104,8 +104,8 @@ export default function UserSettings() {
                 <p className="text-[12px] text-gray-500">Documents view style</p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className={cn("h-8", viewMode === "grid" ? "bg-gray-900 text-white" : "")} onClick={() => handleViewModeChange("grid")}>Grid</Button>
-                <Button variant="outline" size="sm" className={cn("h-8", viewMode === "list" ? "bg-gray-900 text-white" : "")} onClick={() => handleViewModeChange("list")}>List</Button>
+                <Button variant="outline" size="sm" className={cn("h-8", viewMode === "grid" ? "bg-primary text-white" : "")} onClick={() => handleViewModeChange("grid")}>Grid</Button>
+                <Button variant="outline" size="sm" className={cn("h-8", viewMode === "list" ? "bg-primary text-white" : "")} onClick={() => handleViewModeChange("list")}>List</Button>
               </div>
             </div>
 
@@ -127,16 +127,16 @@ export default function UserSettings() {
           </CardContent>
         </Card>
 
-        <Card className="border-gray-200/60 shadow-sm lg:col-span-2">
+        <Card className="border-border/70 shadow-soft lg:col-span-2">
           <CardHeader className="pb-4">
             <CardTitle className="text-[15px] font-semibold text-gray-900">Theme</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
-                { mode: "light" as const, label: "Light", desc: "Light mode interface", icon: Sun, preview: "bg-white border border-gray-200" },
+                { mode: "light" as const, label: "Light", desc: "Light mode interface", icon: Sun, preview: "bg-white border border-border" },
                 { mode: "dark" as const, label: "Dark", desc: "Dark mode interface", icon: Moon, preview: "bg-gray-900" },
-                { mode: "system" as const, label: "System", desc: "Match system settings", icon: Smartphone, preview: "bg-gradient-to-r from-white to-gray-900 border border-gray-200" },
+                { mode: "system" as const, label: "System", desc: "Match system settings", icon: Smartphone, preview: "bg-gradient-to-r from-white to-gray-900 border border-border" },
               ].map(({ mode, label, desc, icon: Icon, preview }) => (
                 <button
                   key={mode}
@@ -145,7 +145,7 @@ export default function UserSettings() {
                     "p-4 rounded-xl border-2 transition-all text-left",
                     theme === mode
                       ? "border-primary bg-primary-500"
-                      : "border-gray-200 hover:border-gray-300"
+                      : "border-border hover:border-gray-300"
                   )}
                 >
                   <div className={cn("w-full h-16 rounded-lg mb-3 flex items-center justify-center", preview)}>
@@ -159,7 +159,7 @@ export default function UserSettings() {
           </CardContent>
         </Card>
 
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-4">
             <CardTitle className="text-[15px] font-semibold text-gray-900">About</CardTitle>
           </CardHeader>

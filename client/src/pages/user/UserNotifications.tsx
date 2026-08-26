@@ -90,7 +90,9 @@ export default function UserNotifications() {
 
   const handleViewNotification = (notif: Notification) => {
     if (!notif.read) markAsRead(notif.id)
-    const route = resolveNotificationRoute(notif)
+    // User portal: submission notifications (approval / return / rejection)
+    // must land in /user/aaccup?tab=submissions…, never the admin portal.
+    const route = resolveNotificationRoute(notif, "user")
     if (!route) return
     const url = buildNotificationUrl(route, notif.entityId)
     navigate(url)
@@ -111,8 +113,8 @@ export default function UserNotifications() {
         }
       />
 
-      <Card className="border-gray-200/60 dark:border-gray-700 shadow-sm mb-6">
-        <CardContent className="p-4">
+      <Card className="border-border/60 dark:border-gray-700 shadow-soft mb-6">
+            <CardContent className="p-4 pt-4 md:p-5 md:pt-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="relative max-w-md w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -139,13 +141,13 @@ export default function UserNotifications() {
 
       <div className="space-y-2">
         {loading ? (
-          <Card className="border-gray-200/60 dark:border-gray-700 shadow-sm">
+          <Card className="border-border/60 dark:border-gray-700 shadow-soft">
             <CardContent className="p-8 text-center">
               <p className="text-[14px] text-gray-500">Loading notifications...</p>
             </CardContent>
           </Card>
         ) : filteredNotifs.length === 0 ? (
-          <Card className="border-gray-200/60 dark:border-gray-700 shadow-sm">
+          <Card className="border-border/60 dark:border-gray-700 shadow-soft">
             <CardContent className="p-8 text-center">
               <Bell className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
               <p className="text-[14px] text-gray-500">No notifications found</p>
@@ -160,14 +162,14 @@ export default function UserNotifications() {
                 onDoubleClick={() => handleViewNotification(notif)}
                 title={route ? "Double-click to view" : undefined}
                 className={cn(
-                  "border-gray-200/60 dark:border-gray-700 shadow-sm transition-all cursor-pointer",
+                  "border-border/60 dark:border-gray-700 shadow-soft transition-all cursor-pointer",
                   !notif.read && "bg-primary/5 dark:bg-primary/10 border-l-4 border-l-primary"
                 )}
               >
-                <CardContent className="p-4">
+                <CardContent className="p-4 pt-4 md:p-5 md:pt-5">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5">
-                      <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                      <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
                         {getIcon(notif)}
                       </div>
                     </div>

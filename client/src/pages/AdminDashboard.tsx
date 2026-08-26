@@ -101,46 +101,46 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     <div className="p-4 sm:p-6 lg:p-8">
       <PageHeader title="Good morning, Admin" description="Review what needs attention and monitor accreditation progress." />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
-        <Card className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => nav("submissions", { tab: "submissions", status: "PENDING" })}>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <Card className="border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200 cursor-pointer" onClick={() => nav("submissions", { tab: "submissions", status: "PENDING" })}>
           <CardContent className="p-4 md:p-5">
             <div className="flex items-center justify-between">
-              <div className="w-9 h-9 md:w-11 md:h-11 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+              <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600">
                 <FileCheck2 className="w-5 h-5" />
               </div>
               {pendingSubmissions > 0 && <Badge variant="warning" className="text-[10px]">Pending</Badge>}
             </div>
-            <p className="text-[12px] md:text-[13px] text-gray-500 font-medium mt-3 md:mt-4">Submissions</p>
-            <p className="text-[22px] md:text-[28px] font-semibold text-gray-900 mt-0.5 tracking-tight">{submissions.data ? pendingSubmissions : "…"}</p>
+            <p className="text-[12px] md:text-[13px] text-gray-500 font-semibold mt-3 md:mt-4">Submissions</p>
+            <p className="text-[24px] md:text-[30px] font-extrabold text-navy-900 mt-0.5 tracking-tight">{submissions.data ? pendingSubmissions : "…"}</p>
           </CardContent>
         </Card>
-        <Card className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => nav("requests", { status: "PENDING" })}>
+        <Card className="border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200 cursor-pointer" onClick={() => nav("requests", { status: "PENDING" })}>
           <CardContent className="p-4 md:p-5">
             <div className="flex items-center justify-between">
-              <div className="w-9 h-9 md:w-11 md:h-11 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+              <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
                 <Send className="w-5 h-5" />
               </div>
               {pendingRequests > 0 && <Badge variant="warning" className="text-[10px]">Pending</Badge>}
             </div>
-            <p className="text-[12px] md:text-[13px] text-gray-500 font-medium mt-3 md:mt-4">Requests</p>
-            <p className="text-[22px] md:text-[28px] font-semibold text-gray-900 mt-0.5 tracking-tight">{requests.data ? pendingRequests : "…"}</p>
+            <p className="text-[12px] md:text-[13px] text-gray-500 font-semibold mt-3 md:mt-4">Requests</p>
+            <p className="text-[24px] md:text-[30px] font-extrabold text-navy-900 mt-0.5 tracking-tight">{requests.data ? pendingRequests : "…"}</p>
           </CardContent>
         </Card>
-        <Card className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "due-soon" })}>
+        <Card className="border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200 cursor-pointer" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "due-soon" })}>
           <CardContent className="p-4 md:p-5">
             <div className="flex items-center justify-between">
-              <div className="w-9 h-9 md:w-11 md:h-11 rounded-lg bg-red-50 flex items-center justify-center text-red-600">
+              <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-red-50 flex items-center justify-center text-red-600">
                 <Clock3 className="w-5 h-5" />
               </div>
               {dueSoonTasks > 0 && <Badge variant="danger" className="text-[10px]">Due Soon</Badge>}
             </div>
-            <p className="text-[12px] md:text-[13px] text-gray-500 font-medium mt-3 md:mt-4">Tasks</p>
-            <p className="text-[22px] md:text-[28px] font-semibold text-gray-900 mt-0.5 tracking-tight">{tasks.data ? dueSoonTasks : "…"}</p>
+            <p className="text-[12px] md:text-[13px] text-gray-500 font-semibold mt-3 md:mt-4">Tasks</p>
+            <p className="text-[24px] md:text-[30px] font-extrabold text-navy-900 mt-0.5 tracking-tight">{tasks.data ? dueSoonTasks : "…"}</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border-gray-200/60 shadow-sm mb-6 lg:mb-8">
+      <Card className="border-border/70 shadow-soft mb-6 lg:mb-8">
         <CardHeader className="pb-4">
           <CardTitle className="text-[15px] font-semibold">Accreditation Progress</CardTitle>
         </CardHeader>
@@ -156,19 +156,19 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               const page = key === "AACCUP" ? "aaccup" : key === "ISO" ? "iso" : "certification"
               return (
                 <div key={key}>
-                  <button type="button" className="block w-full rounded-lg p-2 text-left transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" onClick={() => nav(page)}>
+                  <button type="button" className="block w-full rounded-xl p-2 text-left transition hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary" onClick={() => nav(page)}>
                     <div className="mb-1.5 flex items-center justify-between text-sm">
-                      <span className="font-medium text-gray-800">{label}</span>
-                      <span className="font-semibold text-gray-900">{stats ? `${stats.overallCompliancePercentage}%` : "—"}</span>
+                      <span className="font-semibold text-gray-800">{label}</span>
+                      <span className="font-extrabold text-navy-900">{stats ? `${stats.overallCompliancePercentage}%` : "—"}</span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                      <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${stats?.overallCompliancePercentage ?? 0}%` }} />
+                    <div className="h-2.5 overflow-hidden rounded-full bg-navy-50">
+                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${stats?.overallCompliancePercentage ?? 0}%` }} />
                     </div>
                   </button>
                   <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 px-2 text-xs">
-                    <button type="button" className="text-emerald-600 hover:underline font-medium" onClick={() => nav("submissions", { status: "APPROVED" })}>Approved {overview.data!.aaccup.approved}</button>
-                    <button type="button" className="text-amber-600 hover:underline font-medium" onClick={() => nav("submissions", { status: "PENDING" })}>Pending {overview.data!.aaccup.pending}</button>
-                    <button type="button" className="text-orange-600 hover:underline font-medium" onClick={() => nav("submissions", { status: "NEEDS_REVISION" })}>Returned {overview.data!.aaccup.needsRevision}</button>
+                    <button type="button" className="text-emerald-600 hover:underline font-semibold" onClick={() => nav("submissions", { status: "APPROVED" })}>Approved {overview.data!.aaccup.approved}</button>
+                    <button type="button" className="text-amber-600 hover:underline font-semibold" onClick={() => nav("submissions", { status: "PENDING" })}>Pending {overview.data!.aaccup.pending}</button>
+                    <button type="button" className="text-orange-600 hover:underline font-semibold" onClick={() => nav("submissions", { status: "NEEDS_REVISION" })}>Returned {overview.data!.aaccup.needsRevision}</button>
                   </div>
                 </div>
               )
@@ -177,14 +177,14 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         </CardContent>
       </Card>
 
-      <Card className="border-gray-200/60 shadow-sm mb-6 lg:mb-8">
+      <Card className="border-border/70 shadow-soft mb-6 lg:mb-8">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-[15px] font-semibold">Recent Submissions</CardTitle>
-            <Button variant="ghost" size="sm" className="h-8 text-[12px] text-primary" onClick={() => nav("submissions", { tab: "submissions" })}>View All</Button>
+            <Button variant="ghost" size="sm" className="h-9 text-[12px] text-primary" onClick={() => nav("submissions", { tab: "submissions" })}>View All</Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-1.5">
           {submissions.error ? (
             <p className="text-[13px] text-red-500 py-2">Recent submissions are unavailable.</p>
           ) : submissions.data === null ? (
@@ -193,13 +193,13 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             <p className="text-[13px] text-gray-400 py-2 text-center">No submissions recorded yet.</p>
           ) : (
             recentSubmissions.map((item) => (
-              <button key={item.id} type="button" onClick={() => nav("submissions", { tab: "submissions", highlight: item.id, areaSet: item.areaSet })} className="w-full flex items-center justify-between gap-3 p-2.5 rounded-lg hover:bg-gray-50/50 transition-colors text-left">
+              <button key={item.id} type="button" onClick={() => nav("submissions", { tab: "submissions", highlight: item.id, areaSet: item.areaSet })} className="w-full flex items-center justify-between gap-3 p-2.5 rounded-xl hover:bg-primary-50/40 transition-colors text-left">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <FileCheck2 className="w-4 h-4 text-gray-500" />
+                  <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0">
+                    <FileCheck2 className="w-4 h-4 text-primary-600" />
                   </div>
                   <div className="min-w-0 flex-1 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 items-baseline sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-                    <span className="text-[13px] font-medium text-gray-900 truncate">{item.documentTitle}</span>
+                    <span className="text-[13px] font-semibold text-gray-900 truncate">{item.documentTitle}</span>
                     <span className="hidden sm:block text-[12px] text-gray-500 truncate">{item.submittedByName ?? "Unknown"}</span>
                     <span className="hidden sm:block text-[12px] text-gray-500 truncate">{item.areaSet} · {item.areaName}</span>
                     <span className="text-[11px] text-gray-400 whitespace-nowrap">{statusLabel[item.status]} · {formatDate(item.submittedAt)}</span>
@@ -213,11 +213,11 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 mb-6 lg:mb-8">
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-[15px] font-semibold">Requests</CardTitle>
-              <Button variant="ghost" size="sm" className="h-8 text-[12px] text-primary" onClick={() => nav("requests")}>Manage<ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
+              <Button variant="ghost" size="sm" className="h-9 text-[12px] text-primary" onClick={() => nav("requests")}>Manage<ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -227,28 +227,28 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-8" />)}</div>
             ) : (
               <div className="space-y-1">
-                <button type="button" onClick={() => nav("requests", { status: "PENDING" })} className="flex w-full items-center justify-between rounded-md px-2 py-2 text-[13px] hover:bg-gray-50 transition-colors">
-                  <span className="text-gray-600">Pending</span>
-                  <span className={cn("font-semibold", pendingRequests > 0 ? "text-amber-600" : "text-gray-400")}>{pendingRequests}</span>
+                <button type="button" onClick={() => nav("requests", { status: "PENDING" })} className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-[13px] hover:bg-primary-50/40 transition-colors">
+                  <span className="text-gray-600 font-medium">Pending</span>
+                  <span className={cn("font-bold", pendingRequests > 0 ? "text-amber-600" : "text-gray-400")}>{pendingRequests}</span>
                 </button>
-                <button type="button" onClick={() => nav("requests", { status: "APPROVED" })} className="flex w-full items-center justify-between rounded-md px-2 py-2 text-[13px] hover:bg-gray-50 transition-colors">
-                  <span className="text-gray-600">Approved</span>
-                  <span className={cn("font-semibold", (requests.data?.filter((r) => r.status === "Approved").length ?? 0) > 0 ? "text-emerald-600" : "text-gray-400")}>{requests.data?.filter((r) => r.status === "Approved").length ?? 0}</span>
+                <button type="button" onClick={() => nav("requests", { status: "APPROVED" })} className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-[13px] hover:bg-primary-50/40 transition-colors">
+                  <span className="text-gray-600 font-medium">Approved</span>
+                  <span className={cn("font-bold", (requests.data?.filter((r) => r.status === "Approved").length ?? 0) > 0 ? "text-emerald-600" : "text-gray-400")}>{requests.data?.filter((r) => r.status === "Approved").length ?? 0}</span>
                 </button>
-                <button type="button" onClick={() => nav("requests", { status: "FULFILLED" })} className="flex w-full items-center justify-between rounded-md px-2 py-2 text-[13px] hover:bg-gray-50 transition-colors">
-                  <span className="text-gray-600">Fulfilled</span>
-                  <span className={cn("font-semibold", (requests.data?.filter((r) => r.status === "Fulfilled").length ?? 0) > 0 ? "text-blue-600" : "text-gray-400")}>{requests.data?.filter((r) => r.status === "Fulfilled").length ?? 0}</span>
+                <button type="button" onClick={() => nav("requests", { status: "FULFILLED" })} className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-[13px] hover:bg-primary-50/40 transition-colors">
+                  <span className="text-gray-600 font-medium">Fulfilled</span>
+                  <span className={cn("font-bold", (requests.data?.filter((r) => r.status === "Fulfilled").length ?? 0) > 0 ? "text-primary-600" : "text-gray-400")}>{requests.data?.filter((r) => r.status === "Fulfilled").length ?? 0}</span>
                 </button>
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-[15px] font-semibold">Tasks</CardTitle>
-              <Button variant="ghost" size="sm" className="h-8 text-[12px] text-primary" onClick={() => nav("aaccup", { tab: "tasks" })}>View Tasks<ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
+              <Button variant="ghost" size="sm" className="h-9 text-[12px] text-primary" onClick={() => nav("aaccup", { tab: "tasks" })}>View Tasks<ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -256,17 +256,17 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-8" />)}</div>
             ) : (
               <div className="space-y-1">
-                <button type="button" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "overdue" })} className="flex w-full items-center justify-between rounded-md px-2 py-2 text-[13px] hover:bg-gray-50 transition-colors">
-                  <span className="text-gray-600">Overdue</span>
-                  <span className={cn("font-semibold", overdueTasks > 0 ? "text-red-600" : "text-gray-400")}>{overdueTasks}</span>
+                <button type="button" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "overdue" })} className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-[13px] hover:bg-primary-50/40 transition-colors">
+                  <span className="text-gray-600 font-medium">Overdue</span>
+                  <span className={cn("font-bold", overdueTasks > 0 ? "text-red-600" : "text-gray-400")}>{overdueTasks}</span>
                 </button>
-                <button type="button" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "due-soon" })} className="flex w-full items-center justify-between rounded-md px-2 py-2 text-[13px] hover:bg-gray-50 transition-colors">
-                  <span className="text-gray-600">Due Soon</span>
-                  <span className={cn("font-semibold", dueSoonTasks > 0 ? "text-amber-600" : "text-gray-400")}>{dueSoonTasks}</span>
+                <button type="button" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "due-soon" })} className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-[13px] hover:bg-primary-50/40 transition-colors">
+                  <span className="text-gray-600 font-medium">Due Soon</span>
+                  <span className={cn("font-bold", dueSoonTasks > 0 ? "text-amber-600" : "text-gray-400")}>{dueSoonTasks}</span>
                 </button>
-                <button type="button" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "completed" })} className="flex w-full items-center justify-between rounded-md px-2 py-2 text-[13px] hover:bg-gray-50 transition-colors">
-                  <span className="text-gray-600">Completed</span>
-                  <span className={cn("font-semibold", completedTasks > 0 ? "text-emerald-600" : "text-gray-400")}>{completedTasks}</span>
+                <button type="button" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "completed" })} className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-[13px] hover:bg-primary-50/40 transition-colors">
+                  <span className="text-gray-600 font-medium">Completed</span>
+                  <span className={cn("font-bold", completedTasks > 0 ? "text-emerald-600" : "text-gray-400")}>{completedTasks}</span>
                 </button>
               </div>
             )}
@@ -274,14 +274,14 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         </Card>
       </div>
 
-      <Card className="border-gray-200/60 shadow-sm">
+      <Card className="border-border/70 shadow-soft">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-[15px] font-semibold">Recent Activity</CardTitle>
-            <Button variant="ghost" size="sm" className="h-8 text-[12px] text-primary" onClick={() => nav("audit")}>View Audit<ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
+            <Button variant="ghost" size="sm" className="h-9 text-[12px] text-primary" onClick={() => nav("audit")}>View Audit<ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-1.5">
           {activity.error ? (
             <p className="text-[13px] text-red-500 py-2">Recent activity is unavailable.</p>
           ) : activity.data === null ? (
@@ -302,14 +302,14 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                   key={entry.id}
                   type="button"
                   onClick={() => dest ? nav(dest.page, dest.query) : nav("audit")}
-                  className="group w-full rounded-xl border border-transparent px-3 py-3 text-left transition-colors hover:border-gray-200 hover:bg-gray-50/70"
+                  className="group w-full rounded-xl border border-transparent px-3 py-3 text-left transition-colors hover:border-border hover:bg-primary-50/30"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                    <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
                       <ClipboardList className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-gray-900">{entry.description ?? entry.action}</p>
+                      <p className="truncate text-[13px] font-semibold text-gray-900">{entry.description ?? entry.action}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-gray-500">
                         <span className="inline-flex items-center gap-1 font-medium text-slate-700">
                           <UserRound className="h-3 w-3 text-slate-400" />
@@ -323,7 +323,7 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                         </span>
                       </div>
                     </div>
-                    <ArrowRight className="mt-2 h-4 w-4 flex-shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-gray-500" />
+                    <ArrowRight className="mt-2 h-4 w-4 flex-shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-500" />
                   </div>
                 </button>
               )

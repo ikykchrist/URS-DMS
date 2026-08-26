@@ -1156,7 +1156,7 @@ export default function RootFolderBuilder() {
             <Button
               variant="outline"
               size="sm"
-              className="shadow-sm"
+              className="shadow-soft"
               onClick={() => void handleRefresh()}
               disabled={refreshing || isMutating}
             >
@@ -1167,7 +1167,7 @@ export default function RootFolderBuilder() {
             </Button>
             <Button
               size="sm"
-              className="shadow-sm"
+              className="shadow-soft"
               onClick={openCreateTemplate}
               disabled={isMutating}
             >
@@ -1227,7 +1227,7 @@ export default function RootFolderBuilder() {
                   <SelectItem value="INACTIVE">Inactive</SelectItem>
                 </SelectContent>
               </Select>
-              <div className="flex h-10 items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 lg:justify-start">
+              <div className="flex h-10 items-center justify-between gap-3 rounded-lg border border-border px-3 lg:justify-start">
                 <Label htmlFor="include-archived-templates" className="text-[13px] text-gray-600">
                   Include archived
                 </Label>
@@ -1291,8 +1291,8 @@ export default function RootFolderBuilder() {
                           type="button"
                           className={`w-full rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 ${
                             selected
-                              ? "border-gray-900 bg-gray-900 text-white shadow-sm"
-                              : "border-gray-100 bg-white hover:border-gray-200 hover:bg-gray-50"
+                              ? "border-gray-900 bg-primary text-white shadow-soft"
+                              : "border-gray-100 bg-white hover:border-border hover:bg-gray-50"
                           }`}
                           onClick={() => setSelectedTemplateId(template.id)}
                           aria-pressed={selected}
@@ -1398,7 +1398,7 @@ export default function RootFolderBuilder() {
                   <div className="border-b border-gray-100 bg-gray-50/60 p-4 sm:p-5">
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                       <div className="flex min-w-0 items-start gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-white shadow-soft">
                           <FolderOpen
                             className="h-5 w-5 text-amber-600"
                             style={{ color: detail.template.color ?? undefined }}
@@ -1529,7 +1529,7 @@ export default function RootFolderBuilder() {
                       </div>
                     </div>
 
-                    <section className="min-w-0 overflow-hidden rounded-xl border border-gray-200">
+                    <section className="min-w-0 overflow-hidden rounded-xl border border-border">
                       <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <h3 className="text-[13px] font-semibold text-gray-900">
@@ -1581,7 +1581,7 @@ export default function RootFolderBuilder() {
                     </section>
 
                     {archivedNodes.length > 0 && (
-                      <section className="overflow-hidden rounded-xl border border-gray-200">
+                      <section className="overflow-hidden rounded-xl border border-border">
                         <button
                           type="button"
                           className="flex w-full items-center justify-between gap-3 bg-gray-50/60 px-4 py-3 text-left hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400"
@@ -1642,7 +1642,7 @@ export default function RootFolderBuilder() {
                       </section>
                     )}
 
-                    <section className="rounded-xl border border-gray-200 p-4">
+                    <section className="rounded-xl border border-border p-4">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <h3 className="text-[13px] font-semibold text-gray-900">
@@ -1791,7 +1791,7 @@ export default function RootFolderBuilder() {
                     {detail.assignments.map((assignment) => (
                       <div
                         key={assignment.id}
-                        className="flex min-w-0 flex-col justify-between gap-4 rounded-xl border border-gray-200 p-4"
+                        className="flex min-w-0 flex-col justify-between gap-4 rounded-xl border border-border p-4"
                       >
                         <div className="min-w-0">
                           <div className="flex items-center justify-between gap-2">
@@ -2156,7 +2156,7 @@ export default function RootFolderBuilder() {
                 <Label htmlFor="template-color">Color</Label>
                 <div className="flex items-center gap-2">
                   <span
-                    className="h-9 w-9 shrink-0 rounded-lg border border-gray-200 bg-gray-100"
+                    className="h-9 w-9 shrink-0 rounded-lg border border-border bg-gray-100"
                     style={{ backgroundColor: templateForm.color || undefined }}
                     aria-hidden="true"
                   />
@@ -2323,7 +2323,7 @@ export default function RootFolderBuilder() {
                 <Label htmlFor="node-color">Color</Label>
                 <div className="flex items-center gap-2">
                   <span
-                    className="h-9 w-9 shrink-0 rounded-lg border border-gray-200 bg-gray-100"
+                    className="h-9 w-9 shrink-0 rounded-lg border border-border bg-gray-100"
                     style={{ backgroundColor: nodeForm.color || undefined }}
                     aria-hidden="true"
                   />
@@ -2497,7 +2497,7 @@ export default function RootFolderBuilder() {
               </div>
 
               {assignmentType === "UNIVERSITY" ? (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-[12px] text-gray-600">
+                <div className="rounded-lg border border-border bg-gray-50 px-3 py-3 text-[12px] text-gray-600">
                   University assignments do not require a target record.
                 </div>
               ) : (
@@ -2622,10 +2622,10 @@ export default function RootFolderBuilder() {
                           type="button"
                           className={`w-full rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 ${
                             selected
-                              ? "border-gray-900 bg-gray-900 text-white"
+                              ? "border-gray-900 bg-primary text-white"
                               : isCurrent
                                 ? "border-emerald-200 bg-emerald-50/50"
-                                : "border-gray-200 hover:bg-gray-50"
+                                : "border-border hover:bg-gray-50"
                           } ${!isOlder ? "cursor-default" : ""}`}
                           onClick={() => {
                             if (isOlder) {
@@ -2676,7 +2676,7 @@ export default function RootFolderBuilder() {
                 )}
               </div>
 
-              <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4">
+              <div className="rounded-xl border border-border bg-gray-50/50 p-4">
                 {rollbackTarget ? (
                   <div className="space-y-4">
                     <div>
@@ -2688,7 +2688,7 @@ export default function RootFolderBuilder() {
                       </p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-lg border border-gray-200 bg-white p-3">
+                      <div className="rounded-lg border border-border bg-white p-3">
                         <p className="text-[10px] uppercase tracking-wide text-gray-400">Current</p>
                         <p className="mt-1 text-[13px] font-semibold text-gray-900">
                           {rollbackCurrentNodeCount} nodes
@@ -2697,7 +2697,7 @@ export default function RootFolderBuilder() {
                           {rollbackCurrentAssignmentCount} assignments
                         </p>
                       </div>
-                      <div className="rounded-lg border border-gray-200 bg-white p-3">
+                      <div className="rounded-lg border border-border bg-white p-3">
                         <p className="text-[10px] uppercase tracking-wide text-gray-400">
                           v{rollbackTarget.version}
                         </p>
@@ -2709,7 +2709,7 @@ export default function RootFolderBuilder() {
                         </p>
                       </div>
                     </div>
-                    <div className="rounded-lg border border-gray-200 bg-white p-3">
+                    <div className="rounded-lg border border-border bg-white p-3">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
                         Template fields changed
                       </p>

@@ -128,7 +128,7 @@ export default function RegisterPage() {
             <div className="rounded-xl bg-emerald-50 p-5 text-center text-sm text-emerald-700">If the email is eligible, a registration link will arrive shortly. Check your inbox and spam folder.</div>
           ) : (
             <form onSubmit={handleRequestInvitation} className="space-y-5">
-              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">Enter your email address and we will send you a secure registration link.</div>
+              <div className="rounded-xl border border-blue-100 bg-primary-50 p-4 text-sm text-blue-800">Enter your email address and we will send you a secure registration link.</div>
               <div className="space-y-2"><Label htmlFor="request-email">Email address</Label><Input id="request-email" type="email" autoFocus value={requestEmail} onChange={(event) => setRequestEmail(event.target.value)} placeholder="you@urs.edu.ph" className="h-11" required /></div>
               <Button type="submit" disabled={submitting} className="h-11 w-full">{submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending link...</> : "Send registration link"}</Button>
             </form>
@@ -155,7 +155,7 @@ export default function RegisterPage() {
             <Button type="submit" disabled={submitting || !formIsComplete} className="h-11 w-full">{submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating account...</> : "Create account"}</Button>
           </form>
         ) : null}
-        <p className="mt-6 text-center text-sm text-slate-500"><Link to="/login" className="font-medium text-blue-600 hover:underline">Back to sign in</Link></p>
+        <p className="mt-6 text-center text-sm text-slate-500"><Link to="/login" className="font-medium text-primary-600 hover:underline">Back to sign in</Link></p>
       </AuthCard>
     </AuthLayout>
   )

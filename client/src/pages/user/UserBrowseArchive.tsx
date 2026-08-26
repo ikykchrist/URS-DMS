@@ -138,7 +138,7 @@ export default function UserBrowseArchive({ onBack, onSuccess }: UserBrowseArchi
         }
       />
 
-      <Card className="border-gray-200/60 shadow-sm">
+      <Card className="border-border/70 shadow-soft">
         <div className="px-5 pt-4 pb-0 flex items-center justify-between">
           <div className="flex items-center gap-2 text-[12px] text-gray-500">
             <Info className="w-4 h-4 text-gray-400" />
@@ -209,7 +209,7 @@ export default function UserBrowseArchive({ onBack, onSuccess }: UserBrowseArchi
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2.5">
-                          <span className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                          <span className="w-8 h-8 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0">
                             <FileText className="w-4 h-4 text-gray-500" />
                           </span>
                           <div className="min-w-0">
@@ -244,7 +244,7 @@ export default function UserBrowseArchive({ onBack, onSuccess }: UserBrowseArchi
         </CardContent>
       </Card>
 
-      <Card className="border-gray-200/60 shadow-sm mt-6">
+      <Card className="border-border/70 shadow-soft mt-6">
         <CardContent className="p-5">
           <div className="grid gap-3">
             <Label htmlFor="requestExplanation" className="text-[13px] font-medium text-gray-700">
@@ -267,7 +267,7 @@ export default function UserBrowseArchive({ onBack, onSuccess }: UserBrowseArchi
               <Button
                 onClick={() => void handleSubmit()}
                 disabled={submitting || selectedItems.length === 0 || !explanation.trim()}
-                className="shadow-sm"
+                className="shadow-soft"
               >
                 <Send className="w-4 h-4 mr-2" />
                 {submitting ? "Submitting..." : "Submit Request"}

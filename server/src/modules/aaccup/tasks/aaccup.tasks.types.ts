@@ -18,6 +18,9 @@ export interface AaccupTaskListItem {
   requirementId: string | null;
   requirementTitle: string | null;
   requirementCode: string | null;
+  requirementTemplateId: string | null;
+  requirementTemplateName: string | null;
+  requirementTemplateVersion: number | null;
   assigneeType: "USER" | "DEPARTMENT";
   assigneeId: string | null;
   assigneeLabel: string | null;

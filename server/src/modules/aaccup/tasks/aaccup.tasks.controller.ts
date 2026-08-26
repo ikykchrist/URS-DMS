@@ -31,6 +31,12 @@ export async function listTaskAssigneesHandler(req: Request, res: Response): Pro
   sendSuccess(res, result);
 }
 
+export async function listTaskRequirementTemplatesHandler(req: Request, res: Response): Promise<void> {
+  const { areaId } = req.query as { areaId: string };
+  const result = await service.listTaskRequirementTemplates(areaId, toActor(req));
+  sendSuccess(res, result);
+}
+
 export async function getTaskHandler(req: Request, res: Response): Promise<void> {
   const { id } = req.params as { id: string };
   const task = await service.getTask(id, toActor(req));

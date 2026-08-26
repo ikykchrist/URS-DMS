@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/Label"
 import { Switch } from "@/components/ui/Switch"
 import { Badge } from "@/components/ui/Badge"
-import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import {
   Select,
   SelectContent,
@@ -110,7 +110,8 @@ export function UserDetailsModal({
         <div className="grid gap-5 py-2">
           <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50/50 border border-gray-100">
             <Avatar className="h-14 w-14">
-              <AvatarFallback className="text-lg bg-primary text-white">
+              <AvatarImage src={user.photoUrl ?? (user.avatarSeed ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatarSeed}` : undefined)} />
+              <AvatarFallback className="text-lg bg-primary-50 text-primary-700">
                 {(user.name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
@@ -219,7 +220,7 @@ export function UserDetailsModal({
                 onClick={onResetPassword}
                 className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-white hover:bg-gray-50 transition-colors"
               >
-                <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
                   <KeyRound className="w-4 h-4 text-amber-600" />
                 </div>
                 <div className="flex-1 text-left">
@@ -237,7 +238,7 @@ export function UserDetailsModal({
             {isDeleteConfirmOpen ? (
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
                     <AlertTriangle className="w-4 h-4 text-red-600" />
                   </div>
                   <div>
@@ -275,7 +276,7 @@ export function UserDetailsModal({
                 onClick={() => setIsDeleteConfirmOpen(true)}
                 className="w-full flex items-center gap-3"
               >
-                <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center">
                   <Trash2 className="w-4 h-4 text-red-600" />
                 </div>
                 <div className="flex-1 text-left">
@@ -297,7 +298,7 @@ export function UserDetailsModal({
           </Button>
           <Button
             onClick={handleSave}
-            className="h-10 px-5 shadow-sm"
+            className="h-10 px-5 shadow-soft"
           >
             Save Changes
           </Button>

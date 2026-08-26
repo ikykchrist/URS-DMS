@@ -16,12 +16,15 @@ import {
   FileCheck2,
   HardDrive,
   Shield,
+  ShieldCheck,
+  LogOut,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import { Button } from "@/components/ui/Button"
 import { Logo } from "@/components/layout/Logo"
+import { useAuth } from "@/context/AuthContext"
 
 interface SidebarItem {
   id: string
@@ -62,10 +65,11 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard", onNavigate, showRoot = false, className }: SidebarProps) {
   const [rootConsoleOpen, setRootConsoleOpen] = useState(true)
+  const { logout } = useAuth()
   const accreditationActive = ["aaccup", "iso", "aaccup-area", "iso-area", "certification", "submissions", "tasks"].includes(activePage)
   const [aaccupOpen, setAaccupOpen] = useState(accreditationActive)
   const rootConsoleActive = rootConsoleItems.some((item) => item.id === activePage)
-  const rootConsoleHighlighted = rootConsoleActive || (!collapsed && rootConsoleOpen)
+  const rootConsoleHighlighted = rootConsoleActive
 
   useEffect(() => {
     if (accreditationActive) setAaccupOpen(true)
@@ -79,21 +83,21 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
   return (
     <aside
       className={cn(
-        "h-screen bg-white dark:bg-[#0F1520] border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-shrink-0",
+        "h-screen bg-gradient-to-b from-navy-900 to-navy-950 border-r border-white/5 transition-all duration-300 flex-shrink-0",
         collapsed ? "w-20" : "w-64",
         className,
       )}
     >
       <div className="flex flex-col h-full">
         <div className={cn(
-          "flex items-center border-b border-gray-100 dark:border-gray-800",
+          "flex items-center border-b border-white/5",
           collapsed ? "justify-center px-5 py-5" : "justify-between px-5 py-5"
         )}>
           <button
             onClick={() => handleNavigate("dashboard")}
-            className="hover:opacity-80 transition-opacity"
+            className="hover:opacity-90 transition-opacity"
           >
-            <Logo size="sm" showText={!collapsed} subtitle="Document System" />
+            <Logo size="sm" showText={!collapsed} subtitle="Document System" onDark />
           </button>
         </div>
 
@@ -110,30 +114,37 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                       onClick={() => setAaccupOpen((open) => !open)}
                       aria-expanded={!collapsed && aaccupOpen}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150",
-                        accreditationActive ? "bg-gray-900 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-150",
+                        accreditationActive ? "bg-primary text-white shadow-lift shadow-primary/30" : "text-slate-300 hover:bg-white/5 hover:text-white",
                         collapsed && "justify-center",
                       )}
                     >
-                      <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", accreditationActive && "text-white")} />
+                      <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", accreditationActive ? "text-white" : "text-slate-400")} />
                       {!collapsed && <span className="flex-1 text-left">AACCUP</span>}
                       {!collapsed && <ChevronDown className={cn("w-4 h-4 transition-transform", !aaccupOpen && "-rotate-90")} />}
                     </button>
                     {!collapsed && aaccupOpen && (
-                      <div className="mt-1 ml-5 space-y-1 border-l border-gray-200 pl-3">
-                        {[{ id: "aaccup", label: "AACCUP" }, { id: "iso", label: "ISO" }].map((child) => (
-                          <button
-                            key={child.id}
-                            type="button"
-                            onClick={() => handleNavigate(child.id)}
-                            className={cn(
-                              "w-full rounded-md px-3 py-2 text-left text-[13px] font-medium transition-colors",
-                              activePage === child.id ? "bg-gray-100 text-gray-950" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
-                            )}
-                          >
-                            {child.label}
-                          </button>
-                        ))}
+                      <div className="mt-1 ml-5 space-y-1 border-l border-white/10 pl-3">
+                        {[
+                          { id: "aaccup", label: "AACCUP", icon: GraduationCap },
+                          { id: "iso", label: "ISO", icon: ShieldCheck },
+                        ].map((child) => {
+                          const ChildIcon = child.icon
+                          return (
+                            <button
+                              key={child.id}
+                              type="button"
+                              onClick={() => handleNavigate(child.id)}
+                              className={cn(
+                                "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors",
+                                activePage === child.id ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
+                              )}
+                            >
+                              <ChildIcon className={cn("w-4 h-4 flex-shrink-0", activePage === child.id ? "text-blue-300" : "text-slate-500")} />
+                              {child.label}
+                            </button>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
@@ -144,44 +155,42 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                   key={item.id}
                   onClick={() => handleNavigate(item.id)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150",
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-150",
                       isActive
-                       ? showRoot
-                         ? "bg-slate-900 text-white shadow-sm shadow-slate-300/40 dark:bg-slate-700 dark:shadow-none"
-                         : "bg-gray-900 text-white shadow-sm"
-                       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                        ? "bg-primary text-white shadow-lift shadow-primary/30"
+                        : "text-slate-300 hover:bg-white/5 hover:text-white",
                       collapsed && "justify-center"
                     )}
                   >
                     <Icon className={cn(
                       "w-[18px] h-[18px] flex-shrink-0",
-                      isActive && (showRoot ? "text-sky-300" : "text-white"),
+                      isActive ? "text-white" : "text-slate-400",
                     )} />
                   {!collapsed && <span>{item.label}</span>}
                 </button>
               )
             })}
             {showRoot && (
-              <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
+              <div className="mt-4 border-t border-white/5 pt-3">
                 <button
                   onClick={() => setRootConsoleOpen((open) => !open)}
                   aria-expanded={rootConsoleOpen}
                   className={cn(
                     "w-full h-11 flex items-center gap-3 rounded-xl px-3 text-[14px] font-semibold transition-all duration-150",
                     rootConsoleHighlighted
-                      ? "bg-slate-900 text-white shadow-sm shadow-slate-300/40 hover:bg-slate-800 dark:bg-slate-700 dark:shadow-none dark:hover:bg-slate-600"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
+                      ? "bg-white/10 text-white"
+                      : "text-slate-400 hover:bg-white/5 hover:text-white",
                     collapsed && "justify-center",
                   )}
                 >
-                  <ServerCog className="h-[18px] w-[18px] flex-shrink-0 text-sky-300" />
+                  <ServerCog className="h-[18px] w-[18px] flex-shrink-0 text-blue-300" />
                   {!collapsed && <span className="flex-1 text-left">Root Console</span>}
                   {!collapsed && (
-                    <ChevronDown className={cn("h-4 w-4 text-slate-300 transition-transform", !rootConsoleOpen && "-rotate-90")} />
+                    <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", !rootConsoleOpen && "-rotate-90")} />
                   )}
                 </button>
                 {(rootConsoleOpen || collapsed) && (
-                  <div className={cn("mt-2 space-y-1", !collapsed && "ml-3 border-l-2 border-slate-200 pl-2 dark:border-slate-700")}>
+                  <div className={cn("mt-2 space-y-1", !collapsed && "ml-3 border-l-2 border-white/10 pl-2")}>
                     {rootConsoleItems.map((item) => {
                       const Icon = item.icon
                       const isActive = activePage === item.id
@@ -192,12 +201,12 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                           className={cn(
                             "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150",
                             isActive
-                              ? "bg-slate-100 text-slate-950 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
-                              : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100",
+                              ? "bg-primary/20 text-white ring-1 ring-primary/40"
+                              : "text-slate-400 hover:bg-white/5 hover:text-white",
                             collapsed && "justify-center",
                           )}
                         >
-                          <Icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-slate-900 dark:text-sky-300" : "text-slate-400")} />
+                          <Icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-blue-300" : "text-slate-500")} />
                           {!collapsed && <span>{item.label}</span>}
                         </button>
                       )
@@ -209,13 +218,13 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
           </div>
         </nav>
 
-        <div className="px-3 py-4 border-t border-gray-100">
+          <div className="space-y-1 border-t border-white/5 px-3 py-4">
           <Button
             variant="ghost"
             size="sm"
             onClick={onToggle}
             className={cn(
-              "w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-3",
+              "w-full justify-start text-slate-300 hover:text-white hover:bg-white/5 px-3",
               collapsed && "justify-center px-2"
             )}
           >
@@ -227,6 +236,21 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                 <span className="text-[13px]">Collapse</span>
               </>
             )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              if (!confirmLeaveIfUploading()) return
+              logout()
+            }}
+            className={cn(
+              "w-full justify-start px-3 text-red-300 hover:bg-white/5 hover:text-red-200",
+              collapsed && "justify-center px-2",
+            )}
+          >
+            <LogOut className={cn("h-[18px] w-[18px] flex-shrink-0", !collapsed && "mr-2.5")} />
+            {!collapsed && <span className="text-[13px]">Logout</span>}
           </Button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 {
   "name": "@urs-dms/server",
-  "version": "1.3.0",
+  "version": "1.5.0",
   "private": true,
   "description": "URS-DMS backend — Express + Prisma + JWT",
   "main": "dist/server.js",
@@ -19,7 +19,8 @@
     "prisma:studio": "prisma studio",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "deepseek:smoke": "tsx --env-file=../.env src/scripts/deepseek-smoke.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { healthRouter } from "@/health/health.routes";
+import { filesRouter } from "@/modules/files/files.routes";
 import { authRouter } from "@/modules/auth/auth.routes";
 import { passwordResetRouter } from "@/modules/passwordReset/passwordReset.routes";
 import { usersRouter } from "@/modules/users/users.routes";
@@ -16,6 +17,7 @@ import { notificationsRouter } from "@/modules/notifications/notifications.route
 import { rootRouter } from "@/modules/root/root.routes";
 import { workflowRuntimeRouter } from "@/modules/workflow/workflow.routes";
 import { repositoryRouter } from "@/modules/repositories/repository.routes";
+import { navigationAssistantRouter } from "@/modules/navigationAssistant/navigationAssistant.routes";
 
 // =============================================================================
 // URS-DMS â€” route registry. Mounted under /api/v1 in app.ts.
@@ -24,6 +26,7 @@ import { repositoryRouter } from "@/modules/repositories/repository.routes";
 export const apiRouter: Router = Router();
 
 apiRouter.use("/health", healthRouter);
+apiRouter.use("/files", filesRouter);
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/auth", passwordResetRouter);
 apiRouter.use("/users", usersRouter);
@@ -40,3 +43,4 @@ apiRouter.use("/notifications", notificationsRouter);
 apiRouter.use("/workflows", workflowRuntimeRouter);
 apiRouter.use("/repositories", repositoryRouter);
 apiRouter.use("/root", rootRouter);
+apiRouter.use("/assistant", navigationAssistantRouter);

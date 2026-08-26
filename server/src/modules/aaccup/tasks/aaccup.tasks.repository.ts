@@ -12,6 +12,7 @@ import type {
 const TASK_INCLUDE = {
   area: { select: { id: true, code: true, name: true, areaSet: true, departmentId: true } },
   requirement: { select: { id: true, title: true, documentCode: true } },
+  requirementTemplate: { select: { id: true, name: true, version: true } },
   createdByUser: { select: { firstName: true, lastName: true } },
   updatedByUser: { select: { firstName: true, lastName: true } },
 } satisfies Prisma.AaccupTaskInclude;
@@ -41,6 +42,9 @@ function toListItem(row: TaskWithRelations): AaccupTaskListItem {
     requirementId: row.requirementId,
     requirementTitle: row.requirement?.title ?? null,
     requirementCode: row.requirement?.documentCode ?? null,
+    requirementTemplateId: row.requirementTemplateId,
+    requirementTemplateName: row.requirementTemplate?.name ?? null,
+    requirementTemplateVersion: row.requirementTemplate?.version ?? null,
     assigneeType: row.assigneeType === "DEPARTMENT" ? "DEPARTMENT" : "USER",
     assigneeId: row.assigneeId,
     assigneeLabel: row.assigneeLabel,
@@ -104,6 +108,7 @@ export interface CreateTaskArgs {
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   dueDate: Date | null;
   requirementId: string | null;
+  requirementTemplateId: string | null;
   assigneeType: "USER" | "DEPARTMENT";
   assigneeId: string;
   assigneeLabel: string;
@@ -120,6 +125,7 @@ export async function create(args: CreateTaskArgs): Promise<AaccupTaskDetail> {
       priority: args.priority,
       dueDate: args.dueDate,
       requirementId: args.requirementId,
+      requirementTemplateId: args.requirementTemplateId,
       assigneeType: args.assigneeType,
       assigneeId: args.assigneeId,
       assigneeLabel: args.assigneeLabel,
@@ -140,6 +146,7 @@ export interface UpdateTaskArgs {
     status?: "OPEN" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
     dueDate?: Date | null;
     requirementId?: string | null;
+    requirementTemplateId?: string | null;
     assigneeType?: "USER" | "DEPARTMENT";
     assigneeId?: string;
     assigneeLabel?: string;
@@ -159,6 +166,7 @@ export async function update(args: UpdateTaskArgs): Promise<AaccupTaskDetail> {
       ...(args.data.status !== undefined ? { status: args.data.status } : {}),
       ...(args.data.dueDate !== undefined ? { dueDate: args.data.dueDate } : {}),
       ...(args.data.requirementId !== undefined ? { requirementId: args.data.requirementId } : {}),
+      ...(args.data.requirementTemplateId !== undefined ? { requirementTemplateId: args.data.requirementTemplateId } : {}),
       ...(args.data.assigneeType !== undefined ? { assigneeType: args.data.assigneeType } : {}),
       ...(args.data.assigneeId !== undefined ? { assigneeId: args.data.assigneeId } : {}),
       ...(args.data.assigneeLabel !== undefined ? { assigneeLabel: args.data.assigneeLabel } : {}),

@@ -62,7 +62,7 @@ const getFileTypeColor = (type: DocumentFile["type"]) => {
       return "bg-red-50 text-red-600"
     case "DOCX":
     case "DOC":
-      return "bg-blue-50 text-blue-600"
+      return "bg-primary-50 text-primary-600"
     case "XLSX":
     case "XLS":
       return "bg-emerald-50 text-emerald-600"
@@ -104,7 +104,7 @@ function PdfPreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string | n
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 bg-gray-50/50 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-gray-50/50 flex-shrink-0">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -195,7 +195,7 @@ function ImagePreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string |
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 bg-gray-50/50 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-gray-50/50 flex-shrink-0">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -262,7 +262,7 @@ function OfficePreview({ file }: { file: DocumentFile }) {
 
   return (
     <div className="flex flex-col h-full items-center justify-center bg-gray-50 p-8">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-soft border border-border p-8">
         <div className="flex flex-col items-center text-center">
           <div className={cn("w-20 h-20 rounded-2xl flex items-center justify-center mb-4", getFileTypeColor(file.type))}>
             {getFileTypeIcon(file.type)}
@@ -306,9 +306,9 @@ function UnsupportedPreview({ file }: { file: DocumentFile }) {
 
   return (
     <div className="flex flex-col h-full items-center justify-center bg-gray-50 p-8">
-      <div className="max-w-sm w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+      <div className="max-w-sm w-full bg-white rounded-2xl shadow-soft border border-border p-8">
         <div className="flex flex-col items-center text-center">
-          <div className="w-20 h-20 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+          <div className="w-20 h-20 rounded-2xl bg-primary-50 flex items-center justify-center mb-4">
             <FileX className="w-10 h-10 text-gray-400" />
           </div>
 

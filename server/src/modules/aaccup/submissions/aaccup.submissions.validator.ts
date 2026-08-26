@@ -47,3 +47,16 @@ export const reviewSubmissionSchema = z.object({
   remarks: z.string().trim().max(2000).optional(),
 });
 export type ReviewSubmissionInput = z.infer<typeof reviewSubmissionSchema>;
+
+// Admin-only approved-package export. `areaIds` may arrive as a repeated query
+// param (?areaIds=a&areaIds=b) or a comma-separated value (?areaIds=a,b); both
+// normalize to a non-empty array of UUIDs.
+export const exportSubmissionsQuerySchema = z.object({
+  areaIds: z
+    .union([z.string(), z.array(z.string())])
+    .transform((value) => (Array.isArray(value) ? value : value.split(",")))
+    .transform((value) => value.map((item) => item.trim()).filter(Boolean))
+    .pipe(z.array(z.string().uuid()).min(1)),
+  areaSet: z.enum(["AACCUP", "ISO", "CERT"]).optional(),
+});
+export type ExportSubmissionsQuery = z.infer<typeof exportSubmissionsQuerySchema>;

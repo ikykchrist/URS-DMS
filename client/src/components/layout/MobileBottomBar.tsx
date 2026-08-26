@@ -12,6 +12,7 @@ import {
   Clock,
   Shield,
   Ellipsis,
+  ShieldCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -85,7 +86,7 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, isUser: user
   }
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-[#0F1520] border-t border-gray-200 dark:border-gray-700 safe-bottom">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-[#0B1121] border-t border-border dark:border-gray-700 safe-bottom">
       <div className="flex justify-around items-center h-16 px-1">
         {mainTabs.map((tab) => {
           const isActive = isTabActive(tab.id)
@@ -99,7 +100,7 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, isUser: user
                       "relative flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full py-1 transition-colors",
                       isActive
                         ? isUser
-                          ? "mx-1 my-1 h-[calc(100%-0.5rem)] rounded-lg bg-slate-900 text-white shadow-sm dark:bg-slate-700"
+                          ? "mx-1 my-1 h-[calc(100%-0.5rem)] rounded-xl bg-primary text-white shadow-lift shadow-primary/30"
                           : "text-primary dark:text-blue-400"
                         : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
                     )}
@@ -109,9 +110,10 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, isUser: user
                     {badgeCount > 0 && <span className="absolute -top-0.5 right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{badgeCount > 99 ? "99+" : badgeCount}</span>}
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" side="top" className="mb-2 w-40">
-                  <DropdownMenuItem onClick={() => onNavigate("aaccup")} className={cn("text-[13px]", activePage === "aaccup" && "bg-primary/10 dark:bg-primary/20")}>AACCUP</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onNavigate("iso")} className={cn("text-[13px]", activePage === "iso" && "bg-primary/10 dark:bg-primary/20")}>ISO</DropdownMenuItem>
+                <DropdownMenuContent align="center" side="top" className="mb-2 w-44">
+                   <DropdownMenuItem onClick={() => onNavigate("aaccup")} className={cn("text-[13px] gap-2.5", activePage === "aaccup" && "bg-primary/10 dark:bg-primary/20")}><GraduationCap className="h-4 w-4" />AACCUP</DropdownMenuItem>
+                   <DropdownMenuItem onClick={() => onNavigate("iso")} className={cn("text-[13px] gap-2.5", activePage === "iso" && "bg-primary/10 dark:bg-primary/20")}><ShieldCheck className="h-4 w-4" />ISO</DropdownMenuItem>
+                   <DropdownMenuItem onClick={() => onNavigate("tasks")} className={cn("text-[13px] gap-2.5", activePage === "tasks" && "bg-primary/10 dark:bg-primary/20")}><ClipboardList className="h-4 w-4" />My Tasks</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )
@@ -124,7 +126,7 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, isUser: user
                 "relative flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full py-1 transition-colors",
                 isActive
                    ? isUser
-                     ? "mx-1 my-1 h-[calc(100%-0.5rem)] rounded-lg bg-slate-900 text-white shadow-sm dark:bg-slate-700"
+                     ? "mx-1 my-1 h-[calc(100%-0.5rem)] rounded-xl bg-primary text-white shadow-lift shadow-primary/30"
                      : "text-primary dark:text-blue-400"
                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
               )}
@@ -146,7 +148,7 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, isUser: user
                 "flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full py-1 transition-colors",
                 moreTabs.some((t) => isTabActive(t.id))
                   ? isUser
-                    ? "mx-1 my-1 h-[calc(100%-0.5rem)] rounded-lg bg-slate-900 text-white shadow-sm dark:bg-slate-700"
+                    ? "mx-1 my-1 h-[calc(100%-0.5rem)] rounded-xl bg-primary text-white shadow-lift shadow-primary/30"
                     : "text-primary dark:text-blue-400"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
               )}

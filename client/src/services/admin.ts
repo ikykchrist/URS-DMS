@@ -28,6 +28,8 @@ export interface SystemUser {
   createdAt: string
   updatedAt: string
   deletedAt: string | null
+  avatarSeed?: string | null
+  photoUrl?: string | null
 }
 
 export async function listSystemUsers(query?: {

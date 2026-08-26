@@ -13,7 +13,9 @@ import {
   ChevronDown,
   ChevronRight,
   CircleAlert,
+  CheckCircle2,
   Clock3,
+  Eye,
   FileCheck2,
   FileText,
   FolderTree,
@@ -119,7 +121,7 @@ const HISTORY_PAGE_SIZE = 20;
 const ALL = "ALL";
 const NO_TARGET = "__NO_TARGET__";
 
-type MainTab = "builder" | "assignments" | "history";
+ type MainTab = "builder" | "preview" | "assignments" | "history";
 type TemplateDialog =
   | { mode: "create" }
   | { mode: "edit"; template: RequirementTemplate };
@@ -160,7 +162,7 @@ const EMPTY_TEMPLATE: TemplateForm = {
   code: "",
   description: "",
   category: "AACCUP",
-  status: "ACTIVE",
+  status: "INACTIVE",
 };
 
 const EMPTY_NODE: NodeForm = {
@@ -197,19 +199,29 @@ const TARGET_TYPES: Array<{
 ];
 
 const NODE_TYPES: Array<{ value: RequirementNodeType; label: string }> = [
-  { value: "SECTION", label: "Section" },
-  { value: "REQUIREMENT", label: "Requirement" },
-  { value: "SUB_REQUIREMENT", label: "Sub-requirement" },
+  { value: "SECTION", label: "Group" },
+  { value: "REQUIREMENT", label: "Required document" },
+  { value: "SUB_REQUIREMENT", label: "Additional requirement" },
   { value: "SUPPORTING_DOCUMENT", label: "Supporting document" },
 ];
 
 const RULE_TYPES: Array<{ value: RequirementValidationType; label: string }> = [
-  { value: "FILE_TYPE", label: "File type" },
+  { value: "FILE_TYPE", label: "File format" },
   { value: "FILE_SIZE", label: "File size" },
-  { value: "PAGE_COUNT", label: "Page count" },
-  { value: "EXPIRATION_DATE", label: "Expiration date" },
-  { value: "NAMING_CONVENTION", label: "Naming convention" },
-  { value: "METADATA", label: "Required metadata" },
+  { value: "PAGE_COUNT", label: "Number of pages" },
+  { value: "EXPIRATION_DATE", label: "Document expiration" },
+  { value: "NAMING_CONVENTION", label: "Filename format" },
+  { value: "METADATA", label: "Required document details" },
+];
+
+const FILE_FORMAT_OPTIONS = [
+  { label: "PDF document", mime: "application/pdf", extension: ".pdf" },
+  { label: "Word document", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", extension: ".docx" },
+  { label: "Excel spreadsheet", mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", extension: ".xlsx" },
+  { label: "PowerPoint presentation", mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation", extension: ".pptx" },
+  { label: "Image", mime: "image/*", extension: ".jpg, .jpeg, .png" },
+  { label: "Video", mime: "video/mp4", extension: ".mp4" },
+  { label: "PDF or Word document", mime: "application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document", extension: ".pdf, .docx" },
 ];
 
 const HISTORY_ACTIONS: RequirementChangeType[] = [
@@ -230,6 +242,16 @@ function formatDate(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
+function suggestedCode(value: string, fallback: string): string {
+  const code = value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 90);
+  return code || fallback;
+}
+
 function flatten(nodes: RequirementTreeNode[]): RequirementTreeNode[] {
   return nodes.flatMap((node) => [node, ...flatten(node.children)]);
 }
@@ -244,6 +266,43 @@ function targetLabel(type: RequirementAssignmentTargetType): string {
 
 function ruleLabel(type: RequirementValidationType): string {
   return RULE_TYPES.find((item) => item.value === type)?.label ?? type;
+}
+
+function ruleSeverityLabel(severity: RequirementValidationSeverity): string {
+  return severity === "ERROR" ? "Upload will be blocked" : "Show a warning";
+}
+
+function ruleSummary(rule: RequirementValidation): string {
+  const config = rule.config;
+  switch (rule.type) {
+    case "FILE_TYPE": {
+      const extensions = Array.isArray(config.allowedExtensions)
+        ? config.allowedExtensions.join(", ")
+        : "any file type";
+      return `Allowed formats: ${extensions}`;
+    }
+    case "FILE_SIZE": {
+      const min = config.minBytes == null ? "no minimum" : `${config.minBytes} bytes minimum`;
+      const max = config.maxBytes == null ? "no maximum" : `${config.maxBytes} bytes maximum`;
+      return `${min}; ${max}`;
+    }
+    case "PAGE_COUNT": {
+      const min = config.minPages == null ? "no minimum" : `${config.minPages} page minimum`;
+      const max = config.maxPages == null ? "no maximum" : `${config.maxPages} page maximum`;
+      return `${min}; ${max}`;
+    }
+    case "EXPIRATION_DATE": {
+      const min = config.minDaysFromNow == null ? "any date" : `at least ${config.minDaysFromNow} days from now`;
+      const max = config.maxDaysFromNow == null ? "no deadline" : `within ${config.maxDaysFromNow} days`;
+      return `${min}; ${max}`;
+    }
+    case "NAMING_CONVENTION":
+      return config.example ? `Example filename: ${config.example}` : "Filename must follow the required pattern";
+    case "METADATA":
+      return Array.isArray(config.requiredKeys)
+        ? `Required details: ${config.requiredKeys.join(", ")}`
+        : "Required document details";
+  }
 }
 
 function nodeIcon(type: RequirementNodeType) {
@@ -436,6 +495,7 @@ function RequirementBranch({
         className="group flex min-h-14 items-center gap-2 border-b border-slate-100 px-2 py-2 transition-colors hover:bg-slate-50"
         style={{ paddingLeft: depth * 20 + 8 }}
         draggable={!busy}
+        onDoubleClick={() => !busy && onAction("edit", node)}
         onDragStart={(event) => {
           event.dataTransfer.effectAllowed = "move";
           event.dataTransfer.setData("text/requirement-node", node.id);
@@ -469,7 +529,7 @@ function RequirementBranch({
           <span className="h-7 w-7" />
         )}
         <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${node.type === "SECTION" ? "bg-indigo-50 text-indigo-600" : "bg-emerald-50 text-emerald-600"}`}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${node.type === "SECTION" ? "bg-primary-50 text-primary-600" : "bg-emerald-50 text-emerald-600"}`}
         >
           <Icon className="h-4 w-4" />
         </span>
@@ -559,6 +619,52 @@ function RequirementBranch({
         </ul>
       )}
     </li>
+  );
+}
+
+function RequirementPreview({ nodes }: { nodes: RequirementTreeNode[] }) {
+  if (!nodes.length) {
+    return (
+      <EmptyState
+        variant="tasks"
+        title="Nothing to preview yet"
+        description="Add a group or required document first."
+      />
+    );
+  }
+  return (
+    <div className="space-y-4">
+      {nodes.map((node) => (
+        <div key={node.id} className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[14px] font-semibold text-slate-900">{node.name}</p>
+              {node.description && <p className="mt-1 text-[12px] text-slate-500">{node.description}</p>}
+            </div>
+            {node.isRequired && node.type !== "SECTION" && <Badge variant="warning">Required</Badge>}
+          </div>
+          {node.type !== "SECTION" && (
+            <div className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3">
+              <p className="text-[11px] font-medium text-slate-600">Upload a document</p>
+              {node.helpText && <p className="mt-1 text-[11px] text-slate-500">{node.helpText}</p>}
+              {node.validations.length > 0 && (
+                <p className="mt-2 text-[11px] text-primary-700">
+                  {node.validations.map(ruleSummary).join(" • ")}
+                </p>
+              )}
+              <Button size="sm" variant="outline" className="mt-3" disabled>
+                Choose file
+              </Button>
+            </div>
+          )}
+          {node.children.length > 0 && (
+            <div className="mt-3 space-y-3 border-l-2 border-primary-100 pl-4">
+              <RequirementPreview nodes={node.children} />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -791,11 +897,7 @@ export default function RootRequirementBuilder() {
   };
 
   const saveTemplate = async () => {
-    if (
-      !templateDialog ||
-      !templateForm.name.trim() ||
-      !templateForm.code.trim()
-    )
+    if (!templateDialog || !templateForm.name.trim())
       return;
     await run(
       "template",
@@ -803,6 +905,7 @@ export default function RootRequirementBuilder() {
         if (templateDialog.mode === "create") {
           const created = await createRequirementTemplate({
             ...templateForm,
+            code: templateForm.code.trim() || suggestedCode(templateForm.name, "REQUIREMENTS"),
             description: templateForm.description || null,
             category: templateForm.category || null,
           });
@@ -810,6 +913,7 @@ export default function RootRequirementBuilder() {
         } else {
           await updateRequirementTemplate(templateDialog.template.id, {
             ...templateForm,
+            code: templateForm.code.trim() || suggestedCode(templateForm.name, "REQUIREMENTS"),
             description: templateForm.description || null,
             category: templateForm.category || null,
           });
@@ -819,6 +923,15 @@ export default function RootRequirementBuilder() {
       templateDialog.mode === "create"
         ? "Requirement template created"
         : "Requirement template updated",
+    );
+  };
+
+  const publishTemplate = async () => {
+    if (!selectedTemplate || selectedTemplate.deletedAt) return;
+    await run(
+      "publish-template",
+      () => updateRequirementTemplate(selectedTemplate.id, { status: "ACTIVE" }),
+      "Template published",
     );
   };
 
@@ -840,18 +953,14 @@ export default function RootRequirementBuilder() {
   };
 
   const saveNode = async () => {
-    if (
-      !detail ||
-      !nodeDialog ||
-      !nodeForm.code.trim() ||
-      !nodeForm.name.trim()
-    )
+    if (!detail || !nodeDialog || !nodeForm.name.trim())
       return;
     await run(
       "node",
       async () => {
         const payload = {
           ...nodeForm,
+          code: nodeForm.code.trim() || suggestedCode(nodeForm.name, "REQUIREMENT"),
           description: nodeForm.description || null,
           helpText: nodeForm.helpText || null,
         };
@@ -1039,6 +1148,14 @@ export default function RootRequirementBuilder() {
   const selectedTemplate = detail?.template ?? null;
   const liveNodes = detail?.tree ?? [];
   const archivedNodes = flatten(allNodes).filter((node) => node.deletedAt);
+  const liveNodeList = flatten(liveNodes);
+  const reviewWarnings = [
+    liveNodes.length === 0 ? "Add at least one group or document." : null,
+    liveNodeList.some((node) => node.type !== "SECTION" && !node.validations.length)
+      ? "Some documents do not have upload rules yet." : null,
+    selectedTemplate && selectedTemplate.assignmentCount === 0
+      ? "This template is not assigned to an area or organization yet." : null,
+  ].filter((warning): warning is string => Boolean(warning));
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -1068,10 +1185,14 @@ export default function RootRequirementBuilder() {
         onValueChange={(value) => setMainTab(value as MainTab)}
         className="mt-6"
       >
-        <TabsList className="grid w-full max-w-xl grid-cols-3 overflow-x-auto">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4 overflow-x-auto">
           <TabsTrigger value="builder">
             <FolderTree className="mr-2 h-4 w-4" />
             Builder
+          </TabsTrigger>
+          <TabsTrigger value="preview">
+            <Eye className="mr-2 h-4 w-4" />
+            Preview
           </TabsTrigger>
           <TabsTrigger value="assignments">
             <Users className="mr-2 h-4 w-4" />
@@ -1167,7 +1288,7 @@ export default function RootRequirementBuilder() {
                         key={template.id}
                         type="button"
                         onClick={() => setSelectedId(template.id)}
-                        className={`w-full px-4 py-3 text-left transition-colors ${selectedId === template.id ? "bg-indigo-50/80 ring-1 ring-inset ring-indigo-100" : "hover:bg-slate-50"}`}
+                        className={`w-full px-4 py-3 text-left transition-colors ${selectedId === template.id ? "bg-primary-50/80 ring-1 ring-inset ring-primary-100" : "hover:bg-slate-50"}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
@@ -1318,6 +1439,16 @@ export default function RootRequirementBuilder() {
                             Archive
                           </Button>
                         )}
+                        {selectedTemplate.status !== "ACTIVE" && !selectedTemplate.deletedAt && (
+                          <Button
+                            size="sm"
+                            onClick={() => void publishTemplate()}
+                            disabled={Boolean(busy)}
+                          >
+                            <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                            Publish
+                          </Button>
+                        )}
                       </div>
                     </div>
                     <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -1343,6 +1474,26 @@ export default function RootRequirementBuilder() {
                   </CardContent>
                 </Card>
 
+                {reviewWarnings.length > 0 ? (
+                  <Card className="border-amber-200 bg-amber-50/50">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-[14px] text-amber-900">Before you publish</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <ul className="space-y-1.5 text-[12px] text-amber-800">
+                        {reviewWarnings.map((warning) => <li key={warning}>• {warning}</li>)}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card className="border-emerald-200 bg-emerald-50/50">
+                    <CardContent className="flex items-center gap-2 p-4 text-[12px] text-emerald-800">
+                      <CheckCircle2 className="h-4 w-4" />
+                      This template is ready for review and publishing.
+                    </CardContent>
+                  </Card>
+                )}
+
                 <Card className="overflow-hidden border-slate-200/80">
                   <CardHeader className="flex-row items-center justify-between border-b border-slate-100 bg-slate-50/50 pb-4">
                     <div>
@@ -1350,8 +1501,8 @@ export default function RootRequirementBuilder() {
                         Requirement Tree
                       </CardTitle>
                       <p className="mt-1 text-[11px] text-slate-500">
-                        Drag a node onto another node to nest it. Use move
-                        controls to reorder siblings.
+                       Double-click a node to edit it. Drag a node onto another
+                       node to nest it, or use move controls to reorder siblings.
                       </p>
                     </div>
                     <Button
@@ -1488,6 +1639,31 @@ export default function RootRequirementBuilder() {
               </div>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="preview" className="mt-5">
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50">
+              <CardTitle className="text-[15px]">User Preview</CardTitle>
+              <p className="mt-1 text-[12px] text-slate-500">
+                This is how users will see the selected template when submitting documents.
+              </p>
+            </CardHeader>
+            <CardContent className="bg-slate-50/40 p-4 sm:p-6">
+              {selectedTemplate ? (
+                <div className="mx-auto max-w-3xl space-y-4">
+                  <div className="rounded-xl border border-slate-200 bg-white p-5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-primary-600">Accreditation requirements</p>
+                    <h2 className="mt-1 text-lg font-semibold text-slate-950">{selectedTemplate.name}</h2>
+                    {selectedTemplate.description && <p className="mt-1 text-[13px] text-slate-500">{selectedTemplate.description}</p>}
+                  </div>
+                  <RequirementPreview nodes={liveNodes} />
+                </div>
+              ) : (
+                <EmptyState variant="tasks" title="Select a template first" description="Choose a template from the Builder tab to preview it." />
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="assignments" className="mt-5">
@@ -1733,7 +1909,7 @@ export default function RootRequirementBuilder() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Code</Label>
+              <Label>Code (optional)</Label>
               <Input
                 value={templateForm.code}
                 onChange={(event) =>
@@ -1795,11 +1971,7 @@ export default function RootRequirementBuilder() {
             </Button>
             <Button
               onClick={() => void saveTemplate()}
-              disabled={
-                busy === "template" ||
-                !templateForm.name.trim() ||
-                !templateForm.code.trim()
-              }
+                disabled={busy === "template" || !templateForm.name.trim()}
             >
               {busy === "template" ? "Saving..." : "Save Template"}
             </Button>
@@ -1834,7 +2006,7 @@ export default function RootRequirementBuilder() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Code</Label>
+              <Label>Code (optional)</Label>
               <Input
                 value={nodeForm.code}
                 onChange={(event) =>
@@ -1951,11 +2123,7 @@ export default function RootRequirementBuilder() {
             </Button>
             <Button
               onClick={() => void saveNode()}
-              disabled={
-                busy === "node" ||
-                !nodeForm.name.trim() ||
-                !nodeForm.code.trim()
-              }
+                disabled={busy === "node" || !nodeForm.name.trim()}
             >
               {busy === "node" ? "Saving..." : "Save Node"}
             </Button>
@@ -1969,10 +2137,10 @@ export default function RootRequirementBuilder() {
       >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Validation Rules: {ruleNode?.name}</DialogTitle>
+            <DialogTitle>Upload Rules: {ruleNode?.name}</DialogTitle>
             <DialogDescription>
-              Rules are enforced during upload preflight and again when a
-              document is submitted.
+              Tell users what files they should submit. These checks run before
+              upload and again when the document is submitted.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[68vh] space-y-5 overflow-y-auto py-2">
@@ -1993,11 +2161,11 @@ export default function RootRequirementBuilder() {
                             rule.severity === "ERROR" ? "danger" : "warning"
                           }
                         >
-                          {rule.severity}
+                          {ruleSeverityLabel(rule.severity)}
                         </Badge>
                       </div>
                       <p className="mt-1 text-[11px] text-slate-500">
-                        {rule.message || JSON.stringify(rule.config)}
+                        {rule.message || ruleSummary(rule)}
                       </p>
                     </div>
                     <div className="flex gap-1">
@@ -2028,10 +2196,10 @@ export default function RootRequirementBuilder() {
                 </p>
               )}
             </div>
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
+            <div className="rounded-xl border border-primary-100 bg-primary-50/40 p-4">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-[13px] font-semibold text-slate-800">
-                  {editingRule ? "Edit Rule" : "Add Rule"}
+                  {editingRule ? "Edit upload rule" : "Add an upload rule"}
                 </h3>
                 {editingRule && (
                   <Button
@@ -2048,7 +2216,7 @@ export default function RootRequirementBuilder() {
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Rule Type</Label>
+                  <Label>What should be checked?</Label>
                   <Select
                     value={ruleForm.type}
                     disabled={Boolean(editingRule)}
@@ -2072,7 +2240,7 @@ export default function RootRequirementBuilder() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Severity</Label>
+                  <Label>What happens if it does not match?</Label>
                   <Select
                     value={ruleForm.severity}
                     onValueChange={(value) =>
@@ -2086,8 +2254,8 @@ export default function RootRequirementBuilder() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ERROR">Blocking error</SelectItem>
-                      <SelectItem value="WARNING">Warning only</SelectItem>
+                      <SelectItem value="ERROR">Do not allow the upload</SelectItem>
+                      <SelectItem value="WARNING">Show a warning, but allow it</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -2098,7 +2266,7 @@ export default function RootRequirementBuilder() {
                   }
                 />
                 <div className="space-y-2 sm:col-span-2">
-                  <Label>Custom Message</Label>
+                  <Label>Message shown to the user (optional)</Label>
                   <Input
                     value={ruleForm.message}
                     onChange={(event) =>
@@ -2107,7 +2275,7 @@ export default function RootRequirementBuilder() {
                         message: event.target.value,
                       }))
                     }
-                    placeholder="Optional user-facing guidance"
+                    placeholder="Example: Please upload the approved PDF document."
                   />
                 </div>
                 <label className="flex items-center gap-2 text-[12px] text-slate-600">
@@ -2117,7 +2285,7 @@ export default function RootRequirementBuilder() {
                       setRuleForm((form) => ({ ...form, enabled: value }))
                     }
                   />
-                  Enabled
+                  Rule is turned on
                 </label>
               </div>
               <div className="mt-4 flex justify-end">
@@ -2127,7 +2295,7 @@ export default function RootRequirementBuilder() {
                   disabled={busy === "rule"}
                 >
                   <ShieldCheck className="mr-1.5 h-4 w-4" />
-                  {editingRule ? "Update Rule" : "Add Rule"}
+                  {editingRule ? "Save changes" : "Add rule"}
                 </Button>
               </div>
             </div>
@@ -2551,49 +2719,114 @@ function RuleInputs({
   update: (patch: Partial<RuleForm>) => void;
 }) {
   const labels: Record<RequirementValidationType, [string, string]> = {
-    FILE_TYPE: ["Allowed MIME types", "Allowed extensions"],
-    FILE_SIZE: ["Minimum bytes", "Maximum bytes"],
-    PAGE_COUNT: ["Minimum pages", "Maximum pages"],
-    EXPIRATION_DATE: ["Minimum days from now", "Maximum days from now"],
-    NAMING_CONVENTION: ["Regular expression", "Example filename"],
-    METADATA: ["Required keys", ""],
+    FILE_TYPE: ["Allowed file types", "Allowed file extensions"],
+    FILE_SIZE: ["Smallest file size (bytes)", "Largest file size (bytes)"],
+    PAGE_COUNT: ["At least this many pages", "No more than this many pages"],
+    EXPIRATION_DATE: ["Document must be valid for at least (days)", "Document must expire within (days)"],
+    NAMING_CONVENTION: ["Filename pattern", "Example filename"],
+    METADATA: ["Information that must be included", ""],
   };
   const placeholders: Record<RequirementValidationType, [string, string]> = {
-    FILE_TYPE: ["application/pdf, image/png", ".pdf, .png"],
-    FILE_SIZE: ["0", "10485760"],
-    PAGE_COUNT: ["1", "100"],
-    EXPIRATION_DATE: ["0", "365"],
-    NAMING_CONVENTION: ["^AREA-[0-9]+.*\\.pdf$", "AREA-1-REPORT.pdf"],
-    METADATA: ["author, academicYear", ""],
+    FILE_TYPE: ["Example: application/pdf", "Example: .pdf, .docx"],
+    FILE_SIZE: ["Leave blank for no minimum", "Example: 10485760 (10 MB)"],
+    PAGE_COUNT: ["Example: 1", "Example: 100"],
+    EXPIRATION_DATE: ["Example: 0", "Example: 365"],
+    NAMING_CONVENTION: ["Example: AREA-1-REPORT", "Example: AREA-1-REPORT.pdf"],
+    METADATA: ["Example: author, academicYear", ""],
   };
+  const hints: Record<RequirementValidationType, [string, string]> = {
+    FILE_TYPE: ["Usually use the file type shown in the example.", "Separate multiple extensions with commas."],
+    FILE_SIZE: ["1 MB is about 1,048,576 bytes.", "Leave blank if there is no maximum."],
+    PAGE_COUNT: ["Leave blank if there is no minimum.", "Leave blank if there is no maximum."],
+    EXPIRATION_DATE: ["Leave blank if there is no minimum.", "Leave blank if there is no deadline."],
+    NAMING_CONVENTION: ["Use a simple pattern to guide the filename.", "Shown as an example to the user."],
+    METADATA: ["Separate multiple details with commas.", ""],
+  };
+  const fileOptions =
+    form.type === "FILE_TYPE" &&
+    form.valueOne &&
+    !FILE_FORMAT_OPTIONS.some((option) => option.mime === form.valueOne)
+      ? [
+          ...FILE_FORMAT_OPTIONS,
+          {
+            label: "Saved custom file type",
+            mime: form.valueOne,
+            extension: form.valueTwo,
+          },
+        ]
+      : FILE_FORMAT_OPTIONS;
   return (
     <>
       <div className="space-y-2">
         <Label>{labels[form.type][0]}</Label>
-        <Input
-          type={
-            ["FILE_SIZE", "PAGE_COUNT", "EXPIRATION_DATE"].includes(form.type)
-              ? "number"
-              : "text"
-          }
-          value={form.valueOne}
-          placeholder={placeholders[form.type][0]}
-          onChange={(event) => update({ valueOne: event.target.value })}
-        />
-      </div>
-      {labels[form.type][1] && (
-        <div className="space-y-2">
-          <Label>{labels[form.type][1]}</Label>
+        {form.type === "FILE_TYPE" ? (
+          <Select
+            value={form.valueOne}
+            onValueChange={(value) => {
+              const option = fileOptions.find((item) => item.mime === value);
+              update({ valueOne: value, valueTwo: option?.extension ?? form.valueTwo });
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a file format" />
+            </SelectTrigger>
+            <SelectContent>
+              {fileOptions.map((option) => (
+                <SelectItem key={option.mime} value={option.mime}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
           <Input
             type={
               ["FILE_SIZE", "PAGE_COUNT", "EXPIRATION_DATE"].includes(form.type)
                 ? "number"
                 : "text"
             }
-            value={form.valueTwo}
-            placeholder={placeholders[form.type][1]}
-            onChange={(event) => update({ valueTwo: event.target.value })}
+            value={form.valueOne}
+            placeholder={placeholders[form.type][0]}
+            onChange={(event) => update({ valueOne: event.target.value })}
           />
+        )}
+        <p className="text-[10px] leading-4 text-slate-500">{hints[form.type][0]}</p>
+      </div>
+      {labels[form.type][1] && (
+        <div className="space-y-2">
+          <Label>{labels[form.type][1]}</Label>
+          {form.type === "FILE_TYPE" ? (
+            <Select
+              value={form.valueTwo}
+              onValueChange={(value) => {
+                const option = fileOptions.find((item) => item.extension === value);
+                update({ valueTwo: value, valueOne: option?.mime ?? form.valueOne });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select file extension" />
+              </SelectTrigger>
+              <SelectContent>
+                {fileOptions.map((option) => (
+                  <SelectItem key={`${option.mime}-extension`} value={option.extension}>
+                    {option.extension}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              type={
+                ["FILE_SIZE", "PAGE_COUNT", "EXPIRATION_DATE"].includes(form.type)
+                  ? "number"
+                  : "text"
+              }
+              value={form.valueTwo}
+              placeholder={placeholders[form.type][1]}
+              onChange={(event) => update({ valueTwo: event.target.value })}
+            />
+          )}
+          <p className="text-[10px] leading-4 text-slate-500">{hints[form.type][1]}</p>
         </div>
       )}
     </>

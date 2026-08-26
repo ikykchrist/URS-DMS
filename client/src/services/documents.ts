@@ -608,7 +608,7 @@ export async function getCopyJob(id: string): Promise<FolderCopyJob> {
 /** Download a folder as a streaming ZIP (rule 14); saves via a blob. */
 export async function downloadFolderZip(folderId: string, folderName: string): Promise<void> {
   const token = getAccessToken()
-  const response = await fetch(`/api/v1/folders/${encodeURIComponent(folderId)}/zip`, {
+  const response = await fetch(`${API_BASE}/folders/${encodeURIComponent(folderId)}/zip`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
   if (!response.ok) throw new Error(`ZIP download failed (${response.status})`)

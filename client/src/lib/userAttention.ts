@@ -22,6 +22,7 @@ export interface UserAttention {
 }
 
 let cached: UserAttention | null = null
+let cachedUserId: string | null = null
 let lastFetch = 0
 const listeners = new Set<(a: UserAttention) => void>()
 const FETCH_COOLDOWN_MS = 5000
@@ -37,6 +38,11 @@ const isOverdue = (dateStr: string | null, status: string) => {
 }
 
 export async function refreshUserAttention(userId: string): Promise<void> {
+  if (cachedUserId !== userId) {
+    cached = null
+    lastFetch = 0
+    cachedUserId = userId
+  }
   if (cached && NOW() - lastFetch < FETCH_COOLDOWN_MS) {
     listeners.forEach((l) => l(cached!))
     return

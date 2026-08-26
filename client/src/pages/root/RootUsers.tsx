@@ -110,14 +110,14 @@ export default function RootUsers() {
         title="System Users"
         description="All platform accounts — system administrator view"
         actions={
-          <Button variant="outline" size="sm" onClick={() => void load()} className="shadow-sm">
+          <Button variant="outline" size="sm" onClick={() => void load()} className="shadow-soft">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
         }
       />
 
-      <Card className="border-gray-200/60 shadow-sm mb-4">
+      <Card className="border-border/70 shadow-soft mb-4">
         <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -142,7 +142,7 @@ export default function RootUsers() {
         </CardContent>
       </Card>
 
-      <Card className="border-gray-200/60 shadow-sm">
+      <Card className="border-border/70 shadow-soft">
         <CardContent className="p-0">
           {loading ? (
             <div className="min-h-[280px] flex items-center justify-center">
@@ -192,7 +192,7 @@ export default function RootUsers() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-blue-600"
+                        className="h-8 w-8 text-gray-400 hover:text-primary-600"
                         title="Reset password"
                         onClick={() => { setResetTarget(user); setNewPassword(""); setMustChange(true) }}
                       >
@@ -228,7 +228,7 @@ export default function RootUsers() {
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
             <DialogTitle className="text-lg flex items-center gap-2">
-              <KeyRound className="w-5 h-5 text-blue-600" />
+              <KeyRound className="w-5 h-5 text-primary-600" />
               Reset Password
             </DialogTitle>
             <DialogDescription className="text-[14px]">

@@ -15,7 +15,7 @@ export function PasswordStrength({ password, className }: PasswordStrengthProps)
     if (strengthPercent <= 20) return "bg-red-500"
     if (strengthPercent <= 40) return "bg-orange-500"
     if (strengthPercent <= 60) return "bg-yellow-500"
-    if (strengthPercent <= 80) return "bg-blue-500"
+    if (strengthPercent <= 80) return "bg-primary-500"
     return "bg-green-500"
   }
 

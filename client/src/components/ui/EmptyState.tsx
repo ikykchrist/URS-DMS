@@ -133,7 +133,7 @@ export function EmptyState({
 
   return (
     <div className={cn("flex flex-col items-center justify-center py-12 px-4 text-center", className)}>
-      <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4 text-gray-400">
+      <div className="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center mb-4 text-primary-300">
         {iconMap[config.emoji]}
       </div>
       <h3 className="text-[15px] font-semibold text-gray-900 mb-1">
@@ -143,7 +143,7 @@ export function EmptyState({
         {description || config.defaultDescription}
       </p>
       {action && (
-        <Button onClick={action.onClick} className="mt-4 h-9 shadow-sm" size="sm">
+        <Button onClick={action.onClick} className="mt-4" size="sm">
           {action.label}
         </Button>
       )}

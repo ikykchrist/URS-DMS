@@ -15,6 +15,7 @@ import {
   Pencil,
   Trash2,
   RotateCcw,
+  Loader2,
 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { StatCard } from "@/components/layout/StatCard"
@@ -23,6 +24,14 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Badge } from "@/components/ui/Badge"
 import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/Dialog"
 import {
   Select,
   SelectContent,
@@ -34,10 +43,12 @@ import { AACCUPAreaDetailsModal } from "@/components/modals/AACCUPAreaDetailsMod
 import { CreateTaskModal } from "@/components/modals/CreateTaskModal"
 import { AddSubmissionModal } from "@/components/modals/AddSubmissionModal"
 import { AddAreaModal } from "@/components/modals/AddAreaModal"
+import { useAuth } from "@/context/AuthContext"
 import {
   listAllOnlineAaccupAreas,
   listAllOnlineSubmissions,
   archiveOnlineArea,
+  exportApprovedSubmissionsZip,
   type OnlineAaccupArea,
   type OnlineSubmissionListItem,
   type AreaSet,
@@ -63,7 +74,7 @@ interface AACCUPManagementProps {
 
 const statusColors = {
   Completed: "bg-emerald-500",
-  "In Progress": "bg-blue-500",
+  "In Progress": "bg-primary-500",
   Pending: "bg-amber-500",
   Overdue: "bg-red-500",
 }
@@ -92,6 +103,8 @@ const SET_TITLES: Record<AreaSet, { title: string; description: string }> = {
 
 export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AACCUPManagementProps) {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const canExportPackage = user?.role === "root" || user?.role === "super_admin"
   const setMeta = SET_TITLES[areaSet]
   const [searchParams, setSearchParams] = useSearchParams()
   const [areas, setAreas] = useState<OnlineAaccupArea[]>([])
@@ -101,6 +114,9 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(() => searchParams.get("modal") === "create-task")
   const [isAddSubmissionOpen, setIsAddSubmissionOpen] = useState(false)
   const [isAddAreaModalOpen, setIsAddAreaModalOpen] = useState(false)
+  const [isExportOpen, setIsExportOpen] = useState(false)
+  const [exportAreaIds, setExportAreaIds] = useState<string[]>([])
+  const [isExporting, setIsExporting] = useState(false)
   const [editingArea, setEditingArea] = useState<{
     id: string
     name: string
@@ -183,6 +199,32 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
     link.download = `${areaSet.toLowerCase()}-areas-${new Date().toISOString().slice(0, 10)}.csv`
     link.click()
     URL.revokeObjectURL(url)
+  }
+
+  const openExportModal = () => {
+    setExportAreaIds(areas.map((area) => area.id))
+    setIsExportOpen(true)
+  }
+
+  const handleDownloadApprovedZip = async () => {
+    if (exportAreaIds.length === 0) return
+    setIsExporting(true)
+    try {
+      const { filename, blob } = await exportApprovedSubmissionsZip(exportAreaIds, areaSet)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      setIsExportOpen(false)
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Export failed.")
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   const toLocalArea = (area: OnlineAaccupArea, index: number): AACCUPArea => {
@@ -272,16 +314,24 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
           title={setMeta.title}
           description={setMeta.description}
           actions={
-            <Button className="shadow-sm" onClick={() => setIsAddAreaModalOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Area
-            </Button>
+            <>
+              {canExportPackage && (
+                <Button variant="outline" className="shadow-soft" onClick={openExportModal}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export Approved ZIP
+                </Button>
+              )}
+              <Button className="shadow-soft" onClick={() => setIsAddAreaModalOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Area
+              </Button>
+            </>
           }
           />
 
           {navigation && <div className="mb-6 lg:mb-8">{navigation}</div>}
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-5 mb-6 lg:mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 mb-6 lg:mb-8">
             <StatCard
               title="Total Submissions"
               value={totalSubmissions.toString()}
@@ -312,8 +362,8 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
             />
           </div>
 
-          <Card className="border-gray-200/60 shadow-sm mb-6">
-            <CardContent className="p-5">
+          <Card className="border-border/70 shadow-soft mb-6">
+            <CardContent className="p-5 md:p-6">
               <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                 <div className="flex-1">
                   <div className="relative max-w-md">
@@ -322,13 +372,13 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                       placeholder="Search areas or submissions..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 h-10 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white focus:ring-1.5 focus:ring-gray-200"
+                      className="pl-10 h-10 bg-navy-50/40 border-0 hover:bg-navy-50 focus:bg-white focus:ring-1.5 focus:ring-primary/25"
                     />
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
                   <Select value={areaFilter} onValueChange={setAreaFilter}>
-                    <SelectTrigger className="w-[140px] h-9">
+                    <SelectTrigger className="w-[140px] h-10">
                       <Filter className="w-3.5 h-3.5 mr-2" />
                       <SelectValue placeholder="Area" />
                     </SelectTrigger>
@@ -342,7 +392,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                     </SelectContent>
                   </Select>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[130px] h-9">
+                    <SelectTrigger className="w-[130px] h-10">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -354,7 +404,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                     </SelectContent>
                   </Select>
                   <Select value={submissionFilter} onValueChange={setSubmissionFilter}>
-                    <SelectTrigger className="w-[150px] h-9">
+                    <SelectTrigger className="w-[150px] h-10">
                       <SelectValue placeholder="Submission" />
                     </SelectTrigger>
                     <SelectContent>
@@ -364,7 +414,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                       <SelectItem value="returned">Returned</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button variant="outline" size="sm" className="h-9" onClick={handleExport}>
+                  <Button variant="outline" size="sm" className="h-10" onClick={handleExport}>
                     <Download className="w-4 h-4 mr-2" />
                     Export
                   </Button>
@@ -372,7 +422,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-9 text-gray-500"
+                      className="h-10 text-gray-500"
                       onClick={() => {
                         setSearchQuery("")
                         setAreaFilter("all")
@@ -388,7 +438,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                     <Button
                       variant="destructive"
                       size="sm"
-                      className="h-9"
+                      className="h-10"
                       onClick={handleRemoveSelected}
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
@@ -419,17 +469,17 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                 <Card
                   key={area.id}
                   className={cn(
-                    "border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer",
+                    "border-border/70 shadow-soft hover:shadow-lift transition-shadow cursor-pointer flex flex-col h-full",
                     selectedIds.includes(area.serverId) && "ring-2 ring-primary/40"
                   )}
                   onClick={() => handleViewArea(area)}
                 >
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
+                  <CardContent className="flex flex-1 flex-col p-5 text-center md:p-6">
+                    <div className="mb-5 flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 flex-1 items-center justify-center gap-3">
                         <input
                           type="checkbox"
-                          className="w-4 h-4 rounded border-gray-300 accent-primary cursor-pointer"
+                          className="w-4 h-4 shrink-0 rounded border-gray-300 accent-primary cursor-pointer"
                           checked={selectedIds.includes(area.serverId)}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => {
@@ -442,24 +492,24 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                           }}
                         />
                         <div className={cn(
-                          "w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-[14px]",
+                          "w-10 h-10 rounded-xl shrink-0 flex items-center justify-center text-white font-bold text-[14px]",
                           statusColors[area.status]
                         )}>
                           {area.id}
                         </div>
-                        <div>
-                          <h3 className="text-[14px] font-semibold text-gray-900">Area {area.id}</h3>
+                        <div className="min-w-0 text-center">
+                          <h3 className="text-[14px] font-semibold text-gray-900 truncate">Area {area.id}</h3>
                           <p className="text-[12px] text-gray-500 line-clamp-1">{area.title}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2 shrink-0">
                         <Badge variant={statusBadge[area.status]} className="text-[10px]">
                           {area.status}
                         </Badge>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                          className="h-8 w-8 text-gray-400 hover:text-gray-700 hover:bg-gray-100"
                           onClick={(e) => {
                             e.stopPropagation()
                             setEditingArea(toEditableArea(area))
@@ -470,7 +520,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                          className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleRemoveArea(area.serverId, area.title)
@@ -481,12 +531,12 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                       </div>
                     </div>
 
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between mb-2">
+                    <div className="mb-5">
+                      <div className="mb-2 flex items-center justify-center gap-3">
                         <span className="text-[12px] text-gray-500">Progress</span>
                         <span className="text-[14px] font-semibold text-primary">{area.completion}%</span>
                       </div>
-                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="w-full h-2 bg-navy-50 rounded-full overflow-hidden">
                         <div
                           className={cn("h-full rounded-full", statusColors[area.status])}
                           style={{ width: `${area.completion}%` }}
@@ -494,29 +544,29 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-[12px] text-gray-500 mb-4">
-                      <div className="flex items-center gap-1">
+                    <div className="mb-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12px] text-gray-500">
+                      <div className="flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5" />
                         <span>{stats.total} Submissions</span>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="flex items-center gap-1">
+                      <div className="flex items-center justify-center gap-3.5">
+                        <span className="flex items-center gap-1.5">
                           <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
                           {stats.completed}
                         </span>
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-1.5">
                           <Clock className="w-3.5 h-3.5 text-amber-500" />
                           {stats.pending}
                         </span>
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-1.5">
                           <AlertCircle className="w-3.5 h-3.5 text-red-500" />
                           {stats.returned}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                      <div className="flex -space-x-2">
+                    <div className="mt-auto flex items-center justify-center gap-5 border-t border-gray-100 pt-4">
+                      <div className="flex -space-x-2 min-w-0">
                         {[...new Set(areaSubs.map(s => s.submittedByName).filter((name): name is string => Boolean(name)))].slice(0, 3).map((name, i) => (
                           <Avatar key={i} className="h-7 w-7 border-2 border-white bg-primary/10">
                             <AvatarFallback className="text-[10px] text-primary font-medium">
@@ -530,7 +580,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 text-[12px] text-gray-500">
+                      <div className="flex items-center gap-1.5 text-[12px] text-gray-500 shrink-0">
                         <Calendar className="w-3.5 h-3.5" />
                         <span>{area.dueDate}</span>
                       </div>
@@ -596,6 +646,61 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
           fetchData()
         }}
       />
+
+      <Dialog open={isExportOpen} onOpenChange={setIsExportOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Export Approved Submissions</DialogTitle>
+            <DialogDescription>
+              Downloads a ZIP of every approved submission for the selected areas, grouped into one
+              folder per area with the exact submitted document versions. ROOT and ADMINISTRATOR only.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 max-h-72 space-y-2 overflow-y-auto pr-1">
+            {areas.length === 0 && (
+              <p className="py-4 text-center text-[13px] text-gray-500">No areas found.</p>
+            )}
+            {areas.map((area) => (
+              <label
+                key={area.id}
+                className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50"
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 cursor-pointer rounded border-gray-300 accent-primary"
+                  checked={exportAreaIds.includes(area.id)}
+                  onChange={(e) => {
+                    setExportAreaIds((prev) =>
+                      e.target.checked ? [...prev, area.id] : prev.filter((id) => id !== area.id),
+                    )
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-medium text-gray-900">{area.name}</p>
+                  <p className="text-[11px] text-gray-500">{area.code}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+          <DialogFooter className="mt-5">
+            <Button variant="outline" size="sm" onClick={() => setIsExportOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={isExporting || exportAreaIds.length === 0}
+              onClick={() => void handleDownloadApprovedZip()}
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              {isExporting ? "Building archive…" : `Download ZIP (${exportAreaIds.length})`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

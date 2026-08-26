@@ -7,12 +7,14 @@ import {
   createTaskSchema,
   listTasksQuerySchema,
   updateTaskSchema,
+  taskRequirementTemplatesQuerySchema,
 } from "@/modules/aaccup/tasks/aaccup.tasks.validator";
 import {
   archiveTaskHandler,
   createTaskHandler,
   getTaskHandler,
   listTaskAssigneesHandler,
+  listTaskRequirementTemplatesHandler,
   listTasksHandler,
   restoreTaskHandler,
   updateTaskHandler,
@@ -43,6 +45,13 @@ aaccupTasksRouter.get(
   "/assignees",
   requirePermission("aaccup.read"),
   asyncHandler(listTaskAssigneesHandler),
+);
+
+aaccupTasksRouter.get(
+  "/requirement-templates",
+  requirePermission("aaccup.read"),
+  validateQuery(taskRequirementTemplatesQuerySchema),
+  asyncHandler(listTaskRequirementTemplatesHandler),
 );
 
 // POST /aaccup/tasks

@@ -183,7 +183,7 @@ export function DocumentPreviewModal({
 
         <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
           <div className="flex-1 flex flex-col bg-gray-100 min-h-[300px] lg:min-h-0 overflow-hidden">
-            <div className="h-12 bg-white border-b border-gray-200 flex items-center justify-between px-4 flex-shrink-0">
+            <div className="h-12 bg-white border-b border-border flex items-center justify-between px-4 flex-shrink-0">
               <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
@@ -295,7 +295,7 @@ export function DocumentPreviewModal({
             </div>
           </div>
 
-          <div className="w-full lg:w-[340px] bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col flex-shrink-0 overflow-y-auto">
+          <div className="w-full lg:w-[340px] bg-white border-t lg:border-t-0 lg:border-l border-border flex flex-col flex-shrink-0 overflow-y-auto">
             <div className="p-5 border-b border-gray-100">
               <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Document Details</h3>
               <p className="text-[12px] text-gray-400">ID: {document?.id}</p>
@@ -413,14 +413,14 @@ export function DocumentPreviewModal({
           </div>
         </div>
 
-        <div className="px-5 py-3 border-t border-gray-100 bg-blue-50/50 flex-shrink-0">
+        <div className="px-5 py-3 border-t border-gray-100 bg-primary-50/50 flex-shrink-0">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-              <Info className="w-4 h-4 text-blue-600" />
+            <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <Info className="w-4 h-4 text-primary-600" />
             </div>
             <div>
               <p className="text-[13px] font-medium text-blue-800">Review Reminder</p>
-              <p className="text-[12px] text-blue-600/80 mt-0.5">
+              <p className="text-[12px] text-primary-600/80 mt-0.5">
                 Please ensure all documents meet the required standards before taking action. Review the complete document carefully.
               </p>
             </div>

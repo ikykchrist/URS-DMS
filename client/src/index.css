@@ -20,8 +20,8 @@ html {
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #F8FAFC;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #F4F7FB;
   color: #0F172A;
   line-height: 1.5;
 }
@@ -32,7 +32,7 @@ body {
 }
 
 ::selection {
-  background-color: #6366F1;
+  background-color: #1239B5;
   color: white;
 }
 
@@ -121,9 +121,31 @@ body {
   @media (min-width: 768px) { .text-responsive { @apply text-base; } }
 }
 
+@keyframes skeleton-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* Keep the admin and user portals on the same calm, rounded surface system.
+   Root tools contain a few intentionally denser utility panels, so scope this
+   polish to the admin shell rather than changing user-owned content. */
+.admin-portal .rounded-md { border-radius: 0.75rem; }
+.admin-portal .rounded-lg { border-radius: 0.875rem; }
+.admin-portal .bg-slate-50\/60 { background-color: rgba(248, 250, 252, 0.8); }
+.admin-portal .border-slate-100,
+.admin-portal .border-slate-200 { border-color: #e5eaf2; }
+.admin-portal .shadow-sm { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 14px rgba(15, 23, 42, 0.04); }
+.dark .admin-portal .bg-slate-50\/60 { background-color: rgba(17, 28, 58, 0.72); }
+.dark .admin-portal .border-slate-100,
+.dark .admin-portal .border-slate-200 { border-color: #1e293b; }
+
+.admin-toast-container { max-width: 24rem; }
+.admin-toast { border-radius: 0.875rem; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14); }
+.admin-toast-container .admin-toast span { line-height: 1.35; }
+.dark .admin-toast { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); }
+
 /* ===================================================================
    DARK THEME — Proper, eye-pleasing color system
-   Based on a slate-indigo palette with subtle blue undertones.
+   Based on a navy-blue university palette with subtle blue undertones.
    =================================================================== */
 
 .dark { color-scheme: dark; }
@@ -183,6 +205,27 @@ body {
 .dark .bg-rose-50 { background-color: #1F1118; }
 .dark .bg-cyan-50 { background-color: #0C1A1F; }
 
+/* ── Navy/primary tints in dark (subtle blue undertones) ── */
+.dark .bg-primary-50,
+.dark .bg-navy-50,
+.dark .bg-primary-50\/40,
+.dark .bg-primary-50\/30,
+.dark .bg-navy-50\/50,
+.dark .bg-navy-50\/70 { background-color: #111C3A; }
+
+.dark .text-primary-600,
+.dark .text-primary-700 { color: #7CA3F5; }
+.dark .text-primary-800,
+.dark .text-primary-900,
+.dark .text-navy-900,
+.dark .text-navy-800,
+.dark .text-navy-700 { color: #E2E8F0; }
+.dark .text-primary { color: #7CA3F5; }
+
+.dark .shadow-soft,
+.dark .shadow-lift,
+.dark .shadow-navy { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.4); }
+
 /* ── Text ── */
 .dark .text-gray-900 { color: #F1F5F9; }
 .dark .text-gray-800 { color: #E2E8F0; }
@@ -220,6 +263,13 @@ body {
 .dark .border-b-gray-200 { border-bottom-color: #1E293B; }
 .dark .border-r-gray-200 { border-right-color: #1E293B; }
 .dark .border-l-gray-200 { border-left-color: #1E293B; }
+
+.dark .border-border,
+.dark .border-border\/60,
+.dark .border-border\/70,
+.dark .border-border\/80,
+.dark .border-border\/50,
+.dark .border-border\/90 { border-color: #1E293B; }
 
 .dark .divide-gray-100 > * + *,
 .dark .divide-gray-200 > * + * { border-color: #1E293B; }
@@ -282,13 +332,13 @@ body {
 .dark input:focus,
 .dark textarea:focus,
 .dark select:focus {
-  border-color: #6366F1 !important;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
+  border-color: #4F84FF !important;
+  box-shadow: 0 0 0 2px rgba(79, 132, 255, 0.25) !important;
 }
 
 .dark input[type="checkbox"],
 .dark input[type="radio"] {
-  accent-color: #6366F1;
+  accent-color: #4F84FF;
 }
 
 /* ── File icon colors in dark (subtler) ── */

@@ -102,7 +102,7 @@ export default function RootAudit() {
         title="System Audit"
         description="Full platform audit trail"
         actions={
-          <Button variant="outline" size="sm" onClick={() => void load()} className="shadow-sm">
+          <Button variant="outline" size="sm" onClick={() => void load()} className="shadow-soft">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -123,7 +123,7 @@ export default function RootAudit() {
         ))}
       </div>
 
-      <Card className="border-gray-200/60 shadow-sm mb-4">
+      <Card className="border-border/70 shadow-soft mb-4">
         <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -162,7 +162,7 @@ export default function RootAudit() {
         </CardContent>
       </Card>
 
-      <Card className="border-gray-200/60 shadow-sm">
+      <Card className="border-border/70 shadow-soft">
         <CardContent className="p-0">
           {loading ? (
             <div className="min-h-[280px] flex items-center justify-center">

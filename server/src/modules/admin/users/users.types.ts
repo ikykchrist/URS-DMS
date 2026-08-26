@@ -29,6 +29,9 @@ export interface AdminUserListItem {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+  avatarSeed: string | null;       // Deterministic DiceBear seed — placeholder avatar
+  profilePhotoKey: string | null;  // MinIO key when the user uploaded a photo
+  photoUrl: string | null;         // Presigned download URL (filled by the service)
 }
 
 export type AdminUserDetail = AdminUserListItem;

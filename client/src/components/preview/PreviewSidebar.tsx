@@ -42,7 +42,7 @@ const getFileTypeBgColor = (type: DocumentFile["type"]) => {
       return "bg-red-50"
     case "DOCX":
     case "DOC":
-      return "bg-blue-50"
+      return "bg-primary-50"
     case "XLSX":
     case "XLS":
       return "bg-emerald-50"
@@ -69,8 +69,8 @@ export function PreviewSidebar({
   canGoNext,
 }: PreviewSidebarProps) {
   return (
-    <div className="w-[200px] bg-gray-50 border-r border-gray-200 flex flex-col flex-shrink-0">
-      <div className="p-3 border-b border-gray-200 bg-white">
+    <div className="w-[200px] bg-gray-50 border-r border-border flex flex-col flex-shrink-0">
+      <div className="p-3 border-b border-border bg-white">
         <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
           Files in folder
         </h3>
@@ -78,7 +78,7 @@ export function PreviewSidebar({
       </div>
 
       {(canGoPrev !== undefined && canGoNext !== undefined && files.length > 1) && (
-        <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-200 bg-white">
+        <div className="flex items-center justify-between px-2 py-1.5 border-b border-border bg-white">
           <Button
             variant="ghost"
             size="icon"
@@ -115,12 +115,12 @@ export function PreviewSidebar({
               className={cn(
                 "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-150 text-left",
                 isActive
-                  ? "bg-white shadow-sm border border-gray-200"
-                  : "hover:bg-white hover:shadow-sm"
+                  ? "bg-white shadow-soft border border-border"
+                  : "hover:bg-white hover:shadow-soft"
               )}
             >
               <div className={cn(
-                "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0",
+                "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0",
                 getFileTypeBgColor(file.type)
               )}>
                 {getFileTypeIcon(file.type)}

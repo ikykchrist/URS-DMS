@@ -151,7 +151,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
         className="fixed inset-0 bg-black/20 backdrop-blur-sm"
         onClick={() => onOpenChange(false)}
       />
-      <div className="relative w-full max-w-lg bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+      <div className="relative w-full max-w-lg bg-white rounded-xl shadow-2xl border border-border overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
           <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <input
@@ -162,7 +162,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
             placeholder="Search documents, users, pages..."
             className="flex-1 text-[14px] outline-none bg-transparent text-gray-900 placeholder:text-gray-400"
           />
-          <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border border-gray-200 bg-gray-50 px-1.5 font-mono text-[10px] font-medium text-gray-500">
+          <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border border-border bg-gray-50 px-1.5 font-mono text-[10px] font-medium text-gray-500">
             ESC
           </kbd>
           {query && (
@@ -205,7 +205,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                       index === selectedIndex ? "bg-gray-50" : "hover:bg-gray-50/50"
                     )}
                   >
-                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0", config.bg)}>
+                    <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0", config.bg)}>
                       <Icon className={cn("w-4 h-4", config.color)} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -240,26 +240,26 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
 
         <div className="flex items-center gap-4 px-4 py-2.5 border-t border-gray-100 bg-gray-50/50">
           <div className="flex items-center gap-1 text-[11px] text-gray-400">
-            <kbd className="inline-flex h-4 items-center gap-0.5 rounded border border-gray-200 bg-white px-1 font-mono text-[10px]">
+            <kbd className="inline-flex h-4 items-center gap-0.5 rounded border border-border bg-white px-1 font-mono text-[10px]">
               <Command className="w-2.5 h-2.5" />
             </kbd>
             <span>+</span>
-            <kbd className="inline-flex h-4 items-center gap-0.5 rounded border border-gray-200 bg-white px-1 font-mono text-[10px]">
+            <kbd className="inline-flex h-4 items-center gap-0.5 rounded border border-border bg-white px-1 font-mono text-[10px]">
               K
             </kbd>
             <span className="ml-1">to open</span>
           </div>
           <div className="flex items-center gap-1 text-[11px] text-gray-400">
-            <kbd className="inline-flex h-4 items-center rounded border border-gray-200 bg-white px-1 font-mono text-[10px]">
+            <kbd className="inline-flex h-4 items-center rounded border border-border bg-white px-1 font-mono text-[10px]">
               ↑
             </kbd>
-            <kbd className="inline-flex h-4 items-center rounded border border-gray-200 bg-white px-1 font-mono text-[10px]">
+            <kbd className="inline-flex h-4 items-center rounded border border-border bg-white px-1 font-mono text-[10px]">
               ↓
             </kbd>
             <span className="ml-1">to navigate</span>
           </div>
           <div className="flex items-center gap-1 text-[11px] text-gray-400">
-            <kbd className="inline-flex h-4 items-center rounded border border-gray-200 bg-white px-1 font-mono text-[10px]">
+            <kbd className="inline-flex h-4 items-center rounded border border-border bg-white px-1 font-mono text-[10px]">
               ↵
             </kbd>
             <span className="ml-1">to select</span>

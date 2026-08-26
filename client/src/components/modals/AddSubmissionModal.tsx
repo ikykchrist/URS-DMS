@@ -183,7 +183,7 @@ export function AddSubmissionModal({
               "relative flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-150",
               isDragging
                 ? "border-primary bg-primary-500"
-                : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                : "border-border hover:border-gray-300 hover:bg-gray-50"
             )}
           >
             <input
@@ -217,7 +217,7 @@ export function AddSubmissionModal({
                 {(() => {
                   const Icon = getFileIcon(files[0].type)
                   return (
-                    <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-lg bg-white border border-border flex items-center justify-center">
                       <Icon className="w-5 h-5 text-gray-500" />
                     </div>
                   )
@@ -261,7 +261,7 @@ export function AddSubmissionModal({
           <Button
             onClick={handleSubmit}
             disabled={saving || requirements.length === 0}
-            className="h-10 px-5 shadow-sm"
+            className="h-10 px-5 shadow-soft"
           >
             {saving ? "Submitting..." : "Submit"}
           </Button>

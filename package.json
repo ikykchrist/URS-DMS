@@ -1,6 +1,6 @@
 {
   "name": "urs-dms-monorepo",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
   "description": "URS-DMS monorepo root (Sprint 1 client + Sprint 2 server)",
   "workspaces": [
@@ -9,6 +9,8 @@
   "scripts": {
     "dev:client": "npm --prefix client run dev",
     "dev:server": "npm --workspace server run dev",
+    "dev:client:remote": "npm --prefix client run dev -- --mode remote",
+    "dev:server:remote": "npm --workspace server exec -- npx tsx watch --env-file=../.env.remote src/server.ts",
     "build:client": "npm --prefix client run build",
     "build:server": "npm --workspace server run build",
     "lint:client": "npm --prefix client run lint",

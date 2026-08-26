@@ -137,6 +137,7 @@ export const AUDIT_ACTIONS = {
   AACCUP_SUBMISSION_REVIEWED: "aaccup_submission.reviewed",
   AACCUP_SUBMISSION_ARCHIVED: "aaccup_submission.archived",
   AACCUP_SUBMISSION_RESTORED: "aaccup_submission.restored",
+  AACCUP_SUBMISSIONS_EXPORTED: "aaccup_submissions.exported",
 
   AACCUP_TASK_CREATED: "aaccup_task.created",
   AACCUP_TASK_UPDATED: "aaccup_task.updated",

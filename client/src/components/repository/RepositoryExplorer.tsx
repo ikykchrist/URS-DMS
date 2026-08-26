@@ -161,7 +161,7 @@ function fileIconClasses(doc: Document): string {
   const type = doc.type?.toLowerCase() ?? ""
   if (["pdf"].includes(type)) return "bg-red-50 text-red-500 dark:bg-red-900/30 dark:text-red-400"
   if (["xls", "xlsx", "csv"].includes(type)) return "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
-  if (["doc", "docx", "txt"].includes(type)) return "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+  if (["doc", "docx", "txt"].includes(type)) return "bg-primary-50 text-primary-600 dark:bg-blue-900/30 dark:text-blue-400"
   if (["ppt", "pptx"].includes(type)) return "bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
   if (["png", "jpg", "jpeg", "gif", "webp"].includes(type)) return "bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
   if (["mp4", "webm", "mov", "avi", "mkv"].includes(type)) return "bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400"
@@ -1269,7 +1269,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
 
   if (!ownerId) {
     return (
-      <Card className="border-gray-200/60 shadow-sm">
+      <Card className="border-border/70 shadow-soft">
         <CardContent className="p-8 text-center text-[13px] text-gray-500">Sign in to view your repository.</CardContent>
       </Card>
     )
@@ -1286,7 +1286,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           <div
             className={cn(
               "flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[13px] cursor-pointer select-none transition-colors group",
-              isCurrent ? "bg-gray-900 text-white" : isDragOver ? "bg-blue-50 ring-1 ring-blue-300" : "text-gray-600 hover:bg-gray-100",
+              isCurrent ? "bg-primary text-white" : isDragOver ? "bg-primary-50 ring-1 ring-blue-300" : "text-gray-600 hover:bg-gray-100",
             )}
             style={{ paddingLeft: `${8 + depth * 16}px` }}
             onClick={() => navigate(node.folder.id)}
@@ -1332,7 +1332,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
       onClick={onClick}
       className={cn(
         "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[13px] cursor-pointer select-none transition-colors",
-        active ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100",
+        active ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100",
       )}
     >
       {icon}
@@ -1370,7 +1370,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
         isSelected
           ? "bg-gray-100 dark:bg-gray-800/70"
           : selectedId === id ? "bg-gray-50/70 dark:bg-gray-800/50"
-          : dragOverFolderId === (opts?.dropTarget?.folderId ?? null) ? "bg-blue-50/70 dark:bg-blue-900/20"
+          : dragOverFolderId === (opts?.dropTarget?.folderId ?? null) ? "bg-primary-50/70 dark:bg-blue-900/20"
           : "hover:bg-gray-50/70 dark:hover:bg-gray-800/50",
       )}
       onClick={() => setSelectedId(id)}
@@ -1412,9 +1412,9 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
       className={cn(
         "relative border rounded-xl cursor-pointer select-none transition-all duration-150 group bg-white",
         isSelected
-           ? "border-gray-400 bg-gray-50/70 shadow-sm"
+           ? "border-gray-400 bg-gray-50/70 shadow-soft"
            : dragOverFolderId === (opts?.dropTarget?.folderId ?? null) ? "border-primary/50 bg-primary/5"
-           : "border-gray-200/80 hover:border-gray-300 hover:shadow-md",
+           : "border-border/80 hover:border-gray-300 hover:shadow-lift",
       )}
       onClick={() => setSelectedId(id)}
       onDoubleClick={open}
@@ -1610,7 +1610,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
       {/* ── Main pane ── */}
       <Card className="border-0 bg-transparent shadow-none">
         <CardContent className="p-0">
-          <div className="mb-5 flex items-center gap-1 overflow-x-auto border-b border-gray-200 pb-1">
+          <div className="mb-5 flex items-center gap-1 overflow-x-auto border-b border-border pb-1">
             {[
               { id: "all" as const, label: "My Documents", icon: <FolderOpen className="w-4 h-4" /> },
               { id: "favorites" as const, label: "Favorites", icon: <Star className="w-4 h-4" />, count: favorites.length },
@@ -1626,7 +1626,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
                   onClick={() => item.id === "all" ? navigate(null) : (setSection(item.id), setSelectedIds(new Set()))}
                   className={cn(
                     "flex min-h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-[13px] font-medium transition-colors",
-                    active ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900",
+                    active ? "bg-primary text-white" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900",
                   )}
                 >
                   {item.icon}
@@ -1638,9 +1638,9 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           </div>
           {/* Background copy jobs (rule 9) */}
           {jobs.filter((job) => job.status === "PENDING" || job.status === "RUNNING").length > 0 && (
-            <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/40 p-3">
+            <div className="mb-4 rounded-xl border border-blue-200 bg-primary-50/40 p-3">
               <div className="flex items-center gap-2 mb-1">
-                <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 text-primary-600 animate-spin" />
                 <p className="text-[12px] font-semibold text-blue-800">Background folder copy in progress</p>
               </div>
               <div className="space-y-2">
@@ -1653,13 +1653,13 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
                         <span>{percent}%</span>
                       </div>
                       <div className="h-1.5 bg-blue-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 transition-all" style={{ width: `${percent}%` }} />
+                        <div className="h-full bg-primary-500 transition-all" style={{ width: `${percent}%` }} />
                       </div>
                     </div>
                   )
                 })}
               </div>
-              <p className="text-[11px] text-blue-600 mt-1.5">You can keep browsing — the copy continues in the background.</p>
+              <p className="text-[11px] text-primary-600 mt-1.5">You can keep browsing — the copy continues in the background.</p>
             </div>
           )}
           <input ref={fileInputRef} type="file" multiple accept={UPLOAD_MIME_TYPES} className="hidden"
@@ -1672,7 +1672,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
                 <Button variant="outline" size="sm" className="h-10" onClick={openCreateFolder}>
                   <Folder className="w-4 h-4 mr-2" /> New Folder
                 </Button>
-                <Button size="sm" className="h-10 shadow-sm" onClick={() => fileInputRef.current?.click()}>
+                <Button size="sm" className="h-10 shadow-soft" onClick={() => fileInputRef.current?.click()}>
                   <Upload className="w-4 h-4 mr-2" /> Upload
                 </Button>
               </div>
@@ -1732,15 +1732,15 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
                   <SelectItem value="size-asc">Smallest first</SelectItem>
                 </SelectContent>
               </Select>
-              <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50/50" aria-label="View mode">
+              <div className="flex rounded-lg border border-border p-1 bg-gray-50/50" aria-label="View mode">
                 <button type="button" onClick={() => changeView("list")} aria-label="List view"
                   className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors",
-                    view === "list" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+                    view === "list" ? "bg-white text-gray-900 shadow-soft" : "text-gray-500 hover:text-gray-700")}>
                   <List className="w-3.5 h-3.5" /> <span className="hidden sm:inline">List</span>
                 </button>
                 <button type="button" onClick={() => changeView("grid")} aria-label="Grid view"
                   className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors",
-                    view === "grid" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+                    view === "grid" ? "bg-white text-gray-900 shadow-soft" : "text-gray-500 hover:text-gray-700")}>
                   <LayoutGrid className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Grid</span>
                 </button>
               </div>
@@ -1754,7 +1754,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
                 </Button>
               )}
               {selectedIds.size > 0 && section === "all" && (
-                <div className="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-600">
+                <div className="flex items-center gap-2 pl-2 border-l border-border dark:border-gray-600">
                   <span className="text-[12px] font-medium text-gray-600 dark:text-gray-300">{selectedIds.size} selected</span>
                   <Button variant="outline" size="sm" className="h-8" onClick={submitBulkDownload}><Download className="w-3.5 h-3.5 mr-1" /> DL</Button>
                   <Button variant="outline" size="sm" className="h-8" onClick={submitBulkMove}><Move className="w-3.5 h-3.5 mr-1" /> Move</Button>
@@ -1769,7 +1769,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
 
           {/* Upload queue */}
           {queueOpen && queue.length > 0 && (
-            <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50/50 p-3">
+            <div className="mb-4 rounded-xl border border-border bg-gray-50/50 p-3">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[12px] font-semibold text-gray-700">
                   Upload Queue ({queueTotals.done}/{queueTotals.total})
@@ -1785,7 +1785,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
               </div>
               {queueTotals.total > 0 && (
                 <div className="h-1.5 mb-3 bg-gray-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 transition-all" style={{ width: `${queueTotals.percent}%` }} />
+                  <div className="h-full bg-primary-500 transition-all" style={{ width: `${queueTotals.percent}%` }} />
                 </div>
               )}
               <div className="space-y-1.5 max-h-48 overflow-auto">
@@ -1802,14 +1802,14 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
                           <span className={cn("text-[11px] font-medium",
                             item.status === "Complete" ? "text-emerald-600"
                               : item.status === "Failed" ? "text-red-600"
-                                : item.status === "Cancelled" ? "text-gray-400" : "text-blue-600")}>
+                                : item.status === "Cancelled" ? "text-gray-400" : "text-primary-600")}>
                             {item.status}
                           </span>
                         </div>
                       </div>
                       <div className="h-1.5 mt-1 bg-gray-200 rounded-full overflow-hidden">
                         <div className={cn("h-full rounded-full transition-all",
-                          item.status === "Failed" ? "bg-red-500" : item.status === "Complete" ? "bg-emerald-500" : "bg-blue-500")}
+                          item.status === "Failed" ? "bg-red-500" : item.status === "Complete" ? "bg-emerald-500" : "bg-primary-500")}
                           style={{ width: `${item.status === "Waiting" ? 0 : item.status === "Complete" ? 100 : Math.max(5, Math.min(90, item.progress))}%` }} />
                       </div>
                       {(item.status === "Uploading" || item.status === "Verifying") && (
@@ -1826,7 +1826,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
                       </Button>
                     )}
                     {item.status === "Failed" && (
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-600" title="Retry"
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-primary-600" title="Retry"
                         onClick={() => performUpload(item)}>
                         <RefreshCw className="w-3.5 h-3.5" />
                       </Button>
@@ -1842,7 +1842,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
             <div className="flex items-center gap-1.5 flex-wrap text-[13px] mb-3">
               <button type="button" onClick={() => navigate(null)}
                 className={cn("px-2 py-1 rounded-md flex items-center gap-1.5 transition-colors",
-                  currentFolderId === null ? "bg-gray-900 text-white font-medium" : "text-gray-600 hover:bg-gray-100")}>
+                  currentFolderId === null ? "bg-primary text-white font-medium" : "text-gray-600 hover:bg-gray-100")}>
                 <FolderOpen className="w-3.5 h-3.5" /> My Documents
               </button>
               {crumbs.map((folder) => (
@@ -1850,7 +1850,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
                   <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
                   <button type="button" onClick={() => navigate(folder.id)}
                     className={cn("px-2 py-1 rounded-md transition-colors",
-                      currentFolderId === folder.id ? "bg-gray-900 text-white font-medium" : "text-gray-600 hover:bg-gray-100")}>
+                      currentFolderId === folder.id ? "bg-primary text-white font-medium" : "text-gray-600 hover:bg-gray-100")}>
                     {folder.name}
                   </button>
                 </div>
@@ -1921,7 +1921,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
                     recycleActions("folder", folder.id, folder.name), () => undefined,
                   ))}
                   {deletedDocs.map((doc) => renderRow(
-                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", fileIconClasses(doc))}><FileText className="w-4 h-4" /></div>,
+                    <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center", fileIconClasses(doc))}><FileText className="w-4 h-4" /></div>,
                     doc.name,
                     `${doc.type} · ${formatSize(doc.size)} · Deleted ${doc.deletedAt ? new Date(doc.deletedAt).toLocaleDateString() : ""} · expires ${expiresAt(doc.deletedAt)} · ${daysRemaining(doc.deletedAt)}d left`,
                     doc.id,
@@ -1981,7 +1981,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
                      <p className="px-3 py-2 border-y border-gray-100 bg-white text-[11px] font-semibold uppercase tracking-wide text-gray-400">Files</p>
                    )}
                    {sortedDocs.map((doc) => renderRow(
-                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", fileIconClasses(doc))}><FileText className="w-4 h-4" /></div>,
+                    <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center", fileIconClasses(doc))}><FileText className="w-4 h-4" /></div>,
                     doc.name,
                     `${doc.type} · ${formatSize(doc.size)} · ${new Date(doc.dateModified).toLocaleDateString()}`,
                     doc.id,
@@ -2034,7 +2034,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setFolderDialog({ open: false, mode: "create" })} className="h-10 px-5">Cancel</Button>
-            <Button onClick={() => void submitFolderDialog()} disabled={!folderName.trim()} className="h-10 px-5 shadow-sm">
+            <Button onClick={() => void submitFolderDialog()} disabled={!folderName.trim()} className="h-10 px-5 shadow-soft">
               {folderDialog.mode === "create" ? "Create Folder" : "Rename"}
             </Button>
           </DialogFooter>
@@ -2074,7 +2074,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setRenameTarget(null)} className="h-10 px-5">Cancel</Button>
-            <Button onClick={() => void submitRename()} disabled={!renameValue.trim()} className="h-10 px-5 shadow-sm">Rename</Button>
+            <Button onClick={() => void submitRename()} disabled={!renameValue.trim()} className="h-10 px-5 shadow-soft">Rename</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2085,7 +2085,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           <DialogHeader className="pb-2">
             <DialogTitle className="text-lg">Move to Folder</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[300px] overflow-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
+          <div className="max-h-[300px] overflow-auto rounded-lg border border-border divide-y divide-gray-100">
             {moveOptions.map((option) => (
               <button key={option.id} type="button" onClick={() => setMoveFolderId(option.id)}
                 className={cn("w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[13px] transition-colors",
@@ -2098,7 +2098,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setMoveTarget(null)} className="h-10 px-5">Cancel</Button>
-            <Button onClick={() => void submitMove()} className="h-10 px-5 shadow-sm">Move Here</Button>
+            <Button onClick={() => void submitMove()} className="h-10 px-5 shadow-soft">Move Here</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2114,7 +2114,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           </DialogHeader>
           <input ref={versionInputRef} type="file" className="hidden" accept={UPLOAD_MIME_TYPES}
             onChange={(e) => { void handleReplaceVersion(e.target.files); e.target.value = "" }} />
-          <Button className="h-10 shadow-sm w-full" onClick={() => versionInputRef.current?.click()}>
+          <Button className="h-10 shadow-soft w-full" onClick={() => versionInputRef.current?.click()}>
             <Upload className="w-4 h-4 mr-2" /> Choose Replacement File
           </Button>
         </DialogContent>
@@ -2304,7 +2304,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setRestoreDialog(null)} className="h-10 px-5">Cancel</Button>
-            <Button onClick={() => void submitRestoreDialog()} className="h-10 px-5 shadow-sm">Restore</Button>
+            <Button onClick={() => void submitRestoreDialog()} className="h-10 px-5 shadow-soft">Restore</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2341,7 +2341,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setFileCopyDialog(null)} className="h-10 px-5">Cancel</Button>
-            <Button onClick={() => void submitFileCopyDialog()} className="h-10 px-5 shadow-sm">Copy Here</Button>
+            <Button onClick={() => void submitFileCopyDialog()} className="h-10 px-5 shadow-soft">Copy Here</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2377,7 +2377,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setBulkCopyDialog(null)} className="h-10 px-5">Cancel</Button>
-            <Button onClick={() => void submitBulkCopyDialog()} className="h-10 px-5 shadow-sm">Copy Here</Button>
+            <Button onClick={() => void submitBulkCopyDialog()} className="h-10 px-5 shadow-soft">Copy Here</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2416,7 +2416,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setCopyDialog(null)} className="h-10 px-5">Cancel</Button>
-            <Button onClick={() => void submitCopyDialog()} className="h-10 px-5 shadow-sm">Copy Here</Button>
+            <Button onClick={() => void submitCopyDialog()} className="h-10 px-5 shadow-soft">Copy Here</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

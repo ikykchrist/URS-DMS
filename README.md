@@ -19,6 +19,29 @@ Document Management System for University Recognition and Accreditation (URS)
 - **Audit Logs** - Track all system activities for compliance
 - **Settings** - Configure system preferences
 
+## v1.5 Major Updates
+
+Version 1.5 expands URS-DMS with guided administration, safer document
+handling, and a more complete accreditation workflow.
+
+- Added the in-app navigation assistant with permission-aware navigation help,
+  contextual knowledge, and supported quick actions.
+- Added document scanning and OCR-assisted capture for repository uploads,
+  including PDF processing and improved file previews.
+- Added streamed ZIP exports for folders and AACCUP submissions, with secure
+  file access tokens and export planning on the server.
+- Expanded AACCUP submissions and tasks with document picking, richer review
+  flows, validation, return actions, and export support.
+- Added versioned ROOT administration tools for requirements, folders,
+  workflows, organization records, configurations, audit history, and rollback.
+- Improved dashboards, audit logs, notifications, responsive navigation,
+  mobile layouts, empty states, loading states, and error handling throughout
+  the client.
+- Added DeepSeek assistant configuration and SMTP email delivery settings to
+  the environment template, plus remote development helpers.
+- Hardened storage, request context, ownership checks, and document version
+  verification for more reliable uploads and downloads.
+
 ## v1.3 Email Account Creation
 
 This release adds a validated email account creation flow for invited users.
@@ -107,12 +130,12 @@ or launch a fresh AI session via `ai-dev.bat`.
 
 ### Docker Deployment
 
-The v1.3 server image is published at GHCR. Pull it before starting the
+The v1.5 server image is published at GHCR. Pull it before starting the
 supporting services on another PC:
 
 ```bash
 docker login ghcr.io
-docker pull ghcr.io/ikykchrist/urs-dms-server:v1.3
+docker pull ghcr.io/ikykchrist/urs-dms-server:v1.5
 docker compose up -d
 ```
 
@@ -138,7 +161,7 @@ client/src/
 ## Current Known Bugs and Limitations
 
 These are confirmed open items in the current system. They are not release
-blockers for the v1.3 Email Account Creation release unless noted otherwise.
+blockers for the v1.5 release unless noted otherwise.
 
 - `prisma migrate dev` cannot replay the shadow database reliably; use the
   repository's manual SQL and `prisma migrate deploy` workflow instead.
@@ -173,5 +196,5 @@ npm --workspace server run test
 
 ## Release Backup
 
-The v1.3 release is tagged `v1.3`. The main development branch is `main`; the
+The v1.5 release is tagged `v1.5`. The main development branch is `master`; the
 tag is immutable and can be used to restore this release state.

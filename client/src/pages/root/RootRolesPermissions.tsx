@@ -210,7 +210,7 @@ export default function RootRolesPermissions() {
                   className={cn(
                     "w-full text-left px-3 py-2.5 rounded-md transition-colors flex items-center gap-2.5",
                     selectedRoleId === role.id
-                      ? "bg-blue-50 text-blue-700 font-medium"
+                      ? "bg-primary-50 text-blue-700 font-medium"
                       : "hover:bg-gray-50 text-gray-700",
                     role.deletedAt && "opacity-50",
                   )}
@@ -362,7 +362,7 @@ export default function RootRolesPermissions() {
                               checked={checked}
                               disabled={locked}
                               onChange={() => togglePermission(entry.code)}
-                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary"
                             />
                             <div className="flex-1 min-w-0">
                               <code className="text-[12px] text-gray-800 font-medium">
@@ -397,7 +397,7 @@ export default function RootRolesPermissions() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-blue-600" />
+              <ShieldCheck className="h-5 w-5 text-primary-600" />
               Confirm Permission Changes
             </DialogTitle>
             <DialogDescription className="text-[13px]">

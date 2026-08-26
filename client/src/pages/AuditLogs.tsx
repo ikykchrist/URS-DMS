@@ -101,6 +101,8 @@ export default function AuditLogs() {
   const [failedTotal, setFailedTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedQuery, setDebouncedQuery] = useState("")
+  const [page, setPage] = useState(1)
   const [actionFilter, setActionFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [activePreset, setActivePreset] = useState("")
@@ -108,6 +110,19 @@ export default function AuditLogs() {
   const [loginGroups, setLoginGroups] = useState<LoginGroup[]>([])
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
   const [showLoginGroups, setShowLoginGroups] = useState(false)
+
+  const PAGE_SIZE = 50
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
+  const rangeEnd = Math.min(page * PAGE_SIZE, total)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery)
+      setPage(1)
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   function getPresetDates(label: string) {
     const now = new Date()
@@ -155,37 +170,61 @@ export default function AuditLogs() {
     const preset = PRESETS.find((p) => p.label === activePreset)
     const dates = getPresetDates(activePreset)
 
-    listAuditEntries({
+    const loadPage = async () => {
+      try {
+        const result = await listAuditEntries({
+          page,
+          pageSize: PAGE_SIZE,
+          q: debouncedQuery || undefined,
+          action: actionFilter !== "all" ? actionFilter : undefined,
+          status: statusFilter === "all" ? undefined : statusFilter === "success" ? "SUCCESS" : "FAILED",
+          from: dates?.from,
+          to: dates?.to,
+          ...preset?.params,
+        })
+        if (cancelled) return
+        setLogs(result.items.map(toAuditLog))
+        setTotal(result.meta.total)
+        if (result.meta.total > 0 && page > Math.max(1, Math.ceil(result.meta.total / PAGE_SIZE))) {
+          setPage(Math.max(1, Math.ceil(result.meta.total / PAGE_SIZE)))
+        }
+      } catch {
+        if (!cancelled) {
+          setLogs([])
+          setTotal(0)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    void loadPage()
+
+    return () => { cancelled = true }
+  }, [debouncedQuery, actionFilter, statusFilter, activePreset, page, reloadKey])
+
+  useEffect(() => {
+    let cancelled = false
+    const preset = PRESETS.find((p) => p.label === activePreset)
+    const dates = getPresetDates(activePreset)
+    const query = {
       page: 1,
-      pageSize: 10,
-      q: searchQuery || undefined,
+      pageSize: 1,
+      q: debouncedQuery || undefined,
       action: actionFilter !== "all" ? actionFilter : undefined,
       status: statusFilter === "all" ? undefined : statusFilter === "success" ? "SUCCESS" : "FAILED",
       from: dates?.from,
       to: dates?.to,
       ...preset?.params,
-    })
-      .then((page) => {
-        if (cancelled) return
-        setLogs(page.items.map(toAuditLog))
-        setTotal(page.meta.total)
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    listAuditEntries({ page: 1, pageSize: 1, status: "SUCCESS" })
-      .then((page) => {
-        if (!cancelled) setSuccessTotal(page.meta.total)
-      })
+    }
+    listAuditEntries({ ...query, status: "SUCCESS" })
+      .then((res) => { if (!cancelled) setSuccessTotal(res.meta.total) })
       .catch(() => {})
-    listAuditEntries({ page: 1, pageSize: 1, status: "FAILED" })
-      .then((page) => {
-        if (!cancelled) setFailedTotal(page.meta.total)
-      })
+    listAuditEntries({ ...query, status: "FAILED" })
+      .then((res) => { if (!cancelled) setFailedTotal(res.meta.total) })
       .catch(() => {})
-
     return () => { cancelled = true }
-  }, [searchQuery, actionFilter, statusFilter, activePreset, reloadKey])
+  }, [debouncedQuery, actionFilter, statusFilter, activePreset])
 
   const loadLoginGroups = async () => {
     try {
@@ -211,6 +250,7 @@ export default function AuditLogs() {
       setActionFilter("all")
       setStatusFilter("all")
     }
+    setPage(1)
   }
 
   const handleResetFilters = () => {
@@ -218,6 +258,7 @@ export default function AuditLogs() {
     setActionFilter("all")
     setStatusFilter("all")
     setActivePreset("")
+    setPage(1)
   }
 
   const handleClearLogs = async () => {
@@ -297,7 +338,7 @@ export default function AuditLogs() {
         ))}
       </div>
 
-      <Card className="border-gray-200/60 shadow-sm mb-6">
+      <Card className="border-border/70 shadow-soft mb-6">
         <CardContent className="p-5">
           <div className="flex flex-col lg:flex-row lg:items-center gap-4">
             <div className="flex-1">
@@ -312,7 +353,7 @@ export default function AuditLogs() {
               </div>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              <Select value={actionFilter} onValueChange={setActionFilter}>
+              <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setPage(1) }}>
                 <SelectTrigger className="w-[150px] h-9"><SelectValue placeholder="Action Type" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Actions</SelectItem>
@@ -325,7 +366,7 @@ export default function AuditLogs() {
                   <SelectItem value="reject">Reject</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
                 <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
@@ -342,7 +383,7 @@ export default function AuditLogs() {
       </Card>
 
       {showLoginGroups && loginGroups.length > 0 && (
-        <Card className="border-gray-200/60 shadow-sm mb-6">
+        <Card className="border-border/70 shadow-soft mb-6">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[14px] font-semibold text-gray-900">Failed Login Groups</h3>
@@ -389,10 +430,11 @@ export default function AuditLogs() {
         </Card>
       )}
 
-      <Card className="border-gray-200/60 shadow-sm">
+      <Card className="border-border/70 shadow-soft">
         <CardContent className="p-0">
+          <div className="max-h-[70vh] overflow-y-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-white">
               <TableRow>
                 <TableHead className="w-[170px]">Timestamp</TableHead>
                 <TableHead>User</TableHead>
@@ -409,6 +451,8 @@ export default function AuditLogs() {
                 <TableRow><TableCell colSpan={8} className="text-center py-8 text-gray-500 text-[14px]">Loading audit logs...</TableCell></TableRow>
               ) : logs.length === 0 ? (
                 <TableRow><TableCell colSpan={8} className="text-center py-8 text-gray-500 text-[14px]">No audit logs found</TableCell></TableRow>
+              ) : loading ? (
+                <TableRow><TableCell colSpan={8} className="text-center py-4 text-gray-400 text-[13px]">Loading page...</TableCell></TableRow>
               ) : logs.map((log) => (
                 <TableRow key={log.id} className="hover:bg-gray-50/50 transition-colors">
                   <TableCell><span className="text-[13px] text-gray-600 font-mono">{log.timestamp}</span></TableCell>
@@ -444,8 +488,32 @@ export default function AuditLogs() {
               ))}
             </TableBody>
           </Table>
+          </div>
           <div className="mt-4 px-5 pb-5 flex items-center justify-between gap-4">
-            <p className="text-[13px] text-gray-500">Showing {logs.length} of {total.toLocaleString()} logs</p>
+            <p className="text-[13px] text-gray-500">
+              {total === 0 ? `0 of 0 logs` : `Showing ${rangeStart.toLocaleString()}–${rangeEnd.toLocaleString()} of ${total.toLocaleString()} logs`}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-[12px]"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <span className="text-[12px] text-gray-500 whitespace-nowrap">Page {page.toLocaleString()} of {totalPages.toLocaleString()}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-[12px]"
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

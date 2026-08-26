@@ -143,7 +143,7 @@ export default function Settings() {
 
           <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
             <div className="w-full lg:w-64 flex-shrink-0">
-              <Card className="border-gray-200/60 shadow-sm">
+              <Card className="border-border/70 shadow-soft">
                 <CardContent className="p-2">
                   <nav className="space-y-1">
                     {navItems.map((item) => {
@@ -156,7 +156,7 @@ export default function Settings() {
                           className={cn(
                             "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150",
                             isActive
-                              ? "bg-gray-900 text-white"
+                              ? "bg-primary text-white"
                               : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                           )}
                         >
@@ -173,7 +173,7 @@ export default function Settings() {
             <div className="flex-1 min-w-0">
               {activeSection === "security" && (
                 <div className="space-y-6">
-                  <Card className="border-gray-200/60 shadow-sm">
+                  <Card className="border-border/70 shadow-soft">
                     <CardHeader className="pb-4">
                       <CardTitle className="text-[16px] font-semibold">Password</CardTitle>
                     </CardHeader>
@@ -181,14 +181,14 @@ export default function Settings() {
                       <p className="text-[14px] text-gray-600">
                         Update your password regularly to keep your account secure.
                       </p>
-                      <Button onClick={() => setIsChangePasswordOpen(true)} className="h-10 px-5 shadow-sm">
+                      <Button onClick={() => setIsChangePasswordOpen(true)} className="h-10 px-5 shadow-soft">
                         <Lock className="w-4 h-4 mr-2" />
                         Change Password
                       </Button>
                     </CardContent>
                   </Card>
 
-                  <Card className="border-gray-200/60 shadow-sm">
+                  <Card className="border-border/70 shadow-soft">
                     <CardHeader className="pb-4">
                       <CardTitle className="text-[16px] font-semibold">Two-Factor Authentication</CardTitle>
                     </CardHeader>
@@ -205,7 +205,7 @@ export default function Settings() {
                     </CardContent>
                   </Card>
 
-                  <Card className="border-gray-200/60 shadow-sm">
+                  <Card className="border-border/70 shadow-soft">
                     <CardHeader className="pb-4">
                       <CardTitle className="text-[16px] font-semibold">Active Sessions</CardTitle>
                     </CardHeader>
@@ -229,7 +229,7 @@ export default function Settings() {
               )}
 
               {activeSection === "notifications" && (
-                <Card className="border-gray-200/60 shadow-sm">
+                <Card className="border-border/70 shadow-soft">
                   <CardHeader className="pb-4">
                     <CardTitle className="text-[16px] font-semibold">Notification Preferences</CardTitle>
                   </CardHeader>
@@ -255,13 +255,13 @@ export default function Settings() {
                     ))}
                   </CardContent>
                   <div className="flex justify-end px-4 pb-4">
-                    <Button className="h-10 px-5 shadow-sm" onClick={handleSaveNotifications}>Save Preferences</Button>
+                    <Button className="h-10 px-5 shadow-soft" onClick={handleSaveNotifications}>Save Preferences</Button>
                   </div>
                 </Card>
               )}
 
               {activeSection === "system" && (
-                <Card className="border-gray-200/60 shadow-sm">
+                <Card className="border-border/70 shadow-soft">
                   <CardHeader className="pb-4">
                     <CardTitle className="text-[16px] font-semibold">System Preferences</CardTitle>
                   </CardHeader>
@@ -325,7 +325,7 @@ export default function Settings() {
               )}
 
               {activeSection === "appearance" && (
-                <Card className="border-gray-200/60 shadow-sm">
+                <Card className="border-border/70 shadow-soft">
                   <CardHeader className="pb-4">
                     <CardTitle className="text-[16px] font-semibold">Appearance</CardTitle>
                   </CardHeader>
@@ -337,10 +337,10 @@ export default function Settings() {
                           "p-4 rounded-xl border-2 transition-all",
                           theme === "light"
                             ? "border-primary bg-primary-500"
-                            : "border-gray-200 hover:border-gray-300"
+                            : "border-border hover:border-gray-300"
                         )}
                       >
-                        <div className="w-full h-24 bg-white border border-gray-200 rounded-lg mb-3 flex items-center justify-center">
+                        <div className="w-full h-24 bg-white border border-border rounded-lg mb-3 flex items-center justify-center">
                           <Sun className="w-8 h-8 text-amber-500" />
                         </div>
                         <p className="text-[14px] font-medium text-gray-900">Light</p>
@@ -353,7 +353,7 @@ export default function Settings() {
                           "p-4 rounded-xl border-2 transition-all",
                           theme === "dark"
                             ? "border-primary bg-primary-500"
-                            : "border-gray-200 hover:border-gray-300"
+                            : "border-border hover:border-gray-300"
                         )}
                       >
                         <div className="w-full h-24 bg-gray-900 rounded-lg mb-3 flex items-center justify-center">
@@ -369,7 +369,7 @@ export default function Settings() {
                           "p-4 rounded-xl border-2 transition-all",
                           theme === "system"
                             ? "border-primary bg-primary-500"
-                            : "border-gray-200 hover:border-gray-300"
+                            : "border-border hover:border-gray-300"
                         )}
                       >
                         <div className="w-full h-24 bg-gradient-to-r from-white to-gray-900 rounded-lg mb-3 flex items-center justify-center">
@@ -384,7 +384,7 @@ export default function Settings() {
               )}
 
               {activeSection === "files" && (
-                <Card className="border-gray-200/60 shadow-sm">
+                <Card className="border-border/70 shadow-soft">
                   <CardHeader className="pb-4">
                     <CardTitle className="text-[16px] font-semibold">File Management</CardTitle>
                   </CardHeader>
@@ -411,12 +411,12 @@ export default function Settings() {
 
                     <div className="grid gap-2">
                       <Label className="text-[13px] font-medium text-gray-700">Allowed File Types</Label>
-                      <div className="flex flex-wrap gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                      <div className="flex flex-wrap gap-2 p-3 rounded-lg border border-border bg-gray-50/50">
                         {(settings?.allowedFileTypes?.length
                           ? settings.allowedFileTypes
                           : ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "jpg", "png", "zip"]
                         ).map((type) => (
-                          <span key={type} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-gray-200 text-[12px] font-medium text-gray-600">
+                          <span key={type} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-border text-[12px] font-medium text-gray-600">
                             .{type.replace(/^\./, "").toUpperCase()}
                             <button
                               type="button"
@@ -460,7 +460,7 @@ export default function Settings() {
               )}
 
               {activeSection === "access" && (
-                <Card className="border-gray-200/60 shadow-sm">
+                <Card className="border-border/70 shadow-soft">
                   <CardHeader className="pb-4">
                     <CardTitle className="text-[16px] font-semibold">Access Control</CardTitle>
                   </CardHeader>

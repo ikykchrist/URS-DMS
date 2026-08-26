@@ -249,7 +249,7 @@ export function RequirementModal({
           <Button variant="outline" onClick={() => handleClose(false)} className="h-10 px-5">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={saving || !isValid} className="h-10 px-5 shadow-sm">
+          <Button onClick={handleSubmit} disabled={saving || !isValid} className="h-10 px-5 shadow-soft">
             {saving ? "Saving..." : isEditing ? "Save Changes" : "Add Requirement"}
           </Button>
         </DialogFooter>

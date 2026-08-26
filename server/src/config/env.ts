@@ -38,6 +38,11 @@ const envSchema = z.object({
 
   PUBLIC_APP_URL: z.string().url().optional(),
 
+  // Optional until the navigation assistant is configured. Chatbot requests
+  // return a controlled service-unavailable error when this is absent.
+  DEEPSEEK_API_KEY: z.string().trim().min(1).optional(),
+  DEEPSEEK_MODEL: z.string().trim().min(1).default("deepseek-chat"),
+
   DATABASE_URL: z.string().min(1),
 
   JWT_ACCESS_SECRET: z.string().min(32, "JWT_ACCESS_SECRET must be at least 32 characters"),

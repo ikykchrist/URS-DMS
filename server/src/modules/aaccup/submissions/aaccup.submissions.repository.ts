@@ -15,7 +15,7 @@ const SUBMISSION_INCLUDE = {
       id: true,
       title: true,
       documentCode: true,
-      area: { select: { id: true, code: true, name: true, departmentId: true } },
+      area: { select: { id: true, code: true, name: true, areaSet: true, departmentId: true } },
     },
   },
   document: {
@@ -50,6 +50,7 @@ function toListItem(row: SubmissionWithRelations): AaccupSubmissionListItem {
     areaId: row.requirement?.area?.id ?? "",
     areaCode: row.requirement?.area?.code ?? "",
     areaName: row.requirement?.area?.name ?? "",
+    areaSet: row.requirement?.area?.areaSet ?? "",
     departmentId: row.document?.departmentId ?? row.requirement?.area?.departmentId ?? null,
     departmentName: row.document?.department?.name ?? null,
     taskId: row.taskId,

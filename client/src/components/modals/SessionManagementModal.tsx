@@ -143,7 +143,7 @@ export function SessionManagementModal({ open, onOpenChange }: SessionManagement
           <Button variant="outline" onClick={() => onOpenChange(false)} className="h-10 px-5">
             Close
           </Button>
-          <Button variant="destructive" onClick={handleLogoutAll} className="h-10 px-5 shadow-sm">
+          <Button variant="destructive" onClick={handleLogoutAll} className="h-10 px-5 shadow-soft">
             <LogOut className="w-4 h-4 mr-2" />
             Logout All Sessions
           </Button>

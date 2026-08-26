@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
             <Button type="submit" disabled={submitting} className="h-11 w-full">{submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending link...</> : "Send reset link"}</Button>
           </form>
         )}
-        <p className="mt-6 text-center text-sm text-slate-500"><Link to="/login" className="font-medium text-blue-600 hover:underline">Back to sign in</Link></p>
+        <p className="mt-6 text-center text-sm text-slate-500"><Link to="/login" className="font-medium text-primary-600 hover:underline">Back to sign in</Link></p>
       </AuthCard>
     </AuthLayout>
   )

@@ -41,7 +41,7 @@ export function UserTopNav({ onNavigate, onOpenCommandPalette, unreadNotificatio
   }
 
   return (
-    <header className="h-16 bg-white/80 dark:bg-[#0F1520]/90 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
+    <header className="h-16 bg-white/80 dark:bg-[#0B1121]/90 backdrop-blur-md border-b border-border dark:border-gray-800 flex-shrink-0">
       <div className="flex items-center justify-between h-full px-6">
         <div className="flex-1 max-w-xl">
           <button
@@ -49,17 +49,17 @@ export function UserTopNav({ onNavigate, onOpenCommandPalette, unreadNotificatio
             className="w-full max-w-md group"
           >
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-gray-600 transition-colors pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-primary-500 transition-colors pointer-events-none" />
               <Input
                 placeholder="Search documents, users, pages..."
-                className="pl-10 pr-16 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white focus:ring-1.5 focus:ring-gray-200 focus:border-gray-200 transition-all text-[14px] cursor-pointer"
+                className="pl-10 pr-16 bg-navy-50/50 border-0 hover:bg-navy-50 focus:bg-white focus:ring-1.5 focus:ring-primary/25 transition-all text-[14px] cursor-pointer dark:bg-gray-800/60 dark:hover:bg-gray-800 dark:focus:bg-gray-800"
                 readOnly
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
-                <kbd className="hidden sm:inline-flex h-5 items-center gap-0.5 rounded border border-gray-200 bg-white px-1.5 font-mono text-[10px] font-medium text-gray-400 shadow-sm">
+                <kbd className="hidden sm:inline-flex h-5 items-center gap-0.5 rounded border border-border bg-white px-1.5 font-mono text-[10px] font-medium text-gray-400 shadow-soft dark:border-gray-600 dark:bg-gray-800">
                   <Command className="w-2.5 h-2.5" />
                 </kbd>
-                <kbd className="hidden sm:inline-flex h-5 items-center rounded border border-gray-200 bg-white px-1 font-mono text-[10px] font-medium text-gray-400 shadow-sm">
+                <kbd className="hidden sm:inline-flex h-5 items-center rounded border border-border bg-white px-1 font-mono text-[10px] font-medium text-gray-400 shadow-soft dark:border-gray-600 dark:bg-gray-800">
                   K
                 </kbd>
               </div>
@@ -95,7 +95,7 @@ export function UserTopNav({ onNavigate, onOpenCommandPalette, unreadNotificatio
           <Button
             variant="ghost"
             size="icon"
-            className="relative h-9 w-9"
+            className="relative h-10 w-10"
             onClick={() => onNavigate?.("notifications")}
           >
             <Bell className="w-4 h-4 text-gray-500" />
@@ -108,15 +108,15 @@ export function UserTopNav({ onNavigate, onOpenCommandPalette, unreadNotificatio
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2.5 p-1.5 pr-3 rounded-lg hover:bg-gray-100 transition-colors ml-1">
+              <button className="flex items-center gap-2.5 p-1.5 pr-3 rounded-xl hover:bg-navy-50 transition-colors ml-1 dark:hover:bg-gray-800">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={avatarUrl ?? (user?.avatarSeed ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatarSeed}` : undefined)} />
-                  <AvatarFallback className="bg-gray-200 text-gray-600 text-[12px] font-semibold">
+                  <AvatarFallback className="bg-primary-50 text-primary-700 text-[12px] font-semibold dark:bg-gray-700 dark:text-slate-200">
                     {user?.name ? getInitials(user.name) : "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="hidden md:block text-left">
-                  <p className="text-[13px] font-medium text-gray-900">{user?.name || "User"}</p>
+                  <p className="text-[13px] font-semibold text-gray-900">{user?.name || "User"}</p>
                   <p className="text-[11px] text-gray-500">{user?.role ? getRoleLabel(user.role) : "User"}</p>
                 </div>
                 <ChevronDown className="w-4 h-4 text-gray-400" />

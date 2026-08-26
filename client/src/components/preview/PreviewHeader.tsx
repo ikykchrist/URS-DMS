@@ -15,7 +15,7 @@ const getFileTypeBadge = (type: DocumentFile["type"]) => {
       return <Badge variant="danger" className="text-[10px] px-2 py-0.5">PDF</Badge>
     case "DOCX":
     case "DOC":
-      return <Badge className="bg-blue-50 text-blue-600 text-[10px] px-2 py-0.5">DOCX</Badge>
+      return <Badge className="bg-primary-50 text-primary-600 text-[10px] px-2 py-0.5">DOCX</Badge>
     case "XLSX":
     case "XLS":
       return <Badge className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-0.5">XLSX</Badge>
@@ -43,7 +43,7 @@ export function PreviewHeader({ file, onClose }: PreviewHeaderProps) {
   }
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0">
+    <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-white flex-shrink-0">
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           <h2 className="text-[15px] font-semibold text-gray-900 truncate" title={file.name}>

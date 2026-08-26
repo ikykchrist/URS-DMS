@@ -220,17 +220,17 @@ export default function RootSetupWizard() {
         }
         actions={
           completed ? (
-            <Button variant="outline" className="shadow-sm" onClick={() => void handleReopen()}>
+            <Button variant="outline" className="shadow-soft" onClick={() => void handleReopen()}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Reopen Wizard
             </Button>
           ) : notStarted ? (
-            <Button className="shadow-sm" onClick={() => void handleStart()}>
+            <Button className="shadow-soft" onClick={() => void handleStart()}>
               <Rocket className="w-4 h-4 mr-2" />
               Start Setup
             </Button>
           ) : (
-            <Button variant="outline" className="shadow-sm" onClick={() => void persistProgress(step)}>
+            <Button variant="outline" className="shadow-soft" onClick={() => void persistProgress(step)}>
               <Save className="w-4 h-4 mr-2" />
               Save Progress
             </Button>
@@ -245,7 +245,7 @@ export default function RootSetupWizard() {
       )}
 
       {notStarted ? (
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardContent className="p-10 flex flex-col items-center text-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
               <Rocket className="w-8 h-8 text-primary" />
@@ -256,7 +256,7 @@ export default function RootSetupWizard() {
               folder and requirement templates, workflow and form assignments, and administrator accounts.
               Everything you create is stored permanently in the database — you can resume at any time.
             </p>
-            <Button className="shadow-sm mt-2" onClick={() => void handleStart()}>
+            <Button className="shadow-soft mt-2" onClick={() => void handleStart()}>
               <Rocket className="w-4 h-4 mr-2" />
               Start Setup
             </Button>
@@ -265,7 +265,7 @@ export default function RootSetupWizard() {
       ) : (
         <>
           {/* Progress indicator */}
-          <Card className="border-gray-200/60 shadow-sm mb-6">
+          <Card className="border-border/70 shadow-soft mb-6">
             <CardContent className="p-4">
               <div className="flex items-center gap-1 overflow-x-auto">
                 {STEPS.map((item) => {
@@ -280,7 +280,7 @@ export default function RootSetupWizard() {
                       className={cn(
                         "flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-medium whitespace-nowrap transition-colors",
                         isActive
-                          ? "bg-gray-900 text-white"
+                          ? "bg-primary text-white"
                           : isDone
                             ? "text-emerald-600 hover:bg-emerald-50"
                             : "text-gray-500 hover:bg-gray-100"
@@ -296,7 +296,7 @@ export default function RootSetupWizard() {
           </Card>
 
           {/* Step body */}
-          <Card className="border-gray-200/60 shadow-sm mb-6">
+          <Card className="border-border/70 shadow-soft mb-6">
             <CardContent className="p-6">
               {step === 1 && <StepPlatform state={state} flash={flash} setSaving={setSaving} />}
               {step === 2 && <StepOrganization flash={flash} />}
@@ -317,12 +317,12 @@ export default function RootSetupWizard() {
                 Previous
               </Button>
               {step < 8 ? (
-                <Button onClick={() => void goNext()} disabled={saving} className="h-10 px-6 shadow-sm">
+                <Button onClick={() => void goNext()} disabled={saving} className="h-10 px-6 shadow-soft">
                   Next
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               ) : (
-                <Button onClick={() => void handleFinish()} className="h-10 px-6 shadow-sm">
+                <Button onClick={() => void handleFinish()} className="h-10 px-6 shadow-soft">
                   <CheckCircle2 className="w-4 h-4 mr-2" />
                   Finish Setup
                 </Button>
@@ -444,7 +444,7 @@ function StepPlatform({
           <Label className="text-[13px] font-medium">University Logo</Label>
           <div className="flex items-center gap-3">
             {logoUrl && (
-              <img src={logoUrl} alt="logo" className="w-10 h-10 rounded-lg border border-gray-200 object-contain bg-white" />
+              <img src={logoUrl} alt="logo" className="w-10 h-10 rounded-lg border border-border object-contain bg-white" />
             )}
             <label className="flex-1">
               <input type="file" accept="image/*" className="hidden"
@@ -474,7 +474,7 @@ function StepPlatform({
           <div className="flex items-center gap-2">
             <input type="color" value={form.primaryColor}
               onChange={(e) => setForm((f) => ({ ...f, primaryColor: e.target.value }))}
-              className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer" />
+              className="w-10 h-10 rounded-lg border border-border cursor-pointer" />
             <Input className="h-10 font-mono" value={form.primaryColor}
               onChange={(e) => setForm((f) => ({ ...f, primaryColor: e.target.value }))} />
           </div>
@@ -484,7 +484,7 @@ function StepPlatform({
           <div className="flex items-center gap-2">
             <input type="color" value={form.secondaryColor}
               onChange={(e) => setForm((f) => ({ ...f, secondaryColor: e.target.value }))}
-              className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer" />
+              className="w-10 h-10 rounded-lg border border-border cursor-pointer" />
             <Input className="h-10 font-mono" value={form.secondaryColor}
               onChange={(e) => setForm((f) => ({ ...f, secondaryColor: e.target.value }))} />
           </div>
@@ -519,7 +519,7 @@ function StepPlatform({
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={() => void handleSave()} className="h-9 shadow-sm">
+        <Button onClick={() => void handleSave()} className="h-9 shadow-soft">
           <Save className="w-4 h-4 mr-2" />
           Save Platform Info
         </Button>
@@ -636,12 +636,12 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
           <button key={item.key} type="button" onClick={() => setTab(item.key)}
             className={cn(
               "px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors",
-              tab === item.key ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              tab === item.key ? "bg-primary text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             )}>
             {item.label}
           </button>
         ))}
-        <Button size="sm" className="h-8 ml-auto shadow-sm" onClick={openCreate}>
+        <Button size="sm" className="h-8 ml-auto shadow-soft" onClick={openCreate}>
           <Plus className="w-4 h-4 mr-1.5" /> Add {tab}
         </Button>
       </div>
@@ -750,7 +750,7 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDialog({ open: false })} className="h-10 px-5">Cancel</Button>
-            <Button onClick={() => void handleSave()} disabled={saving || !form.name.trim() || !form.code.trim()} className="h-10 px-5 shadow-sm">
+            <Button onClick={() => void handleSave()} disabled={saving || !form.name.trim() || !form.code.trim()} className="h-10 px-5 shadow-soft">
               {saving ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
@@ -806,7 +806,7 @@ function StepFolders({ flash }: { flash: (message: string) => void }) {
         <Input className="h-10 font-mono" placeholder="Code (e.g. institutional-folder)" value={code} onChange={(e) => setCode(e.target.value)} />
         <div className="flex gap-2">
           <Input className="h-10" placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} />
-          <Button className="h-10 shadow-sm" onClick={() => void handleCreate()} disabled={saving || !name.trim() || !code.trim()}>
+          <Button className="h-10 shadow-soft" onClick={() => void handleCreate()} disabled={saving || !name.trim() || !code.trim()}>
             <Plus className="w-4 h-4" />
           </Button>
         </div>
@@ -885,7 +885,7 @@ function StepRequirements({ flash }: { flash: (message: string) => void }) {
         <Input className="h-10" placeholder="Template name" value={name} onChange={(e) => setName(e.target.value)} />
         <Input className="h-10 font-mono" placeholder="Code" value={code} onChange={(e) => setCode(e.target.value)} />
         <Input className="h-10" placeholder="First area name (optional)" value={areaName} onChange={(e) => setAreaName(e.target.value)} />
-        <Button className="h-10 shadow-sm" onClick={() => void handleCreate()} disabled={saving || !name.trim() || !code.trim()}>
+        <Button className="h-10 shadow-soft" onClick={() => void handleCreate()} disabled={saving || !name.trim() || !code.trim()}>
           <Plus className="w-4 h-4 mr-2" /> Create Template
         </Button>
       </div>
@@ -1000,7 +1000,7 @@ function StepWorkflows({ flash }: { flash: (message: string) => void }) {
                 </SelectContent>
               </Select>
             )}
-            <Button size="sm" className="h-9 shadow-sm" onClick={() => void handleAssign()}
+            <Button size="sm" className="h-9 shadow-soft" onClick={() => void handleAssign()}
               disabled={saving || selected !== definition.id || (targetType === "AACCUP_AREA" && !targetId)}>
               <Plus className="w-4 h-4 mr-1.5" /> Assign
             </Button>
@@ -1107,7 +1107,7 @@ function StepForms({ flash }: { flash: (message: string) => void }) {
                 </SelectContent>
               </Select>
             )}
-            <Button size="sm" className="h-9 shadow-sm" onClick={() => void handleAssign()}
+            <Button size="sm" className="h-9 shadow-soft" onClick={() => void handleAssign()}
               disabled={saving || selected !== form.id || (targetType !== "UNIVERSITY" && !targetId)}>
               <Plus className="w-4 h-4 mr-1.5" /> Assign
             </Button>
@@ -1206,7 +1206,7 @@ function StepAdministrators({ flash }: { flash: (message: string) => void }) {
         <p className="text-[13px] text-gray-500 mt-0.5">Create administrator accounts with department and role assignment</p>
       </div>
       <div className="flex justify-end">
-        <Button size="sm" className="h-9 shadow-sm" onClick={() => setDialog(true)}>
+        <Button size="sm" className="h-9 shadow-soft" onClick={() => setDialog(true)}>
           <Plus className="w-4 h-4 mr-1.5" /> Add Administrator
         </Button>
       </div>
@@ -1215,7 +1215,7 @@ function StepAdministrators({ flash }: { flash: (message: string) => void }) {
         {admins.map((admin) => (
           <div key={admin.id} className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
                 <Users className="w-4 h-4 text-primary" />
               </div>
               <div>
@@ -1289,7 +1289,7 @@ function StepAdministrators({ flash }: { flash: (message: string) => void }) {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDialog(false)} className="h-10 px-5">Cancel</Button>
             <Button onClick={() => void handleCreate()} disabled={saving || !form.name.trim() || !form.email.trim() || !form.password || !form.roleId}
-              className="h-10 px-5 shadow-sm">
+              className="h-10 px-5 shadow-soft">
               {saving ? "Creating..." : "Create Account"}
             </Button>
           </DialogFooter>

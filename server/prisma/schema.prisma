@@ -682,6 +682,8 @@ model AaccupTask {
   dueDate       DateTime?
   requirementId String?
   requirement   AaccupRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  requirementTemplateId String?
+  requirementTemplate   RequirementTemplate? @relation("AaccupTaskRequirementTemplate", fields: [requirementTemplateId], references: [id], onDelete: SetNull)
   assigneeType  String             @default("USER")
   assigneeId    String?
   assigneeLabel String?
@@ -697,6 +699,7 @@ model AaccupTask {
 
   @@index([areaId])
   @@index([requirementId])
+  @@index([requirementTemplateId])
   @@index([assigneeType, assigneeId])
   @@index([status])
   @@index([dueDate])
@@ -1367,6 +1370,7 @@ model RequirementTemplate {
   assignments   RequirementAssignment[]
   versions      RequirementVersion[]
   history       RequirementHistory[]
+  aaccupTasks   AaccupTask[]         @relation("AaccupTaskRequirementTemplate")
 
   @@index([status])
   @@index([category])

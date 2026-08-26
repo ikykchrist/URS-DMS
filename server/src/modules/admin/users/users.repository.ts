@@ -51,6 +51,7 @@ const userSelect = {
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
+  profilePhotoKey: true,
 } satisfies Prisma.UserSelect;
 
 type UserRow = Prisma.UserGetPayload<{ select: typeof userSelect }>;
@@ -113,6 +114,9 @@ function toView(u: UserRow, deptInfos: Map<string, DeptInfo>): AdminUserListItem
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
     deletedAt: u.deletedAt,
+    avatarSeed: u.id,
+    profilePhotoKey: u.profilePhotoKey,
+    photoUrl: null,
   };
 }
 

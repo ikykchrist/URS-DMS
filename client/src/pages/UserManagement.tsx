@@ -53,7 +53,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu"
-import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { AddUserModal } from "@/components/modals/AddUserModal"
 import { UserDetailsModal } from "@/components/modals/UserDetailsModal"
 import { ResetPasswordModal } from "@/components/modals/ResetPasswordModal"
@@ -126,6 +126,8 @@ function toDomainUser(u: SystemUser): User {
     role: roleKey(u.roleName),
     department: u.departmentName ?? "Unassigned",
     departmentId: u.departmentId ?? undefined,
+    avatarSeed: u.avatarSeed ?? undefined,
+    photoUrl: u.photoUrl ?? null,
     status: userStatus(u.status),
     memberSince: u.createdAt,
     lastLogin: u.lastLogin ?? undefined,
@@ -171,6 +173,21 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
   const refresh = () => listSystemUsers({ pageSize: 100 })
     .then((page) => setUsers(page.items.map(toDomainUser)))
     .catch((err) => console.error("Failed to refresh user list:", err))
+
+  // Realtime: re-sync the list (fresh presigned photo URLs + profile updates)
+  // whenever the tab regains focus or becomes visible again.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh()
+    }
+    window.addEventListener("focus", refresh)
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      window.removeEventListener("focus", refresh)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleCloseAddUserModal = (open: boolean) => {
     setIsAddUserModalOpen(open)
@@ -240,11 +257,11 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
             description="Manage user accounts, roles, and access permissions."
             actions={
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" className="shadow-sm" onClick={() => setIsInviteOpen(true)}>
+                <Button variant="outline" className="shadow-soft" onClick={() => setIsInviteOpen(true)}>
                   <Mail className="w-4 h-4 mr-2" />
                   Invite User
                 </Button>
-                <Button className="shadow-sm" onClick={() => setIsAddUserModalOpen(true)}>
+                <Button className="shadow-soft" onClick={() => setIsAddUserModalOpen(true)}>
                   <UserPlus className="w-4 h-4 mr-2" />
                   Add User
                 </Button>
@@ -283,7 +300,7 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
             />
           </div>
 
-          <Card className="border-gray-200/60 shadow-sm mb-6">
+          <Card className="border-border/70 shadow-soft mb-6">
             <CardContent className="p-5">
               <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                 <div className="flex-1">
@@ -356,7 +373,7 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
             </CardContent>
           </Card>
 
-          <Card className="border-gray-200/60 shadow-sm">
+          <Card className="border-border/70 shadow-soft">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -382,7 +399,8 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9">
-                            <AvatarFallback className="text-[12px] bg-gray-100 text-gray-700 font-medium">
+                            <AvatarImage src={user.photoUrl ?? (user.avatarSeed ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatarSeed}` : undefined)} />
+                            <AvatarFallback className="text-[12px] bg-primary-50 text-primary-700 font-medium">
                               {user.initials}
                             </AvatarFallback>
                           </Avatar>

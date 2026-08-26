@@ -101,6 +101,7 @@ const RootFormBuilder = lazy(() => import("@/pages/root/RootFormBuilder"))
 const RootSetupWizard = lazy(() => import("@/pages/root/RootSetupWizard"))
 import { UserSidebar } from "@/components/user/UserSidebar"
 import { UserTopNav } from "@/components/user/UserTopNav"
+import { NavigationAssistant } from "@/components/assistant/NavigationAssistant"
 import UserDashboard from "@/pages/user/UserDashboard"
 import UserDocuments from "@/pages/user/UserDocuments"
 import UserRequests from "@/pages/user/UserRequests"
@@ -159,9 +160,9 @@ function ActionWidget({ icon, iconBg, iconColor, title, subtitle, badge, badgeVa
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-all duration-150 group"
+      className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-border transition-all duration-150 group"
     >
-      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0", iconBg)}>
+      <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0", iconBg)}>
         <span className={iconColor}>{icon}</span>
       </div>
       <div className="flex-1 min-w-0">
@@ -201,7 +202,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
         { name: "Approved", value: report.requests.approved, color: "#10B981" },
         { name: "Pending", value: report.requests.pending, color: "#F59E0B" },
         { name: "Rejected", value: report.requests.rejected, color: "#EF4444" },
-        { name: "Fulfilled", value: report.requests.fulfilled, color: "#6366F1" },
+        { name: "Fulfilled", value: report.requests.fulfilled, color: "#1239B5" },
       ]
     : []
 
@@ -260,7 +261,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
           title="Dashboard"
           description="Welcome back! Here's an overview of your document management system."
           actions={
-            <Button className="shadow-sm" onClick={() => onNavigate('documents')}>
+            <Button className="shadow-soft" onClick={() => onNavigate('documents')}>
               <FileText className="w-4 h-4 mr-2" />
               Open Repository
             </Button>
@@ -327,7 +328,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
           {(
             [
               { key: "AACCUP", label: "AACCUP Compliance", bg: "bg-amber-50", text: "text-amber-600" },
-              { key: "ISO", label: "ISO Compliance", bg: "bg-blue-50", text: "text-blue-600" },
+              { key: "ISO", label: "ISO Compliance", bg: "bg-primary-50", text: "text-primary-600" },
               { key: "CERT", label: "Certification Compliance", bg: "bg-emerald-50", text: "text-emerald-600" },
             ] as const
           ).map(({ key, label, bg, text }) => {
@@ -335,7 +336,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
             return (
               <Card
                 key={key}
-                className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                className="border-border/70 shadow-soft hover:shadow-lift transition-shadow cursor-pointer"
                 onClick={() => onNavigate(key === "AACCUP" ? "aaccup" : key === "ISO" ? "iso" : "certification")}
               >
                 <CardContent className="p-4 md:p-5">
@@ -378,8 +379,8 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
                 <AreaChart data={submissionChartData}>
                   <defs>
                     <linearGradient id="colorSubmissions" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366F1" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#1239B5" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#1239B5" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
@@ -396,7 +397,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
                   <Area
                     type="monotone"
                     dataKey="submissions"
-                    stroke="#6366F1"
+                    stroke="#1239B5"
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorSubmissions)"
@@ -481,7 +482,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
                       fontSize: "12px",
                     }}
                   />
-                  <Bar dataKey="count" fill="#6366F1" radius={[0, 4, 4, 0]} barSize={20} />
+                  <Bar dataKey="count" fill="#1239B5" radius={[0, 4, 4, 0]} barSize={20} />
                 </BarChart>
               </ResponsiveContainer>
               ) : (
@@ -525,8 +526,8 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
               />
               <ActionWidget
                 icon={<CheckCircle className="w-4 h-4" />}
-                iconBg="bg-blue-50"
-                iconColor="text-blue-600"
+                iconBg="bg-primary-50"
+                iconColor="text-primary-600"
                 title="Compliance"
                 subtitle="Overall AACCUP compliance"
                 badge={`${report.aaccup.overallCompliancePercentage}%`}
@@ -540,7 +541,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
           </ChartCard>
         </div>
 
-        <Card className="border-gray-200/60 shadow-sm overflow-hidden">
+        <Card className="border-border/70 shadow-soft overflow-hidden">
           <CardHeader className="pb-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
@@ -807,7 +808,7 @@ function AppContent() {
 
   return (
     <>
-    <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC] dark:bg-[#0B1121]">
+    <div className="admin-portal flex h-screen w-full overflow-hidden bg-[#F8FAFC] dark:bg-[#0B1121]">
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={handleToggleSidebar}
@@ -866,6 +867,7 @@ function AppContent() {
       </div>
     </div>
     <MobileBottomBar activePage={activePage} onNavigate={handleNavigate} showRoot={isRootRole(user.role)} />
+    <NavigationAssistant />
     </>
   )
 }
@@ -925,9 +927,9 @@ function UserAppContent() {
 
   useEffect(() => {
     const page = userRouteToPageMap[location.pathname]
-    if (page) {
-      setActivePage(page)
-    }
+    if (!page) return
+    const tab = new URLSearchParams(location.search).get("tab")
+    setActivePage(page === "aaccup" && (tab === "tasks" || tab === "submissions") ? tab : page)
   }, [location.pathname, location.search])
 
   const handleNavigate = (page: string, query?: Record<string, string>) => {
@@ -1066,6 +1068,7 @@ function UserAppContent() {
       </div>
     </div>
      <MobileBottomBar isUser activePage={activePage} onNavigate={handleNavigate} badges={{ documents: attention.fulfilledRequests, aaccup: attention.returnedSubmissions + attention.dueSoonTasks + attention.overdueTasks, requests: attention.pendingRequests + attention.fulfilledRequests, notifications: unreadCount }} />
+     <NavigationAssistant />
     </>
   )
 }

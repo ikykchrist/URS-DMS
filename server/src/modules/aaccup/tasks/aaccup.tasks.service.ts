@@ -9,6 +9,7 @@ import {
   NotFoundError,
 } from "@/utils/errors";
 import * as repo from "@/modules/aaccup/tasks/aaccup.tasks.repository";
+import { resolveRequirementAssignmentForArea } from "@/modules/requirements/requirement.runtime";
 import type { Prisma } from "@prisma/client";
 import type {
   CreateTaskInput,
@@ -85,6 +86,29 @@ async function assertRequirementForArea(
   }
   if (requirement.areaId !== areaId) {
     throw new BadRequestError("Requirement does not belong to the task's area");
+  }
+}
+
+export async function listTaskRequirementTemplates(
+  areaId: string,
+  actor: Actor,
+): Promise<Array<{ id: string; name: string; code: string; version: number }>> {
+  assertCanRead(actor);
+  await assertAreaExists(areaId);
+  const assignment = await resolveRequirementAssignmentForArea(areaId);
+  if (!assignment) return [];
+  const template = await prisma.requirementTemplate.findFirst({
+    where: { id: assignment.templateId, status: "ACTIVE", deletedAt: null },
+    select: { id: true, name: true, code: true, version: true },
+  });
+  return template ? [template] : [];
+}
+
+async function assertRequirementTemplateForArea(areaId: string, templateId: string | null | undefined): Promise<void> {
+  if (templateId === undefined || templateId === null) return;
+  const assignment = await resolveRequirementAssignmentForArea(areaId);
+  if (!assignment || assignment.templateId !== templateId) {
+    throw new BadRequestError("Selected requirement template is not active for this area");
   }
 }
 
@@ -273,6 +297,7 @@ export async function createTask(input: CreateTaskInput, actor: Actor): Promise<
   assertCanManage(actor);
   await assertAreaExists(input.areaId);
   await assertRequirementForArea(input.areaId, input.requirementId);
+  await assertRequirementTemplateForArea(input.areaId, input.requirementTemplateId);
 
   const assigneeType = normalizeAssigneeType(input.assigneeType);
   const assigneeLabel = await resolveAssignee(assigneeType, input.assigneeId);
@@ -285,6 +310,7 @@ export async function createTask(input: CreateTaskInput, actor: Actor): Promise<
     priority: input.priority,
     dueDate: input.dueDate ?? null,
     requirementId: input.requirementId ?? null,
+    requirementTemplateId: input.requirementTemplateId ?? null,
     assigneeType,
     assigneeId: input.assigneeId,
     assigneeLabel,
@@ -377,6 +403,9 @@ export async function updateTask(
   if (input.requirementId !== undefined && input.requirementId !== existing.requirementId) {
     await assertRequirementForArea(existing.areaId, input.requirementId);
   }
+  if (input.requirementTemplateId !== undefined && input.requirementTemplateId !== existing.requirementTemplateId) {
+    await assertRequirementTemplateForArea(existing.areaId, input.requirementTemplateId);
+  }
 
   // Re-resolve the assignee whenever the target (type or id) changes.
   const newAssigneeType = input.assigneeType
@@ -415,6 +444,7 @@ export async function updateTask(
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.dueDate !== undefined ? { dueDate: input.dueDate } : {}),
       ...(input.requirementId !== undefined ? { requirementId: input.requirementId } : {}),
+      ...(input.requirementTemplateId !== undefined ? { requirementTemplateId: input.requirementTemplateId } : {}),
       ...(assigneeData ? { ...assigneeData } : {}),
       ...(completedAt !== undefined ? { completedAt } : {}),
       updatedBy: actor.id,

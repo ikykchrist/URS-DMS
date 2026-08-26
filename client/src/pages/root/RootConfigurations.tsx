@@ -240,14 +240,14 @@ export default function RootConfigurations() {
         title="Configuration Engine"
         description="Versioned platform settings managed by the system administrator"
         actions={
-          <Button variant="outline" size="sm" onClick={handleRefresh} className="shadow-sm">
+          <Button variant="outline" size="sm" onClick={handleRefresh} className="shadow-soft">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
         }
       />
 
-      <Card className="border-gray-200/60 shadow-sm mb-4">
+      <Card className="border-border/70 shadow-soft mb-4">
         <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -284,13 +284,13 @@ export default function RootConfigurations() {
       </Card>
 
       {isUnauthorized(error) && !loading ? (
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardContent className="p-8 text-center text-[13px] text-gray-500">
             Backend session expired — log out and sign back in as the ROOT user to reconnect.
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardContent className="p-0">
             {loading ? (
               <div className="min-h-[280px] flex items-center justify-center">
@@ -446,7 +446,7 @@ export default function RootConfigurations() {
               <Button variant="outline" className="h-9" onClick={() => setEditing(null)}>
                 Cancel
               </Button>
-              <Button className="h-9 shadow-sm" onClick={() => void handleSaveEdit()} disabled={saving}>
+              <Button className="h-9 shadow-soft" onClick={() => void handleSaveEdit()} disabled={saving}>
                 <Save className="w-4 h-4 mr-2" />
                 {saving ? "Saving…" : "Save (new version)"}
               </Button>
@@ -537,7 +537,7 @@ export default function RootConfigurations() {
                   <Button variant="outline" className="h-9" onClick={() => setRollbackTarget(null)}>
                     Cancel
                   </Button>
-                  <Button className="h-9 shadow-sm" onClick={() => void handleRollback()} disabled={saving}>
+                  <Button className="h-9 shadow-soft" onClick={() => void handleRollback()} disabled={saving}>
                     <RotateCcw className="w-4 h-4 mr-2" />
                     {saving ? "Rolling back…" : "Confirm rollback"}
                   </Button>

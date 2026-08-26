@@ -141,7 +141,7 @@ export function ReturnSubmissionModal({
                 "focus:outline-none focus:ring-2 focus:ring-offset-0 transition-all duration-150 resize-none",
                 returnReason.length > maxCharacters
                   ? "border-red-300 focus:ring-red-200 focus:border-red-300"
-                  : "border-gray-200 focus:ring-gray-200 focus:border-gray-300"
+                  : "border-border focus:ring-gray-200 focus:border-gray-300"
               )}
             />
             {returnReason.length > maxCharacters && (
@@ -167,7 +167,7 @@ export function ReturnSubmissionModal({
                 "relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-150",
                 isDragging
                   ? "border-primary bg-primary-500"
-                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                  : "border-border hover:border-gray-300 hover:bg-gray-50"
               )}
             >
               <input
@@ -204,7 +204,7 @@ export function ReturnSubmissionModal({
                     className="flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50/80"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
+                      <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center">
                         <svg
                           className="w-[18px] h-[18px] text-gray-500"
                           fill="none"

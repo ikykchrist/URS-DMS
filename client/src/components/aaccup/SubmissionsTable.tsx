@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, type ReactNode } from "react"
 import { useSearchParams } from "react-router-dom"
 import {
   Search,
@@ -42,7 +42,7 @@ import {
   type AreaSet,
   type OnlineSubmissionListItem,
 } from "@/services/aaccup"
-import { openOnlineDocument, deleteOnlineDocument } from "@/services/documents"
+import { getOnlineDocument, openOnlineDocument, deleteOnlineDocument } from "@/services/documents"
 import { listSystemDepartments } from "@/services/admin"
 import type { Document, DocumentStatus } from "@/types/domain"
 import { BulkActionsToolbar, SelectAllCheckbox, RowCheckbox } from "@/components/ui/BulkActionsToolbar"
@@ -109,6 +109,21 @@ const getStatusBadge = (status: string) => {
   }
 }
 
+function UserSubmissionStatCard({ title, value, icon, detail }: { title: string; value: string; icon: ReactNode; detail?: string }) {
+  return (
+    <Card className="h-full border-border/70">
+      <CardContent className="flex h-full min-h-[156px] flex-col p-5 md:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <span className="text-[12px] font-medium text-slate-500">{title}</span>
+          <span className="text-primary">{icon}</span>
+        </div>
+        <p className="mt-2 text-2xl font-semibold text-navy-900">{value}</p>
+        {detail && <p className="mt-3 text-[11px] text-slate-500">{detail}</p>}
+      </CardContent>
+    </Card>
+  )
+}
+
 type SetFilter = AreaSet | "ALL"
 
 interface SubmissionsTableProps {
@@ -142,7 +157,12 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
   const canReview = Boolean(user && (hasPermission(user.role, "canApprove") || hasPermission(user.role, "canReject")))
 
   const load = useCallback(async () => {
-    const query = setFilter === "ALL" ? {} : { areaSet: setFilter }
+    // Contextual views show the originating set only; all views sort oldest
+    // first so reviewers work through the queue in submission order.
+    const query =
+      setFilter === "ALL"
+        ? { sort: "submittedAt" as const, order: "asc" as const }
+        : { areaSet: setFilter, sort: "submittedAt" as const, order: "asc" as const }
     const items = await listAllOnlineSubmissions(query)
     setRawSubmissions(items)
     setSubmissions(items.map(toSubmissionDocument))
@@ -185,6 +205,13 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
   const handleViewSubmission = (submission: Document) => {
     setSelectedSubmission(submission)
     setPreviewOpen(true)
+    const raw = rawById(submission.id)
+    if (!raw) return
+    void getOnlineDocument(submission.id).then((document) => {
+      if (document) {
+        setSelectedSubmission({ ...document, submissionStatus: raw.status })
+      }
+    })
   }
 
   const handleOpenReturnModal = (doc?: Document) => {
@@ -291,38 +318,25 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
 
   return (
     <div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-5 mb-6 lg:mb-8">
-        <StatCard
-          title="All Submissions"
-          value={submissions.length.toString()}
-          icon={<FileText className="w-5 h-5" />}
-        />
-        <StatCard
-          title="Pending"
-          value={String(pendingCount)}
-          icon={<Clock className="w-5 h-5" />}
-          trend={{
-            value: submissions.length > 0 ? Math.round((pendingCount / submissions.length) * 100) : 0,
-            positive: false,
-          }}
-        />
-        <StatCard
-          title="Approved"
-          value={String(approvedCount)}
-          icon={<CheckCircle className="w-5 h-5" />}
-          trend={{
-            value: submissions.length > 0 ? Math.round((approvedCount / submissions.length) * 100) : 0,
-            positive: approvedCount > 0,
-          }}
-        />
-        <StatCard
-          title="Returned"
-          value={String(returnedCount)}
-          icon={<RotateCcw className="w-5 h-5" />}
-        />
+      <div className={cn("mb-6 lg:mb-8", isReview ? "grid grid-cols-2 gap-3 lg:gap-5" : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5")}>
+        {isReview ? (
+          <>
+            <StatCard title="All Submissions" value={submissions.length.toString()} icon={<FileText className="w-5 h-5" />} />
+            <StatCard title="Pending" value={String(pendingCount)} icon={<Clock className="w-5 h-5" />} trend={{ value: submissions.length > 0 ? Math.round((pendingCount / submissions.length) * 100) : 0, positive: false }} />
+            <StatCard title="Approved" value={String(approvedCount)} icon={<CheckCircle className="w-5 h-5" />} trend={{ value: submissions.length > 0 ? Math.round((approvedCount / submissions.length) * 100) : 0, positive: approvedCount > 0 }} />
+            <StatCard title="Returned" value={String(returnedCount)} icon={<RotateCcw className="w-5 h-5" />} />
+          </>
+        ) : (
+          <>
+            <UserSubmissionStatCard title="All Submissions" value={submissions.length.toString()} icon={<FileText className="h-4 w-4" />} detail="Your submitted evidence" />
+            <UserSubmissionStatCard title="Pending" value={String(pendingCount)} icon={<Clock className="h-4 w-4" />} detail="Awaiting review" />
+            <UserSubmissionStatCard title="Approved" value={String(approvedCount)} icon={<CheckCircle className="h-4 w-4" />} detail="Approved submissions" />
+            <UserSubmissionStatCard title="Returned" value={String(returnedCount)} icon={<RotateCcw className="h-4 w-4" />} detail="Needs your attention" />
+          </>
+        )}
       </div>
 
-      <Card className="border-gray-200/60 shadow-sm mb-6">
+      <Card className="border-border/70 shadow-soft mb-6">
         <CardContent className="p-5">
           <div className="flex flex-col lg:flex-row lg:items-center gap-4">
             <div className="flex-1">
@@ -415,7 +429,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
         </CardContent>
       </Card>
 
-      <Card className="border-gray-200/60 shadow-sm">
+      <Card className="border-border/70 shadow-soft">
         {isReview && (
           <BulkActionsToolbar
             selectedCount={selectedIds.size}

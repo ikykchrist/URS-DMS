@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Search, Filter, RotateCcw, Clock, CheckCircle, XCircle, ShieldAlert } from "lucide-react"
 import { listMyActivity, type AuditEntry } from "@/services/admin"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
 import { Input } from "@/components/ui/Input"
@@ -9,12 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils"
 
 const CATEGORY_COLORS: Record<string, string> = {
-  AUTHENTICATION: "bg-blue-50 text-blue-700 border-blue-200",
+  AUTHENTICATION: "bg-primary-50 text-blue-700 border-blue-200",
   SUBMISSION: "bg-purple-50 text-purple-700 border-purple-200",
   REQUEST: "bg-amber-50 text-amber-700 border-amber-200",
   SECURITY: "bg-red-50 text-red-700 border-red-200",
   ACCESS_CONTROL: "bg-orange-50 text-orange-700 border-orange-200",
-  SYSTEM: "bg-gray-50 text-gray-700 border-gray-200",
+  SYSTEM: "bg-gray-50 text-gray-700 border-border",
   REPOSITORY: "bg-emerald-50 text-emerald-700 border-emerald-200",
 }
 
@@ -91,14 +92,11 @@ export default function MyActivity() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">My Activity</h1>
-        <p className="text-[13px] text-gray-500 mt-1">
-          Your recent activity across URS-DMS
-          {total > 0 && <span className="ml-2 text-gray-400">&middot; {total} entries</span>}
-        </p>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+      <PageHeader
+        title="My Activity"
+        description={`Your recent activity across URS-DMS${total > 0 ? ` · ${total} entries` : ""}`}
+      />
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
@@ -163,12 +161,12 @@ export default function MyActivity() {
               <Card
                 key={entry.id}
                 className={cn(
-                  "border-gray-200/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer",
+                  "border-border/70 shadow-soft hover:shadow-lift transition-shadow cursor-pointer",
                   detailId === entry.id && "ring-2 ring-[#2563EB]",
                 )}
                 onClick={() => setDetailId(detailId === entry.id ? null : entry.id)}
               >
-                <CardContent className="p-4">
+                <CardContent className="p-4 pt-5">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="flex-shrink-0">

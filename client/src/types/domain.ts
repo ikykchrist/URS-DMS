@@ -15,6 +15,7 @@ export interface User {
   department: string
   departmentId?: string
   avatarSeed?: string
+  photoUrl?: string | null
   status: "Active" | "Inactive" | "Suspended"
   phone?: string
   memberSince: string

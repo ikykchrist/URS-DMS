@@ -382,7 +382,7 @@ export default function RootOrganization() {
         title="Organization"
         description="Colleges, departments, offices and programs — versioned master data managed by the system administrator"
         actions={
-          <Button variant="outline" size="sm" onClick={() => void load()} className="shadow-sm">
+          <Button variant="outline" size="sm" onClick={() => void load()} className="shadow-soft">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -408,7 +408,7 @@ export default function RootOrganization() {
 
         {ENTITIES.map((e) => (
           <TabsContent key={e.id} value={e.id}>
-            <Card className="border-gray-200/60 shadow-sm mb-4">
+            <Card className="border-border/70 shadow-soft mb-4">
               <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -470,7 +470,7 @@ export default function RootOrganization() {
                 <Button
                   variant={includeArchived ? "default" : "outline"}
                   size="sm"
-                  className="h-10 shadow-sm"
+                  className="h-10 shadow-soft"
                   onClick={() => {
                     setIncludeArchived((v) => !v)
                     setPage(1)
@@ -478,7 +478,7 @@ export default function RootOrganization() {
                 >
                   {includeArchived ? "Showing archived" : "Show archived"}
                 </Button>
-                <Button className="h-10 shadow-sm" onClick={openCreate}>
+                <Button className="h-10 shadow-soft" onClick={openCreate}>
                   <Plus className="w-4 h-4 mr-2" />
                   New {entityLabel(e.id).slice(0, -1)}
                 </Button>
@@ -486,13 +486,13 @@ export default function RootOrganization() {
             </Card>
 
             {isUnauthorized(error) && !loading ? (
-              <Card className="border-gray-200/60 shadow-sm">
+              <Card className="border-border/70 shadow-soft">
                 <CardContent className="p-8 text-center text-[13px] text-gray-500">
                   Backend session expired — log out and sign back in as the ROOT user to reconnect.
                 </CardContent>
               </Card>
             ) : (
-              <Card className="border-gray-200/60 shadow-sm">
+              <Card className="border-border/70 shadow-soft">
                 <CardContent className="p-0">
                   {loading ? (
                     <div className="min-h-[280px] flex items-center justify-center">
@@ -643,7 +643,7 @@ export default function RootOrganization() {
         ))}
 
         <TabsContent value="tree">
-          <Card className="border-gray-200/60 shadow-sm">
+          <Card className="border-border/70 shadow-soft">
             <CardContent className="p-4 sm:p-6">
               {treeLoading ? (
                 <div className="min-h-[280px] flex items-center justify-center">
@@ -792,7 +792,7 @@ export default function RootOrganization() {
               <Button variant="outline" className="h-9" onClick={() => setFormOpen(false)}>
                 Cancel
               </Button>
-              <Button className="h-9 shadow-sm" onClick={() => void handleSave()} disabled={saving}>
+              <Button className="h-9 shadow-soft" onClick={() => void handleSave()} disabled={saving}>
                 {saving ? "Saving…" : editing ? "Save (new version)" : "Create"}
               </Button>
             </DialogFooter>
@@ -880,7 +880,7 @@ export default function RootOrganization() {
                   <Button variant="outline" className="h-9" onClick={() => setRollbackTarget(null)}>
                     Cancel
                   </Button>
-                  <Button className="h-9 shadow-sm" onClick={() => void handleRollback()} disabled={saving}>
+                  <Button className="h-9 shadow-soft" onClick={() => void handleRollback()} disabled={saving}>
                     <RotateCcw className="w-4 h-4 mr-2" />
                     {saving ? "Rolling back…" : "Confirm rollback"}
                   </Button>

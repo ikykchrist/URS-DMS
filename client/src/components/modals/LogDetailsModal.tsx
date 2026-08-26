@@ -82,8 +82,8 @@ export function LogDetailsModal({ open, onOpenChange, log }: LogDetailsModalProp
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-100">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                <Clock className="w-4 h-4 text-blue-600" />
+              <div className="w-8 h-8 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-4 h-4 text-primary-600" />
               </div>
               <div>
                 <p className="text-[11px] text-gray-500 uppercase tracking-wide">Timestamp</p>
@@ -91,7 +91,7 @@ export function LogDetailsModal({ open, onOpenChange, log }: LogDetailsModalProp
               </div>
             </div>
             <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-100">
-              <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-purple-50 flex items-center justify-center flex-shrink-0">
                 <FileText className="w-4 h-4 text-purple-600" />
               </div>
               <div>
@@ -103,7 +103,7 @@ export function LogDetailsModal({ open, onOpenChange, log }: LogDetailsModalProp
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-100">
-              <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
                 <Globe className="w-4 h-4 text-green-600" />
               </div>
               <div>
@@ -112,7 +112,7 @@ export function LogDetailsModal({ open, onOpenChange, log }: LogDetailsModalProp
               </div>
             </div>
             <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-100">
-              <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
                 <Monitor className="w-4 h-4 text-amber-600" />
               </div>
               <div>

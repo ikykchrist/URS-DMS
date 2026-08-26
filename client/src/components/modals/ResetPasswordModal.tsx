@@ -52,7 +52,7 @@ export function ResetPasswordModal({
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader className="pb-2">
           <DialogTitle className="text-lg flex items-center gap-2">
-            <KeyRound className="w-5 h-5 text-blue-600" />
+            <KeyRound className="w-5 h-5 text-primary-600" />
             Reset Password
           </DialogTitle>
           <DialogDescription className="text-[14px]">

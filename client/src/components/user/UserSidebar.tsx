@@ -11,6 +11,8 @@ import {
   LogOut,
   Clock,
   ChevronDown,
+  ShieldCheck,
+  ClipboardList,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
@@ -83,21 +85,21 @@ export function UserSidebar({
   return (
     <aside
       className={cn(
-        "h-screen bg-white dark:bg-[#0F1520] border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex-shrink-0",
+        "h-screen bg-gradient-to-b from-navy-900 to-navy-950 border-r border-white/5 transition-all duration-300 flex-shrink-0",
         collapsed ? "w-20" : "w-64",
         className,
       )}
     >
       <div className="flex flex-col h-full">
         <div className={cn(
-          "flex items-center border-b border-gray-100 dark:border-gray-800",
+          "flex items-center border-b border-white/5",
           collapsed ? "justify-center px-5 py-5" : "justify-between px-5 py-5"
         )}>
           <button
             onClick={() => handleNavigate("dashboard")}
-            className="hover:opacity-80 transition-opacity"
+            className="hover:opacity-90 transition-opacity"
           >
-            <Logo size="sm" showText={!collapsed} subtitle="User Portal" />
+            <Logo size="sm" showText={!collapsed} subtitle="User Portal" onDark />
           </button>
         </div>
 
@@ -115,31 +117,39 @@ export function UserSidebar({
                       onClick={() => handleNavigate("tasks")}
                       aria-expanded={!collapsed && aaccupOpen}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150 relative",
-                        accreditationActive ? "bg-slate-900 text-white shadow-sm shadow-slate-300/40 dark:bg-slate-700 dark:shadow-none" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-150 relative",
+                        accreditationActive ? "bg-primary text-white shadow-lift shadow-primary/30" : "text-slate-300 hover:bg-white/5 hover:text-white",
                         collapsed && "justify-center",
                       )}
                     >
-                      <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", accreditationActive ? "text-sky-300" : "text-slate-500")} />
+                      <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", accreditationActive ? "text-white" : "text-slate-400")} />
                       {!collapsed && <span className="flex-1 text-left">AACCUP</span>}
                       {badgeCount > 0 && !collapsed && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{badgeCount > 99 ? "99+" : badgeCount}</span>}
-                      {!collapsed && <ChevronDown className={cn("w-4 h-4 text-slate-300 transition-transform", !aaccupOpen && "-rotate-90")} />}
+                      {!collapsed && <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", !aaccupOpen && "-rotate-90")} />}
                     </button>
                     {!collapsed && aaccupOpen && (
-                      <div className="mt-1 ml-5 space-y-1 border-l border-slate-200 pl-3 dark:border-slate-700">
-                        {[{ id: "tasks", label: "My Tasks" }, { id: "aaccup", label: "AACCUP" }, { id: "iso", label: "ISO" }].map((child) => (
-                          <button
-                            key={child.id}
-                            type="button"
-                            onClick={() => handleNavigate(child.id)}
-                            className={cn(
-                              "w-full rounded-md px-3 py-2 text-left text-[13px] font-medium transition-colors",
-                              activePage === child.id ? "bg-slate-100 text-slate-950 dark:bg-slate-800 dark:text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800",
-                            )}
-                          >
-                            {child.label}
-                          </button>
-                        ))}
+                      <div className="mt-1 ml-5 space-y-1 border-l border-white/10 pl-3">
+                        {[
+                          { id: "tasks", label: "My Tasks", icon: ClipboardList },
+                          { id: "aaccup", label: "AACCUP", icon: GraduationCap },
+                          { id: "iso", label: "ISO", icon: ShieldCheck },
+                        ].map((child) => {
+                          const ChildIcon = child.icon
+                          return (
+                            <button
+                              key={child.id}
+                              type="button"
+                              onClick={() => handleNavigate(child.id)}
+                              className={cn(
+                                "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors",
+                                activePage === child.id ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
+                              )}
+                            >
+                              <ChildIcon className={cn("w-4 h-4 flex-shrink-0", activePage === child.id ? "text-blue-300" : "text-slate-500")} />
+                              {child.label}
+                            </button>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
@@ -157,14 +167,14 @@ export function UserSidebar({
                   key={item.id}
                   onClick={() => handleNavigate(item.id)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150 relative",
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-150 relative",
                     isActive
-                      ? "bg-slate-900 text-white shadow-sm shadow-slate-300/40 dark:bg-slate-700 dark:shadow-none"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
+                      ? "bg-primary text-white shadow-lift shadow-primary/30"
+                      : "text-slate-300 hover:bg-white/5 hover:text-white",
                     collapsed && "justify-center"
                   )}
                 >
-                  <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", isActive ? "text-sky-300" : "text-slate-500")} />
+                  <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", isActive ? "text-white" : "text-slate-400")} />
                   {!collapsed && <span>{item.label}</span>}
                   {showBadge && !collapsed && (
                     <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
@@ -180,13 +190,13 @@ export function UserSidebar({
           </div>
         </nav>
 
-        <div className="px-3 py-4 border-t border-gray-100 space-y-1">
+        <div className="px-3 py-4 border-t border-white/5 space-y-1">
           <Button
             variant="ghost"
             size="sm"
             onClick={onToggle}
             className={cn(
-              "w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-3",
+              "w-full justify-start text-slate-300 hover:text-white hover:bg-white/5 px-3",
               collapsed && "justify-center px-2"
             )}
           >
@@ -205,7 +215,7 @@ export function UserSidebar({
             size="sm"
             onClick={handleLogout}
             className={cn(
-              "w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 px-3",
+              "w-full justify-start text-red-300 hover:text-red-200 hover:bg-white/5 px-3",
               collapsed && "justify-center px-2"
             )}
           >

@@ -13,7 +13,8 @@ import {
   NotFoundError,
 } from "@/utils/errors";
 import * as repo from "@/modules/admin/users/users.repository";
-import type { AdminUserDetail } from "@/modules/admin/users/users.types";
+import type { AdminUserDetail, AdminUserListItem } from "@/modules/admin/users/users.types";
+import { presignDownload } from "@/lib/storage";
 import type {
   AdminListUsersQuery,
   CreateAdminUserBody,
@@ -149,6 +150,16 @@ function assertNotRootTarget(existing: { roleName: string }): void {
 // ---------------------------------------------------------------------------
 // listUsers
 // ---------------------------------------------------------------------------
+async function withPhotoUrl(item: AdminUserListItem): Promise<AdminUserListItem> {
+  if (!item.profilePhotoKey) return item;
+  try {
+    const { url } = await presignDownload(item.profilePhotoKey);
+    return { ...item, photoUrl: url };
+  } catch {
+    return { ...item, photoUrl: null };
+  }
+}
+
 export async function listUsers(query: AdminListUsersQuery, actor: Actor): Promise<ListResult> {
   assertCanRead(actor);
 
@@ -172,7 +183,7 @@ export async function listUsers(query: AdminListUsersQuery, actor: Actor): Promi
   });
 
   return {
-    items: r.items,
+    items: await Promise.all(r.items.map(withPhotoUrl)),
     meta: {
       page: query.page,
       pageSize: query.pageSize,
@@ -189,7 +200,7 @@ export async function getUser(id: string, actor: Actor): Promise<AdminUserDetail
   assertCanRead(actor);
   const user = await repo.findById(id);
   if (!user) throw new NotFoundError("User not found");
-  return user;
+  return withPhotoUrl(user);
 }
 
 // ---------------------------------------------------------------------------

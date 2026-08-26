@@ -1,4 +1,4 @@
-import { apiGetPage, apiPost, apiPatch, apiDelete, apiGet } from "@/lib/http"
+import { apiGetPage, apiPost, apiPatch, apiDelete, apiGet, API_BASE, getAccessToken, type ApiErrorEnvelope } from "@/lib/http"
 
 export type AreaSet = "AACCUP" | "ISO" | "CERT"
 
@@ -180,6 +180,8 @@ export async function listAllOnlineSubmissions(query?: {
   areaSet?: AreaSet
   status?: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_REVISION"
   q?: string
+  sort?: "submittedAt" | "createdAt" | "updatedAt" | "status"
+  order?: "asc" | "desc"
 }): Promise<OnlineSubmissionListItem[]> {
   const params = new URLSearchParams()
   if (query?.areaId) params.set("areaId", query.areaId)
@@ -187,8 +189,47 @@ export async function listAllOnlineSubmissions(query?: {
   if (query?.areaSet) params.set("areaSet", query.areaSet)
   if (query?.status) params.set("status", query.status)
   if (query?.q) params.set("q", query.q)
+  if (query?.sort) params.set("sort", query.sort)
+  if (query?.order) params.set("order", query.order)
   const qs = params.size > 0 ? `?${params.toString()}` : ""
   return everyPage<OnlineSubmissionListItem>(`/aaccup/submissions${qs}`)
+}
+
+/**
+ * Admin-only approved-package export (ROOT / ADMINISTRATOR). Downloads a ZIP
+ * of every APPROVED + current submission for the selected areas, grouped into
+ * one folder per area with the exact submitted historical document version.
+ */
+export async function exportApprovedSubmissionsZip(
+  areaIds: string[],
+  areaSet?: AreaSet,
+): Promise<{ filename: string; blob: Blob }> {
+  const params = new URLSearchParams()
+  for (const id of areaIds) params.append("areaIds", id)
+  if (areaSet) params.set("areaSet", areaSet)
+  const token = getAccessToken()
+  const headers: Record<string, string> = { Accept: "application/zip" }
+  if (token) headers.Authorization = `Bearer ${token}`
+  const res = await fetch(`${API_BASE}/aaccup/submissions/export?${params.toString()}`, {
+    method: "GET",
+    headers,
+    credentials: "include",
+  })
+  if (!res.ok) {
+    let message = `Export failed (${res.status})`
+    try {
+      const payload = (await res.json()) as ApiErrorEnvelope
+      if (payload.error?.message) message = payload.error.message
+    } catch { /* non-JSON error body */ }
+    throw new Error(message)
+  }
+  const blob = await res.blob()
+  const disposition = res.headers.get("Content-Disposition") ?? ""
+  const match = /filename\*=UTF-8''([^;]+)/.exec(disposition)
+  const filename = match
+    ? decodeURIComponent(match[1] ?? "")
+    : `aaccup-approved-submissions-${new Date().toISOString().slice(0, 10)}.zip`
+  return { filename, blob }
 }
 
 export async function reviewOnlineSubmission(
@@ -314,6 +355,9 @@ export interface OnlineAaccupTask {
   requirementId: string | null
   requirementTitle: string | null
   requirementCode: string | null
+  requirementTemplateId: string | null
+  requirementTemplateName: string | null
+  requirementTemplateVersion: number | null
   assigneeType: "USER" | "DEPARTMENT"
   assigneeId: string | null
   assigneeLabel: string | null
@@ -331,6 +375,7 @@ export interface CreateOnlineTaskInput {
   priority?: OnlineTaskPriority
   dueDate?: string | null
   requirementId?: string | null
+  requirementTemplateId?: string | null
   assigneeType: "USER" | "DEPARTMENT"
   assigneeId: string
 }
@@ -500,5 +545,32 @@ export async function uploadOnlineRequirementDocument(
     documentId: created.document.id,
     ...(input.taskId ? { taskId: input.taskId } : {}),
     remarks: input.remarks,
+  })
+}
+
+export interface TaskRequirementTemplateOption {
+  id: string
+  name: string
+  code: string
+  version: number
+}
+
+export async function listTaskRequirementTemplates(areaId: string): Promise<TaskRequirementTemplateOption[]> {
+  return apiGet<TaskRequirementTemplateOption[]>(
+    `/aaccup/tasks/requirement-templates?areaId=${encodeURIComponent(areaId)}`,
+  )
+}
+
+export async function submitOnlineRepositoryDocument(input: {
+  requirementId: string
+  documentId: string
+  taskId?: string
+  remarks?: string
+}): Promise<OnlineAaccupSubmission> {
+  return apiPost<OnlineAaccupSubmission>("/aaccup/submissions", {
+    requirementId: input.requirementId,
+    documentId: input.documentId,
+    ...(input.taskId ? { taskId: input.taskId } : {}),
+    ...(input.remarks ? { remarks: input.remarks } : {}),
   })
 }

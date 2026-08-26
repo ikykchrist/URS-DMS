@@ -549,6 +549,7 @@ async function resolveDocumentUrl(
   id: string,
   actor: Actor,
   versionId?: string,
+  opts: { inline?: boolean } = {},
 ): Promise<ResolvedDocumentUrl> {
   const doc = await repo.findById(id);
   if (!doc) throw new NotFoundError("Document not found");
@@ -567,7 +568,7 @@ async function resolveDocumentUrl(
     version = current;
   }
 
-  const dl = await presignDownload(version.objectKey);
+  const dl = await presignDownload(version.objectKey, opts);
 
   // Record the file in the owner's recents (best-effort).
   await recordRecent(actor, "FILE", id);
@@ -590,7 +591,12 @@ export async function getDownloadUrl(
   actor: Actor,
   versionId?: string,
 ): Promise<DownloadResult> {
-  const { result, versionId: resolvedVersionId } = await resolveDocumentUrl(id, actor, versionId);
+  const { result, versionId: resolvedVersionId } = await resolveDocumentUrl(
+    id,
+    actor,
+    versionId,
+    { inline: false },
+  );
   await writeAudit({
     action: AUDIT_ACTIONS.DOCUMENT_DOWNLOADED,
     userId: actor.id,
@@ -608,7 +614,7 @@ export async function getDownloadUrl(
 // must never emit document.downloaded.
 // -----------------------------------------------------------------------------
 export async function getPreviewUrl(id: string, actor: Actor): Promise<DownloadResult> {
-  const { result } = await resolveDocumentUrl(id, actor);
+  const { result } = await resolveDocumentUrl(id, actor, undefined, { inline: true });
   await writeAudit({
     action: AUDIT_ACTIONS.DOCUMENT_PREVIEWED,
     userId: actor.id,
@@ -627,6 +633,14 @@ export async function getThumbnailStream(id: string, actor: Actor): Promise<{ st
   const version = doc.versions[0];
   if (!version) throw new NotFoundError("Document has no versions");
   const key = thumbnailObjectKey(version.objectKey);
+  if (!(await objectExists(key))) {
+    try {
+      const { processDocumentThumbnailJob } = await import("@/workers/documentThumbnail.worker");
+      await processDocumentThumbnailJob({ data: { objectKey: version.objectKey, mimeType: version.mimeType } });
+    } catch {
+      throw new NotFoundError("Thumbnail is not ready");
+    }
+  }
   if (!(await objectExists(key))) throw new NotFoundError("Thumbnail is not ready");
   return { stream: await getObjectStream(key), mimeType: "image/webp", filename: `${version.filename}.webp` };
 }

@@ -45,7 +45,7 @@ const setLabel = {
 
 const setBadgeIcon = {
   aaccup: "bg-amber-100 text-amber-600",
-  iso: "bg-blue-100 text-blue-600",
+  iso: "bg-blue-100 text-primary-600",
   cert: "bg-emerald-100 text-emerald-600",
 } as const
 
@@ -129,7 +129,7 @@ export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", area, onS
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader className="pb-2">
           <div className="flex items-center gap-2">
-            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", setBadgeIcon[areaSet])}>
+            <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center", setBadgeIcon[areaSet])}>
               {isEditing ? <Pencil className="w-4 h-4" /> : <Award className="w-4 h-4" />}
             </div>
             <DialogTitle className="text-lg">{isEditing ? "Edit" : "Add"} {setLabel[areaSet]} Area</DialogTitle>
@@ -221,7 +221,7 @@ export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", area, onS
           <Button variant="outline" onClick={() => handleClose(false)} className="h-9">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} className="h-9 shadow-sm" disabled={!isValid || saving}>
+          <Button onClick={handleSubmit} className="h-9 shadow-soft" disabled={!isValid || saving}>
             {saving ? (isEditing ? "Saving..." : "Creating...") : isEditing ? "Save Changes" : "Create Area"}
           </Button>
         </DialogFooter>

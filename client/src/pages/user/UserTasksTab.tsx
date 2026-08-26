@@ -143,11 +143,11 @@ export function UserTasksTab({ navigation }: { navigation?: ReactNode }) {
           visibleTasks.map((task) => {
             const canChange = actionable(task)
             return (
-              <Card id={`task-${task.id}`} key={task.id} className={task.id === highlightTaskId ? "border-blue-400 shadow-md ring-2 ring-blue-100" : "border-slate-200/70 shadow-sm"}>
+              <Card id={`task-${task.id}`} key={task.id} className={task.id === highlightTaskId ? "border-blue-400 shadow-md ring-2 ring-blue-100" : "border-slate-200/70 shadow-soft"}>
                 <CardContent className="p-5">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex min-w-0 items-start gap-3">
-                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
                         <ClipboardList className="h-4 w-4" />
                       </span>
                       <div className="min-w-0">
@@ -168,7 +168,11 @@ export function UserTasksTab({ navigation }: { navigation?: ReactNode }) {
                         {task.description && (
                           <p className="mt-1.5 text-[12px] text-slate-600 line-clamp-2">{task.description}</p>
                         )}
-                        {task.requirementTitle && (
+                        {task.requirementTemplateName ? (
+                          <p className="mt-1.5 text-[11px] text-primary-700">
+                            Complete requirement template: {task.requirementTemplateName} (v{task.requirementTemplateVersion})
+                          </p>
+                        ) : task.requirementTitle && (
                           <p className="mt-1.5 text-[11px] text-slate-400">
                             Evidence requirement: {task.requirementCode} — {task.requirementTitle}
                           </p>
@@ -200,14 +204,14 @@ export function UserTasksTab({ navigation }: { navigation?: ReactNode }) {
                         </Button>
                       )}
                       {canChange && task.requirementId ? (
-                        <Button size="sm" className="shadow-sm" onClick={() => setSubmitTask(task)}>
+                        <Button size="sm" className="shadow-soft" onClick={() => setSubmitTask(task)}>
                           <Upload className="mr-1.5 h-3.5 w-3.5" />
                           Submit Evidence
                         </Button>
                       ) : (
                         canChange && (
                           <Badge variant="secondary" className="text-[10px]">
-                            No requirement linked
+                            {task.requirementTemplateId ? "Complete template requirements" : "No requirement linked"}
                           </Badge>
                         )
                       )}

@@ -116,7 +116,7 @@ function formatDate(value: string): string {
 
 const EmptyState = ({ icon: Icon, message }: { icon: React.ElementType; message: string }) => (
   <div className="flex flex-col items-center justify-center py-6 text-center">
-    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center mb-2">
+    <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center mb-2">
       <Icon className="w-5 h-5 text-gray-400" />
     </div>
     <p className="text-[13px] text-gray-500">{message}</p>
@@ -288,7 +288,7 @@ export function AACCUPAreaDetailsModal({
     <>
       <div className={cn(
         "flex flex-col overflow-hidden",
-        page ? "min-h-[calc(100vh-9rem)] rounded-xl border border-gray-200/70 bg-white shadow-sm" : "h-full",
+        page ? "min-h-[calc(100vh-9rem)] rounded-xl border border-border/70 bg-white shadow-soft" : "h-full",
       )}>
         <DialogHeader className="px-6 py-4 border-b border-gray-100 flex-shrink-0 bg-white relative">
           <div className="flex items-center justify-between gap-4 pr-12">
@@ -331,7 +331,7 @@ export function AACCUPAreaDetailsModal({
                   New Task
                 </Button>
               )}
-              <Button size="sm" className="h-9 shadow-sm" onClick={onAddSubmission}>
+              <Button size="sm" className="h-9 shadow-soft" onClick={onAddSubmission}>
                 <Upload className="w-4 h-4 mr-2" />
                 Add Submission
               </Button>
@@ -352,24 +352,24 @@ export function AACCUPAreaDetailsModal({
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="px-6 py-3 bg-white border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center gap-4 mb-3">
-                <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50/50">
+                <div className="flex rounded-lg border border-border p-1 bg-gray-50/50">
                   <button
-                    type="button"
+                   type="button"
                      onClick={() => changeView("submissions")}
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-                      view === "submissions" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                       view === "submissions" ? "bg-white text-gray-900 shadow-soft" : "text-gray-500 hover:text-gray-700"
                     )}
                   >
-                    <FileText className="w-3.5 h-3.5" />
-                    Submissions ({submissions.length})
+                     <FileText className="w-3.5 h-3.5" />
+                     Submissions ({submissions.length})
                   </button>
                   <button
                     type="button"
                      onClick={() => changeView("tasks")}
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-                      view === "tasks" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                      view === "tasks" ? "bg-white text-gray-900 shadow-soft" : "text-gray-500 hover:text-gray-700"
                     )}
                   >
                     <CheckCircle className="w-3.5 h-3.5" />
@@ -380,7 +380,7 @@ export function AACCUPAreaDetailsModal({
                      onClick={() => changeView("requirements")}
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-                      view === "requirements" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                      view === "requirements" ? "bg-white text-gray-900 shadow-soft" : "text-gray-500 hover:text-gray-700"
                     )}
                   >
                     <FileCheck2 className="w-3.5 h-3.5" />
@@ -388,19 +388,16 @@ export function AACCUPAreaDetailsModal({
                   </button>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50/70 border border-emerald-100">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" />
-                  <span className="text-[13px] font-medium text-emerald-700">{stats.completed} Approved</span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50/70 border border-amber-100">
-                  <Clock className="w-4 h-4 text-amber-600" />
-                  <span className="text-[13px] font-medium text-amber-700">{stats.pending} Pending</span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-50/70 border border-red-100">
-                  <AlertCircle className="w-4 h-4 text-red-600" />
-                  <span className="text-[13px] font-medium text-red-700">{stats.returned} Returned</span>
-                </div>
+              <div className="flex flex-wrap items-center gap-3 text-[12px]">
+                <span className="flex items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50/70 px-3 py-1.5 font-medium text-emerald-700">
+                  <CheckCircle className="h-4 w-4 text-emerald-600" /> {stats.completed} Approved
+                </span>
+                <span className="flex items-center gap-1.5 rounded-lg border border-amber-100 bg-amber-50/70 px-3 py-1.5 font-medium text-amber-700">
+                  <Clock className="h-4 w-4 text-amber-600" /> {stats.pending} Pending
+                </span>
+                <span className="flex items-center gap-1.5 rounded-lg border border-red-100 bg-red-50/70 px-3 py-1.5 font-medium text-red-700">
+                  <AlertCircle className="h-4 w-4 text-red-600" /> {stats.returned} Returned
+                </span>
               </div>
             </div>
 
@@ -431,7 +428,7 @@ export function AACCUPAreaDetailsModal({
                       </Button>
                     )}
                   </div>
-                  <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="bg-white rounded-lg border border-border">
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent bg-gray-50/50">
@@ -519,7 +516,7 @@ export function AACCUPAreaDetailsModal({
                   </div>
                 </div>
               ) : view === "tasks" ? (
-                <div className="bg-white rounded-lg border border-gray-200">
+                <div className="bg-white rounded-lg border border-border">
                   <Table>
                       <TableHeader>
                       <TableRow className="hover:bg-transparent bg-gray-50/50">
@@ -621,7 +618,7 @@ export function AACCUPAreaDetailsModal({
                                   {actionable && task.requirementId && (
                                     <Button
                                       size="sm"
-                                      className="h-8 text-[12px] shadow-sm"
+                                      className="h-8 text-[12px] shadow-soft"
                                       onClick={() => setSubmitTask(task)}
                                     >
                                       Submit Evidence
@@ -638,7 +635,7 @@ export function AACCUPAreaDetailsModal({
                   </Table>
                 </div>
               ) : (
-                <div className="bg-white rounded-lg border border-gray-200">
+                <div className="bg-white rounded-lg border border-border">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent bg-gray-50/50">
@@ -864,7 +861,7 @@ export function AACCUPAreaDetailsModal({
 
           <div
             className={cn(
-              "w-72 border-l border-gray-200 bg-white flex-shrink-0 flex flex-col transition-all duration-200",
+              "w-72 border-l border-border bg-white flex-shrink-0 flex flex-col transition-all duration-200",
               isPanelCollapsed && "w-10"
             )}
           >
@@ -895,21 +892,21 @@ export function AACCUPAreaDetailsModal({
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-100 text-center">
-                    <p className="text-[18px] font-bold text-emerald-600">{stats.completed}</p>
-                    <p className="text-[11px] text-emerald-600/80">Approved</p>
+                  <div className="p-3 rounded-lg bg-primary-50 border border-blue-100 text-center">
+                    <p className="text-[18px] font-bold text-primary-600">{requirements.length}</p>
+                    <p className="text-[11px] text-primary-600/80">Requirements</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-indigo-50 border border-indigo-100 text-center">
+                    <p className="text-[18px] font-bold text-indigo-600">{tasks.length}</p>
+                    <p className="text-[11px] text-indigo-600/80">Tasks</p>
                   </div>
                   <div className="p-3 rounded-lg bg-amber-50 border border-amber-100 text-center">
-                    <p className="text-[18px] font-bold text-amber-600">{stats.pending}</p>
-                    <p className="text-[11px] text-amber-600/80">Pending</p>
+                    <p className="text-[18px] font-bold text-amber-600">{tasks.filter((task) => task.status === "OPEN").length}</p>
+                    <p className="text-[11px] text-amber-600/80">Open tasks</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-red-50 border border-red-100 text-center">
-                    <p className="text-[18px] font-bold text-red-600">{stats.returned}</p>
-                    <p className="text-[11px] text-red-600/80">Returned</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 text-center">
-                    <p className="text-[18px] font-bold text-blue-600">{stats.total}</p>
-                    <p className="text-[11px] text-blue-600/80">Total</p>
+                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-100 text-center">
+                    <p className="text-[18px] font-bold text-emerald-600">{tasks.filter((task) => task.status === "COMPLETED").length}</p>
+                    <p className="text-[11px] text-emerald-600/80">Completed tasks</p>
                   </div>
                 </div>
 
@@ -935,7 +932,7 @@ export function AACCUPAreaDetailsModal({
                   )}>
                      {completion >= 80
                       ? "This area meets the minimum requirements for accreditation review."
-                      : "Additional documentation required before submission."}
+                       : "Review the requirements and assign the remaining work."}
                   </p>
                 </div>
 

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   Plus,
   Search,
@@ -184,7 +184,7 @@ export default function RootFormBuilder() {
     }
   }
 
-  // â”€â”€ Create form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Create form ────────────────────────────────────────────────────────────
 
   const handleCreate = async () => {
     setCreating(true)
@@ -200,7 +200,7 @@ export default function RootFormBuilder() {
     }
   }
 
-  // â”€â”€ Builder actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Builder actions ────────────────────────────────────────────────────────
 
   const handleSaveDraft = async () => {
     if (!builder) return
@@ -280,7 +280,7 @@ export default function RootFormBuilder() {
     }
   }
 
-  // â”€â”€ Field editor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Field editor ───────────────────────────────────────────────────────────
 
   const fieldEditor = useMemo(() => {
     const target = fieldDialog.field
@@ -357,7 +357,7 @@ export default function RootFormBuilder() {
     }
   }
 
-  // â”€â”€ Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Preview ────────────────────────────────────────────────────────────────
 
   const openPreview = async (template: FormTemplateListItem) => {
     try {
@@ -367,7 +367,7 @@ export default function RootFormBuilder() {
     }
   }
 
-  // â”€â”€ Assignments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Assignments ────────────────────────────────────────────────────────────
 
   const openAssignments = (template: FormTemplateDetail) => {
     setAssignDialog(template)
@@ -413,7 +413,7 @@ export default function RootFormBuilder() {
     }
   }
 
-  // â”€â”€ Versions / history â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Versions / history ─────────────────────────────────────────────────────
 
   const openVersions = async (template: FormTemplateListItem) => {
     setVersionsFor(template)
@@ -448,14 +448,14 @@ export default function RootFormBuilder() {
         title="Dynamic Form Builder"
         description="Design reusable, versioned form templates assignable to requirements, workflow steps, AACCUP areas, folder templates and future modules"
         actions={
-          <Button className="shadow-sm" onClick={() => setCreateOpen(true)}>
+          <Button className="shadow-soft" onClick={() => setCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             New Form
           </Button>
         }
       />
 
-      <Card className="border-gray-200/60 shadow-sm mb-6">
+      <Card className="border-border/70 shadow-soft mb-6">
         <CardContent className="p-5">
           <div className="flex flex-col lg:flex-row lg:items-center gap-4">
             <div className="relative flex-1 max-w-md">
@@ -504,7 +504,7 @@ export default function RootFormBuilder() {
         </Card>
       )}
 
-      <Card className="border-gray-200/60 shadow-sm">
+      <Card className="border-border/70 shadow-soft">
         <CardHeader className="pb-3">
           <CardTitle className="text-[14px]">Form Templates ({forms.length})</CardTitle>
         </CardHeader>
@@ -540,12 +540,12 @@ export default function RootFormBuilder() {
                   <TableRow key={template.id} className="hover:bg-gray-50/50 transition-colors">
                     <TableCell>
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
                           <FileText className="w-4 h-4 text-primary" />
                         </div>
                         <div>
                           <p className="text-[14px] font-medium text-gray-900">{template.name}</p>
-                          <p className="text-[11px] text-gray-400">{template.description ?? "â€”"}</p>
+                          <p className="text-[11px] text-gray-400">{template.description ?? "—"}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -607,7 +607,7 @@ export default function RootFormBuilder() {
         </CardContent>
       </Card>
 
-      {/* â”€â”€ Create form dialog â”€â”€ */}
+      {/* ── Create form dialog ── */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader className="pb-2">
@@ -639,14 +639,14 @@ export default function RootFormBuilder() {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setCreateOpen(false)} className="h-10 px-5">Cancel</Button>
             <Button onClick={() => void handleCreate()} disabled={creating || !createFormState.name.trim() || !createFormState.code.trim()}
-              className="h-10 px-5 shadow-sm">
+              className="h-10 px-5 shadow-soft">
               {creating ? "Creating..." : "Create Form"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* â”€â”€ Builder dialog â”€â”€ */}
+      {/* ── Builder dialog ── */}
       <Dialog open={builder !== null} onOpenChange={(open) => !open && setBuilder(null)}>
         <DialogContent className="max-w-[92vw] w-[92vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col [&>button]:hidden">
           {builder && (
@@ -668,7 +668,7 @@ export default function RootFormBuilder() {
                         <Button variant="outline" size="sm" className="h-9" onClick={() => void handleSaveDraft()}>
                           <Save className="w-4 h-4 mr-2" /> Save Draft
                         </Button>
-                        <Button size="sm" className="h-9 shadow-sm" onClick={() => void handlePublish()}>
+                        <Button size="sm" className="h-9 shadow-soft" onClick={() => void handlePublish()}>
                           <Send className="w-4 h-4 mr-2" /> Publish
                         </Button>
                       </>
@@ -695,7 +695,7 @@ export default function RootFormBuilder() {
                     <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : builder.fields.length === 0 ? (
-                  <div className="min-h-[300px] flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/30">
+                  <div className="min-h-[300px] flex flex-col items-center justify-center text-center border-2 border-dashed border-border rounded-xl bg-gray-50/30">
                     <FileText className="w-10 h-10 text-gray-300 mb-3" />
                     <p className="text-[14px] text-gray-600 font-medium">No fields yet</p>
                     <p className="text-[12px] text-gray-400 mt-1">
@@ -705,7 +705,7 @@ export default function RootFormBuilder() {
                 ) : (
                   <div className="space-y-2">
                     {builder.fields.map((field, index) => (
-                      <div key={field.id} className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white hover:border-gray-200 transition-colors">
+                      <div key={field.id} className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white hover:border-border transition-colors">
                         <div className="flex flex-col gap-0.5">
                           <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-gray-700" disabled={index === 0}
                             onClick={() => void handleMoveField(index, -1)}>
@@ -747,7 +747,7 @@ export default function RootFormBuilder() {
         </DialogContent>
       </Dialog>
 
-      {/* â”€â”€ Field editor dialog â”€â”€ */}
+      {/* ── Field editor dialog ── */}
       <Dialog open={fieldDialog.open} onOpenChange={(open) => !open && setFieldDialog({ open: false })}>
         <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-auto">
           <DialogHeader className="pb-2">
@@ -886,14 +886,14 @@ export default function RootFormBuilder() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setFieldDialog({ open: false })} className="h-10 px-5">Cancel</Button>
-            <Button onClick={() => void handleSaveField()} disabled={savingField || !fieldState.label.trim()} className="h-10 px-5 shadow-sm">
+            <Button onClick={() => void handleSaveField()} disabled={savingField || !fieldState.label.trim()} className="h-10 px-5 shadow-soft">
               {savingField ? "Saving..." : fieldDialog.field ? "Save Field" : "Add Field"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* â”€â”€ Preview dialog â”€â”€ */}
+      {/* ── Preview dialog ── */}
       <Dialog open={preview !== null} onOpenChange={(open) => !open && setPreview(null)}>
         <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-auto">
           <DialogHeader className="pb-2">
@@ -902,7 +902,7 @@ export default function RootFormBuilder() {
               {preview?.template.name}
             </DialogTitle>
             <DialogDescription className="text-[14px]">
-              {preview?.template.code} Â· v{preview?.template.version} Â· {preview?.fields.length} fields
+              {preview?.template.code} · v{preview?.template.version} · {preview?.fields.length} fields
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-3">
@@ -924,7 +924,7 @@ export default function RootFormBuilder() {
                     {field.type === "TEXTAREA" ? (
                       <Textarea className="min-h-[70px] resize-none" placeholder={field.placeholder ?? ""} disabled />
                     ) : field.type === "DROPDOWN" || field.type === "MULTI_SELECT" ? (
-                      <div className="h-10 px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-[13px] text-gray-500">
+                      <div className="h-10 px-3 py-2.5 rounded-lg border border-border bg-gray-50 text-[13px] text-gray-500">
                         {field.options.map((o) => o.label).join(", ")}
                       </div>
                     ) : field.type === "RADIO" || field.type === "CHECKBOX" ? (
@@ -953,7 +953,7 @@ export default function RootFormBuilder() {
         </DialogContent>
       </Dialog>
 
-      {/* â”€â”€ Assignments dialog â”€â”€ */}
+      {/* ── Assignments dialog ── */}
       <Dialog open={assignDialog !== null} onOpenChange={(open) => !open && setAssignDialog(null)}>
         <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-auto">
           <DialogHeader className="pb-2">
@@ -1005,7 +1005,7 @@ export default function RootFormBuilder() {
                 </Select>
               </div>
             )}
-            <Button size="sm" className="h-9 justify-self-start shadow-sm"
+            <Button size="sm" className="h-9 justify-self-start shadow-soft"
               disabled={assignTargetType !== "UNIVERSITY" && !assignTargetId}
               onClick={() => void handleAssign()}>
               <Plus className="w-4 h-4 mr-2" /> Add Assignment
@@ -1019,7 +1019,7 @@ export default function RootFormBuilder() {
                 <div key={assignment.id} className="flex items-center justify-between px-3 py-2.5">
                   <div>
                     <p className="text-[13px] text-gray-900 font-medium">{assignment.targetType}</p>
-                    <p className="text-[11px] text-gray-400">priority {assignment.priority} Â· {new Date(assignment.createdAt).toLocaleDateString()}</p>
+                    <p className="text-[11px] text-gray-400">priority {assignment.priority} · {new Date(assignment.createdAt).toLocaleDateString()}</p>
                   </div>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600"
                     onClick={() => void handleUnassign(assignment.id)}>
@@ -1032,25 +1032,25 @@ export default function RootFormBuilder() {
         </DialogContent>
       </Dialog>
 
-      {/* â”€â”€ Versions / history dialog â”€â”€ */}
+      {/* ── Versions / history dialog ── */}
       <Dialog open={versionsFor !== null} onOpenChange={(open) => !open && setVersionsFor(null)}>
         <DialogContent className="sm:max-w-[640px] max-h-[85vh] overflow-auto">
           <DialogHeader className="pb-2">
             <DialogTitle className="text-lg flex items-center gap-2">
               <History className="w-5 h-5 text-primary" />
-              Versions & History â€” {versionsFor?.name}
+              Versions & History — {versionsFor?.name}
             </DialogTitle>
             <DialogDescription className="text-[14px]">
               Every mutation is versioned. Rollback replays a snapshot as a new draft.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50/50 mb-3 w-fit">
+          <div className="flex rounded-lg border border-border p-1 bg-gray-50/50 mb-3 w-fit">
             <button type="button" onClick={() => setVersionsTab("versions")}
-              className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${versionsTab === "versions" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+              className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${versionsTab === "versions" ? "bg-white text-gray-900 shadow-soft" : "text-gray-500 hover:text-gray-700"}`}>
               Versions ({versions.length})
             </button>
             <button type="button" onClick={() => setVersionsTab("history")}
-              className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${versionsTab === "history" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+              className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${versionsTab === "history" ? "bg-white text-gray-900 shadow-soft" : "text-gray-500 hover:text-gray-700"}`}>
               History ({history.length})
             </button>
           </div>
@@ -1062,8 +1062,8 @@ export default function RootFormBuilder() {
                   <div className="flex items-center gap-3">
                     <span className="w-10 text-[13px] font-semibold text-gray-900">v{version.version}</span>
                     <div>
-                      <p className="text-[13px] text-gray-900">{version.changeType}{version.changeNote ? ` â€” ${version.changeNote}` : ""}</p>
-                      <p className="text-[11px] text-gray-400">{version.changedByName ?? "â€”"} Â· {new Date(version.createdAt).toLocaleString()}</p>
+                      <p className="text-[13px] text-gray-900">{version.changeType}{version.changeNote ? ` — ${version.changeNote}` : ""}</p>
+                      <p className="text-[11px] text-gray-400">{version.changedByName ?? "—"} · {new Date(version.createdAt).toLocaleString()}</p>
                     </div>
                   </div>
                   <Button variant="outline" size="sm" className="h-8 text-[12px]"
@@ -1081,10 +1081,10 @@ export default function RootFormBuilder() {
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="text-[10px]">{entry.action}</Badge>
                     {entry.versionFrom !== null && (
-                      <span className="text-[12px] text-gray-500">v{entry.versionFrom} â†’ v{entry.versionTo}</span>
+                      <span className="text-[12px] text-gray-500">v{entry.versionFrom} → v{entry.versionTo}</span>
                     )}
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-0.5">{entry.actorName ?? "â€”"} Â· {new Date(entry.createdAt).toLocaleString()}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">{entry.actorName ?? "—"} · {new Date(entry.createdAt).toLocaleString()}</p>
                 </div>
               ))}
             </div>

@@ -10,6 +10,7 @@ export interface AaccupSubmissionListItem {
   areaId: string;
   areaCode: string;
   areaName: string;
+  areaSet: string;
   departmentId: string | null;
   departmentName: string | null;
   taskId: string | null;

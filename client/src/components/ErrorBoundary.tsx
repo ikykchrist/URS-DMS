@@ -42,7 +42,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <p className="text-[14px] text-gray-500 dark:text-gray-400 mt-2">
               An unexpected error occurred. Reload the page to continue — your data is safe.
             </p>
-            <Button className="h-10 px-6 shadow-sm mt-6" onClick={this.handleReload}>
+            <Button className="h-10 px-6 shadow-soft mt-6" onClick={this.handleReload}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Reload Page
             </Button>

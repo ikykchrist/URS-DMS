@@ -3,8 +3,11 @@ import { AUDIT_ACTIONS } from "@/config/constants";
 import { writeAudit } from "@/modules/audit/audit.service";
 import { notifyUser, notifyUsers } from "@/modules/notifications/notifications.service";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "@/utils/errors";
+import { streamZipArchive } from "@/lib/zipStream";
+import { buildExportPlan } from "@/modules/aaccup/submissions/aaccup.export-plan";
+import { Readable } from "node:stream";
 import * as repo from "@/modules/aaccup/submissions/aaccup.submissions.repository";
-import type { Prisma } from "@prisma/client";
+import type { AreaSet, Prisma } from "@prisma/client";
 import type {
   CreateSubmissionInput,
   ListSubmissionsQuery,
@@ -337,6 +340,105 @@ export async function getSubmission(id: string, actor: Actor): Promise<AaccupSub
 }
 
 // -----------------------------------------------------------------------------
+// exportApprovedSubmissionsZip — admin-only approved-package export
+// Streams a ZIP of every APPROVED + current submission across the selected
+// areas, grouped into one folder per area. Each file is the exact submitted
+// historical DocumentVersion (resolved from the immutable submission snapshot),
+// never the current document version. The route hard-gates this to
+// ROOT / ADMINISTRATOR; QAO cannot export.
+// -----------------------------------------------------------------------------
+export async function exportApprovedSubmissionsZip(
+  areaIds: string[],
+  areaSet: AreaSet | undefined,
+  actor: Actor,
+): Promise<{ filename: string; stream: Readable; fileCount: number; skipped: number }> {
+  const areas = await prisma.aaccupArea.findMany({
+    where: { id: { in: areaIds }, deletedAt: null },
+    select: { id: true, code: true, name: true, areaSet: true },
+  });
+  if (areas.length !== new Set(areaIds).size) {
+    throw new NotFoundError("One or more AACCUP areas were not found");
+  }
+  if (areaSet && areas.some((area) => area.areaSet !== areaSet)) {
+    throw new BadRequestError(`Selected areas do not all belong to the ${areaSet} set`);
+  }
+
+  const submissions = await prisma.aaccupSubmission.findMany({
+    where: {
+      status: "APPROVED",
+      isCurrent: true,
+      deletedAt: null,
+      requirement: {
+        areaId: { in: areaIds },
+        ...(areaSet ? { area: { areaSet } } : {}),
+      },
+    },
+    select: {
+      id: true,
+      documentId: true,
+      submittedAt: true,
+      snapshotFilename: true,
+      snapshotMimeType: true,
+      snapshotSizeBytes: true,
+      snapshotChecksum: true,
+      requirement: {
+        select: {
+          id: true,
+          documentCode: true,
+          title: true,
+          area: { select: { id: true, code: true, name: true, areaSet: true } },
+        },
+      },
+    },
+    orderBy: { submittedAt: "asc" },
+  });
+
+  const documentIds = [...new Set(submissions.map((submission) => submission.documentId))];
+  const versions =
+    documentIds.length > 0
+      ? await prisma.documentVersion.findMany({
+          where: { documentId: { in: documentIds } },
+          select: {
+            id: true,
+            documentId: true,
+            versionNumber: true,
+            objectKey: true,
+            filename: true,
+            mimeType: true,
+            sizeBytes: true,
+            checksum: true,
+          },
+          orderBy: { versionNumber: "desc" },
+        })
+      : [];
+
+  const plan = buildExportPlan(areas, submissions, versions);
+
+  const dateStamp = new Date().toISOString().slice(0, 10);
+  const filename = `${(areaSet ?? "aaccup").toLowerCase()}-approved-submissions-${dateStamp}.zip`;
+  const stream = streamZipArchive(plan.dirs, plan.files);
+
+  // Exports are audited once at the service boundary (rule 23).
+  await writeAudit({
+    action: AUDIT_ACTIONS.AACCUP_SUBMISSIONS_EXPORTED,
+    userId: actor.id,
+    entity: "aaccup_submission",
+    entityId: areaIds.join(","),
+    newValue: {
+      zip: true,
+      areas: areaIds,
+      areaSet: areaSet ?? null,
+      fileCount: plan.fileCount,
+      skipped: plan.skipped,
+    },
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+  });
+
+  return { filename, stream, fileCount: plan.fileCount, skipped: plan.skipped };
+}
+
+// -----------------------------------------------------------------------------
 // Archive folder management
 // -----------------------------------------------------------------------------
 // Every submitted document is filed into the repository under a per-set root
@@ -485,7 +587,9 @@ async function safeNotifyReviewers(detail: AaccupSubmissionDetail): Promise<void
         message: `"${detail.documentTitle}" (${detail.areaName}) was submitted and is awaiting your review.`,
         entity: "aaccup_submission",
         entityId: detail.id,
-        actionUrl: "/aaccup",
+        // Contextual destination: the reviewer lands on the submissions view of
+        // the originating set (AACCUP / ISO / CERT), oldest submissions first.
+        actionUrl: `/aaccup?tab=submissions&areaSet=${encodeURIComponent(detail.areaSet)}`,
       },
     );
   } catch {

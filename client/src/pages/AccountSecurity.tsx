@@ -216,7 +216,7 @@ export default function AccountSecurity() {
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-5">
           {/* PROFILE */}
-          <Card className="border-gray-200/60 shadow-sm">
+          <Card className="border-border/70 shadow-soft">
             <CardHeader className="pb-4">
               <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
                 <UserIcon className="w-4 h-4 text-primary" />
@@ -234,7 +234,7 @@ export default function AccountSecurity() {
                         : "U"}
                     </AvatarFallback>
                   </Avatar>
-                  <label className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center hover:bg-gray-700 transition-colors cursor-pointer">
+                  <label className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center hover:bg-gray-700 transition-colors cursor-pointer">
                     <Camera className="w-3.5 h-3.5" />
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                       const f = e.target.files?.[0]
@@ -358,7 +358,7 @@ export default function AccountSecurity() {
           </Card>
 
           {/* ACTIVE SESSIONS */}
-          <Card className="border-gray-200/60 shadow-sm">
+          <Card className="border-border/70 shadow-soft">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between gap-3">
                 <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
@@ -397,7 +397,7 @@ export default function AccountSecurity() {
                     )}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center flex-shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-white border border-border flex items-center justify-center flex-shrink-0">
                         <DeviceIcon device={session.device} />
                       </div>
                       <div className="min-w-0">
@@ -444,7 +444,7 @@ export default function AccountSecurity() {
 
         {/* SECURITY */}
         <div className="space-y-5">
-          <Card className="border-gray-200/60 shadow-sm">
+          <Card className="border-border/70 shadow-soft">
             <CardHeader className="pb-4">
               <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
                 <Shield className="w-4 h-4 text-primary" />

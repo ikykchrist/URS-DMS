@@ -83,7 +83,7 @@ const Dropzone = React.forwardRef<HTMLDivElement, DropzoneProps>(
             "relative flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-150",
             isDragging
               ? "border-primary bg-primary-500"
-              : "border-gray-200 hover:border-gray-300 hover:bg-gray-50",
+              : "border-border hover:border-gray-300 hover:bg-gray-50",
             className
           )}
           {...props}
@@ -122,7 +122,7 @@ const Dropzone = React.forwardRef<HTMLDivElement, DropzoneProps>(
                   className="flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50/50"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center">
                       <Icon className="w-[18px] h-[18px] text-gray-500" />
                     </div>
                     <div>

@@ -142,14 +142,14 @@ export function SavedFilterViews({ onApplyFilter, onSaveFilter, currentFilters, 
       {showSaveDialog && (
         <>
           <div className="fixed inset-0 z-50" onClick={() => setShowSaveDialog(false)} />
-          <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-200 p-3 z-50">
+          <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-border p-3 z-50">
             <p className="text-[12px] font-medium text-gray-700 mb-2">Save Filter View</p>
             <input
               type="text"
               value={saveLabel}
               onChange={(e) => setSaveLabel(e.target.value)}
               placeholder="e.g., My Reviews"
-              className="w-full h-9 px-3 text-[13px] border border-gray-200 rounded-lg outline-none focus:ring-1.5 focus:ring-primary/20 focus:border-primary"
+              className="w-full h-9 px-3 text-[13px] border border-border rounded-lg outline-none focus:ring-1.5 focus:ring-primary/20 focus:border-primary"
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && handleSave()}
             />

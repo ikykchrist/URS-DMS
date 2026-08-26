@@ -3,6 +3,7 @@ import { sendCreated, sendSuccess } from "@/utils/apiResponse";
 import * as service from "@/modules/aaccup/submissions/aaccup.submissions.service";
 import type {
   CreateSubmissionInput,
+  ExportSubmissionsQuery,
   ListSubmissionsQuery,
   ReviewSubmissionInput,
   UpdateSubmissionInput,
@@ -84,4 +85,23 @@ export async function restoreSubmissionHandler(
   const { id } = req.params as { id: string };
   const submission = await service.restoreSubmission(id, toActor(req));
   sendSuccess(res, submission);
+}
+
+export async function exportSubmissionsZipHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const query = req.query as unknown as ExportSubmissionsQuery;
+  const { filename, stream } = await service.exportApprovedSubmissionsZip(
+    query.areaIds,
+    query.areaSet,
+    toActor(req),
+  );
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+  stream.on("error", () => {
+    if (!res.headersSent) res.status(500).end();
+    else res.end();
+  });
+  stream.pipe(res);
 }

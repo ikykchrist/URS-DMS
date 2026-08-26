@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Upload } from "lucide-react"
+import { useEffect, useState } from "react"
+import { FileText, Upload } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -16,9 +16,12 @@ import { Dropzone } from "@/components/ui/Dropzone"
 import { toast } from "@/lib/toast"
 import {
   uploadOnlineRequirementDocument,
+  submitOnlineRepositoryDocument,
   validateOnlineRequirementUpload,
   type OnlineAaccupTask,
 } from "@/services/aaccup"
+import { RepositoryDocumentPicker } from "@/components/aaccup/RepositoryDocumentPicker"
+import type { Document } from "@/types/domain"
 import { cn } from "@/lib/utils"
 
 // =============================================================================
@@ -36,15 +39,38 @@ interface TaskSubmitDialogProps {
 export function TaskSubmitDialog({ task, onClose, onSubmitted }: TaskSubmitDialogProps) {
   const [title, setTitle] = useState(task?.requirementTitle ?? task?.title ?? "")
   const [file, setFile] = useState<File | null>(null)
+  const [repositoryDocument, setRepositoryDocument] = useState<Document | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [remarks, setRemarks] = useState("")
   const [uploading, setUploading] = useState(false)
   const [validationMessages, setValidationMessages] = useState<string[]>([])
 
+  useEffect(() => {
+    setTitle(task?.requirementTitle ?? task?.title ?? "")
+    setFile(null)
+    setRepositoryDocument(null)
+    setRemarks("")
+    setValidationMessages([])
+  }, [task])
+
   const handleSubmit = async () => {
-    if (!task || !task.requirementId || !file || !title.trim()) return
+    if (!task || !task.requirementId || (!file && !repositoryDocument) || !title.trim()) return
     setUploading(true)
     setValidationMessages([])
     try {
+      if (repositoryDocument) {
+        await submitOnlineRepositoryDocument({
+          requirementId: task.requirementId,
+          documentId: repositoryDocument.id,
+          taskId: task.id,
+          remarks: remarks.trim() || undefined,
+        })
+        toast.success("Repository document submitted for this task")
+        onSubmitted?.()
+        onClose()
+        return
+      }
+      if (!file) return
       const input = {
         requirementId: task.requirementId,
         departmentId: task.departmentId ?? "",
@@ -91,11 +117,19 @@ export function TaskSubmitDialog({ task, onClose, onSubmitted }: TaskSubmitDialo
             <Input value={title} onChange={(event) => setTitle(event.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>File</Label>
-            <Dropzone
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.csv,.txt"
-              onChange={(files) => setFile(files[0] ?? null)}
-            />
+            <Label>Evidence source</Label>
+            {repositoryDocument ? (
+              <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-primary-50 p-3"><FileText className="h-5 w-5 shrink-0 text-primary-600" /><div className="min-w-0 flex-1"><p className="truncate text-[12px] font-medium text-blue-900">{repositoryDocument.name}</p><p className="text-[11px] text-blue-700">Selected from My Documents</p></div><Button type="button" size="sm" variant="outline" onClick={() => setRepositoryDocument(null)}>Change</Button></div>
+            ) : (
+              <>
+                <Dropzone
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.csv,.txt"
+                  onChange={(files) => { setFile(files[0] ?? null); setRepositoryDocument(null) }}
+                />
+                <div className="flex items-center gap-2"><span className="h-px flex-1 bg-slate-200" /><span className="text-[10px] uppercase tracking-wider text-slate-400">or</span><span className="h-px flex-1 bg-slate-200" /></div>
+                <Button type="button" variant="outline" className="w-full" onClick={() => setPickerOpen(true)}><FileText className="mr-2 h-4 w-4" />Choose from My Documents</Button>
+              </>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Remarks</Label>
@@ -117,13 +151,14 @@ export function TaskSubmitDialog({ task, onClose, onSubmitted }: TaskSubmitDialo
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button
             onClick={() => void handleSubmit()}
-            disabled={uploading || !file || !title.trim() || !task?.requirementId}
+            disabled={uploading || (!file && !repositoryDocument) || !title.trim() || !task?.requirementId}
           >
             <Upload className="mr-1.5 h-3.5 w-3.5" />
-            {uploading ? "Validating and Uploading..." : "Upload and Submit"}
+            {uploading ? "Submitting..." : repositoryDocument ? "Submit Selected Document" : "Upload and Submit"}
           </Button>
         </DialogFooter>
       </DialogContent>
+      <RepositoryDocumentPicker open={pickerOpen} onOpenChange={setPickerOpen} onSelect={(document) => { setRepositoryDocument(document); setFile(null) }} />
     </Dialog>
   )
 }

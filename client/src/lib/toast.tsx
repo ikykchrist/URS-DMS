@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react"
 import { CheckCircle, AlertTriangle, Info, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/context/AuthContext"
+import { isAdminRole } from "@/lib/permissions"
 
 export type ToastType = "success" | "error" | "info" | "warning"
 
@@ -92,7 +94,7 @@ const palette: Record<ToastType, { bg: string; border: string; text: string; Ico
     Icon: AlertTriangle,
   },
   info: {
-    bg: "bg-blue-50",
+    bg: "bg-primary-50",
     border: "border-blue-200",
     text: "text-blue-800",
     Icon: Info,
@@ -101,11 +103,13 @@ const palette: Record<ToastType, { bg: string; border: string; text: string; Ico
 
 export function ToastContainer() {
   const { toasts, dismiss } = useToasts()
+  const { user } = useAuth()
+  const adminToast = isAdminRole(user?.role)
 
   if (toasts.length === 0) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm">
+    <div className={cn("fixed bottom-4 right-4 z-[100] flex max-w-sm flex-col gap-2", adminToast && "admin-toast-container")}>
       {toasts.map((t) => {
         const { bg, border, text, Icon } = palette[t.type]
         const iconColor =
@@ -115,12 +119,13 @@ export function ToastContainer() {
               ? "text-red-600"
               : t.type === "warning"
                 ? "text-amber-600"
-                : "text-blue-600"
+                : "text-primary-600"
         return (
           <div
             key={t.id}
             className={cn(
-              "flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border animate-in slide-in-from-bottom-2",
+              "flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg animate-in slide-in-from-bottom-2",
+              adminToast && "admin-toast",
               bg,
               border,
               text

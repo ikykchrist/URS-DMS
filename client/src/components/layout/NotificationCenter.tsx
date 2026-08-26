@@ -13,8 +13,8 @@ const POLL_INTERVAL_MS = 3_000
 const typeMeta: Record<string, { label: string; color: string; bg: string }> = {
   approval:     { label: "Approvals",    color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/30" },
   rejection:    { label: "Rejections",   color: "text-red-600",     bg: "bg-red-50 dark:bg-red-900/30" },
-  upload:       { label: "Uploads",      color: "text-blue-600",    bg: "bg-blue-50 dark:bg-blue-900/30" },
-  document:     { label: "Documents",    color: "text-blue-600",    bg: "bg-blue-50 dark:bg-blue-900/30" },
+  upload:       { label: "Uploads",      color: "text-primary-600",    bg: "bg-primary-50 dark:bg-blue-900/30" },
+  document:     { label: "Documents",    color: "text-primary-600",    bg: "bg-primary-50 dark:bg-blue-900/30" },
   submission:   { label: "Submissions",  color: "text-violet-600",  bg: "bg-violet-50 dark:bg-violet-900/30" },
   task:         { label: "Tasks",        color: "text-orange-600",  bg: "bg-orange-50 dark:bg-orange-900/30" },
   request:      { label: "Requests",     color: "text-amber-600",   bg: "bg-amber-50 dark:bg-amber-900/30" },
@@ -77,7 +77,10 @@ export function NotificationCenter() {
 
   const handleViewNotification = (notif: Notification) => {
     if (!notif.read) markRead(notif.id)
-    const route = resolveNotificationRoute(notif)
+    // Admin bell: submission notifications (e.g. "new submission pending
+    // review") must land in the admin portal (/aaccup?tab=submissions…),
+    // never the user portal. The actionUrl link wins when present.
+    const route = resolveNotificationRoute(notif, "admin")
     if (!route) return
     const url = buildNotificationUrl(route, notif.entityId)
     setIsOpen(false)
@@ -112,8 +115,8 @@ export function NotificationCenter() {
 
       {isOpen && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-96 bg-white dark:bg-[#111827] rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+          <div className="fixed inset-0 z-40 bg-black/5" onClick={() => setIsOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 w-96 rounded-xl border border-border bg-white shadow-2xl z-[60] dark:border-gray-700 dark:bg-[#111827] overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-2">
                 <h3 className="text-[14px] font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
@@ -179,7 +182,7 @@ export function NotificationCenter() {
                       )}
                       onClick={() => handleViewNotification(notif)}
                     >
-                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5", meta.bg)}>
+                      <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5", meta.bg)}>
                         <Check className={cn("w-4 h-4", meta.color)} />
                       </div>
                       <div className="flex-1 min-w-0">

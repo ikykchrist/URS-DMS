@@ -172,7 +172,7 @@ export default function RootMaintenance() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-5 mb-6">
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardContent className="p-4">
             <p className="text-[12px] text-gray-500">Object Storage Used</p>
             <p className="text-[18px] font-semibold text-gray-900 mt-1">
@@ -181,7 +181,7 @@ export default function RootMaintenance() {
             <p className="text-[11px] text-gray-400 mt-1">{stats?.storedObjectCount ?? "—"} stored objects</p>
           </CardContent>
         </Card>
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardContent className="p-4">
             <p className="text-[12px] text-gray-500">Active Files</p>
             <p className="text-[18px] font-semibold text-gray-900 mt-1">{stats?.activeFileCount ?? "—"}</p>
@@ -190,7 +190,7 @@ export default function RootMaintenance() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardContent className="p-4">
             <p className="text-[12px] text-gray-500">Orphan Candidates</p>
             <p className="text-[18px] font-semibold text-gray-900 mt-1">{status?.orphanCandidates.CANDIDATE ?? 0}</p>
@@ -199,7 +199,7 @@ export default function RootMaintenance() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardContent className="p-4">
             <p className="text-[12px] text-gray-500">MinIO</p>
             <p className="text-[18px] font-semibold text-gray-900 mt-1">
@@ -212,7 +212,7 @@ export default function RootMaintenance() {
         </Card>
       </div>
 
-      <Card className="border-gray-200/60 shadow-sm mb-6">
+      <Card className="border-border/70 shadow-soft mb-6">
         <CardHeader className="pb-3">
           <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
             <HardDrive className="w-4 h-4 text-primary" />
@@ -246,7 +246,7 @@ export default function RootMaintenance() {
       </Card>
 
       <div className="grid gap-5 lg:grid-cols-2 mb-6">
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-3">
             <CardTitle className="text-[15px] font-semibold">Recent Maintenance Jobs</CardTitle>
           </CardHeader>
@@ -288,7 +288,7 @@ export default function RootMaintenance() {
           </CardContent>
         </Card>
 
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-3">
             <CardTitle className="text-[15px] font-semibold">Orphan Candidates</CardTitle>
           </CardHeader>
@@ -347,7 +347,7 @@ export default function RootMaintenance() {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setConfirmAction(null)} className="h-10 px-5">Cancel</Button>
             <Button
-              className={cn("h-10 px-5 shadow-sm", !dryRunMode && confirmAction === "orphans" && "bg-red-600 hover:bg-red-700")}
+              className={cn("h-10 px-5 shadow-soft", !dryRunMode && confirmAction === "orphans" && "bg-red-600 hover:bg-red-700")}
               disabled={running !== null}
               onClick={() => void runAction(confirmAction === "recycle" ? "cleanup-recycle" : "cleanup-orphans")}
             >

@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/Select"
-import { createOnlineTask, listOnlineRequirements, listTaskAssignees, listAllOnlineAaccupAreas, type OnlineAaccupArea } from "@/services/aaccup"
+import { createOnlineTask, listTaskRequirementTemplates, listTaskAssignees, listAllOnlineAaccupAreas, type OnlineAaccupArea, type TaskRequirementTemplateOption } from "@/services/aaccup"
 import { cn } from "@/lib/utils"
 
 interface CreateTaskModalProps {
@@ -37,8 +37,8 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
   const [taskDescription, setTaskDescription] = useState("")
   const [assigneeKind, setAssigneeKind] = useState<AssigneeKind>("USER")
   const [assigneeId, setAssigneeId] = useState("")
-  const [requirementId, setRequirementId] = useState("")
-  const [requirements, setRequirements] = useState<Array<{ id: string; title: string; documentCode: string }>>([])
+  const [requirementTemplateId, setRequirementTemplateId] = useState("")
+  const [requirementTemplates, setRequirementTemplates] = useState<TaskRequirementTemplateOption[]>([])
   const [priority, setPriority] = useState<"LOW" | "MEDIUM" | "HIGH" | "URGENT">("MEDIUM")
   const [dueDate, setDueDate] = useState("")
   const [category, setCategory] = useState("documentation")
@@ -56,7 +56,7 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
     if (!open) return
     setError("")
     setSaving(false)
-    setRequirementId("")
+    setRequirementTemplateId("")
     setPickedAreaId("")
     Promise.all([
       listTaskAssignees().then((result) => ({
@@ -64,33 +64,41 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
         departments: result.departments.map((department) => ({ id: department.id, label: department.name })),
       })),
       areaId
-        ? listOnlineRequirements(areaId).then((items) =>
-            items.map((item) => ({ id: item.id, title: item.title, documentCode: item.documentCode })),
-          )
-        : Promise.resolve([]),
-      areaId
         ? Promise.resolve([])
         : listAllOnlineAaccupAreas({ status: "ACTIVE" }).then((items) =>
             items.sort((a, b) => a.areaSet.localeCompare(b.areaSet) || a.name.localeCompare(b.name)),
           ),
     ])
-      .then(([assignees, reqs, areaItems]) => {
+      .then(([assignees, areaItems]) => {
         setActiveUsers(assignees.users)
         setDepartments(assignees.departments)
-        setRequirements(reqs)
         setAreas(areaItems)
       })
       .catch(() => {
         setActiveUsers([])
         setDepartments([])
-        setRequirements([])
         setAreas([])
       })
   }, [open, areaId])
 
+  useEffect(() => {
+    if (!open || !effectiveAreaId) {
+      setRequirementTemplates([])
+      setRequirementTemplateId("")
+      return
+    }
+    setRequirementTemplateId("")
+    listTaskRequirementTemplates(effectiveAreaId)
+      .then((items) => {
+        setRequirementTemplates(items)
+        if (items.length === 1) setRequirementTemplateId(items[0].id)
+      })
+      .catch(() => setRequirementTemplates([]))
+  }, [open, effectiveAreaId])
+
   const handleClose = (isOpen: boolean) => {
     if (!isOpen) {
-      setTaskName(""); setTaskDescription(""); setAssigneeId(""); setDueDate(""); setRequirementId("")
+      setTaskName(""); setTaskDescription(""); setAssigneeId(""); setDueDate(""); setRequirementTemplateId("")
       setPriority("MEDIUM"); setCategory("documentation"); setAssigneeKind("USER"); setError(""); setPickedAreaId("")
     }
     onOpenChange(isOpen)
@@ -100,6 +108,7 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
     setError("")
     if (!taskName.trim()) { setError("Task name is required"); return }
     if (!effectiveAreaId) { setError("No area selected"); return }
+    if (!requirementTemplateId) { setError("Please assign an active requirement template to this area first"); return }
     if (!assigneeId) { setError("Please select an assignee"); return }
 
     setSaving(true)
@@ -111,7 +120,7 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
         category,
         priority,
         ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
-        requirementId: requirementId || null,
+        requirementTemplateId,
         assigneeType: assigneeKind,
         assigneeId,
       })
@@ -198,23 +207,26 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
 
           <div className="grid gap-2">
             <Label className="text-[13px] font-medium text-gray-700">
-              Related Requirement
+              Requirement Template <span className="text-red-500">*</span>
             </Label>
-            <Select value={requirementId} onValueChange={setRequirementId}>
+            <Select value={requirementTemplateId} onValueChange={setRequirementTemplateId} disabled={requirementTemplates.length === 0}>
               <SelectTrigger className="h-10">
-                <SelectValue placeholder="None (area-level task)" />
+                <SelectValue placeholder="Select the complete requirement template" />
               </SelectTrigger>
               <SelectContent>
-                {requirements.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.documentCode} — {item.title}
+                {requirementTemplates.map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name} — v{template.version}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <p className="text-[11px] text-gray-500">
-              Optionally link this task to one of the area's requirements
+              This task will cover the complete template and all of its document requirements.
             </p>
+            {effectiveAreaId && requirementTemplates.length === 0 && (
+              <p className="text-[11px] text-amber-700">No active template is assigned to this area yet. Assign one in Requirement Builder first.</p>
+            )}
           </div>
 
           <div className="grid gap-2">
@@ -222,13 +234,13 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
               Assign To <span className="text-red-500">*</span>
             </Label>
             <div className="flex items-center gap-2">
-              <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50/50">
+              <div className="flex rounded-lg border border-border p-1 bg-gray-50/50">
                 <button
                   type="button"
                   onClick={() => { setAssigneeKind("USER"); setAssigneeId("") }}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-                    assigneeKind === "USER" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    assigneeKind === "USER" ? "bg-white text-gray-900 shadow-soft" : "text-gray-500 hover:text-gray-700"
                   )}
                 >
                   <User className="w-3.5 h-3.5" />
@@ -239,7 +251,7 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
                   onClick={() => { setAssigneeKind("DEPARTMENT"); setAssigneeId("") }}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-                    assigneeKind === "DEPARTMENT" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    assigneeKind === "DEPARTMENT" ? "bg-white text-gray-900 shadow-soft" : "text-gray-500 hover:text-gray-700"
                   )}
                 >
                   <Building2 className="w-3.5 h-3.5" />
@@ -324,7 +336,7 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
           <Button variant="outline" onClick={() => handleClose(false)} className="h-10 px-5">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={saving} className="h-10 px-5 shadow-sm">
+          <Button onClick={handleSubmit} disabled={saving} className="h-10 px-5 shadow-soft">
             {saving ? "Creating..." : "Create Task"}
           </Button>
         </DialogFooter>

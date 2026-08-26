@@ -247,7 +247,7 @@ export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProp
           >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} className="h-10 px-5 shadow-sm" disabled={saving}>
+          <Button onClick={handleSubmit} className="h-10 px-5 shadow-soft" disabled={saving}>
             {saving ? "Creating..." : "Create User"}
           </Button>
         </DialogFooter>

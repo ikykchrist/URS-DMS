@@ -39,7 +39,7 @@ export function PreviewInfoPanel({ file, activities, versions }: PreviewInfoPane
   const lastModifiedDate = file.lastModifiedDate || file.dateModified
 
   return (
-    <div className="w-[280px] bg-white border-l border-gray-200 flex flex-col flex-shrink-0 overflow-hidden">
+    <div className="w-[280px] bg-white border-l border-border flex flex-col flex-shrink-0 overflow-hidden">
       <div className="p-4 border-b border-gray-100 flex-shrink-0">
         <h3 className="text-[13px] font-semibold text-gray-900">File Details</h3>
       </div>

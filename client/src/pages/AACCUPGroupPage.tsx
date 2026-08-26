@@ -13,9 +13,7 @@ import type { AreaSet } from "@/services/aaccup"
 // and the active tab is synced to the URL (?tab=).
 // =============================================================================
 
-const VISIBLE_TAB_VALUES = new Set(["AACCUP", "ISO"])
-
-const HIDDEN_TAB_VALUES = new Set(["CERT", "submissions", "tasks"])
+const SUPPORTED_TAB_VALUES = new Set(["AACCUP", "ISO", "CERT", "submissions", "tasks"])
 
 interface AACCUPGroupPageProps {
   initialTab?: string
@@ -25,7 +23,7 @@ export default function AACCUPGroupPage({ initialTab = "AACCUP" }: AACCUPGroupPa
   const [searchParams] = useSearchParams()
   const urlTab = searchParams.get("tab")
   const urlAreaSet = searchParams.get("areaSet")
-  const isSupportedTab = (value: string | null): value is string => Boolean(value && (VISIBLE_TAB_VALUES.has(value) || HIDDEN_TAB_VALUES.has(value)))
+  const isSupportedTab = (value: string | null): value is string => Boolean(value && SUPPORTED_TAB_VALUES.has(value))
   const [tab, setTab] = useState<string>(isSupportedTab(urlTab) ? urlTab : initialTab)
 
   useEffect(() => {

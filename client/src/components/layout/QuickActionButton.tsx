@@ -68,14 +68,14 @@ export function QuickActionButton({ className, onNavigate, actions = adminQuickA
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className={cn("shadow-sm gap-1.5", className)}>
+        <Button className={cn("shadow-soft gap-1.5", className)}>
           <Plus className="w-4 h-4" />
           New
           <ChevronRight className="w-3 h-3 ml-0.5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 mt-1.5">
-        <DropdownMenuLabel className="text-[11px] text-gray-400 font-medium">
+        <DropdownMenuLabel className="text-[11px] text-gray-400 font-semibold uppercase tracking-wide">
           Quick Actions
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -84,14 +84,14 @@ export function QuickActionButton({ className, onNavigate, actions = adminQuickA
           return (
             <DropdownMenuItem
               key={action.label}
-              className="flex items-center gap-3 py-2 px-3 cursor-pointer"
+              className="flex items-center gap-3 py-2.5 px-3 cursor-pointer"
               onClick={() => handleActionClick(action)}
             >
-              <div className="w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center flex-shrink-0">
-                <Icon className="w-3.5 h-3.5 text-gray-600" />
+              <div className="w-8 h-8 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0">
+                <Icon className="w-4 h-4 text-primary-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-gray-900">{action.label}</p>
+                <p className="text-[13px] font-semibold text-gray-900">{action.label}</p>
                 <p className="text-[11px] text-gray-500">{action.description}</p>
               </div>
             </DropdownMenuItem>

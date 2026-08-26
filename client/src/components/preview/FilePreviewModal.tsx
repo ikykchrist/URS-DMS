@@ -138,9 +138,9 @@ export function FilePreviewModal({ document, onClose, onRename, onMove, onDelete
 
             {/* Toolbar */}
             <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
-              <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 p-0.5 bg-gray-50/50 dark:bg-gray-800/50 mr-1">
-                <button type="button" onClick={() => setTab("preview")} className={cn("px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors", tab === "preview" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700")}>Preview</button>
-                <button type="button" onClick={() => setTab("activity")} className={cn("px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors", tab === "activity" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700")}>Details &amp; Activity</button>
+              <div className="flex rounded-lg border border-border dark:border-gray-700 p-0.5 bg-gray-50/50 dark:bg-gray-800/50 mr-1">
+                <button type="button" onClick={() => setTab("preview")} className={cn("px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors", tab === "preview" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-soft" : "text-gray-500 dark:text-gray-400 hover:text-gray-700")}>Preview</button>
+                <button type="button" onClick={() => setTab("activity")} className={cn("px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors", tab === "activity" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-soft" : "text-gray-500 dark:text-gray-400 hover:text-gray-700")}>Details &amp; Activity</button>
               </div>
 
               {/* Zoom controls for images */}
@@ -165,12 +165,12 @@ export function FilePreviewModal({ document, onClose, onRename, onMove, onDelete
 
         {/* Admin Actions Panel */}
         {showAdminActions && tab === "preview" && (
-          <div className="px-5 py-2.5 border-b border-gray-100 dark:border-gray-800 bg-blue-50/50 dark:bg-blue-900/20 flex items-center gap-2 flex-shrink-0">
+          <div className="px-5 py-2.5 border-b border-gray-100 dark:border-gray-800 bg-primary-50/50 dark:bg-blue-900/20 flex items-center gap-2 flex-shrink-0">
             <p className="text-[12px] font-medium text-blue-700 dark:text-blue-400 mr-2">Decision:</p>
             <Button size="sm" variant="default" className="h-8 text-[12px] bg-emerald-600 hover:bg-emerald-700" onClick={() => onApprove?.(document)} disabled={adminLoading}><CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Approve</Button>
             <Button size="sm" variant="outline" className="h-8 text-[12px] border-amber-300 text-amber-700 hover:bg-amber-50" onClick={() => onReturn?.(document)} disabled={adminLoading}><RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Return</Button>
             <Button size="sm" variant="outline" className="h-8 text-[12px] border-red-300 text-red-600 hover:bg-red-50" onClick={() => onReject?.(document)} disabled={adminLoading}><XCircle className="w-3.5 h-3.5 mr-1.5" /> Reject</Button>
-            {adminLoading && <Loader2 className="w-4 h-4 animate-spin text-blue-600 ml-2" />}
+            {adminLoading && <Loader2 className="w-4 h-4 animate-spin text-primary-600 ml-2" />}
           </div>
         )}
 
@@ -262,7 +262,7 @@ export function FilePreviewModal({ document, onClose, onRename, onMove, onDelete
             </div>
           ) : isAudio ? (
             <div className="h-full flex flex-col items-center justify-center text-center">
-              <div className="w-20 h-20 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mb-4 shadow-sm">
+              <div className="w-20 h-20 rounded-full bg-primary-50 dark:bg-blue-900/30 flex items-center justify-center mb-4 shadow-soft">
                 <Volume2 className="w-8 h-8 text-blue-500 dark:text-blue-400" />
               </div>
               <p className="text-[14px] text-gray-700 dark:text-gray-300 font-medium mb-1">{document.name}</p>
@@ -274,7 +274,7 @@ export function FilePreviewModal({ document, onClose, onRename, onMove, onDelete
               <img src={url} alt={document.name} className="block max-h-full max-w-full rounded-lg object-contain shadow-lg" style={mediaStyle} />
             </div>
           ) : (
-            <iframe ref={iframeRef} src={url} title={document.name} className="w-full h-full min-h-[60vh] rounded-lg bg-white dark:bg-[#111827] shadow-sm" />
+            <iframe ref={iframeRef} src={url} title={document.name} className="w-full h-full min-h-[60vh] rounded-lg bg-white dark:bg-[#111827] shadow-soft" />
           )}
         </div>
 

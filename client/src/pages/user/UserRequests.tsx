@@ -117,8 +117,8 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
         }
       />
 
-      <Card className="border-gray-200/60 shadow-sm mb-6">
-        <CardContent className="p-4">
+      <Card className="border-border/70 shadow-soft mb-6">
+         <CardContent className="p-4 pt-4 md:p-5 md:pt-5">
             <div className="flex items-center gap-1 overflow-x-auto">
               {(["all", "pending", "approved", "fulfilled", "rejected"] as const).map((tab) => (
                 <button
@@ -127,7 +127,7 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
                     className={cn(
                       "px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors whitespace-nowrap",
                       activeTab === tab
-                        ? "bg-gray-900 text-white"
+                        ? "bg-primary text-white"
                         : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
                     )}
                   >
@@ -138,8 +138,8 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
         </CardContent>
       </Card>
 
-      <Card className="border-gray-200/60 shadow-sm mb-6">
-        <CardContent className="p-4">
+      <Card className="border-border/70 shadow-soft mb-6">
+         <CardContent className="p-4 pt-4 md:p-5 md:pt-5">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
@@ -153,13 +153,13 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
       </Card>
 
       {loading ? (
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardContent className="p-8 text-center">
             <p className="text-[14px] text-gray-500">Loading requests...</p>
           </CardContent>
         </Card>
       ) : filteredRequests.length === 0 ? (
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardContent className="p-8 text-center">
             <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-[14px] text-gray-500 mb-4">No requests found</p>
@@ -172,11 +172,11 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
       ) : (
         <div className="space-y-3">
           {filteredRequests.map((request) => (
-              <Card key={request.id} className={cn("border-gray-200/60 shadow-sm hover:shadow-md transition-shadow", request.id === highlightId && "ring-2 ring-blue-300 bg-blue-50")}>
-              <CardContent className="p-4">
+              <Card key={request.id} className={cn("border-border/70 shadow-soft hover:shadow-lift transition-shadow", request.id === highlightId && "ring-2 ring-blue-300 bg-primary-50")}>
+               <CardContent className="p-4 pt-4 md:p-5 md:pt-5">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center mt-0.5">
+                    <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center mt-0.5">
                       <FileText className="w-5 h-5 text-gray-500" />
                     </div>
                     <div>
@@ -226,8 +226,8 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
         </div>
       )}
 
-      <Card className="border-gray-200/60 shadow-sm mt-6">
-        <CardContent className="p-4">
+      <Card className="border-border/70 shadow-soft mt-6">
+         <CardContent className="p-4 pt-4 md:p-5 md:pt-5">
           <p className="text-[13px] text-gray-500">Showing {filteredRequests.length} of {requests.length} requests</p>
         </CardContent>
       </Card>

@@ -1,13 +1,16 @@
 import { Client as MinioClient } from "minio";
 import { Readable } from "node:stream";
 import { env } from "@/config/env";
+import { getRequestOrigin } from "@/middlewares/requestContext";
+import { signFileToken } from "@/lib/fileToken";
 import { ServiceUnavailableError } from "@/utils/errors";
 
 // =============================================================================
 // URS-DMS — MinIO object storage adapter
 // Single-process singleton. Bucket is created on first boot.
-// Streams uploads/downloads via presigned URLs so the API server never buffers
-// large files in memory.
+// Browser uploads/downloads are streamed THROUGH the Express backend via
+// short-lived signed file tokens (see fileToken.ts); MinIO itself stays on a
+// private network and is never exposed publicly.
 // =============================================================================
 
 export interface PresignedUpload {
@@ -24,7 +27,6 @@ export interface PresignedDownload {
 }
 
 let client: MinioClient | null = null;
-let publicClient: MinioClient | null = null;
 let bucketEnsured = false;
 
 function getClient(): MinioClient {
@@ -39,23 +41,14 @@ function getClient(): MinioClient {
   return client;
 }
 
-// Signing client for the PUBLIC endpoint (e.g. a Cloudflare tunnel). The
-// presigned URL must be signed for the exact host the browser will reach —
-// rewriting the host AFTER signing breaks the SigV4 signature (403).
-function getPublicSigningClient(): MinioClient | null {
-  if (!env.MINIO_PUBLIC_ENDPOINT) return null;
-  if (publicClient) return publicClient;
-  const url = new URL(env.MINIO_PUBLIC_ENDPOINT);
-  const useSSL = url.protocol === "https:";
-  const port = url.port ? Number(url.port) : useSSL ? 443 : 80;
-  publicClient = new MinioClient({
-    endPoint: url.hostname,
-    port,
-    useSSL,
-    accessKey: env.MINIO_ACCESS_KEY,
-    secretKey: env.MINIO_SECRET_KEY,
-  });
-  return publicClient;
+// Origin of the request that triggered the URL mint (localhost in dev, the
+// ngrok domain remotely). Falls back to the local server origin when called
+// outside a request context (e.g. background workers).
+function backendOrigin(): string {
+  const origin = getRequestOrigin();
+  if (origin) return origin;
+  const proto = env.MINIO_USE_SSL ? "https" : "http";
+  return `${proto}://${env.MINIO_ENDPOINT === "localhost" || env.MINIO_ENDPOINT === "minio" ? "localhost" : env.MINIO_ENDPOINT}:${env.PORT}`;
 }
 
 export async function ensureBucket(): Promise<void> {
@@ -66,12 +59,6 @@ export async function ensureBucket(): Promise<void> {
     await c.makeBucket(env.MINIO_BUCKET, "us-east-1");
   }
   bucketEnsured = true;
-}
-
-function publicEndpoint(): string {
-  if (env.MINIO_PUBLIC_ENDPOINT) return env.MINIO_PUBLIC_ENDPOINT;
-  const proto = env.MINIO_USE_SSL ? "https" : "http";
-  return `${proto}://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}`;
 }
 
 function buildObjectKey(documentId: string, versionId: string, filename: string): string {
@@ -86,45 +73,36 @@ export async function presignUpload(
   mimeType: string,
   sizeBytes: number,
 ): Promise<PresignedUpload> {
-  const c = getPublicSigningClient() ?? getClient();
   const objectKey = buildObjectKey(documentId, versionId, filename);
   const expiresInSeconds = 15 * 60;
-  try {
-    const url = await c.presignedPutObject(env.MINIO_BUCKET, objectKey, expiresInSeconds);
-    return {
-      url,
-      objectKey,
-      headers: {
-        "Content-Type": mimeType,
-        "Content-Length": String(sizeBytes),
-      },
-      expiresInSeconds,
-    };
-  } catch (err) {
-    throw new ServiceUnavailableError("Storage unavailable", {
-      reason: err instanceof Error ? err.message : String(err),
-    });
-  }
+  const url = `${backendOrigin()}/api/v1/files/upload?token=${encodeURIComponent(signFileToken("upload", objectKey))}`;
+  return {
+    url,
+    objectKey,
+    headers: {
+      "Content-Type": mimeType,
+      "Content-Length": String(sizeBytes),
+    },
+    expiresInSeconds,
+  };
 }
 
-export async function presignDownload(objectKey: string): Promise<PresignedDownload> {
-  const c = getPublicSigningClient() ?? getClient();
+export async function presignDownload(
+  objectKey: string,
+  opts: { inline?: boolean } = {},
+): Promise<PresignedDownload> {
   const expiresInSeconds = 10 * 60;
-  try {
-    const url = await c.presignedGetObject(env.MINIO_BUCKET, objectKey, expiresInSeconds);
-    return { url, objectKey, expiresInSeconds };
-  } catch (err) {
-    throw new ServiceUnavailableError("Storage unavailable", {
-      reason: err instanceof Error ? err.message : String(err),
-    });
-  }
+  const url = `${backendOrigin()}/api/v1/files/download?token=${encodeURIComponent(signFileToken("download", objectKey, opts))}`;
+  return { url, objectKey, expiresInSeconds };
 }
 
-export async function statObject(objectKey: string): Promise<{ size: number; etag: string }> {
+export async function statObject(objectKey: string): Promise<{ size: number; etag: string; contentType: string }> {
   const c = getClient();
   try {
     const stat = await c.statObject(env.MINIO_BUCKET, objectKey);
-    return { size: stat.size, etag: stat.etag };
+    const contentType =
+      (stat.metaData?.["content-type"] as string | undefined) ?? "application/octet-stream";
+    return { size: stat.size, etag: stat.etag, contentType };
   } catch (err) {
     const code = (err as { code?: string })?.code;
     if (code === "NoSuchKey" || code === "NotFound") {
@@ -220,15 +198,10 @@ function buildProfilePhotoKey(userId: string): string {
 }
 
 export async function presignProfilePhotoUpload(userId: string, mimeType: string, sizeBytes: number): Promise<PresignedUpload> {
-  const c = getPublicSigningClient() ?? getClient();
   const objectKey = buildProfilePhotoKey(userId);
   const expiresInSeconds = 15 * 60;
-  try {
-    const url = await c.presignedPutObject(env.MINIO_BUCKET, objectKey, expiresInSeconds);
-    return { url, objectKey, headers: { "Content-Type": mimeType, "Content-Length": String(sizeBytes) }, expiresInSeconds };
-  } catch (err) {
-    throw new ServiceUnavailableError("Storage unavailable", { reason: err instanceof Error ? err.message : String(err) });
-  }
+  const url = `${backendOrigin()}/api/v1/files/upload?token=${encodeURIComponent(signFileToken("upload", objectKey))}`;
+  return { url, objectKey, headers: { "Content-Type": mimeType, "Content-Length": String(sizeBytes) }, expiresInSeconds };
 }
 
 export async function putObject(
@@ -250,10 +223,6 @@ export async function putObject(
 
 export function thumbnailObjectKey(objectKey: string): string {
   return `${objectKey}.thumbnail.webp`;
-}
-
-export function publicDownloadUrl(objectKey: string): string {
-  return `${publicEndpoint()}/${env.MINIO_BUCKET}/${objectKey}`;
 }
 
 export function objectKeyFor(documentId: string, versionId: string, filename: string): string {

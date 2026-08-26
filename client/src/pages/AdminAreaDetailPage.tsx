@@ -69,7 +69,7 @@ export default function AdminAreaDetailPage({ areaSet }: { areaSet: Exclude<Area
   if (error || !area) {
     return (
       <div className="p-6 lg:p-8">
-        <div className="mx-auto flex max-w-lg flex-col items-center rounded-xl border border-gray-200 bg-white p-10 text-center shadow-sm">
+        <div className="mx-auto flex max-w-lg flex-col items-center rounded-xl border border-border bg-white p-10 text-center shadow-soft">
           <AlertTriangle className="mb-3 h-8 w-8 text-amber-500" />
           <h1 className="text-lg font-semibold text-gray-900">{error === "forbidden" ? "You do not have access to this Area" : "Area not found"}</h1>
           <p className="mt-1 text-sm text-gray-500">The requested {setTitle} area is unavailable.</p>

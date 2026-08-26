@@ -1,0 +1,15 @@
+# URS-DMS — ngrok tunnels for remote testing (DEVELOPMENT ONLY)
+# -----------------------------------------------------------------------------
+# Exposes ONLY the Express backend (4000) on the account's STABLE dev domain.
+# No frontend tunnel (Cloudflare Pages serves the frontend) and no MinIO /
+# database / Redis / pgAdmin tunnels — those stay private on the local PC.
+#
+# The authtoken lives in the per-user ngrok config
+# (C:\Users\<you>\AppData\Local\ngrok\ngrok.yml), merged at runtime by
+# ngrok-remote.ps1. No secrets live in this file.
+version: "2"
+tunnels:
+  backend:
+    proto: http
+    addr: 127.0.0.1:4000
+    domain: borough-percent-unlucky.ngrok-free.dev

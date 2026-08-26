@@ -140,7 +140,7 @@ export function ExportLogsModal({ open, onOpenChange, onExport }: ExportLogsModa
           </Button>
           <Button
             onClick={handleExport}
-            className="h-10 px-5 shadow-sm"
+            className="h-10 px-5 shadow-soft"
           >
             <Download className="w-4 h-4 mr-2" />
             Export

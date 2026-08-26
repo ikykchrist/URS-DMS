@@ -196,7 +196,7 @@ export default function RequestsReview() {
         <StatCard title="Rejected" value={String(rejectedCount)} icon={<XCircle className="w-5 h-5" />} />
       </div>
 
-      <Card className="border-gray-200/60 shadow-sm mb-6">
+      <Card className="border-border/70 shadow-soft mb-6">
         <CardContent className="p-5">
           <div className="flex flex-col lg:flex-row lg:items-center gap-4">
             <div className="flex-1">
@@ -226,7 +226,7 @@ export default function RequestsReview() {
         </CardContent>
       </Card>
 
-      <Card className="border-gray-200/60 shadow-sm">
+      <Card className="border-border/70 shadow-soft">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -253,7 +253,7 @@ export default function RequestsReview() {
                 </TableRow>
               )}
               {filtered.map((request) => (
-                  <TableRow key={request.id} className={cn("hover:bg-gray-50/50 transition-colors align-top", request.id === highlightId && "bg-blue-50 ring-1 ring-inset ring-blue-300")}>
+                  <TableRow key={request.id} className={cn("hover:bg-gray-50/50 transition-colors align-top", request.id === highlightId && "bg-primary-50 ring-1 ring-inset ring-blue-300")}>
                   <TableCell>
                     <div>
                       <p className="text-[14px] font-medium text-gray-900 max-w-[220px] truncate">{request.title}</p>
@@ -405,7 +405,7 @@ export default function RequestsReview() {
             <Button
               onClick={() => void submitDecision()}
               disabled={saving || (decision === "Rejected" && !note.trim())}
-              className={cn("h-10 px-5 shadow-sm", decision === "Approved" && "bg-emerald-600 hover:bg-emerald-700")}
+              className={cn("h-10 px-5 shadow-soft", decision === "Approved" && "bg-emerald-600 hover:bg-emerald-700")}
             >
               {saving ? "Saving..." : decision === "Approved" ? "Approve Request" : "Reject Request"}
             </Button>

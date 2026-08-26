@@ -122,11 +122,11 @@ export default function RootDashboard() {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
         <PageHeader title="Platform Overview" description="System administrator console" />
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardContent className="p-8 flex flex-col items-center text-center gap-4">
             <Lock className="w-8 h-8 text-gray-400" />
             <p className="text-[14px] text-gray-600 max-w-md">{error}</p>
-            <Button onClick={() => void load()} className="shadow-sm">
+            <Button onClick={() => void load()} className="shadow-soft">
               <RefreshCw className="w-4 h-4 mr-2" />
               Retry
             </Button>
@@ -146,7 +146,7 @@ export default function RootDashboard() {
         title="Platform Overview"
         description={`System administrator console · ${platform.environment} · v${platform.version}`}
         actions={
-          <Button variant="outline" size="sm" onClick={() => void load()} className="shadow-sm">
+          <Button variant="outline" size="sm" onClick={() => void load()} className="shadow-soft">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -180,13 +180,13 @@ export default function RootDashboard() {
         {(
           [
             { key: "AACCUP", label: "AACCUP", bg: "bg-amber-50", text: "text-amber-600" },
-            { key: "ISO", label: "ISO", bg: "bg-blue-50", text: "text-blue-600" },
+            { key: "ISO", label: "ISO", bg: "bg-primary-50", text: "text-primary-600" },
             { key: "CERT", label: "Certification", bg: "bg-emerald-50", text: "text-emerald-600" },
           ] as const
         ).map(({ key, label, bg, text }) => {
           const stats = accreditation?.aaccup.byAreaSet[key]
           return (
-            <Card key={key} className="border-gray-200/60 shadow-sm">
+            <Card key={key} className="border-border/70 shadow-soft">
               <CardContent className="p-4 md:p-5">
                 <div className="flex items-center justify-between">
                   <div className={`w-9 h-9 md:w-11 md:h-11 rounded-lg ${bg} flex items-center justify-center ${text}`}>
@@ -216,7 +216,7 @@ export default function RootDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-2">
             <CardTitle className="text-[14px] flex items-center gap-2">
               <Database className="w-4 h-4 text-gray-500" />
@@ -235,7 +235,7 @@ export default function RootDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-2">
             <CardTitle className="text-[14px] flex items-center gap-2">
               <HardDrive className="w-4 h-4 text-gray-500" />
@@ -254,7 +254,7 @@ export default function RootDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-2">
             <CardTitle className="text-[14px] flex items-center gap-2">
               <Network className="w-4 h-4 text-gray-500" />
@@ -330,7 +330,7 @@ export default function RootDashboard() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-2">
             <CardTitle className="text-[14px]">Active Modules</CardTitle>
           </CardHeader>
@@ -356,7 +356,7 @@ export default function RootDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-gray-200/60 shadow-sm">
+        <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-2">
             <CardTitle className="text-[14px]">Storage</CardTitle>
           </CardHeader>
@@ -393,7 +393,7 @@ export default function RootDashboard() {
         </Card>
       </div>
 
-      <Card className="border-gray-200/60 shadow-sm">
+      <Card className="border-border/70 shadow-soft">
         <CardHeader className="pb-2">
           <CardTitle className="text-[14px]">Recent Configuration Changes</CardTitle>
         </CardHeader>

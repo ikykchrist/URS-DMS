@@ -898,7 +898,7 @@ export default function RootWorkflowBuilder() {
                         key={definition.id}
                         type="button"
                         onClick={() => setSelectedId(definition.id)}
-                        className={`w-full px-4 py-3 text-left transition-colors ${selectedId === definition.id ? "bg-indigo-50/80 ring-1 ring-inset ring-indigo-100" : "hover:bg-slate-50"}`}
+                        className={`w-full px-4 py-3 text-left transition-colors ${selectedId === definition.id ? "bg-primary-50/80 ring-1 ring-inset ring-primary-100" : "hover:bg-slate-50"}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
