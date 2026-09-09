@@ -18,6 +18,8 @@ interface RegistrationOptions {
   offices: Array<{ id: string; name: string; code: string; campusId: string | null; collegeId: string | null; departmentId: string | null }>
 }
 
+const selectClass = "h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-sm transition-colors focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
+
 export default function RegisterPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -139,8 +141,8 @@ export default function RegisterPage() {
   }
 
   return (
-    <AuthLayout>
-      <AuthCard className="w-full max-w-2xl">
+    <AuthLayout maxWidthClass="max-w-2xl">
+      <AuthCard className="w-full p-5 sm:p-8">
         <AuthCardHeader>
           <AuthCardTitle>Create your account</AuthCardTitle>
           <AuthCardDescription>Complete your profile to activate your URS-DMS account.</AuthCardDescription>
@@ -161,21 +163,32 @@ export default function RegisterPage() {
             </form>
           )
         ) : options && !error ? (
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2"><Label>Email address</Label><Input value={email} readOnly className="h-11 bg-slate-50" /></div>
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+            <div className="space-y-2"><Label htmlFor="registration-email">Email address</Label><Input id="registration-email" value={email} readOnly className="h-11 bg-slate-50 text-slate-600" /></div>
+
             <div className="grid gap-4 sm:grid-cols-2">
-              {(["firstName", "middleName", "lastName", "suffix"] as const).map((field) => (
-                <div key={field} className="space-y-2"><Label htmlFor={field}>{field === "middleName" ? "Middle name (optional)" : field === "suffix" ? "Suffix (optional)" : field.replace(/([A-Z])/g, " $1")}</Label><Input id={field} value={form[field]} onChange={(event) => update(field, event.target.value)} className="h-11" required={field === "firstName" || field === "lastName"} /></div>
-              ))}
+              <div className="space-y-2"><Label htmlFor="firstName">First name <span className="text-red-500">*</span></Label><Input id="firstName" value={form.firstName} onChange={(event) => update("firstName", event.target.value)} className="h-11" placeholder="Juan" required /></div>
+              <div className="space-y-2"><Label htmlFor="lastName">Last name <span className="text-red-500">*</span></Label><Input id="lastName" value={form.lastName} onChange={(event) => update("lastName", event.target.value)} className="h-11" placeholder="Dela Cruz" required /></div>
             </div>
-            <div className="space-y-2"><Label htmlFor="employeeId">Employee/Student ID</Label><Input id="employeeId" value={form.employeeId} onChange={(event) => update("employeeId", event.target.value)} className="h-11" required /></div>
-            <div className="space-y-2"><Label htmlFor="campusId">Campus <span className="text-red-500">*</span></Label><select id="campusId" value={form.campusId} onChange={(event) => update("campusId", event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" required><option value="">Select campus</option>{options.campuses.map((campus) => <option key={campus.id} value={campus.id}>{campus.name}</option>)}</select><p className="text-xs text-slate-400">Required — your campus is your home unit</p></div>
-            <div className="space-y-2"><Label htmlFor="collegeId">College <span className="text-slate-400 font-normal">(optional)</span></Label><select id="collegeId" value={form.collegeId} onChange={(event) => update("collegeId", event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:opacity-60 disabled:bg-slate-50" disabled={!form.campusId}><option value="">Select college (optional)</option>{colleges.map((college) => <option key={college.id} value={college.id}>{college.name}</option>)}</select></div>
-            <div className="space-y-2"><Label htmlFor="programId">Program <span className="text-slate-400 font-normal">(optional)</span></Label><select id="programId" value={form.programId} onChange={(event) => update("programId", event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:opacity-60 disabled:bg-slate-50" disabled={!form.collegeId}><option value="">Select program (optional)</option>{programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}</select></div>
-            <div className="space-y-2"><Label htmlFor="officeId">Office <span className="text-slate-400 font-normal">(optional)</span></Label><select id="officeId" value={form.officeId} onChange={(event) => update("officeId", event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:opacity-60 disabled:bg-slate-50" disabled={!form.campusId}><option value="">Select office (optional)</option>{offices.map((office) => <option key={office.id} value={office.id}>{office.name}</option>)}</select></div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2"><Label htmlFor="registration-password">Password</Label><PasswordInput id="registration-password" value={form.password} onChange={(event) => update("password", event.target.value)} /></div>
-              <div className="space-y-2"><Label htmlFor="registration-confirm-password">Confirm password</Label><PasswordInput id="registration-confirm-password" value={form.confirmPassword} onChange={(event) => update("confirmPassword", event.target.value)} error={form.confirmPassword && form.password !== form.confirmPassword ? "Passwords do not match" : undefined} /></div>
+              <div className="space-y-2"><Label htmlFor="middleName">Middle name <span className="text-slate-400 font-normal">(optional)</span></Label><Input id="middleName" value={form.middleName} onChange={(event) => update("middleName", event.target.value)} className="h-11" placeholder="Santos" /></div>
+              <div className="space-y-2"><Label htmlFor="suffix">Suffix <span className="text-slate-400 font-normal">(optional)</span></Label><Input id="suffix" value={form.suffix} onChange={(event) => update("suffix", event.target.value)} className="h-11" placeholder="Jr., III" /></div>
+            </div>
+
+            <div className="space-y-2"><Label htmlFor="employeeId">Employee/Student ID <span className="text-red-500">*</span></Label><Input id="employeeId" value={form.employeeId} onChange={(event) => update("employeeId", event.target.value)} className="h-11" placeholder="e.g. 2020-00123" required /></div>
+
+            <div className="space-y-2"><Label htmlFor="campusId">Campus <span className="text-red-500">*</span></Label><select id="campusId" value={form.campusId} onChange={(event) => update("campusId", event.target.value)} className={selectClass} required><option value="">Select campus</option>{options.campuses.map((campus) => <option key={campus.id} value={campus.id}>{campus.name}</option>)}</select><p className="text-xs text-slate-400">Required — your campus is your home unit</p></div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2"><Label htmlFor="collegeId">College <span className="text-slate-400 font-normal">(optional)</span></Label><select id="collegeId" value={form.collegeId} onChange={(event) => update("collegeId", event.target.value)} className={selectClass} disabled={!form.campusId}><option value="">Select college</option>{colleges.map((college) => <option key={college.id} value={college.id}>{college.name}</option>)}</select></div>
+              <div className="space-y-2"><Label htmlFor="programId">Program <span className="text-slate-400 font-normal">(optional)</span></Label><select id="programId" value={form.programId} onChange={(event) => update("programId", event.target.value)} className={selectClass} disabled={!form.collegeId}><option value="">Select program</option>{programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}</select></div>
+            </div>
+
+            <div className="space-y-2"><Label htmlFor="officeId">Office <span className="text-slate-400 font-normal">(optional)</span></Label><select id="officeId" value={form.officeId} onChange={(event) => update("officeId", event.target.value)} className={selectClass} disabled={!form.campusId}><option value="">Select office</option>{offices.map((office) => <option key={office.id} value={office.id}>{office.name}</option>)}</select></div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2"><Label htmlFor="registration-password">Password <span className="text-red-500">*</span></Label><PasswordInput id="registration-password" value={form.password} onChange={(event) => update("password", event.target.value)} /></div>
+              <div className="space-y-2"><Label htmlFor="registration-confirm-password">Confirm password <span className="text-red-500">*</span></Label><PasswordInput id="registration-confirm-password" value={form.confirmPassword} onChange={(event) => update("confirmPassword", event.target.value)} error={form.confirmPassword && form.password !== form.confirmPassword ? "Passwords do not match" : undefined} /></div>
             </div>
             {form.password && <PasswordStrength password={form.password} className="rounded-lg bg-slate-50 p-3" />}
             {form.password && !passwordValid && <p className="text-xs font-medium text-red-600">Your password cannot be used yet. Complete all requirements before creating your account.</p>}
