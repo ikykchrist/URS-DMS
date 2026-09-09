@@ -18,6 +18,9 @@ import {
   Shield,
   ShieldCheck,
   LogOut,
+  GitBranch,
+  Sliders,
+  Wand2,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
@@ -35,7 +38,7 @@ interface SidebarItem {
 const sidebarItems: SidebarItem[] = [
   { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { id: "documents", icon: FolderArchive, label: "My Documents" },
-  { id: "aaccup", icon: GraduationCap, label: "AACCUP" },
+  { id: "aaccup", icon: GraduationCap, label: "Accreditation" },
   { id: "requests", icon: Inbox, label: "Requests" },
   { id: "users", icon: Users, label: "User Management" },
   { id: "audit", icon: ClipboardList, label: "Audit Logs" },
@@ -47,7 +50,10 @@ const rootConsoleItems: SidebarItem[] = [
   { id: "root-organization", icon: Network, label: "Organization" },
   { id: "root-folder-builder", icon: FolderTree, label: "Folder Builder" },
   { id: "root-requirement-builder", icon: FileCheck2, label: "Requirement Builder" },
+  { id: "root-workflow-builder", icon: GitBranch, label: "Workflow Builder" },
   { id: "root-form-builder", icon: ClipboardList, label: "Form Builder" },
+  { id: "root-setup-wizard", icon: Wand2, label: "Setup Wizard" },
+  { id: "root-config", icon: Sliders, label: "Configuration Engine" },
   { id: "root-maintenance", icon: HardDrive, label: "Storage Maintenance" },
   { id: "root-roles-permissions", icon: Shield, label: "Roles & Permissions" },
   { id: "root-audit", icon: ScrollText, label: "System Audit" },
@@ -66,7 +72,7 @@ interface SidebarProps {
 export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard", onNavigate, showRoot = false, className }: SidebarProps) {
   const [rootConsoleOpen, setRootConsoleOpen] = useState(true)
   const { logout } = useAuth()
-  const accreditationActive = ["aaccup", "iso", "aaccup-area", "iso-area", "certification", "submissions", "tasks"].includes(activePage)
+  const accreditationActive = ["aaccup", "iso", "aaccup-area", "iso-area", "submissions", "tasks"].includes(activePage)
   const [aaccupOpen, setAaccupOpen] = useState(accreditationActive)
   const rootConsoleActive = rootConsoleItems.some((item) => item.id === activePage)
   const rootConsoleHighlighted = rootConsoleActive
@@ -120,14 +126,14 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                       )}
                     >
                       <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", accreditationActive ? "text-white" : "text-slate-400")} />
-                      {!collapsed && <span className="flex-1 text-left">AACCUP</span>}
+                      {!collapsed && <span className="flex-1 text-left">Accreditation</span>}
                       {!collapsed && <ChevronDown className={cn("w-4 h-4 transition-transform", !aaccupOpen && "-rotate-90")} />}
                     </button>
                     {!collapsed && aaccupOpen && (
                       <div className="mt-1 ml-5 space-y-1 border-l border-white/10 pl-3">
                         {[
                           { id: "aaccup", label: "AACCUP", icon: GraduationCap },
-                          { id: "iso", label: "ISO", icon: ShieldCheck },
+                           { id: "iso", label: "ISO 21001:2025", icon: ShieldCheck },
                         ].map((child) => {
                           const ChildIcon = child.icon
                           return (

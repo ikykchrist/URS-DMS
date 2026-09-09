@@ -7,7 +7,6 @@ import {
   Activity,
   CheckCircle,
   XCircle,
-  Eye,
   Trash2,
   ChevronDown,
   ChevronUp,
@@ -43,7 +42,6 @@ import {
   DialogTitle,
 } from "@/components/ui/Dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
-import { LogDetailsModal } from "@/components/modals/LogDetailsModal"
 import { ExportLogsModal } from "@/components/modals/ExportLogsModal"
 import { listAuditEntries, exportAuditEntries, clearAuditLogs, type AuditEntry } from "@/services/admin"
 import { API_BASE } from "@/lib/http"
@@ -90,11 +88,9 @@ const PRESETS = [
 
 export default function AuditLogs() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [isLogDetailsModalOpen, setIsLogDetailsModalOpen] = useState(false)
   const [isExportLogsModalOpen, setIsExportLogsModalOpen] = useState(() => searchParams.get("modal") === "generate-report")
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false)
   const [clearing, setClearing] = useState(false)
-  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [total, setTotal] = useState(0)
   const [successTotal, setSuccessTotal] = useState(0)
@@ -443,16 +439,15 @@ export default function AuditLogs() {
                 <TableHead>Category</TableHead>
                 <TableHead>IP</TableHead>
                 <TableHead>Result</TableHead>
-                <TableHead className="text-right">Details</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && logs.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-gray-500 text-[14px]">Loading audit logs...</TableCell></TableRow>
+                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-gray-500 text-[14px]">Loading audit logs...</TableCell></TableRow>
               ) : logs.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-gray-500 text-[14px]">No audit logs found</TableCell></TableRow>
+                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-gray-500 text-[14px]">No audit logs found</TableCell></TableRow>
               ) : loading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-4 text-gray-400 text-[13px]">Loading page...</TableCell></TableRow>
+                 <TableRow><TableCell colSpan={7} className="text-center py-4 text-gray-400 text-[13px]">Loading page...</TableCell></TableRow>
               ) : logs.map((log) => (
                 <TableRow key={log.id} className="hover:bg-gray-50/50 transition-colors">
                   <TableCell><span className="text-[13px] text-gray-600 font-mono">{log.timestamp}</span></TableCell>
@@ -478,11 +473,6 @@ export default function AuditLogs() {
                     >
                       {log.result || log.status}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-gray-900" onClick={() => { setSelectedLog(log); setIsLogDetailsModalOpen(true) }}>
-                      <Eye className="w-4 h-4" />
-                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -518,7 +508,6 @@ export default function AuditLogs() {
         </CardContent>
       </Card>
 
-      <LogDetailsModal open={isLogDetailsModalOpen} onOpenChange={setIsLogDetailsModalOpen} log={selectedLog} />
       <ExportLogsModal open={isExportLogsModalOpen} onOpenChange={(open: boolean) => { setIsExportLogsModalOpen(open); if (!open) { searchParams.delete("modal"); setSearchParams(searchParams) } }} />
 
       <Dialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>

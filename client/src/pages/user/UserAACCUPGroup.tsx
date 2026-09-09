@@ -8,10 +8,10 @@ import type { AreaSet } from "@/services/aaccup"
 // =============================================================================
 // UserAACCUPGroup — grouped user surface for the accreditation sets, the
 // user's own submissions, and their assigned tasks. Deep links /user/iso and
-// /user/certification preserve the set via `initialTab`.
+// /user/aaccup preserve the set via `initialTab`.
 // =============================================================================
 
-const SUPPORTED_TAB_VALUES = new Set(["AACCUP", "ISO", "CERT", "submissions", "tasks"])
+const SUPPORTED_TAB_VALUES = new Set(["AACCUP", "ISO", "submissions", "tasks"])
 
 interface UserAACCUPGroupProps {
   initialTab?: string

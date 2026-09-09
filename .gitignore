@@ -11,3 +11,13 @@ dist/
 .env.backup
 .env.*.backup
 
+# Local database/storage backups (may contain user data)
+/backup.rar
+/backup/
+
+# Dokploy local state (never committed)
+.dokploy/
+deploy/dokploy/env.production
+deploy/dokploy/.env.local
+
+

@@ -15,7 +15,7 @@ import { listSystemUsers } from "@/services/admin"
 interface CommandPaletteProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onNavigate: (page: string) => void
+  onNavigate: (page: string, query?: Record<string, string>) => void
 }
 
 interface SearchResult {
@@ -25,13 +25,13 @@ interface SearchResult {
   subtitle: string
   badge?: string
   page?: string
+  query?: Record<string, string>
 }
 
 const staticPages: SearchResult[] = [
   { id: "p-dashboard", type: "page", title: "Dashboard", subtitle: "Go to Dashboard", page: "dashboard" },
-  { id: "p-aaccup", type: "page", title: "AACCUP", subtitle: "AACCUP, ISO, Certification and submissions", page: "aaccup" },
-  { id: "p-iso", type: "page", title: "ISO", subtitle: "Go to ISO 21001", page: "iso" },
-  { id: "p-cert", type: "page", title: "Certification", subtitle: "Go to Certification", page: "certification" },
+  { id: "p-aaccup", type: "page", title: "Accreditation", subtitle: "AACCUP and ISO submissions", page: "aaccup" },
+  { id: "p-iso", type: "page", title: "ISO 21001:2025", subtitle: "Go to ISO 21001:2025", page: "iso" },
   { id: "p-submissions", type: "page", title: "Submissions", subtitle: "Review AACCUP submissions", page: "submissions" },
   { id: "p-requests", type: "page", title: "Requests", subtitle: "Review file requests", page: "requests" },
   { id: "p-documents", type: "page", title: "Document Repository", subtitle: "Go to Document Repository", page: "documents" },
@@ -71,6 +71,8 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
           title: doc.name,
           subtitle: `${doc.department} · ${doc.area}`,
           badge: doc.status,
+          page: "documents",
+          query: { highlight: doc.id },
         }))
         const userResults: SearchResult[] = users.items.map((user) => ({
           id: `user-${user.id}`,
@@ -78,6 +80,8 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
           title: [user.firstName, user.middleName, user.lastName].filter(Boolean).join(" ").trim(),
           subtitle: user.email,
           badge: user.status,
+          page: "users",
+          query: { highlight: user.id },
         }))
         setResults([...documentResults, ...userResults])
         setLoading(false)
@@ -101,7 +105,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
   const handleSelect = useCallback(
     (result: SearchResult) => {
       if (result.page) {
-        onNavigate(result.page)
+        onNavigate(result.page, result.query)
       }
       onOpenChange(false)
     },

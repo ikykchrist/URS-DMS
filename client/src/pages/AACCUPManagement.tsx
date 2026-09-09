@@ -92,12 +92,8 @@ const SET_TITLES: Record<AreaSet, { title: string; description: string }> = {
     description: "Manage accreditation areas, submissions, and compliance tracking",
   },
   ISO: {
-    title: "ISO 21001 Management",
+    title: "ISO 21001:2025",
     description: "Manage ISO accreditation areas, submissions, and compliance tracking",
-  },
-  CERT: {
-    title: "Certification Management",
-    description: "Manage certification areas, submissions, and compliance tracking",
   },
 }
 
@@ -639,7 +635,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
           setIsAddAreaModalOpen(open)
           if (!open) setEditingArea(null)
         }}
-        areaSet={areaSet.toLowerCase() as "aaccup" | "iso" | "cert"}
+        areaSet={areaSet.toLowerCase() as "aaccup" | "iso"}
         area={editingArea}
         onSuccess={() => {
           setEditingArea(null)

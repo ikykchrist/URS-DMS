@@ -23,6 +23,7 @@ import {
   scopesForDocument,
 } from "@/modules/workflow/workflow.engine";
 import { BadRequestError, ConflictError, NotFoundError } from "@/utils/errors";
+import { resolveFolderAccess, assertFolderAccess } from "@/modules/folders/folderSharing.service";
 import * as repo from "@/modules/documents/documents.repository";
 import type { Prisma } from "@prisma/client";
 import type { ListDocumentsQuery } from "@/modules/documents/documents.validator";
@@ -103,8 +104,9 @@ function canReadWrite(actor: Actor, ownerId: string): boolean {
   return false;
 }
 
-async function assertCanRead(actor: Actor, doc: { ownerId: string; id: string }): Promise<void> {
+async function assertCanRead(actor: Actor, doc: { ownerId: string; id: string; folderId?: string | null }): Promise<void> {
   if (canReadWrite(actor, doc.ownerId)) return;
+  if (doc.folderId && (await resolveFolderAccess(actor.id, doc.folderId)) !== "NONE") return;
   const share = await repo.findActiveShare(doc.id, actor.id);
   if (share) return;
   // Rule 22: AACCUP submission review and document-request management are the
@@ -151,8 +153,9 @@ async function hasManagedReadAccess(actor: Actor, documentId: string): Promise<b
   return false;
 }
 
-async function assertCanWrite(actor: Actor, doc: { ownerId: string; id: string }): Promise<void> {
+async function assertCanWrite(actor: Actor, doc: { ownerId: string; id: string; folderId?: string | null }): Promise<void> {
   if (actor.id === doc.ownerId) return;
+  if (doc.folderId && (await resolveFolderAccess(actor.id, doc.folderId)) === "EDITOR") return;
   const share = await repo.findActiveShare(doc.id, actor.id);
   if (share && (share.permission === "WRITE" || share.permission === "OWNER")) return;
   void writeAudit({
@@ -200,6 +203,10 @@ export async function listDocuments(query: ListDocumentsQuery, actor: Actor): Pr
   if (query.departmentId) where.departmentId = query.departmentId;
   if (query.folderId !== undefined) {
     where.folderId = query.folderId; // null => root-level documents (no folder)
+    if (query.folderId) {
+      await assertFolderAccess(actor.id, query.folderId, "VIEWER");
+      delete where.ownerId;
+    }
   }
   if (query.ownerId) where.ownerId = query.ownerId;
   if (query.uploadedById) {
@@ -210,7 +217,7 @@ export async function listDocuments(query: ListDocumentsQuery, actor: Actor): Pr
   // Rule 1 / D-002: lists are ALWAYS owner-or-shared scoped — the manager
   // bypass was removed because member roles legitimately hold
   // documents.delete for their own repository.
-  where.OR = [{ ownerId: actor.id }, { shares: { some: { userId: actor.id } } }];
+  where.OR = query.folderId ? [{ folderId: query.folderId }] : [{ ownerId: actor.id }, { shares: { some: { userId: actor.id } } }];
 
   if (query.q) {
     const qFilter: Prisma.DocumentWhereInput = {
@@ -261,6 +268,7 @@ export async function createDocument(
   input: CreateDocumentInput,
   actor: Actor,
 ): Promise<DocumentWithVersionUrl> {
+  if (input.folderId) await assertFolderAccess(actor.id, input.folderId, "EDITOR");
   let created: DocumentDetail | undefined;
   await prisma.$transaction(async (tx) => {
     created = await repo.create(
@@ -713,11 +721,7 @@ export async function copyDocument(
   await assertCanWrite(actor, source);
 
   if (input.targetFolderId) {
-    const target = await prisma.folder.findFirst({
-      where: { id: input.targetFolderId, ownerId: actor.id, deletedAt: null },
-      select: { id: true },
-    });
-    if (!target) throw new NotFoundError("Destination folder not found");
+    await assertFolderAccess(actor.id, input.targetFolderId, "EDITOR");
   }
 
   const repositoryId = await ensureRepository(actor.id);

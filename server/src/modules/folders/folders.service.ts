@@ -27,6 +27,7 @@ import type {
   ResolvedFolderNode,
   ResolvedFolderStructure,
 } from "@/modules/folders/folders.types";
+import { assertFolderAccess, resolveFolderAccess } from "@/modules/folders/folderSharing.service";
 
 // =============================================================================
 // URS-DMS — folders service
@@ -53,12 +54,6 @@ export interface Actor {
 // shortcut would let any account bypass ownership. Department-scoped folders
 // (organization master data / archive folders) remain visible to everyone;
 // personal folders are owner-only.
-function canRead(actor: Actor, folder: { ownerId: string | null; departmentId: string | null }): boolean {
-  if (folder.ownerId === actor.id) return true;
-  if (folder.departmentId !== null) return true;
-  return false;
-}
-
 async function assertCanManage(actor: Actor, folder: { id: string; ownerId: string | null }): Promise<void> {
   if (folder.ownerId === actor.id) return;
   void writeAudit({
@@ -84,17 +79,16 @@ export async function listFolders(query: ListFoldersQuery, actor: Actor): Promis
   if (!query.includeDeleted) where.deletedAt = null;
   if (query.parentId !== undefined) where.parentId = query.parentId;
   if (query.departmentId) where.departmentId = query.departmentId;
-  if (query.ownerId) where.ownerId = query.ownerId;
   if (query.q) {
     where.name = { contains: query.q, mode: "insensitive" };
   }
 
-  // Rule 1 / D-002: always owner-or-department scoped. The manager bypass was
-  // removed because member roles legitimately hold folders.delete for their
-  // own repository.
-  where.OR = [{ ownerId: actor.id }, { departmentId: { not: null } }];
-
-  return { items: await repo.list(where) };
+  const candidates = await repo.list(where);
+  const items = await Promise.all(candidates.map(async (folder) => {
+    const access = await resolveFolderAccess(actor.id, folder.id);
+    return access === "NONE" ? null : folder;
+  }));
+  return { items: items.filter((folder): folder is FolderListItem => folder !== null) };
 }
 
 // -----------------------------------------------------------------------------
@@ -103,7 +97,7 @@ export async function listFolders(query: ListFoldersQuery, actor: Actor): Promis
 export async function getFolder(id: string, actor: Actor): Promise<FolderDetail> {
   const folder = await repo.findById(id);
   if (!folder) throw new NotFoundError("Folder not found");
-  if (!canRead(actor, folder)) {
+  if ((await resolveFolderAccess(actor.id, id)) === "NONE") {
     void writeAudit({
       action: AUDIT_ACTIONS.ACCESS_DENIED,
       userId: actor.id,
@@ -142,6 +136,7 @@ export async function createFolder(
   if (input.parentId) {
     const parent = await repo.findById(input.parentId);
     if (!parent) throw new BadRequestError("Parent folder not found");
+    await assertFolderAccess(actor.id, input.parentId, "EDITOR");
     // Rule 3: reject any create that would land at depth 6 or deeper.
     await assertDestinationDepth(input.parentId);
   }
@@ -759,7 +754,7 @@ export async function resolveMyFolderStructure(actor: Actor): Promise<ResolvedFo
 export async function getFolderInfo(id: string, actor: Actor) {
   const folder = await repo.findById(id);
   if (!folder) throw new NotFoundError("Folder not found");
-  assertOwner(actor, folder);
+  await assertFolderAccess(actor.id, id, "VIEWER");
   return repo.getFolderInfo(id);
 }
 
@@ -782,7 +777,7 @@ export async function downloadFolderZip(
 ): Promise<{ filename: string; stream: Readable }> {
   const folder = await repo.findById(id);
   if (!folder) throw new NotFoundError("Folder not found");
-  assertOwner(actor, folder);
+  await assertFolderAccess(actor.id, id, "VIEWER");
 
   // Collect the active subtree with safe relative paths.
   interface Node {

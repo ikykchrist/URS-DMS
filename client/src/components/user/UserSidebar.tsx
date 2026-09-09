@@ -9,7 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Clock,
+  Activity,
   ChevronDown,
   ShieldCheck,
   ClipboardList,
@@ -31,9 +31,9 @@ const sidebarItems: SidebarItem[] = [
   { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { id: "documents", icon: FolderOpen, label: "My Documents" },
   { id: "requests", icon: FileText, label: "My Requests" },
-  { id: "aaccup", icon: GraduationCap, label: "AACCUP" },
+  { id: "aaccup", icon: GraduationCap, label: "Accreditation" },
   { id: "notifications", icon: Bell, label: "Notifications" },
-  { id: "activity", icon: Clock, label: "My Activity" },
+  { id: "activity", icon: Activity, label: "My Activity" },
   { id: "profile", icon: User, label: "Profile" },
   { id: "settings", icon: Settings, label: "Settings" },
 ]
@@ -60,7 +60,7 @@ export function UserSidebar({
   className,
 }: UserSidebarProps) {
   const { logout } = useAuth()
-  const accreditationActive = ["aaccup", "iso", "certification", "submissions", "tasks"].includes(activePage)
+  const accreditationActive = ["aaccup", "iso", "submissions", "tasks"].includes(activePage)
   const [aaccupOpen, setAaccupOpen] = useState(accreditationActive)
   const activeNavPage = accreditationActive
     ? "aaccup"
@@ -123,7 +123,7 @@ export function UserSidebar({
                       )}
                     >
                       <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", accreditationActive ? "text-white" : "text-slate-400")} />
-                      {!collapsed && <span className="flex-1 text-left">AACCUP</span>}
+                       {!collapsed && <span className="flex-1 text-left">Accreditation</span>}
                       {badgeCount > 0 && !collapsed && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{badgeCount > 99 ? "99+" : badgeCount}</span>}
                       {!collapsed && <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", !aaccupOpen && "-rotate-90")} />}
                     </button>
@@ -132,7 +132,7 @@ export function UserSidebar({
                         {[
                           { id: "tasks", label: "My Tasks", icon: ClipboardList },
                           { id: "aaccup", label: "AACCUP", icon: GraduationCap },
-                          { id: "iso", label: "ISO", icon: ShieldCheck },
+                           { id: "iso", label: "ISO 21001:2025", icon: ShieldCheck },
                         ].map((child) => {
                           const ChildIcon = child.icon
                           return (

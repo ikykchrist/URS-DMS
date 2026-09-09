@@ -103,6 +103,8 @@ model User {
   departments                   Department[]            @relation("UserDepartment")
   headedDepartments             Department[]            @relation("DepartmentHead")
   folders                       Folder[]
+  folderShares                  FolderShare[]          @relation("FolderShareUser")
+  folderSharesCreated           FolderShare[]          @relation("FolderShareCreator")
   documents                     Document[]              @relation("DocumentOwner")
   versions                      DocumentVersion[]
   documentShares                DocumentShare[]
@@ -320,6 +322,11 @@ enum SharePermission {
   OWNER
 }
 
+enum FolderShareRecipientType {
+  USER
+  DEPARTMENT
+}
+
 enum RequestStatus {
   PENDING
   APPROVED
@@ -361,6 +368,7 @@ model Department {
   updatedAt     DateTime     @updatedAt
   deletedAt     DateTime?
   users         User[]       @relation("UserDepartment")
+  folderShares  FolderShare[]
   documents     Document[]
   folders       Folder[]
   aaccupAreas   AaccupArea[]
@@ -394,6 +402,7 @@ model Folder {
   pins          RepositoryPin[] @relation("PinnedFolder")
   copyJobsSource RepositoryCopyJob[] @relation("CopyJobSource")
   copyJobsTarget RepositoryCopyJob[] @relation("CopyJobTarget")
+  shares        FolderShare[]
 
   @@index([parentId])
   @@index([repositoryId])
@@ -401,6 +410,29 @@ model Folder {
   @@index([ownerId])
   @@index([deletedAt])
   @@map("folders")
+}
+
+model FolderShare {
+  id              String                    @id @default(uuid())
+  folderId        String
+  folder          Folder                    @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  recipientType   FolderShareRecipientType
+  userId          String?
+  user            User?                     @relation("FolderShareUser", fields: [userId], references: [id], onDelete: Cascade)
+  departmentId    String?
+  department      Department?               @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  permission      SharePermission           @default(READ)
+  createdById     String
+  createdBy       User                      @relation("FolderShareCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@unique([folderId, userId])
+  @@unique([folderId, departmentId])
+  @@index([folderId])
+  @@index([userId])
+  @@index([departmentId])
+  @@map("folder_shares")
 }
 
 model Document {
@@ -749,6 +781,7 @@ enum NotificationType {
   PASSWORD_RESET
   ROLE_CHANGED
   SYSTEM_ANNOUNCEMENT
+  FOLDER_SHARED_ACCESS
 }
 
 enum NotificationPriority {

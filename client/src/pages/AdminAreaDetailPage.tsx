@@ -13,7 +13,7 @@ function areaNumber(area: OnlineAaccupArea): number {
   return match ? Number(match[0]) : 1
 }
 
-export default function AdminAreaDetailPage({ areaSet }: { areaSet: Exclude<AreaSet, "CERT"> }) {
+export default function AdminAreaDetailPage({ areaSet }: { areaSet: AreaSet }) {
   const navigate = useNavigate()
   const { areaId } = useParams<{ areaId: string }>()
   const [area, setArea] = useState<OnlineAaccupArea | null>(null)

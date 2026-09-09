@@ -42,7 +42,7 @@ function getClient(): MinioClient {
 }
 
 // Origin of the request that triggered the URL mint (localhost in dev, the
-// ngrok domain remotely). Falls back to the local server origin when called
+// through a remote tunnel). Falls back to the local server origin when called
 // outside a request context (e.g. background workers).
 function backendOrigin(): string {
   const origin = getRequestOrigin();

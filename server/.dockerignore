@@ -2,3 +2,12 @@ node_modules
 dist
 logs
 *.log
+.git
+.gitignore
+.dockerignore
+Dockerfile
+.dockerignore
+.eslintrc*
+.prettierrc*
+coverage
+.vitest-cache

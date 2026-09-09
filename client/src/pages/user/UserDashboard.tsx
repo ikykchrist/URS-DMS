@@ -108,8 +108,7 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
       try {
         const rows = await Promise.all(([
           ["AACCUP", "AACCUP", "aaccup"],
-          ["ISO", "ISO", "iso"],
-          ["CERT", "Certification", "certification"],
+          ["ISO", "ISO 21001:2025", "iso"],
         ] as const).map(async ([key, label, page]) => {
           const areas = await listOnlineAaccupAreas(key)
           const requirements = (await Promise.all(areas.map((area) => listOnlineRequirements(area.id)))).flat()

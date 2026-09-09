@@ -150,10 +150,10 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           ) : overview.data === null ? (
             <div className="space-y-4">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-12" />)}</div>
           ) : (
-            (["AACCUP", "ISO", "CERT"] as const).map((key) => {
+            (["AACCUP", "ISO"] as const).map((key) => {
               const stats = overview.data!.aaccup.byAreaSet[key]
-              const label = key === "AACCUP" ? "AACCUP" : key === "ISO" ? "ISO" : "Certification"
-              const page = key === "AACCUP" ? "aaccup" : key === "ISO" ? "iso" : "certification"
+              const label = key === "AACCUP" ? "AACCUP" : "ISO 21001:2025"
+              const page = key === "AACCUP" ? "aaccup" : "iso"
               return (
                 <div key={key}>
                   <button type="button" className="block w-full rounded-xl p-2 text-left transition hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary" onClick={() => nav(page)}>

@@ -33,6 +33,7 @@ export const NOTIFICATION_TYPE_VALUES = [
   "PASSWORD_RESET",
   "ROLE_CHANGED",
   "SYSTEM_ANNOUNCEMENT",
+  "FOLDER_SHARED_ACCESS",
 ] as const;
 
 export interface NotificationEmailDefaults {
@@ -186,5 +187,11 @@ export const NOTIFICATION_EVENTS: Record<NotificationType, NotificationEventSpec
     defaultTitle: "System announcement",
     defaultMessage: "An announcement from the system administrator.",
     defaultPriority: "HIGH",
+  },
+  FOLDER_SHARED_ACCESS: {
+    type: "FOLDER_SHARED_ACCESS",
+    defaultTitle: "Folder shared with you",
+    defaultMessage: "A folder has been shared with you in the document repository.",
+    defaultPriority: "MEDIUM",
   },
 };

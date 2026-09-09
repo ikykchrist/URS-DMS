@@ -180,8 +180,7 @@ export default function RootDashboard() {
         {(
           [
             { key: "AACCUP", label: "AACCUP", bg: "bg-amber-50", text: "text-amber-600" },
-            { key: "ISO", label: "ISO", bg: "bg-primary-50", text: "text-primary-600" },
-            { key: "CERT", label: "Certification", bg: "bg-emerald-50", text: "text-emerald-600" },
+            { key: "ISO", label: "ISO 21001:2025", bg: "bg-primary-50", text: "text-primary-600" },
           ] as const
         ).map(({ key, label, bg, text }) => {
           const stats = accreditation?.aaccup.byAreaSet[key]

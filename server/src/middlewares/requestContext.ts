@@ -6,7 +6,7 @@ import type { Request, Response, NextFunction } from "express";
 // Attaches `req.context` (ip, ua) for audit logging downstream. Also captures
 // the request's own origin (scheme + host) in AsyncLocalStorage so service
 // layers can mint backend-relative file URLs that resolve to whichever host
-// the browser actually reached (localhost in dev, the ngrok domain remotely —
+// the browser actually reached (localhost in dev, the remote tunnel domain —
 // never a hardcoded localhost or an exposed MinIO host).
 // =============================================================================
 

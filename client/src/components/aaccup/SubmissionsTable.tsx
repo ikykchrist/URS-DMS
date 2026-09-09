@@ -361,7 +361,6 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
                     <SelectItem value="ALL">All Sets</SelectItem>
                     <SelectItem value="AACCUP">AACCUP</SelectItem>
                     <SelectItem value="ISO">ISO</SelectItem>
-                    <SelectItem value="CERT">Certification</SelectItem>
                   </SelectContent>
                 </Select>
               )}

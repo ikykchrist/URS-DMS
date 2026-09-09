@@ -4,7 +4,9 @@
 // the real backend through these helpers. No local data stores are used.
 // =============================================================================
 
-const API_BASE = (import.meta as unknown as { env: { VITE_API_BASE?: string } }).env.VITE_API_BASE ?? "http://localhost:4000/api/v1";
+// Production builds use same-origin API requests. The explicit dev fallback is
+// also relative so a missing Vite env cannot leak requests to a user's localhost.
+const API_BASE = (import.meta as unknown as { env: { VITE_API_BASE?: string } }).env.VITE_API_BASE ?? "/api/v1";
 
 export { API_BASE };
 

@@ -326,10 +326,9 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
           {(
-            [
-              { key: "AACCUP", label: "AACCUP Compliance", bg: "bg-amber-50", text: "text-amber-600" },
-              { key: "ISO", label: "ISO Compliance", bg: "bg-primary-50", text: "text-primary-600" },
-              { key: "CERT", label: "Certification Compliance", bg: "bg-emerald-50", text: "text-emerald-600" },
+              [
+                { key: "AACCUP", label: "AACCUP Compliance", bg: "bg-amber-50", text: "text-amber-600" },
+               { key: "ISO", label: "ISO 21001:2025 Compliance", bg: "bg-primary-50", text: "text-primary-600" },
             ] as const
           ).map(({ key, label, bg, text }) => {
             const stats = report?.aaccup.byAreaSet[key]
@@ -337,7 +336,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
               <Card
                 key={key}
                 className="border-border/70 shadow-soft hover:shadow-lift transition-shadow cursor-pointer"
-                onClick={() => onNavigate(key === "AACCUP" ? "aaccup" : key === "ISO" ? "iso" : "certification")}
+                 onClick={() => onNavigate(key === "AACCUP" ? "aaccup" : "iso")}
               >
                 <CardContent className="p-4 md:p-5">
                   <div className="flex items-center justify-between">
@@ -699,7 +698,7 @@ function AppContent() {
       "/submissions": "submissions", "/requests": "requests", "/profile": "profile", "/users": "users",
       "/user-management": "users", "/audit": "audit", "/audit-logs": "audit", "/settings": "settings",
       "/notifications": "notifications", "/aaccup": "aaccup", "/aaccup-management": "aaccup", "/iso": "iso",
-      "/certification": "certification", "/root": "root", "/root-organization": "root-organization",
+      "/root": "root", "/root-organization": "root-organization",
       "/root-folder-builder": "root-folder-builder", "/root-requirement-builder": "root-requirement-builder",
       "/root-workflow-builder": "root-workflow-builder", "/root-form-builder": "root-form-builder",
       "/root-setup-wizard": "root-setup-wizard", "/root-config": "root-config",
@@ -724,8 +723,7 @@ function AppContent() {
     settings: "Settings",
     notifications: "Notifications",
     aaccup: "AACCUP",
-    iso: "AACCUP | ISO",
-    certification: "AACCUP | Certification",
+    iso: "Accreditation | ISO 21001:2025",
     root: "Platform Overview",
     "root-organization": "Organization",
     "root-folder-builder": "Folder Builder",
@@ -759,7 +757,6 @@ function AppContent() {
       notifications: "/notifications",
       aaccup: "/aaccup",
       iso: "/iso",
-      certification: "/certification",
       root: "/root",
       "root-organization": "/root-organization",
       "root-folder-builder": "/root-folder-builder",
@@ -860,7 +857,6 @@ function AppContent() {
            {activePage === "notifications" && <UserNotifications />}
           {activePage === "aaccup" && <AACCUPGroupPage initialTab="AACCUP" />}
           {activePage === "iso" && <AACCUPGroupPage initialTab="ISO" />}
-          {activePage === "certification" && <AACCUPGroupPage initialTab="CERT" />}
           {activePage === "submissions" && <AACCUPGroupPage initialTab="submissions" />}
           </Suspense>
         </main>
@@ -916,7 +912,6 @@ function UserAppContent() {
     "/user/requests": "requests",
     "/user/aaccup": "aaccup",
     "/user/iso": "iso",
-    "/user/certification": "certification",
     "/user/submissions": "submissions",
     "/user/tasks": "tasks",
     "/user/notifications": "notifications",
@@ -939,7 +934,6 @@ function UserAppContent() {
       requests: "/user/requests",
       aaccup: "/user/aaccup",
       iso: "/user/iso",
-      certification: "/user/certification",
       submissions: "/user/aaccup?tab=submissions",
       tasks: "/user/aaccup?tab=tasks",
       notifications: "/user/notifications",
@@ -958,7 +952,8 @@ function UserAppContent() {
     dashboard: "My Dashboard",
     documents: "My Documents",
     requests: "My Requests",
-    aaccup: "AACCUP",
+     aaccup: "Accreditation",
+     iso: "ISO 21001:2025",
     notifications: "Notifications",
     activity: "My Activity",
     profile: "My Profile",
@@ -1044,14 +1039,12 @@ function UserAppContent() {
               onSuccess={() => handleNavigate("requests")}
             />
           )}
-           {(activePage === "aaccup" || activePage === "iso" || activePage === "certification" || activePage === "submissions" || activePage === "tasks") && (
+            {(activePage === "aaccup" || activePage === "iso" || activePage === "submissions" || activePage === "tasks") && (
                <UserAACCUPGroup
                key={`${location.pathname}${location.search}`}
                initialTab={
-                 activePage === "iso"
-                   ? "ISO"
-                   : activePage === "certification"
-                   ? "CERT"
+                  activePage === "iso"
+                    ? "ISO"
                    : activePage === "submissions"
                    ? "submissions"
                    : activePage === "tasks"
@@ -1169,10 +1162,6 @@ function AppRoutes() {
       />
       <Route
         path="/iso/areas/:areaId"
-        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
-      />
-      <Route
-        path="/certification"
         element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route

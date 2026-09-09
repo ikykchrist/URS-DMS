@@ -102,6 +102,9 @@ export const AUDIT_ACTIONS = {
   FOLDER_CREATED: "folder.created",
   FOLDER_UPDATED: "folder.updated",
   FOLDER_DELETED: "folder.deleted",
+  FOLDER_SHARED: "folder.shared",
+  FOLDER_SHARE_PERMISSION_CHANGED: "folder.share_permission_changed",
+  FOLDER_SHARE_REMOVED: "folder.share_removed",
 
   REQUEST_CREATED: "request.created",
   REQUEST_APPROVED: "request.approved",

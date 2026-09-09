@@ -8,12 +8,12 @@ import type { AreaSet } from "@/services/aaccup"
 // =============================================================================
 // AACCUPGroupPage — grouped admin surface for the accreditation sets
 // plus the submission review view and the assignee task list. One sidebar
-// entry ("AACCUP") with an in-page tab strip shared with the user portal.
-// Deep links /aaccup, /iso, /certification, /submissions all resolve here,
+// entry ("Accreditation") with an in-page tab strip shared with the user portal.
+// Deep links /aaccup, /iso, and /submissions all resolve here,
 // and the active tab is synced to the URL (?tab=).
 // =============================================================================
 
-const SUPPORTED_TAB_VALUES = new Set(["AACCUP", "ISO", "CERT", "submissions", "tasks"])
+const SUPPORTED_TAB_VALUES = new Set(["AACCUP", "ISO", "submissions", "tasks"])
 
 interface AACCUPGroupPageProps {
   initialTab?: string
@@ -34,7 +34,7 @@ export default function AACCUPGroupPage({ initialTab = "AACCUP" }: AACCUPGroupPa
     <div>
       {tab === "submissions" ? (
           <Submissions
-            areaSet={urlAreaSet === "AACCUP" || urlAreaSet === "ISO" || urlAreaSet === "CERT" ? urlAreaSet : undefined}
+            areaSet={urlAreaSet === "AACCUP" || urlAreaSet === "ISO" ? urlAreaSet : undefined}
           />
         ) : tab === "tasks" ? (
         <UserTasksTab />

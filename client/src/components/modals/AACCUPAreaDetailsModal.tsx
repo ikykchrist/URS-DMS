@@ -65,7 +65,7 @@ interface AACCUPAreaDetailsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   area: AACCUPArea | null
-  areaSet?: "AACCUP" | "ISO" | "CERT"
+  areaSet?: "AACCUP" | "ISO"
   onAddSubmission: () => void
   onCreateTask: () => void
   onEditArea?: () => void

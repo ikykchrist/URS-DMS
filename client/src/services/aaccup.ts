@@ -1,6 +1,7 @@
 import { apiGetPage, apiPost, apiPatch, apiDelete, apiGet, API_BASE, getAccessToken, type ApiErrorEnvelope } from "@/lib/http"
+import { sha256 as sha256Buffer } from "@/lib/sha256"
 
-export type AreaSet = "AACCUP" | "ISO" | "CERT"
+export type AreaSet = "AACCUP" | "ISO"
 
 export interface OnlineAaccupArea {
   id: string
@@ -455,8 +456,7 @@ function inferredMimeType(file: File): string {
 }
 
 async function sha256(file: File): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer())
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
+  return sha256Buffer(await file.arrayBuffer())
 }
 
 export interface RequirementUploadInput {

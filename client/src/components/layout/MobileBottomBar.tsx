@@ -40,7 +40,7 @@ interface MobileBottomBarProps {
 const adminMainTabs: BottomTab[] = [
   { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { id: "documents", icon: FolderArchive, label: "Documents" },
-  { id: "aaccup", icon: GraduationCap, label: "AACCUP" },
+  { id: "aaccup", icon: GraduationCap, label: "Accreditation" },
   { id: "requests", icon: Inbox, label: "Requests" },
 ]
 
@@ -59,7 +59,7 @@ const rootMoreTabs: BottomTab[] = [
 const userMainTabs: BottomTab[] = [
   { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { id: "documents", icon: FolderOpen, label: "Documents" },
-  { id: "aaccup", icon: GraduationCap, label: "AACCUP" },
+  { id: "aaccup", icon: GraduationCap, label: "Accreditation" },
   { id: "requests", icon: Inbox, label: "Requests" },
 ]
 
@@ -80,7 +80,7 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, isUser: user
       : adminMoreTabs
   const isTabActive = (id: string) => {
     if (id === "aaccup") {
-      return ["aaccup", "iso", "aaccup-area", "iso-area", "certification", "submissions", "tasks"].includes(activePage)
+       return ["aaccup", "iso", "aaccup-area", "iso-area", "submissions", "tasks"].includes(activePage)
     }
     return id === activePage
   }
@@ -111,8 +111,8 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, isUser: user
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" side="top" className="mb-2 w-44">
-                   <DropdownMenuItem onClick={() => onNavigate("aaccup")} className={cn("text-[13px] gap-2.5", activePage === "aaccup" && "bg-primary/10 dark:bg-primary/20")}><GraduationCap className="h-4 w-4" />AACCUP</DropdownMenuItem>
-                   <DropdownMenuItem onClick={() => onNavigate("iso")} className={cn("text-[13px] gap-2.5", activePage === "iso" && "bg-primary/10 dark:bg-primary/20")}><ShieldCheck className="h-4 w-4" />ISO</DropdownMenuItem>
+                   <DropdownMenuItem onClick={() => onNavigate("aaccup")} className={cn("text-[13px] gap-2.5", activePage === "aaccup" && "bg-primary/10 dark:bg-primary/20")}><GraduationCap className="h-4 w-4" />Accreditation</DropdownMenuItem>
+                   <DropdownMenuItem onClick={() => onNavigate("iso")} className={cn("text-[13px] gap-2.5", activePage === "iso" && "bg-primary/10 dark:bg-primary/20")}><ShieldCheck className="h-4 w-4" />ISO 21001:2025</DropdownMenuItem>
                    <DropdownMenuItem onClick={() => onNavigate("tasks")} className={cn("text-[13px] gap-2.5", activePage === "tasks" && "bg-primary/10 dark:bg-primary/20")}><ClipboardList className="h-4 w-4" />My Tasks</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

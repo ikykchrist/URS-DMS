@@ -32,6 +32,7 @@ import {
   HardDrive,
   Loader2,
   MoreHorizontal,
+  Users,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
@@ -94,12 +95,15 @@ import {
   type FolderCopyResult,
   type RepositoryFolderRow,
   type RecentItem,
+  listSharedWithMe,
 } from "@/services/documents"
 import { getRepositoryStorage, type StorageSummary } from "@/services/repository"
 import { registerUpload } from "@/lib/uploadBus"
+import { sha256 as sha256Buffer } from "@/lib/sha256"
 import type { Document } from "@/types/domain"
 import { FilePreviewModal } from "@/components/preview/FilePreviewModal"
 import { cn } from "@/lib/utils"
+import { ShareFolderModal } from "@/components/repository/ShareFolderModal"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -138,7 +142,7 @@ interface UploadItem {
 }
 
 type ViewMode = "list" | "grid"
-type Section = "all" | "favorites" | "recent" | "requested" | "recycle"
+type Section = "all" | "shared" | "favorites" | "recent" | "requested" | "recycle"
 
 export interface RepositoryExplorerHandle {
   openCreateFolder: () => void
@@ -318,6 +322,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
   const [deletedFolders, setDeletedFolders] = useState<RepositoryFolderRow[]>([])
   const [deletedDocs, setDeletedDocs] = useState<Document[]>([])
   const [requestedDocs, setRequestedDocs] = useState<Document[]>([])
+  const [sharedFolders, setSharedFolders] = useState<RepositoryFolderRow[]>([])
   const [searchResults, setSearchResults] = useState<Document[] | null>(null)
   const [storage, setStorage] = useState<StorageSummary | null>(null)
   const [folderInfo, setFolderInfo] = useState<FolderInfo | null>(null)
@@ -348,6 +353,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
   const [permanentTarget, setPermanentTarget] = useState<{ type: "folder" | "file"; id: string; name: string } | null>(null)
   const [preview, setPreview] = useState<Document | null>(null)
+  const [shareTarget, setShareTarget] = useState<RepositoryFolderRow | null>(null)
   const [conflictDialog, setConflictDialog] = useState<{ name: string; resolve: (mode: "replace" | "keep_both" | "cancel") => void } | null>(null)
 
   const ownerId = user?.id
@@ -367,9 +373,10 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
     if (!ownerId) return
     setLoading(true)
     try {
-      const [folderRows, docRows, pinRows, favRows, recentRows, delFolders, delDocs, reqRows, storageRow, jobRows] = await Promise.all([
-        listRepositoryFolders({ ownerId }),
-        listOnlineDocuments({ folderId: currentFolderId, ownerId }),
+      const [sharedRows, folderRows, docRows, pinRows, favRows, recentRows, delFolders, delDocs, reqRows, storageRow, jobRows] = await Promise.all([
+        listSharedWithMe().catch(() => [] as RepositoryFolderRow[]),
+        section === "shared" && currentFolderId === null ? Promise.resolve([] as RepositoryFolderRow[]) : listRepositoryFolders({ parentId: currentFolderId, ownerId: section === "shared" ? undefined : ownerId }),
+        listOnlineDocuments({ folderId: currentFolderId, ownerId: section === "shared" ? undefined : ownerId }),
         listPinnedRepositoryFolders(),
         listFavoriteOnlineDocuments(),
         listOnlineRecents(),
@@ -380,6 +387,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
         listCopyJobs().catch(() => [] as FolderCopyJob[]),
       ])
       setFolders(folderRows)
+      setSharedFolders(sharedRows)
       setDocs(docRows)
       setPins(pinRows)
       setFavorites(favRows)
@@ -395,7 +403,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
     } finally {
       setLoading(false)
     }
-  }, [ownerId, currentFolderId])
+  }, [ownerId, currentFolderId, section])
 
   useEffect(() => {
     load()
@@ -631,6 +639,13 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
     setSearch("")
   }
 
+  const navigateShared = (folderId: string | null) => {
+    setCurrentFolderId(folderId)
+    setFolderFilter(folderId ?? "shared")
+    setSection("shared")
+    setSelectedIds(new Set())
+  }
+
   const toggleExpand = (folderId: string) => {
     setExpanded((prev) => {
       const next = new Set(prev)
@@ -860,8 +875,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
   }
 
   const sha256File = async (file: File): Promise<string> => {
-    const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer())
-    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
+    return sha256Buffer(await file.arrayBuffer())
   }
 
   // Rule 7: exact same file (checksum + size) already in the destination.
@@ -1494,10 +1508,11 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
         <DropdownMenuItem className="text-red-600 focus:text-red-700" onClick={() => setDeleteTarget({ type: "file", id: doc.id, name: doc.name })}><Trash2 className="mr-2.5 w-4 h-4" />Delete</DropdownMenuItem>
       </>
     ),
-    folder: (folder: RepositoryFolderRow) => (
+    folder: (folder: RepositoryFolderRow) => section === "shared" ? sharedFolderActions(folder) : (
       <>
         <DropdownMenuItem onClick={() => navigate(folder.id)}><FolderOpen className="mr-2.5 w-4 h-4" />Open</DropdownMenuItem>
         <DropdownMenuItem onClick={() => void openFolderDetails(folder)}><FileText className="mr-2.5 w-4 h-4" />Details</DropdownMenuItem>
+        {folder.ownerId === ownerId && <DropdownMenuItem onClick={() => setShareTarget(folder)}><Users className="mr-2.5 w-4 h-4" />Share</DropdownMenuItem>}
         <DropdownMenuItem onClick={() => { setFolderName(folder.name); setFolderDialog({ open: true, mode: "rename", folder }) }}><Pencil className="mr-2.5 w-4 h-4" />Rename</DropdownMenuItem>
         <DropdownMenuItem onClick={() => openMove("folder", folder.id)}><Move className="mr-2.5 w-4 h-4" />Move</DropdownMenuItem>
         <DropdownMenuItem onClick={() => void handleCopyFolder(folder)}><Copy className="mr-2.5 w-4 h-4" />Copy</DropdownMenuItem>
@@ -1509,6 +1524,14 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
       </>
     ),
   }
+
+  const sharedFolderActions = (folder: RepositoryFolderRow) => (
+    <>
+      <DropdownMenuItem onClick={() => navigateShared(folder.id)}><FolderOpen className="mr-2.5 w-4 h-4" />Open</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => void openFolderDetails(folder)}><FileText className="mr-2.5 w-4 h-4" />Details</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => void downloadFolderZip(folder.id, folder.name).catch((err) => toast.error(err instanceof Error ? err.message : "ZIP download failed"))}><FileArchive className="mr-2.5 w-4 h-4" />Download ZIP</DropdownMenuItem>
+    </>
+  )
 
   const recycleActions = (type: "folder" | "file", id: string, name: string) => (
     <>
@@ -1613,6 +1636,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           <div className="mb-5 flex items-center gap-1 overflow-x-auto border-b border-border pb-1">
             {[
               { id: "all" as const, label: "My Documents", icon: <FolderOpen className="w-4 h-4" /> },
+              { id: "shared" as const, label: "Shared with Me", icon: <Users className="w-4 h-4" />, count: sharedFolders.length },
               { id: "favorites" as const, label: "Favorites", icon: <Star className="w-4 h-4" />, count: favorites.length },
               { id: "requested" as const, label: "Requested Documents", icon: <Inbox className="w-4 h-4" />, count: requestedDocs.length },
               { id: "recent" as const, label: "Recent", icon: <Clock className="w-4 h-4" />, count: recents.length },
@@ -1623,7 +1647,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => item.id === "all" ? navigate(null) : (setSection(item.id), setSelectedIds(new Set()))}
+                  onClick={() => item.id === "all" ? navigate(null) : item.id === "shared" ? navigateShared(null) : (setSection(item.id), setSelectedIds(new Set()))}
                   className={cn(
                     "flex min-h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-[13px] font-medium transition-colors",
                     active ? "bg-primary text-white" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900",
@@ -1837,13 +1861,13 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
             </div>
           )}
 
-          {/* Breadcrumb (all view) */}
-          {section === "all" && currentFolderId !== null && (
+          {/* Breadcrumb (repository views) */}
+          {(section === "all" || section === "shared") && currentFolderId !== null && (
             <div className="flex items-center gap-1.5 flex-wrap text-[13px] mb-3">
               <button type="button" onClick={() => navigate(null)}
                 className={cn("px-2 py-1 rounded-md flex items-center gap-1.5 transition-colors",
                   currentFolderId === null ? "bg-primary text-white font-medium" : "text-gray-600 hover:bg-gray-100")}>
-                <FolderOpen className="w-3.5 h-3.5" /> My Documents
+                <FolderOpen className="w-3.5 h-3.5" /> {section === "shared" ? "Shared with Me" : "My Documents"}
               </button>
               {crumbs.map((folder) => (
                 <div key={folder.id} className="flex items-center gap-1.5">
@@ -1888,11 +1912,16 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           )}
 
           {/* Listing */}
-          {loading ? (
+           {loading ? (
             <div className="min-h-[280px] flex items-center justify-center">
               <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
             </div>
-          ) : section === "recent" ? (
+           ) : section === "shared" && currentFolderId === null ? (
+             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+               {sharedFolders.length === 0 && <p className="col-span-full px-4 py-8 text-center text-[13px] text-gray-400">No folders have been shared with you.</p>}
+               {sharedFolders.map((folder) => renderCard(null, folder, folder.name, `Shared folder · ${folder.ownerId === ownerId ? "Owner" : "Shared"}`, folder.id, () => navigateShared(folder.id), { actions: sharedFolderActions(folder), badge: <span className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-semibold text-primary-700"><Users className="h-3 w-3" />Shared</span> }))}
+             </div>
+           ) : section === "recent" ? (
             <div className="rounded-lg border border-gray-100 overflow-hidden">
               {recents.length === 0 && <p className="px-4 py-8 text-center text-[13px] text-gray-400">No recent activity yet</p>}
               {recents.map((item) => (
@@ -2019,6 +2048,14 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
         onRename={async (doc, title) => { await renameOnlineDocument(doc.id, title); setPreview(null); await load() }}
         onMove={(doc) => { setPreview(null); openMove("file", doc.id) }}
         onDelete={(doc) => { setPreview(null); setDeleteTarget({ type: "file", id: doc.id, name: doc.name }) }}
+      />
+
+      <ShareFolderModal
+        open={shareTarget !== null}
+        folderId={shareTarget?.id ?? null}
+        folderName={shareTarget?.name ?? "Folder"}
+        onOpenChange={(open) => { if (!open) setShareTarget(null) }}
+        onSuccess={() => void load()}
       />
 
       {/* ── Folder create/rename dialog ── */}
