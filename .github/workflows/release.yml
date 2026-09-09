@@ -1,0 +1,81 @@
+# =============================================================
+# URS-DMS Release pipeline
+# On push to `main`: typecheck, then build + publish the backend and
+# frontend images to GHCR as `:latest` and force a Dokploy redeploy.
+#
+# Dokploy deploys the pre-built registry images (urs-dms-server / 
+# urs-dms-frontend as `ghcr.io/ikykchrist/*:latest`), NOT a git build.
+# Without this workflow a push would trigger the GitHub webhook, but the
+# `:latest` digest would be unchanged and Dokploy would "up to date", so
+# no new code would ship. Publishing here is what closes that gap.
+# =============================================================
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Needed to push container images to ghcr.io.
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    name: Build & publish images
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Frontend (root Dockerfile, same-origin API base)
+      - name: Build & push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          build-args: |
+            VITE_API_BASE=/api/v1
+          push: true
+          tags: ghcr.io/ikykchrist/urs-dms-frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      # Backend (server/Dockerfile)
+      - name: Build & push server
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          push: true
+          tags: ghcr.io/ikykchrist/urs-dms-server:latest
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,mode=max,scope=server
+
+      # Force an immediate Dokploy redeploy (the GitHub webhook also fires,
+      # but this guarantees it even if the webhook is not yet wired). The
+      # token lives in the repo's existing webhook URL; stored as a secret.
+      - name: Trigger Dokploy redeploy
+        if: env.DOKPLOY_WEBHOOK_URL != ''
+        env:
+          DOKPLOY_WEBHOOK_URL: ${{ secrets.DOKPLOY_WEBHOOK_URL }}
+        run: |
+          curl -fsS -X POST "$DOKPLOY_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            -o /dev/null -w "Dokploy redeploy triggered (HTTP %{http_code})\n"
