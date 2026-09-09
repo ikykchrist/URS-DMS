@@ -16,8 +16,8 @@ services:
 
   server:
     environment:
-      CLIENT_URL: http://localhost,http://127.0.0.1,http://192.168.8.36,https://urs-dms.pages.dev
-      PUBLIC_APP_URL: https://urs-dms.pages.dev
+      CLIENT_URL: http://localhost,http://127.0.0.1,http://192.168.8.36,https://urs-dms.online
+      PUBLIC_APP_URL: https://urs-dms.online
       COOKIE_DOMAIN: ""
       # Pages calls the HTTPS Cloudflare tunnel cross-origin. These settings
       # allow only the HTTPS deployment to use the refresh cookie.

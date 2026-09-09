@@ -7,9 +7,9 @@ API share one domain, with Nginx inside the frontend container reverse-proxying
 
 ```
 Internet ──► Traefik (Dokploy)
-              ├─► https://dms.yourdomain.com/        → frontend (Nginx + SPA)
-              ├─► https://dms.yourdomain.com/api/*   → urs-server (Express)
-              └─► https://minio.yourdomain.com       → MinIO console/API (optional)
+              ├─► https://urs-dms.online/        → frontend (Nginx + SPA)
+              ├─► https://urs-dms.online/api/*   → urs-server (Express)
+              └─► https://minio.urs-dms.online       → MinIO console/API (optional)
 ```
 
 ---
@@ -60,8 +60,8 @@ Create A records pointing at the VPS IP:
 
 | Name | Type | Value |
 |---|---|---|
-| `dms.yourdomain.com` | A | `<VPS-IP>` |
-| `minio.yourdomain.com` | A | `<VPS-IP>` |
+| `urs-dms.online` | A | `<VPS-IP>` |
+| `minio.urs-dms.online` | A | `<VPS-IP>` |
 
 If you skip the `minio` subdomain, you'll need to access the MinIO console via
 the Dokploy UI's "Show Containers" → port-forwarding.
@@ -104,8 +104,8 @@ the matching section below.
   ```
 - **Volumes:** `/data` (persistent)
 - **Domains (via Traefik):**
-  - `minio.yourdomain.com` → port `9000` (S3 API)
-  - `minio-console.yourdomain.com` → port `9001` (web console, restrict by IP if possible)
+  - `minio.urs-dms.online` → port `9000` (S3 API)
+  - `minio-console.urs-dms.online` → port `9001` (web console, restrict by IP if possible)
 - **Health check:** `curl -f http://localhost:9000/minio/health/live`
 
 After first start, open the MinIO console and **create the `urs-dms` bucket**
@@ -115,7 +115,7 @@ lets you set CORS + lifecycle rules up front):
 ```json
 [
   {
-    "AllowedOrigins": ["https://dms.yourdomain.com"],
+    "AllowedOrigins": ["https://urs-dms.online"],
     "AllowedMethods": ["GET", "PUT", "HEAD"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"],
@@ -146,8 +146,8 @@ every `GENERATE_*` placeholder with your real secret. Reference values:
 
 | Var | Example value |
 |---|---|
-| `PUBLIC_APP_URL` | `https://dms.yourdomain.com` |
-| `CLIENT_URL` | `https://dms.yourdomain.com` |
+| `PUBLIC_APP_URL` | `https://urs-dms.online` |
+| `CLIENT_URL` | `https://urs-dms.online` |
 | `DATABASE_URL` | `postgresql://urs_user:<pw>@postgres:5432/urs_dms?schema=public&connection_limit=20&pool_timeout=30` |
 | `REDIS_HOST` | `redis` (Dokploy-internal name) |
 | `MINIO_ENDPOINT` | `minio` (Dokploy-internal name) |
@@ -186,7 +186,7 @@ Postgres + Redis + MinIO must be `healthy` before the backend starts. Set
 
 ### Domain (via Traefik)
 
-Attach **`dms.yourdomain.com`** with Traefik auto-TLS. Dokploy will obtain
+Attach **`urs-dms.online`** with Traefik auto-TLS. Dokploy will obtain
 and renew the Let's Encrypt certificate automatically once DNS resolves.
 
 ### Depends on
@@ -208,8 +208,8 @@ Nginx upstream `urs-server:4000` will be unreachable on first boot. Set
    URS-DMS server listening on port 4000 (production)
    ```
 3. Once backend is healthy, deploy the frontend.
-4. Visit `https://dms.yourdomain.com/`. The SPA should load.
-5. Probe the API: `curl -s https://dms.yourdomain.com/api/v1/health | jq`.
+4. Visit `https://urs-dms.online/`. The SPA should load.
+5. Probe the API: `curl -s https://urs-dms.online/api/v1/health | jq`.
    Expect `services.minio.status === "up"` and `services.database.status === "up"`.
 
 ---

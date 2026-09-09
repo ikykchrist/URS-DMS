@@ -118,7 +118,7 @@ async function notifyRootOnCritical(entry: AuditWrite): Promise<void> {
       title,
       message,
       priority: "HIGH",
-      isRead: false,
+      readAt: null,
       entity: "audit_log",
       entityId: entry.userId ?? undefined,
     })),

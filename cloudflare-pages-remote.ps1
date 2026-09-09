@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $root = 'C:\Dev\URS-DMS'
 $healthLocal = 'http://127.0.0.1:4000/api/v1/health'
-$pagesUrl = 'https://urs-dms.pages.dev'
+$pagesUrl = 'https://urs-dms.online'
 $envRemote = "$root\.env.remote"
 
 Write-Host '============================================================'
