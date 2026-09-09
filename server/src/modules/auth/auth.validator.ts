@@ -15,10 +15,8 @@ export const strongPasswordSchema = z
   .string()
   .min(env.PASSWORD_MIN_LENGTH, `Password must be at least ${env.PASSWORD_MIN_LENGTH} characters`)
   .max(128)
-  .refine((value) => /[A-Z]/.test(value), "Password must contain an uppercase letter")
   .refine((value) => /[a-z]/.test(value), "Password must contain a lowercase letter")
-  .refine((value) => /[0-9]/.test(value), "Password must contain a number")
-  .refine((value) => /[!@#$%^&*(),.?":{}|<>]/.test(value), "Password must contain a special character");
+  .refine((value) => /[0-9]/.test(value), "Password must contain a number");
 
 export const refreshSchema = z.object({
   refreshToken: z.string().min(20).optional(),
