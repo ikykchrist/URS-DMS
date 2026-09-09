@@ -62,11 +62,12 @@ async function getInvite(token: string) {
 }
 
 export async function getRegistrationOptions() {
-  const [colleges, departments] = await Promise.all([
-    prisma.college.findMany({ where: { deletedAt: null }, select: { id: true, name: true, code: true }, orderBy: { displayOrder: "asc" } }),
-    prisma.department.findMany({ where: { deletedAt: null, collegeId: { not: null } }, select: { id: true, name: true, code: true, collegeId: true }, orderBy: { displayOrder: "asc" } }),
+  const [campuses, colleges, departments] = await Promise.all([
+    prisma.campus.findMany({ where: { deletedAt: null }, select: { id: true, name: true, code: true }, orderBy: { displayOrder: "asc" } }),
+    prisma.college.findMany({ where: { deletedAt: null }, select: { id: true, name: true, code: true, campusId: true }, orderBy: { displayOrder: "asc" } }),
+    prisma.department.findMany({ where: { deletedAt: null, collegeId: { not: null } }, select: { id: true, name: true, code: true, campusId: true, collegeId: true }, orderBy: { displayOrder: "asc" } }),
   ]);
-  return { colleges, departments };
+  return { campuses, colleges, departments };
 }
 
 export async function validateRegistrationToken(token: string): Promise<{ email: string; expiresAt: string }> {
@@ -78,14 +79,25 @@ export async function register(input: RegistrationInput, ipAddress: string | nul
   const invite = await getInvite(input.token);
   if (invite.email !== input.email.trim().toLowerCase()) throw new TokenInvalidError("This invitation belongs to a different email address");
 
-  const [emailTaken, employeeTaken, department] = await Promise.all([
+  const [emailTaken, employeeTaken, department, college] = await Promise.all([
     prisma.user.findUnique({ where: { email: invite.email }, select: { id: true } }),
     prisma.user.findUnique({ where: { employeeId: input.employeeId }, select: { id: true } }),
-    prisma.department.findFirst({ where: { id: input.departmentId, collegeId: input.collegeId, deletedAt: null }, select: { id: true } }),
+    prisma.department.findFirst({
+      where: { id: input.departmentId, collegeId: input.collegeId, deletedAt: null },
+      select: { id: true, campusId: true },
+    }),
+    prisma.college.findFirst({ where: { id: input.collegeId, deletedAt: null }, select: { id: true, campusId: true } }),
   ]);
   if (emailTaken) throw new ConflictError("Email already has an account");
   if (employeeTaken) throw new ConflictError("Employee or student ID is already in use");
-  if (!department) throw new NotFoundError("Selected department was not found in the selected campus");
+  if (!department) throw new NotFoundError("Selected department was not found in the selected college");
+  if (!college) throw new NotFoundError("Selected college was not found");
+  if (college.campusId !== input.campusId) {
+    throw new NotFoundError("Selected college does not belong to the selected campus");
+  }
+  if (department.campusId !== input.campusId) {
+    throw new NotFoundError("Selected department does not belong to the selected campus");
+  }
 
   const role = await prisma.role.findUnique({ where: { name: "FACULTY" }, select: { id: true } });
   if (!role) throw new NotFoundError("Default registration role is not configured");

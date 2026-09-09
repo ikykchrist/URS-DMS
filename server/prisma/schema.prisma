@@ -364,6 +364,8 @@ model Department {
   head          User?        @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
   collegeId     String?
   college       College?     @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  campusId      String?
+  campus        Campus?      @relation(fields: [campusId], references: [id], onDelete: SetNull)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   deletedAt     DateTime?
@@ -377,6 +379,7 @@ model Department {
 
   @@index([deletedAt])
   @@index([collegeId])
+  @@index([campusId])
   @@index([displayOrder])
   @@map("departments")
 }
@@ -844,12 +847,33 @@ model EmailMessage {
 // Sprint 7.1 â€” Administration Backend
 // =============================================================================
 
+model Campus {
+  id            String      @id @default(uuid())
+  name          String
+  code          String      @unique
+  description   String?
+  displayOrder  Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+  colleges      College[]
+  departments   Department[]
+  offices       Office[]
+  programs      Program[]
+
+  @@index([deletedAt])
+  @@index([displayOrder])
+  @@map("campuses")
+}
+
 model College {
   id            String       @id @default(uuid())
   name          String
   code          String       @unique
   description   String?
   displayOrder  Int          @default(0)
+  campusId      String?
+  campus        Campus?      @relation(fields: [campusId], references: [id], onDelete: SetNull)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   deletedAt     DateTime?
@@ -858,6 +882,7 @@ model College {
   programs      Program[]
 
   @@index([deletedAt])
+  @@index([campusId])
   @@index([displayOrder])
   @@map("colleges")
 }
@@ -1037,6 +1062,7 @@ model ConfigurationHistory {
 // =============================================================================
 
 enum OrganizationEntity {
+  CAMPUS
   COLLEGE
   DEPARTMENT
   OFFICE
@@ -1069,6 +1095,8 @@ model Office {
   head          User?       @relation("OfficeHead", fields: [headId], references: [id], onDelete: SetNull)
   collegeId     String?
   college       College?    @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  campusId      String?
+  campus        Campus?     @relation(fields: [campusId], references: [id], onDelete: SetNull)
   departmentId  String?
   department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   createdAt     DateTime    @default(now())
@@ -1077,6 +1105,7 @@ model Office {
 
   @@index([deletedAt])
   @@index([collegeId])
+  @@index([campusId])
   @@index([departmentId])
   @@index([displayOrder])
   @@map("offices")
@@ -1091,6 +1120,8 @@ model Program {
   level         ProgramLevel @default(UNDERGRADUATE)
   collegeId     String?
   college       College?     @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  campusId      String?
+  campus        Campus?      @relation(fields: [campusId], references: [id], onDelete: SetNull)
   departmentId  String?
   department    Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   createdAt     DateTime     @default(now())
@@ -1099,6 +1130,7 @@ model Program {
 
   @@index([deletedAt])
   @@index([collegeId])
+  @@index([campusId])
   @@index([departmentId])
   @@index([displayOrder])
   @@map("programs")

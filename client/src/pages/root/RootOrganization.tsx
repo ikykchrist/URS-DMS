@@ -12,6 +12,7 @@ import {
   Layers,
   FolderOpen,
   GraduationCap,
+  MapPin,
   ChevronRight,
 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -74,22 +75,22 @@ import {
 import { ApiRequestError } from "@/lib/http"
 
 // =============================================================================
-// URS-DMS — Root Console · Organization Management Engine (Sprint 7.4.2)
+// URS-DMS — Root Console · Organization Management Engine
 // -----------------------------------------------------------------------------
-// Master data for Colleges / Departments / Offices / Programs with the
-// version → history → rollback lifecycle (Configuration Engine integration).
-// The Organization Tree tab renders the live hierarchy (colleges →
-// departments → offices/programs + the Unassigned bucket). ROOT-only: the
-// page is only reachable from the Root Console.
+// Versioned master data for Campus → College → Department → Office / Program
+// with the version → history → rollback lifecycle. The Organization Tree tab
+// renders the live hierarchy (campus → colleges → departments → offices /
+// programs + the Unassigned bucket). ROOT-only.
 // =============================================================================
 
 const PAGE_SIZE = 10
 
-const ENTITIES: { id: OrgEntity; label: string; icon: React.ElementType }[] = [
-  { id: "college", label: "Colleges", icon: GraduationCap },
-  { id: "department", label: "Departments", icon: FolderOpen },
-  { id: "office", label: "Offices", icon: Building2 },
-  { id: "program", label: "Programs", icon: Layers },
+const ENTITIES: { id: OrgEntity; label: string; icon: React.ElementType; singular: string }[] = [
+  { id: "campus", label: "Campuses", icon: MapPin, singular: "Campus" },
+  { id: "college", label: "Colleges", icon: GraduationCap, singular: "College" },
+  { id: "department", label: "Departments", icon: FolderOpen, singular: "Department" },
+  { id: "office", label: "Offices", icon: Building2, singular: "Office" },
+  { id: "program", label: "Programs", icon: Layers, singular: "Program" },
 ]
 
 const PROGRAM_LEVELS: ProgramLevel[] = [
@@ -113,6 +114,7 @@ interface FormState {
   code: string
   description: string
   level: ProgramLevel
+  campusId: string
   collegeId: string
   departmentId: string
 }
@@ -122,30 +124,30 @@ const EMPTY_FORM: FormState = {
   code: "",
   description: "",
   level: "UNDERGRADUATE",
+  campusId: "",
   collegeId: "",
   departmentId: "",
 }
 
 export default function RootOrganization() {
-  const [tab, setTab] = useState<OrgEntity>("college")
+  const [tab, setTab] = useState<OrgEntity>("campus")
 
-  // ── entity tab state ────────────────────────────────────────────────────────
   const [records, setRecords] = useState<OrgRecord[]>([])
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState("")
   const [includeArchived, setIncludeArchived] = useState(false)
+  const [campusFilter, setCampusFilter] = useState<string>("all")
   const [collegeFilter, setCollegeFilter] = useState<string>("all")
   const [departmentFilter, setDepartmentFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // ── option lists (colleges/departments for parent selects + filters) ───────
+  const [campuses, setCampuses] = useState<OrgRecord[]>([])
   const [colleges, setColleges] = useState<OrgRecord[]>([])
   const [departments, setDepartments] = useState<OrgRecord[]>([])
 
-  // ── dialogs ─────────────────────────────────────────────────────────────────
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<OrgRecord | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -156,9 +158,10 @@ export default function RootOrganization() {
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [rollbackTarget, setRollbackTarget] = useState<OrgVersion | null>(null)
 
-  // ── tree tab state ──────────────────────────────────────────────────────────
   const [tree, setTree] = useState<OrganizationTree | null>(null)
   const [treeLoading, setTreeLoading] = useState(false)
+
+  const entity = ENTITIES.find((e) => e.id === tab) ?? ENTITIES[0]
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -169,10 +172,9 @@ export default function RootOrganization() {
         pageSize: PAGE_SIZE,
         q: search.trim() || undefined,
         includeArchived: includeArchived || undefined,
-        collegeId:
-          collegeFilter !== "all" ? collegeFilter : undefined,
-        departmentId:
-          departmentFilter !== "all" ? departmentFilter : undefined,
+        campusId: campusFilter !== "all" ? campusFilter : undefined,
+        collegeId: collegeFilter !== "all" ? collegeFilter : undefined,
+        departmentId: departmentFilter !== "all" ? departmentFilter : undefined,
       })
       setRecords(result.items)
       setTotal(result.meta.total)
@@ -182,7 +184,7 @@ export default function RootOrganization() {
     } finally {
       setLoading(false)
     }
-  }, [tab, page, search, includeArchived, collegeFilter, departmentFilter])
+  }, [tab, page, search, includeArchived, campusFilter, collegeFilter, departmentFilter])
 
   useEffect(() => {
     void load()
@@ -190,21 +192,23 @@ export default function RootOrganization() {
 
   useEffect(() => {
     setPage(1)
+    setCampusFilter("all")
     setCollegeFilter("all")
     setDepartmentFilter("all")
     setSearch("")
     setIncludeArchived(false)
   }, [tab])
 
-  // Load option lists once (live records, used by parent selects + filters).
   useEffect(() => {
     void (async () => {
       try {
-        const [c, d] = await Promise.all([
+        const [c, l, d] = await Promise.all([
+          listOrgRecords("campus", { pageSize: 200 }),
           listOrgRecords("college", { pageSize: 200 }),
           listOrgRecords("department", { pageSize: 200 }),
         ])
-        setColleges(c.items)
+        setCampuses(c.items)
+        setColleges(l.items)
         setDepartments(d.items)
       } catch {
         // option lists are best-effort
@@ -224,14 +228,11 @@ export default function RootOrganization() {
   }, [])
 
   useEffect(() => {
-    if (tab === "college") void loadTree()
+    if (tab === "campus") void loadTree()
   }, [tab, loadTree])
 
   const isUnauthorized = (err: unknown) =>
     err instanceof ApiRequestError && err.status === 401
-
-  const entityLabel = (e: OrgEntity) =>
-    ENTITIES.find((x) => x.id === e)?.label ?? e
 
   const openCreate = () => {
     setEditing(null)
@@ -246,6 +247,7 @@ export default function RootOrganization() {
       code: record.code,
       description: record.description ?? "",
       level: record.level ?? "UNDERGRADUATE",
+      campusId: record.campusId ?? "",
       collegeId: record.collegeId ?? "",
       departmentId: record.departmentId ?? "",
     })
@@ -262,10 +264,13 @@ export default function RootOrganization() {
       name: form.name.trim(),
       code: form.code.trim(),
       description: form.description.trim() || null,
+      campusId: form.campusId && tab !== "campus" ? form.campusId : null,
       collegeId:
-        form.collegeId && tab !== "college" ? form.collegeId : null,
+        (tab === "department" || tab === "office" || tab === "program") && form.collegeId
+          ? form.collegeId
+          : null,
       departmentId:
-        form.departmentId && (tab === "office" || tab === "program")
+        (tab === "office" || tab === "program") && form.departmentId
           ? form.departmentId
           : null,
       level: tab === "program" ? form.level : undefined,
@@ -273,10 +278,10 @@ export default function RootOrganization() {
     try {
       if (editing) {
         const updated = await updateOrgRecord(tab, editing.id, input)
-        toast.success(`${entityLabel(tab).slice(0, -1)} "${updated.name}" updated to v${updated.version}`)
+        toast.success(`${entity.singular} "${updated.name}" updated to v${updated.version}`)
       } else {
         const created = await createOrgRecord(tab, input)
-        toast.success(`${entityLabel(tab).slice(0, -1)} "${created.name}" created`)
+        toast.success(`${entity.singular} "${created.name}" created`)
       }
       setFormOpen(false)
       void load()
@@ -336,12 +341,17 @@ export default function RootOrganization() {
     }
   }
 
+  const availableColleges = colleges.filter(
+    (c) => !form.campusId || c.campusId === form.campusId,
+  )
   const availableDepartments = departments.filter(
-    (d) => !form.collegeId || d.collegeId === form.collegeId
+    (d) => (!form.campusId || d.campusId === form.campusId) &&
+      (!form.collegeId || d.collegeId === form.collegeId),
   )
 
   const parentCell = (record: OrgRecord) => {
     const bits: string[] = []
+    if (record.campusName) bits.push(record.campusName)
     if (record.collegeName) bits.push(record.collegeName)
     if (record.departmentName) bits.push(record.departmentName)
     if (bits.length === 0) return <span className="text-gray-400">—</span>
@@ -350,6 +360,7 @@ export default function RootOrganization() {
 
   const renderTreeNode = (node: OrgTreeNode, depth: number) => {
     const hasChildren =
+      node.colleges.length > 0 ||
       node.departments.length > 0 ||
       node.offices.length > 0 ||
       node.programs.length > 0
@@ -369,6 +380,7 @@ export default function RootOrganization() {
             <span className="text-[11px] text-gray-400 italic">(unassigned)</span>
           )}
         </div>
+        {node.colleges.map((c) => renderTreeNode(c, depth + 1))}
         {node.departments.map((d) => renderTreeNode(d, depth + 1))}
         {node.offices.map((o) => renderTreeNode(o, depth + 1))}
         {node.programs.map((p) => renderTreeNode(p, depth + 1))}
@@ -380,7 +392,7 @@ export default function RootOrganization() {
     <div className="p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="Organization"
-        description="Colleges, departments, offices and programs — versioned master data managed by the system administrator"
+        description="Campuses, colleges, departments, offices and programs — versioned master data managed by the system administrator"
         actions={
           <Button variant="outline" size="sm" onClick={() => void load()} className="shadow-soft">
             <RefreshCw className="w-4 h-4 mr-2" />
@@ -414,7 +426,7 @@ export default function RootOrganization() {
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <Input
                     className="h-10 pl-9"
-                    placeholder={`Search ${entityLabel(e.id).toLowerCase()} by name or code…`}
+                    placeholder={`Search ${e.label.toLowerCase()} by name or code…`}
                     value={search}
                     onChange={(ev) => {
                       setSearch(ev.target.value)
@@ -422,7 +434,30 @@ export default function RootOrganization() {
                     }}
                   />
                 </div>
-                {e.id !== "college" && (
+                {e.id !== "campus" && (
+                  <Select
+                    value={campusFilter}
+                    onValueChange={(v) => {
+                      setCampusFilter(v)
+                      setCollegeFilter("all")
+                      setDepartmentFilter("all")
+                      setPage(1)
+                    }}
+                  >
+                    <SelectTrigger className="h-10 w-full sm:w-[190px]">
+                      <SelectValue placeholder="Campus" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All campuses</SelectItem>
+                      {campuses.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {(e.id === "department" || e.id === "office" || e.id === "program") && (
                   <Select
                     value={collegeFilter}
                     onValueChange={(v) => {
@@ -436,11 +471,13 @@ export default function RootOrganization() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All colleges</SelectItem>
-                      {colleges.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
+                      {colleges
+                        .filter((c) => campusFilter === "all" || c.campusId === campusFilter)
+                        .map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 )}
@@ -458,6 +495,7 @@ export default function RootOrganization() {
                     <SelectContent>
                       <SelectItem value="all">All departments</SelectItem>
                       {departments
+                        .filter((d) => campusFilter === "all" || d.campusId === campusFilter)
                         .filter((d) => collegeFilter === "all" || d.collegeId === collegeFilter)
                         .map((d) => (
                           <SelectItem key={d.id} value={d.id}>
@@ -480,7 +518,7 @@ export default function RootOrganization() {
                 </Button>
                 <Button className="h-10 shadow-soft" onClick={openCreate}>
                   <Plus className="w-4 h-4 mr-2" />
-                  New {entityLabel(e.id).slice(0, -1)}
+                  New {e.singular}
                 </Button>
               </CardContent>
             </Card>
@@ -500,7 +538,7 @@ export default function RootOrganization() {
                     </div>
                   ) : records.length === 0 ? (
                     <div className="p-8 text-center text-[13px] text-gray-500">
-                      No {entityLabel(e.id).toLowerCase()} found.
+                      No {e.label.toLowerCase()} found.
                     </div>
                   ) : (
                     <Table>
@@ -508,9 +546,7 @@ export default function RootOrganization() {
                         <TableRow>
                           <TableHead>Name</TableHead>
                           <TableHead>Code</TableHead>
-                          {(e.id === "department" || e.id === "office" || e.id === "program") && (
-                            <TableHead>College / Department</TableHead>
-                          )}
+                          {e.id !== "campus" && <TableHead>Campus / College / Department</TableHead>}
                           {e.id === "program" && <TableHead>Level</TableHead>}
                           {e.id === "office" && <TableHead>Head</TableHead>}
                           <TableHead>Version</TableHead>
@@ -533,7 +569,7 @@ export default function RootOrganization() {
                               </div>
                             </TableCell>
                             <TableCell className="text-[13px] text-gray-600">{record.code}</TableCell>
-                            {(e.id === "department" || e.id === "office" || e.id === "program") && (
+                            {e.id !== "campus" && (
                               <TableCell className="text-[13px] text-gray-600">{parentCell(record)}</TableCell>
                             )}
                             {e.id === "program" && record.level && (
@@ -612,7 +648,7 @@ export default function RootOrganization() {
                 </CardContent>
                 <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
                   <span className="text-[12px] text-gray-500">
-                    {total} {entityLabel(e.id).toLowerCase()}
+                    {total} {e.label.toLowerCase()}
                   </span>
                   <Pagination>
                     <PaginationContent>
@@ -653,18 +689,20 @@ export default function RootOrganization() {
                 <div className="p-8 text-center text-[13px] text-gray-500">
                   Failed to load the organization tree.
                 </div>
-              ) : tree.colleges.length === 0 && tree.unassigned.departments.length === 0 &&
+              ) : tree.campuses.length === 0 && tree.unassigned.colleges.length === 0 &&
+                tree.unassigned.departments.length === 0 &&
                 tree.unassigned.offices.length === 0 && tree.unassigned.programs.length === 0 ? (
                 <div className="p-8 text-center text-[13px] text-gray-500">
-                  No organization records yet — create a college to get started.
+                  No organization records yet — create a campus to get started.
                 </div>
               ) : (
                 <div className="space-y-1">
                   <div className="text-[12px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
-                    Colleges ({tree.colleges.length})
+                    Campuses ({tree.campuses.length})
                   </div>
-                  {tree.colleges.map((c) => renderTreeNode(c, 0))}
-                  {(tree.unassigned.departments.length > 0 ||
+                  {tree.campuses.map((c) => renderTreeNode(c, 0))}
+                  {(tree.unassigned.colleges.length > 0 ||
+                    tree.unassigned.departments.length > 0 ||
                     tree.unassigned.offices.length > 0 ||
                     tree.unassigned.programs.length > 0) && (
                     <>
@@ -687,7 +725,7 @@ export default function RootOrganization() {
           <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-[520px]">
             <DialogHeader className="pb-2">
               <DialogTitle className="text-lg">
-                {editing ? `Edit ${entityLabel(tab).slice(0, -1)}` : `New ${entityLabel(tab).slice(0, -1)}`}
+                {editing ? `Edit ${entity.singular}` : `New ${entity.singular}`}
               </DialogTitle>
               <DialogDescription className="text-[14px]">
                 {editing
@@ -702,7 +740,7 @@ export default function RootOrganization() {
                   className="h-10"
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder={`e.g. College of Engineering`}
+                  placeholder={`e.g. ${entity.id === "campus" ? "URS Morong Campus" : entity.id === "program" ? "Computer Science" : "College of Engineering"}`}
                 />
               </div>
               <div className="grid gap-2">
@@ -711,7 +749,7 @@ export default function RootOrganization() {
                   className="h-10"
                   value={form.code}
                   onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-                  placeholder="e.g. COE"
+                  placeholder="e.g. URS-MORONG / COE / BSCS"
                 />
               </div>
               {tab === "program" && (
@@ -734,9 +772,37 @@ export default function RootOrganization() {
                   </Select>
                 </div>
               )}
-              {tab !== "college" && (
+              {tab !== "campus" && (
                 <div className="grid gap-2">
-                  <Label className="text-[13px] font-medium">College (optional)</Label>
+                  <Label className="text-[13px] font-medium">Campus</Label>
+                  <Select
+                    value={form.campusId}
+                    onValueChange={(v) =>
+                      setForm((f) => ({ ...f, campusId: v, collegeId: "", departmentId: "" }))
+                    }
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Select campus" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {campuses.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {tab === "college" && (
+                <div className="text-[12px] text-gray-500">
+                  A college is assigned to a campus. Add departments, offices and programs under it after saving.
+                </div>
+              )}
+              {(tab === "department" || tab === "office" || tab === "program") && (
+                <div className="grid gap-2">
+                  <Label className="text-[13px] font-medium">College</Label>
                   <Select
                     value={form.collegeId}
                     onValueChange={(v) =>
@@ -748,7 +814,7 @@ export default function RootOrganization() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">None</SelectItem>
-                      {colleges.map((c) => (
+                      {availableColleges.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
                         </SelectItem>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   Rocket,
   Building2,
@@ -15,8 +15,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  ArrowUp,
-  ArrowDown,
   Mail,
   KeyRound,
   RefreshCw,
@@ -90,6 +88,7 @@ const STEPS = [
 ]
 
 const ORG_ENTITIES: Array<{ key: OrgEntity; label: string }> = [
+  { key: "campus", label: "Campuses" },
   { key: "college", label: "Colleges" },
   { key: "department", label: "Departments" },
   { key: "office", label: "Offices" },
@@ -532,16 +531,27 @@ function StepPlatform({
 // ── Step 2 · Organization ────────────────────────────────────────────────────
 
 function StepOrganization({ flash }: { flash: (message: string) => void }) {
-  const [tab, setTab] = useState<OrgEntity>("college")
+  const [tab, setTab] = useState<OrgEntity>("campus")
   const [records, setRecords] = useState<OrgRecord[]>([])
+  const [campuses, setCampuses] = useState<OrgRecord[]>([])
+  const [colleges, setColleges] = useState<OrgRecord[]>([])
+  const [departments, setDepartments] = useState<OrgRecord[]>([])
   const [dialog, setDialog] = useState<{ open: boolean; record?: OrgRecord }>({ open: false })
-  const [form, setForm] = useState({ name: "", code: "", description: "", collegeId: "", departmentId: "", level: "UNDERGRADUATE" })
+  const [form, setForm] = useState({ name: "", code: "", description: "", campusId: "", collegeId: "", departmentId: "", level: "UNDERGRADUATE" })
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      const result = await listOrgRecords(tab, { pageSize: 200 })
-      setRecords(result.items)
+      const [rows, c, l, d] = await Promise.all([
+        listOrgRecords(tab, { pageSize: 200 }),
+        listOrgRecords("campus", { pageSize: 200 }),
+        listOrgRecords("college", { pageSize: 200 }),
+        listOrgRecords("department", { pageSize: 200 }),
+      ])
+      setRecords(rows.items)
+      setCampuses(c.items)
+      setColleges(l.items)
+      setDepartments(d.items)
     } catch {
       setRecords([])
     }
@@ -552,7 +562,7 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
   }, [load])
 
   const openCreate = () => {
-    setForm({ name: "", code: "", description: "", collegeId: "", departmentId: "", level: "UNDERGRADUATE" })
+    setForm({ name: "", code: "", description: "", campusId: "", collegeId: "", departmentId: "", level: "UNDERGRADUATE" })
     setDialog({ open: true })
   }
 
@@ -561,6 +571,7 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
       name: record.name,
       code: record.code,
       description: record.description ?? "",
+      campusId: record.campusId ?? "",
       collegeId: record.collegeId ?? "",
       departmentId: record.departmentId ?? "",
       level: record.level ?? "UNDERGRADUATE",
@@ -576,6 +587,7 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
         code: form.code,
         description: form.description || null,
         level: tab === "program" ? form.level : undefined,
+        campusId: tab !== "campus" ? form.campusId || null : undefined,
         collegeId: (tab === "department" || tab === "office" || tab === "program") ? form.collegeId || null : undefined,
         departmentId: (tab === "office" || tab === "program") ? form.departmentId || null : undefined,
       }
@@ -605,30 +617,16 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
     }
   }
 
-  const handleMove = async (index: number, direction: -1 | 1) => {
-    const target = index + direction
-    if (target < 0 || target >= records.length) return
-    const next = [...records]
-    const tmp = next[target]
-    next[target] = next[index]
-    next[index] = tmp
-    try {
-      await updateOrgRecord(tab, next[index].id, { displayOrder: next[index].displayOrder + direction * -1 })
-      await updateOrgRecord(tab, next[target].id, { displayOrder: next[target].displayOrder + direction })
-      await load()
-    } catch (err) {
-      window.alert(errorMessage(err, "Failed to reorder"))
-    }
-  }
-
-  const colleges = useMemo(() => [], [])
-  void colleges
+  const availableColleges = colleges.filter((c) => !form.campusId || c.campusId === form.campusId)
+  const availableDepartments = departments.filter(
+    (d) => (!form.campusId || d.campusId === form.campusId) && (!form.collegeId || d.collegeId === form.collegeId),
+  )
 
   return (
     <div className="space-y-5">
       <div>
         <h3 className="text-[15px] font-semibold text-gray-900">Organization</h3>
-        <p className="text-[13px] text-gray-500 mt-0.5">Colleges, departments, offices and programs</p>
+        <p className="text-[13px] text-gray-500 mt-0.5">Campuses, colleges, departments, offices and programs</p>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -648,21 +646,13 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
 
       <div className="rounded-lg border border-gray-100 divide-y divide-gray-100">
         {records.length === 0 && <p className="px-4 py-6 text-center text-[13px] text-gray-400">No {tab}s yet</p>}
-        {records.map((record, index) => (
+        {records.map((record) => (
           <div key={record.id} className="flex items-center justify-between px-4 py-3">
             <div className="min-w-0">
               <p className="text-[14px] font-medium text-gray-900">{record.name}</p>
-              <p className="text-[12px] text-gray-400 font-mono">{record.code}{record.collegeName ? ` · ${record.collegeName}` : ""}{record.departmentName ? ` · ${record.departmentName}` : ""}</p>
+              <p className="text-[12px] text-gray-400 font-mono">{record.code}{record.campusName ? ` · ${record.campusName}` : ""}{record.collegeName ? ` · ${record.collegeName}` : ""}{record.departmentName ? ` · ${record.departmentName}` : ""}</p>
             </div>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-700" disabled={index === 0}
-                onClick={() => void handleMove(index, -1)}>
-                <ArrowUp className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-700" disabled={index === records.length - 1}
-                onClick={() => void handleMove(index, 1)}>
-                <ArrowDown className="w-4 h-4" />
-              </Button>
               <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-700"
                 onClick={() => openEdit(record)}>
                 <Pencil className="w-4 h-4" />
@@ -677,7 +667,7 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
       </div>
 
       <Dialog open={dialog.open} onOpenChange={(open) => !open && setDialog({ open: false })}>
-        <DialogContent className="sm:max-w-[460px]">
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader className="pb-2">
             <DialogTitle className="text-lg">{dialog.record ? "Edit" : "Add"} {tab}</DialogTitle>
             <DialogDescription className="text-[14px]">
@@ -695,17 +685,33 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
                 <Input className="h-10 font-mono" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} />
               </div>
             </div>
-            {(tab === "department" || tab === "office" || tab === "program") && (
+            {tab !== "campus" && (
               <div className="grid gap-2">
-                <Label className="text-[13px] font-medium">College</Label>
-                <Select value={form.collegeId} onValueChange={(v) => setForm((f) => ({ ...f, collegeId: v }))}>
+                <Label className="text-[13px] font-medium">Campus</Label>
+                <Select value={form.campusId} onValueChange={(v) => setForm((f) => ({ ...f, campusId: v, collegeId: "", departmentId: "" }))}>
                   <SelectTrigger className="h-10">
-                    <SelectValue placeholder="None" />
+                    <SelectValue placeholder="Select campus" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">None</SelectItem>
-                    {records.filter((r) => r.level === null).map((r) => (
-                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    {campuses.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {(tab === "department" || tab === "office" || tab === "program") && (
+              <div className="grid gap-2">
+                <Label className="text-[13px] font-medium">College</Label>
+                <Select value={form.collegeId} onValueChange={(v) => setForm((f) => ({ ...f, collegeId: v, departmentId: "" }))}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Select college" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None</SelectItem>
+                    {availableColleges.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -713,15 +719,15 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
             )}
             {(tab === "office" || tab === "program") && (
               <div className="grid gap-2">
-                <Label className="text-[13px] font-medium">Department</Label>
+                <Label className="text-[13px] font-medium">Department (optional)</Label>
                 <Select value={form.departmentId} onValueChange={(v) => setForm((f) => ({ ...f, departmentId: v }))}>
                   <SelectTrigger className="h-10">
-                    <SelectValue placeholder="None" />
+                    <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">None</SelectItem>
-                    {records.filter((r) => r.level === null).map((r) => (
-                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    {availableDepartments.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1304,7 +1310,8 @@ function StepAdministrators({ flash }: { flash: (message: string) => void }) {
 function StepSummary({ state }: { state: SetupStateView | null }) {
   const s = state?.summary
   const rows = [
-    { label: "Colleges", value: s?.organizations.colleges ?? 0 },
+    { label: "Campuses", value: s?.organizations.campuses ?? 0 },
+  { label: "Colleges", value: s?.organizations.colleges ?? 0 },
     { label: "Departments", value: s?.organizations.departments ?? 0 },
     { label: "Offices", value: s?.organizations.offices ?? 0 },
     { label: "Programs", value: s?.organizations.programs ?? 0 },

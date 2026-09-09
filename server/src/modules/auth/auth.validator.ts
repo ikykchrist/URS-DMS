@@ -50,6 +50,7 @@ export const registrationSchema = z.object({
   lastName: registrationName,
   suffix: z.preprocess((value) => value === "" ? undefined : value, z.string().trim().max(20).optional()),
   employeeId: z.string().trim().min(2).max(64).regex(/^[A-Za-z0-9_-]+$/),
+  campusId: z.string().uuid(),
   collegeId: z.string().uuid(),
   departmentId: z.string().uuid(),
   password: strongPasswordSchema,

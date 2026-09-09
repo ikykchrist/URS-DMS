@@ -189,6 +189,11 @@ export const AUDIT_ACTIONS = {
   ORGANIZATION_DEPARTMENT_ROLLED_BACK: "organization.department.rolled_back",
   ORGANIZATION_OFFICE_ROLLED_BACK: "organization.office.rolled_back",
   ORGANIZATION_PROGRAM_ROLLED_BACK: "organization.program.rolled_back",
+  CAMPUS_CREATED: "campus.created",
+  CAMPUS_UPDATED: "campus.updated",
+  CAMPUS_ARCHIVED: "campus.archived",
+  CAMPUS_RESTORED: "campus.restored",
+  ORGANIZATION_CAMPUS_ROLLED_BACK: "organization.campus.rolled_back",
 
   // Sprint 7.4.3 — Dynamic Folder Builder. Template lifecycle actions are
   // written by the root folder-builder service; node actions cover tree
