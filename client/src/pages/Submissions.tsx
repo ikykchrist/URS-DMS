@@ -11,7 +11,7 @@ import type { AreaSet } from "@/services/aaccup"
 
 export default function Submissions({ areaSet, navigation }: { areaSet?: AreaSet; navigation?: ReactNode }) {
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
         title="Submissions"
         description="Review and manage AACCUP and ISO submissions."

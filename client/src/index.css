@@ -80,18 +80,6 @@ body {
 
 @layer utilities {
   .text-balance { text-wrap: balance; }
-  .sidebar-margin { margin-left: 260px; }
-  .sidebar-margin-collapsed { margin-left: 72px; }
-
-  @media (min-width: 1536px) {
-    .sidebar-margin { margin-left: 280px; }
-    .sidebar-margin-collapsed { margin-left: 80px; }
-  }
-
-  @media (max-width: 1024px) {
-    .sidebar-margin, .sidebar-margin-collapsed { margin-left: 0; }
-  }
-
   .hidden-mobile { @media (max-width: 640px) { display: none; } }
   .mobile-only { @media (min-width: 641px) { display: none; } }
   .table-scroll-wrapper { @apply overflow-x-auto; }
@@ -100,25 +88,32 @@ body {
   @media (min-width: 768px) { .table-cell-truncate { @apply max-w-[200px]; } }
   @media (min-width: 1024px) { .table-cell-truncate { @apply max-w-[220px]; } }
 
-  .responsive-gap { @apply gap-4; }
-  @media (min-width: 640px) { .responsive-gap { @apply gap-5; } }
+  /* Canonical spacing scale — prefer these over ad-hoc p/gap utilities.
+     Note: do not pass .card-responsive into CardContent/CardHeader via cn() —
+     use explicit p-5 md:p:6 so tailwind-merge can override defaults. */
+  .content-padding { @apply p-4 sm:p-6 lg:p-8; }
+  .responsive-gap { @apply gap-3 sm:gap-4 lg:gap-5; }
+  .section-stack { @apply space-y-6; }
+  .card-responsive { @apply p-5 md:p-6; }
+  .toolbar-padding { @apply p-4; }
+  .table-footer {
+    @apply px-4 py-3 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3;
+  }
+  .navbar-responsive { @apply px-4 md:px-6; }
 
   .dialog-responsive { @apply w-full max-w-lg p-4; }
   @media (max-width: 640px) { .dialog-responsive { @apply max-w-[calc(100%-1rem)] p-3; } }
 
-  .card-responsive { @apply p-4; }
-  @media (min-width: 768px) { .card-responsive { @apply p-5; } }
-
-  .navbar-responsive { @apply px-4; }
-  @media (min-width: 768px) { .navbar-responsive { @apply px-6; } }
-
-  .content-padding { @apply p-4; }
-  @media (min-width: 640px) { .content-padding { @apply p-6; } }
-  @media (min-width: 1024px) { .content-padding { @apply p-8; } }
-
   .sidebar-transition { transition: margin-left 0.2s ease-in-out; }
   .text-responsive { @apply text-sm; }
   @media (min-width: 768px) { .text-responsive { @apply text-base; } }
+
+  /* Input height scale — standardize form inputs to h-10 (40px) for desktop,
+     h-11 (44px) for enhanced touch target, h-9 (36px) for compact forms.
+     Apply via className="input-h-10" etc. on <input>, <select>, <textarea>. */
+  .input-h-10 { height: 2.5rem; }
+  .input-h-11 { height: 2.75rem; }
+  .input-h-9 { height: 2.25rem; }
 }
 
 @keyframes skeleton-shimmer {
@@ -264,6 +259,7 @@ body {
 .dark .border-r-gray-200 { border-right-color: #1E293B; }
 .dark .border-l-gray-200 { border-left-color: #1E293B; }
 
+.border-border { border-color: #E4E9F2; }
 .dark .border-border,
 .dark .border-border\/60,
 .dark .border-border\/70,

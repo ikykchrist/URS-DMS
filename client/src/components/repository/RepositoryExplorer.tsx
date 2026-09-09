@@ -1690,7 +1690,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
             onChange={(e) => { handleFiles(e.target.files); e.target.value = "" }} />
           {/* Toolbar */}
           <div className="flex flex-col gap-3 mb-5">
-            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+            <div className="toolbar-padding flex flex-col gap-3 lg:flex-row lg:items-center">
             {section === "all" && (
               <div className="flex items-center gap-2 shrink-0">
                 <Button variant="outline" size="sm" className="h-10" onClick={openCreateFolder}>
@@ -1705,7 +1705,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 placeholder="Search files and folders..."
-                className="pl-10 h-10 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white dark:bg-gray-800 dark:hover:bg-gray-700"
+                className="pl-10 h-9 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white dark:bg-gray-800 dark:hover:bg-gray-700"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />

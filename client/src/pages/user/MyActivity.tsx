@@ -92,13 +92,13 @@ export default function MyActivity() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="content-padding section-stack">
       <PageHeader
         title="My Activity"
         description={`Your recent activity across URS-DMS${total > 0 ? ` · ${total} entries` : ""}`}
       />
 
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="toolbar-padding flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           <Input
@@ -166,7 +166,7 @@ export default function MyActivity() {
                 )}
                 onClick={() => setDetailId(detailId === entry.id ? null : entry.id)}
               >
-                <CardContent className="p-4 pt-5">
+                <CardContent className="p-5 md:p-6">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="flex-shrink-0">

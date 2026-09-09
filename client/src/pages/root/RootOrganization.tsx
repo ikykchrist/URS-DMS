@@ -10,7 +10,6 @@ import {
   Building2,
   Network,
   Layers,
-  FolderOpen,
   GraduationCap,
   MapPin,
   ChevronRight,
@@ -77,10 +76,10 @@ import { ApiRequestError } from "@/lib/http"
 // =============================================================================
 // URS-DMS — Root Console · Organization Management Engine
 // -----------------------------------------------------------------------------
-// Versioned master data for Campus → College → Department → Office / Program
+// Versioned master data for Campus → College → Programs / Offices
 // with the version → history → rollback lifecycle. The Organization Tree tab
-// renders the live hierarchy (campus → colleges → departments → offices /
-// programs + the Unassigned bucket). ROOT-only.
+// renders the live hierarchy (campus → colleges → programs / offices +
+// the Unassigned bucket). ROOT-only.
 // =============================================================================
 
 const PAGE_SIZE = 10
@@ -88,9 +87,8 @@ const PAGE_SIZE = 10
 const ENTITIES: { id: OrgEntity; label: string; icon: React.ElementType; singular: string }[] = [
   { id: "campus", label: "Campuses", icon: MapPin, singular: "Campus" },
   { id: "college", label: "Colleges", icon: GraduationCap, singular: "College" },
-  { id: "department", label: "Departments", icon: FolderOpen, singular: "Department" },
-  { id: "office", label: "Offices", icon: Building2, singular: "Office" },
   { id: "program", label: "Programs", icon: Layers, singular: "Program" },
+  { id: "office", label: "Offices", icon: Building2, singular: "Office" },
 ]
 
 const PROGRAM_LEVELS: ProgramLevel[] = [
@@ -129,6 +127,11 @@ const EMPTY_FORM: FormState = {
   departmentId: "",
 }
 
+// Radix Select disallows an empty-string item value (it uses "" to mean "clear
+// the selection"). We use a sentinel for the "None" option and map it back to
+// "" so the field just shows its placeholder when nothing is chosen.
+const NONE_VALUE = "__none__"
+
 export default function RootOrganization() {
   const [tab, setTab] = useState<OrgEntity>("campus")
 
@@ -140,13 +143,11 @@ export default function RootOrganization() {
   const [includeArchived, setIncludeArchived] = useState(false)
   const [campusFilter, setCampusFilter] = useState<string>("all")
   const [collegeFilter, setCollegeFilter] = useState<string>("all")
-  const [departmentFilter, setDepartmentFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [campuses, setCampuses] = useState<OrgRecord[]>([])
   const [colleges, setColleges] = useState<OrgRecord[]>([])
-  const [departments, setDepartments] = useState<OrgRecord[]>([])
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<OrgRecord | null>(null)
@@ -174,7 +175,6 @@ export default function RootOrganization() {
         includeArchived: includeArchived || undefined,
         campusId: campusFilter !== "all" ? campusFilter : undefined,
         collegeId: collegeFilter !== "all" ? collegeFilter : undefined,
-        departmentId: departmentFilter !== "all" ? departmentFilter : undefined,
       })
       setRecords(result.items)
       setTotal(result.meta.total)
@@ -184,7 +184,7 @@ export default function RootOrganization() {
     } finally {
       setLoading(false)
     }
-  }, [tab, page, search, includeArchived, campusFilter, collegeFilter, departmentFilter])
+  }, [tab, page, search, includeArchived, campusFilter, collegeFilter])
 
   useEffect(() => {
     void load()
@@ -194,7 +194,6 @@ export default function RootOrganization() {
     setPage(1)
     setCampusFilter("all")
     setCollegeFilter("all")
-    setDepartmentFilter("all")
     setSearch("")
     setIncludeArchived(false)
   }, [tab])
@@ -202,14 +201,12 @@ export default function RootOrganization() {
   useEffect(() => {
     void (async () => {
       try {
-        const [c, l, d] = await Promise.all([
+        const [c, l] = await Promise.all([
           listOrgRecords("campus", { pageSize: 200 }),
           listOrgRecords("college", { pageSize: 200 }),
-          listOrgRecords("department", { pageSize: 200 }),
         ])
         setCampuses(c.items)
         setColleges(l.items)
-        setDepartments(d.items)
       } catch {
         // option lists are best-effort
       }
@@ -260,21 +257,18 @@ export default function RootOrganization() {
       return
     }
     setSaving(true)
+    // Only send the fields that apply to this entity. Fields that don't apply
+    // are set to `undefined` (omitted by JSON.stringify) — not `null` — because
+    // the backend schemas are `.strict()` and reject null parent keys.
     const input: OrgWriteInput = {
       name: form.name.trim(),
       code: form.code.trim(),
       description: form.description.trim() || null,
-      campusId: form.campusId && tab !== "campus" ? form.campusId : null,
-      collegeId:
-        (tab === "department" || tab === "office" || tab === "program") && form.collegeId
-          ? form.collegeId
-          : null,
-      departmentId:
-        (tab === "office" || tab === "program") && form.departmentId
-          ? form.departmentId
-          : null,
       level: tab === "program" ? form.level : undefined,
     }
+    if (tab !== "campus" && form.campusId) input.campusId = form.campusId
+    if ((tab === "office" || tab === "program") && form.collegeId)
+      input.collegeId = form.collegeId
     try {
       if (editing) {
         const updated = await updateOrgRecord(tab, editing.id, input)
@@ -344,16 +338,11 @@ export default function RootOrganization() {
   const availableColleges = colleges.filter(
     (c) => !form.campusId || c.campusId === form.campusId,
   )
-  const availableDepartments = departments.filter(
-    (d) => (!form.campusId || d.campusId === form.campusId) &&
-      (!form.collegeId || d.collegeId === form.collegeId),
-  )
 
   const parentCell = (record: OrgRecord) => {
     const bits: string[] = []
     if (record.campusName) bits.push(record.campusName)
     if (record.collegeName) bits.push(record.collegeName)
-    if (record.departmentName) bits.push(record.departmentName)
     if (bits.length === 0) return <span className="text-gray-400">—</span>
     return <span>{bits.join(" · ")}</span>
   }
@@ -389,10 +378,10 @@ export default function RootOrganization() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
         title="Organization"
-        description="Campuses, colleges, departments, offices and programs — versioned master data managed by the system administrator"
+        description="Campuses, colleges, programs and offices — versioned master data managed by the system administrator"
         actions={
           <Button variant="outline" size="sm" onClick={() => void load()} className="shadow-soft">
             <RefreshCw className="w-4 h-4 mr-2" />
@@ -421,7 +410,7 @@ export default function RootOrganization() {
         {ENTITIES.map((e) => (
           <TabsContent key={e.id} value={e.id}>
             <Card className="border-border/70 shadow-soft mb-4">
-              <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
+              <CardContent className="toolbar-padding flex flex-col gap-3 lg:flex-row lg:items-center">
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <Input
@@ -440,7 +429,6 @@ export default function RootOrganization() {
                     onValueChange={(v) => {
                       setCampusFilter(v)
                       setCollegeFilter("all")
-                      setDepartmentFilter("all")
                       setPage(1)
                     }}
                   >
@@ -457,12 +445,11 @@ export default function RootOrganization() {
                     </SelectContent>
                   </Select>
                 )}
-                {(e.id === "department" || e.id === "office" || e.id === "program") && (
+                {(e.id === "office" || e.id === "program") && (
                   <Select
                     value={collegeFilter}
                     onValueChange={(v) => {
                       setCollegeFilter(v)
-                      setDepartmentFilter("all")
                       setPage(1)
                     }}
                   >
@@ -476,30 +463,6 @@ export default function RootOrganization() {
                         .map((c) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                {(e.id === "office" || e.id === "program") && (
-                  <Select
-                    value={departmentFilter}
-                    onValueChange={(v) => {
-                      setDepartmentFilter(v)
-                      setPage(1)
-                    }}
-                  >
-                    <SelectTrigger className="h-10 w-full sm:w-[190px]">
-                      <SelectValue placeholder="Department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All departments</SelectItem>
-                      {departments
-                        .filter((d) => campusFilter === "all" || d.campusId === campusFilter)
-                        .filter((d) => collegeFilter === "all" || d.collegeId === collegeFilter)
-                        .map((d) => (
-                          <SelectItem key={d.id} value={d.id}>
-                            {d.name}
                           </SelectItem>
                         ))}
                     </SelectContent>
@@ -546,7 +509,7 @@ export default function RootOrganization() {
                         <TableRow>
                           <TableHead>Name</TableHead>
                           <TableHead>Code</TableHead>
-                          {e.id !== "campus" && <TableHead>Campus / College / Department</TableHead>}
+                          {e.id !== "campus" && <TableHead>Campus / College</TableHead>}
                           {e.id === "program" && <TableHead>Level</TableHead>}
                           {e.id === "office" && <TableHead>Head</TableHead>}
                           <TableHead>Version</TableHead>
@@ -646,7 +609,7 @@ export default function RootOrganization() {
                     </Table>
                   )}
                 </CardContent>
-                <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+                <div className="table-footer">
                   <span className="text-[12px] text-gray-500">
                     {total} {e.label.toLowerCase()}
                   </span>
@@ -778,14 +741,14 @@ export default function RootOrganization() {
                   <Select
                     value={form.campusId}
                     onValueChange={(v) =>
-                      setForm((f) => ({ ...f, campusId: v, collegeId: "", departmentId: "" }))
+                      setForm((f) => ({ ...f, campusId: v === NONE_VALUE ? "" : v, collegeId: "", departmentId: "" }))
                     }
                   >
                     <SelectTrigger className="h-10">
                       <SelectValue placeholder="Select campus" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value={NONE_VALUE}>None</SelectItem>
                       {campuses.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
@@ -797,47 +760,26 @@ export default function RootOrganization() {
               )}
               {tab === "college" && (
                 <div className="text-[12px] text-gray-500">
-                  A college is assigned to a campus. Add departments, offices and programs under it after saving.
+                  A college is assigned to a campus. Add programs and offices under it after saving.
                 </div>
               )}
-              {(tab === "department" || tab === "office" || tab === "program") && (
+              {(tab === "office" || tab === "program") && (
                 <div className="grid gap-2">
                   <Label className="text-[13px] font-medium">College</Label>
                   <Select
                     value={form.collegeId}
                     onValueChange={(v) =>
-                      setForm((f) => ({ ...f, collegeId: v, departmentId: "" }))
+                      setForm((f) => ({ ...f, collegeId: v === NONE_VALUE ? "" : v, departmentId: "" }))
                     }
                   >
                     <SelectTrigger className="h-10">
                       <SelectValue placeholder="Select college" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value={NONE_VALUE}>None</SelectItem>
                       {availableColleges.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              {(tab === "office" || tab === "program") && (
-                <div className="grid gap-2">
-                  <Label className="text-[13px] font-medium">Department (optional)</Label>
-                  <Select
-                    value={form.departmentId}
-                    onValueChange={(v) => setForm((f) => ({ ...f, departmentId: v }))}
-                  >
-                    <SelectTrigger className="h-10">
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">None</SelectItem>
-                      {availableDepartments.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

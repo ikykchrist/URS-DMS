@@ -42,15 +42,18 @@ interface UserRequestsProps {
   onBrowseArchive?: () => void
 }
 
+const REQUESTS_TABS = ["all", "pending", "approved", "fulfilled", "rejected"] as const
+type RequestsTab = (typeof REQUESTS_TABS)[number]
+const isRequestsTab = (value: string | null): value is RequestsTab =>
+  !!value && (REQUESTS_TABS as readonly string[]).includes(value)
+
 export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const [requests, setRequests] = useState<DocumentRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const urlTab = searchParams.get("tab")
   const highlightId = searchParams.get("highlight")
-  const [activeTab, setActiveTab] = useState<string>(urlTab && ["all", "pending", "approved", "fulfilled", "rejected"].includes(urlTab) ? urlTab : "all")
   const [selected, setSelected] = useState<DocumentRequest | null>(null)
   const [cancelling, setCancelling] = useState(false)
 
@@ -66,20 +69,17 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
 
   useEffect(() => { void refresh() }, [refresh])
 
-  useEffect(() => {
-    const tab = searchParams.get("tab")
-    if (tab && ["all", "pending", "approved", "fulfilled", "rejected"].includes(tab)) setActiveTab(tab)
-    else setActiveTab("all")
-  }, [searchParams])
+  // URL query param is the single source of truth for the active filter tab.
+  // The URL is updated directly in the click handler (replace:true), so the
+  // page can never snap back to a stale "last selected" tab.
+  const activeTab: RequestsTab = isRequestsTab(searchParams.get("tab")) ? searchParams.get("tab") as RequestsTab : "all"
 
-  useEffect(() => {
-    setSearchParams((previous) => {
-      const next = new URLSearchParams(previous)
-      if (activeTab === "all") next.delete("tab")
-      else next.set("tab", activeTab)
-      return next
-    }, { replace: true })
-  }, [activeTab, setSearchParams])
+  const selectTab = (tab: RequestsTab) => {
+    const next = new URLSearchParams(searchParams)
+    if (tab === "all") next.delete("tab")
+    else next.set("tab", tab)
+    setSearchParams(next, { replace: true })
+  }
 
   const filteredRequests = requests.filter((req) => {
     const matchesSearch = req.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -105,7 +105,7 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
         title="My Requests"
         description="Track your document access requests"
@@ -118,12 +118,12 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
       />
 
       <Card className="border-border/70 shadow-soft mb-6">
-         <CardContent className="p-4 pt-4 md:p-5 md:pt-5">
+         <CardContent className="p-5 md:p-6">
             <div className="flex items-center gap-1 overflow-x-auto">
-              {(["all", "pending", "approved", "fulfilled", "rejected"] as const).map((tab) => (
+              {REQUESTS_TABS.map((tab) => (
                 <button
                     key={tab}
-                    onClick={() => setActiveTab(tab)}
+                    onClick={() => selectTab(tab)}
                     className={cn(
                       "px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors whitespace-nowrap",
                       activeTab === tab
@@ -139,7 +139,7 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
       </Card>
 
       <Card className="border-border/70 shadow-soft mb-6">
-         <CardContent className="p-4 pt-4 md:p-5 md:pt-5">
+         <CardContent className="p-5 md:p-6">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
@@ -173,7 +173,7 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
         <div className="space-y-3">
           {filteredRequests.map((request) => (
               <Card key={request.id} className={cn("border-border/70 shadow-soft hover:shadow-lift transition-shadow", request.id === highlightId && "ring-2 ring-blue-300 bg-primary-50")}>
-               <CardContent className="p-4 pt-4 md:p-5 md:pt-5">
+               <CardContent className="p-5 md:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center mt-0.5">
@@ -227,7 +227,7 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
       )}
 
       <Card className="border-border/70 shadow-soft mt-6">
-         <CardContent className="p-4 pt-4 md:p-5 md:pt-5">
+         <CardContent className="p-5 md:p-6">
           <p className="text-[13px] text-gray-500">Showing {filteredRequests.length} of {requests.length} requests</p>
         </CardContent>
       </Card>

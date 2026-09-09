@@ -14,7 +14,8 @@ import { apiGet, apiPost } from "@/lib/http"
 interface RegistrationOptions {
   campuses: Array<{ id: string; name: string; code: string }>
   colleges: Array<{ id: string; name: string; code: string; campusId: string | null }>
-  departments: Array<{ id: string; name: string; code: string; campusId: string | null; collegeId: string }>
+  programs: Array<{ id: string; name: string; code: string; campusId: string | null; collegeId: string }>
+  offices: Array<{ id: string; name: string; code: string; campusId: string | null; collegeId: string | null; departmentId: string | null }>
 }
 
 export default function RegisterPage() {
@@ -29,7 +30,7 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState(false)
   const [requestSent, setRequestSent] = useState(false)
   const [requestEmail, setRequestEmail] = useState("")
-  const [form, setForm] = useState({ firstName: "", middleName: "", lastName: "", suffix: "", employeeId: "", campusId: "", collegeId: "", departmentId: "", password: "", confirmPassword: "" })
+  const [form, setForm] = useState({ firstName: "", middleName: "", lastName: "", suffix: "", employeeId: "", campusId: "", collegeId: "", programId: "", officeId: "", password: "", confirmPassword: "" })
 
   useEffect(() => {
     document.title = "Register | URS-DMS"
@@ -53,9 +54,21 @@ export default function RegisterPage() {
     [form.campusId, options],
   )
 
-  const departments = useMemo(
-    () => options?.departments.filter((department) => department.collegeId === form.collegeId) ?? [],
+  const programs = useMemo(
+    () => options?.programs.filter((program) => program.collegeId === form.collegeId) ?? [],
     [form.collegeId, options],
+  )
+
+  // Offices belong to a campus (directly or through a college). When a college
+  // is chosen, keep campus-wide offices + offices of that college; otherwise
+  // list every office on the selected campus.
+  const offices = useMemo(
+    () => (options?.offices ?? []).filter((office) => {
+      if (office.campusId !== form.campusId) return false
+      if (!form.collegeId) return true
+      return office.collegeId === null || office.collegeId === form.collegeId
+    }),
+    [form.campusId, form.collegeId, options],
   )
 
   const formIsComplete = Boolean(
@@ -64,8 +77,6 @@ export default function RegisterPage() {
       && form.lastName.trim()
       && form.employeeId.trim()
       && form.campusId
-      && form.collegeId
-      && form.departmentId
        && passwordMeetsRequirements(form.password)
       && form.confirmPassword
       && form.password === form.confirmPassword,
@@ -77,8 +88,11 @@ export default function RegisterPage() {
     setForm((current) => ({
       ...current,
       [field]: value,
-      ...(field === "campusId" ? { collegeId: "", departmentId: "" } : {}),
-      ...(field === "collegeId" ? { departmentId: "" } : {}),
+      ...(field === "campusId" ? { collegeId: "", programId: "", officeId: "" } : {}),
+      ...(field === "collegeId" ? { programId: "", officeId: "" } : {}),
+      // A program is a faculty assignment; an office is a staff assignment.
+      ...(field === "programId" && value ? { officeId: "" } : {}),
+      ...(field === "officeId" && value ? { programId: "" } : {}),
     }))
 
   const handleSubmit = async (event: FormEvent) => {
@@ -155,11 +169,10 @@ export default function RegisterPage() {
               ))}
             </div>
             <div className="space-y-2"><Label htmlFor="employeeId">Employee/Student ID</Label><Input id="employeeId" value={form.employeeId} onChange={(event) => update("employeeId", event.target.value)} className="h-11" required /></div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2"><Label htmlFor="campusId">Campus</Label><select id="campusId" value={form.campusId} onChange={(event) => update("campusId", event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" required><option value="">Select campus</option>{options.campuses.map((campus) => <option key={campus.id} value={campus.id}>{campus.name}</option>)}</select></div>
-              <div className="space-y-2"><Label htmlFor="collegeId">College / Department</Label><select id="collegeId" value={form.collegeId} onChange={(event) => update("collegeId", event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" required disabled={!form.campusId}><option value="">Select college</option>{colleges.map((college) => <option key={college.id} value={college.id}>{college.name}</option>)}</select></div>
-            </div>
-            <div className="space-y-2"><Label htmlFor="departmentId">Department</Label><select id="departmentId" value={form.departmentId} onChange={(event) => update("departmentId", event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" required disabled={!form.collegeId}><option value="">Select department</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></div>
+            <div className="space-y-2"><Label htmlFor="campusId">Campus <span className="text-red-500">*</span></Label><select id="campusId" value={form.campusId} onChange={(event) => update("campusId", event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" required><option value="">Select campus</option>{options.campuses.map((campus) => <option key={campus.id} value={campus.id}>{campus.name}</option>)}</select><p className="text-xs text-slate-400">Required — your campus is your home unit</p></div>
+            <div className="space-y-2"><Label htmlFor="collegeId">College <span className="text-slate-400 font-normal">(optional)</span></Label><select id="collegeId" value={form.collegeId} onChange={(event) => update("collegeId", event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:opacity-60 disabled:bg-slate-50" disabled={!form.campusId}><option value="">Select college (optional)</option>{colleges.map((college) => <option key={college.id} value={college.id}>{college.name}</option>)}</select></div>
+            <div className="space-y-2"><Label htmlFor="programId">Program <span className="text-slate-400 font-normal">(optional)</span></Label><select id="programId" value={form.programId} onChange={(event) => update("programId", event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:opacity-60 disabled:bg-slate-50" disabled={!form.collegeId}><option value="">Select program (optional)</option>{programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}</select></div>
+            <div className="space-y-2"><Label htmlFor="officeId">Office <span className="text-slate-400 font-normal">(optional)</span></Label><select id="officeId" value={form.officeId} onChange={(event) => update("officeId", event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:opacity-60 disabled:bg-slate-50" disabled={!form.campusId}><option value="">Select office (optional)</option>{offices.map((office) => <option key={office.id} value={office.id}>{office.name}</option>)}</select></div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2"><Label htmlFor="registration-password">Password</Label><PasswordInput id="registration-password" value={form.password} onChange={(event) => update("password", event.target.value)} /></div>
               <div className="space-y-2"><Label htmlFor="registration-confirm-password">Confirm password</Label><PasswordInput id="registration-confirm-password" value={form.confirmPassword} onChange={(event) => update("confirmPassword", event.target.value)} error={form.confirmPassword && form.password !== form.confirmPassword ? "Passwords do not match" : undefined} /></div>

@@ -90,10 +90,12 @@ const STEPS = [
 const ORG_ENTITIES: Array<{ key: OrgEntity; label: string }> = [
   { key: "campus", label: "Campuses" },
   { key: "college", label: "Colleges" },
-  { key: "department", label: "Departments" },
-  { key: "office", label: "Offices" },
   { key: "program", label: "Programs" },
+  { key: "office", label: "Offices" },
 ]
+
+// Radix Select disallows an empty-string item value; use a sentinel for "None".
+const NONE_VALUE = "__none__"
 
 function errorMessage(err: unknown, fallback: string): string {
   if (err instanceof ApiRequestError) return err.message
@@ -185,7 +187,7 @@ export default function RootSetupWizard() {
 
   if (loading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8">
+      <div className="content-padding">
         <PageHeader title="Platform Setup Wizard" description="Configure a newly installed URS-DMS instance" />
         <div className="min-h-[320px] flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
@@ -196,7 +198,7 @@ export default function RootSetupWizard() {
 
   if (error) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8">
+      <div className="content-padding">
         <PageHeader title="Platform Setup Wizard" description="Configure a newly installed URS-DMS instance" />
         <Card className="border-red-200 bg-red-50/50">
           <CardContent className="p-6 text-[13px] text-red-700">{error}</CardContent>
@@ -209,7 +211,7 @@ export default function RootSetupWizard() {
   const notStarted = state?.status === "NOT_STARTED"
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
         title="Platform Setup Wizard"
         description={
@@ -265,7 +267,7 @@ export default function RootSetupWizard() {
         <>
           {/* Progress indicator */}
           <Card className="border-border/70 shadow-soft mb-6">
-            <CardContent className="p-4">
+            <CardContent className="p-5 md:p-6">
               <div className="flex items-center gap-1 overflow-x-auto">
                 {STEPS.map((item) => {
                   const Icon = item.icon
@@ -535,23 +537,20 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
   const [records, setRecords] = useState<OrgRecord[]>([])
   const [campuses, setCampuses] = useState<OrgRecord[]>([])
   const [colleges, setColleges] = useState<OrgRecord[]>([])
-  const [departments, setDepartments] = useState<OrgRecord[]>([])
   const [dialog, setDialog] = useState<{ open: boolean; record?: OrgRecord }>({ open: false })
-  const [form, setForm] = useState({ name: "", code: "", description: "", campusId: "", collegeId: "", departmentId: "", level: "UNDERGRADUATE" })
+  const [form, setForm] = useState({ name: "", code: "", description: "", campusId: "", collegeId: "", level: "UNDERGRADUATE" })
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      const [rows, c, l, d] = await Promise.all([
+      const [rows, c, l] = await Promise.all([
         listOrgRecords(tab, { pageSize: 200 }),
         listOrgRecords("campus", { pageSize: 200 }),
         listOrgRecords("college", { pageSize: 200 }),
-        listOrgRecords("department", { pageSize: 200 }),
       ])
       setRecords(rows.items)
       setCampuses(c.items)
       setColleges(l.items)
-      setDepartments(d.items)
     } catch {
       setRecords([])
     }
@@ -562,7 +561,7 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
   }, [load])
 
   const openCreate = () => {
-    setForm({ name: "", code: "", description: "", campusId: "", collegeId: "", departmentId: "", level: "UNDERGRADUATE" })
+    setForm({ name: "", code: "", description: "", campusId: "", collegeId: "", level: "UNDERGRADUATE" })
     setDialog({ open: true })
   }
 
@@ -573,7 +572,6 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
       description: record.description ?? "",
       campusId: record.campusId ?? "",
       collegeId: record.collegeId ?? "",
-      departmentId: record.departmentId ?? "",
       level: record.level ?? "UNDERGRADUATE",
     })
     setDialog({ open: true, record })
@@ -588,8 +586,7 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
         description: form.description || null,
         level: tab === "program" ? form.level : undefined,
         campusId: tab !== "campus" ? form.campusId || null : undefined,
-        collegeId: (tab === "department" || tab === "office" || tab === "program") ? form.collegeId || null : undefined,
-        departmentId: (tab === "office" || tab === "program") ? form.departmentId || null : undefined,
+        collegeId: (tab === "office" || tab === "program") ? form.collegeId || null : undefined,
       }
       if (dialog.record) {
         await updateOrgRecord(tab, dialog.record.id, input)
@@ -618,15 +615,12 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
   }
 
   const availableColleges = colleges.filter((c) => !form.campusId || c.campusId === form.campusId)
-  const availableDepartments = departments.filter(
-    (d) => (!form.campusId || d.campusId === form.campusId) && (!form.collegeId || d.collegeId === form.collegeId),
-  )
 
   return (
     <div className="space-y-5">
       <div>
         <h3 className="text-[15px] font-semibold text-gray-900">Organization</h3>
-        <p className="text-[13px] text-gray-500 mt-0.5">Campuses, colleges, departments, offices and programs</p>
+        <p className="text-[13px] text-gray-500 mt-0.5">Campuses, colleges, programs and offices</p>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -650,7 +644,7 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
           <div key={record.id} className="flex items-center justify-between px-4 py-3">
             <div className="min-w-0">
               <p className="text-[14px] font-medium text-gray-900">{record.name}</p>
-              <p className="text-[12px] text-gray-400 font-mono">{record.code}{record.campusName ? ` · ${record.campusName}` : ""}{record.collegeName ? ` · ${record.collegeName}` : ""}{record.departmentName ? ` · ${record.departmentName}` : ""}</p>
+              <p className="text-[12px] text-gray-400 font-mono">{record.code}{record.campusName ? ` · ${record.campusName}` : ""}{record.collegeName ? ` · ${record.collegeName}` : ""}</p>
             </div>
             <div className="flex items-center gap-1">
               <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-700"
@@ -688,29 +682,13 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
             {tab !== "campus" && (
               <div className="grid gap-2">
                 <Label className="text-[13px] font-medium">Campus</Label>
-                <Select value={form.campusId} onValueChange={(v) => setForm((f) => ({ ...f, campusId: v, collegeId: "", departmentId: "" }))}>
+                <Select value={form.campusId} onValueChange={(v) => setForm((f) => ({ ...f, campusId: v === NONE_VALUE ? "" : v, collegeId: "" }))}>
                   <SelectTrigger className="h-10">
                     <SelectValue placeholder="Select campus" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value={NONE_VALUE}>None</SelectItem>
                     {campuses.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {(tab === "department" || tab === "office" || tab === "program") && (
-              <div className="grid gap-2">
-                <Label className="text-[13px] font-medium">College</Label>
-                <Select value={form.collegeId} onValueChange={(v) => setForm((f) => ({ ...f, collegeId: v, departmentId: "" }))}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Select college" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">None</SelectItem>
-                    {availableColleges.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -719,15 +697,15 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
             )}
             {(tab === "office" || tab === "program") && (
               <div className="grid gap-2">
-                <Label className="text-[13px] font-medium">Department (optional)</Label>
-                <Select value={form.departmentId} onValueChange={(v) => setForm((f) => ({ ...f, departmentId: v }))}>
+                <Label className="text-[13px] font-medium">College</Label>
+                <Select value={form.collegeId} onValueChange={(v) => setForm((f) => ({ ...f, collegeId: v === NONE_VALUE ? "" : v }))}>
                   <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Select department" />
+                    <SelectValue placeholder="Select college" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
-                    {availableDepartments.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    <SelectItem value={NONE_VALUE}>None</SelectItem>
+                    {availableColleges.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1278,12 +1256,12 @@ function StepAdministrators({ flash }: { flash: (message: string) => void }) {
               </div>
               <div className="grid gap-2">
                 <Label className="text-[13px] font-medium">Department</Label>
-                <Select value={form.departmentId} onValueChange={(v) => setForm((f) => ({ ...f, departmentId: v }))}>
+                <Select value={form.departmentId} onValueChange={(v) => setForm((f) => ({ ...f, departmentId: v === NONE_VALUE ? "" : v }))}>
                   <SelectTrigger className="h-10">
                     <SelectValue placeholder="No department" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No department</SelectItem>
+                    <SelectItem value={NONE_VALUE}>No department</SelectItem>
                     {departments.map((dept) => (
                       <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
                     ))}
@@ -1311,10 +1289,9 @@ function StepSummary({ state }: { state: SetupStateView | null }) {
   const s = state?.summary
   const rows = [
     { label: "Campuses", value: s?.organizations.campuses ?? 0 },
-  { label: "Colleges", value: s?.organizations.colleges ?? 0 },
-    { label: "Departments", value: s?.organizations.departments ?? 0 },
-    { label: "Offices", value: s?.organizations.offices ?? 0 },
+    { label: "Colleges", value: s?.organizations.colleges ?? 0 },
     { label: "Programs", value: s?.organizations.programs ?? 0 },
+    { label: "Offices", value: s?.organizations.offices ?? 0 },
     { label: "Folder templates", value: s?.folderTemplates ?? 0 },
     { label: "Requirement templates", value: s?.requirementTemplates ?? 0 },
     { label: "Workflow definitions", value: s?.workflows ?? 0 },

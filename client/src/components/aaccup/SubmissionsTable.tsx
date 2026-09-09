@@ -318,7 +318,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
 
   return (
     <div>
-      <div className={cn("mb-6 lg:mb-8", isReview ? "grid grid-cols-2 gap-3 lg:gap-5" : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5")}>
+      <div className={cn("mb-6 lg:mb-8", isReview ? "grid grid-cols-2 responsive-gap" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 responsive-gap")}>
         {isReview ? (
           <>
             <StatCard title="All Submissions" value={submissions.length.toString()} icon={<FileText className="w-5 h-5" />} />
@@ -337,8 +337,8 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
       </div>
 
       <Card className="border-border/70 shadow-soft mb-6">
-        <CardContent className="p-5">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+        <CardContent className="p-0">
+          <div className="toolbar-padding flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="flex-1">
               <div className="relative max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -346,7 +346,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
                   placeholder="Search submissions..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-10 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white focus:ring-1.5 focus:ring-gray-200"
+                  className="pl-10 h-9 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white focus:ring-1.5 focus:ring-gray-200"
                 />
               </div>
             </div>
@@ -632,7 +632,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
               })}
             </TableBody>
           </Table>
-          <div className="mt-4 px-5 pb-5 flex items-center justify-between">
+          <div className="table-footer">
             <p className="text-[13px] text-gray-500">
               Showing {filteredSubmissions.length} of {submissions.length} submissions
             </p>

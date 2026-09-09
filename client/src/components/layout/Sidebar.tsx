@@ -122,7 +122,6 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-150",
                         accreditationActive ? "bg-primary text-white shadow-lift shadow-primary/30" : "text-slate-300 hover:bg-white/5 hover:text-white",
-                        collapsed && "justify-center",
                       )}
                     >
                       <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", accreditationActive ? "text-white" : "text-slate-400")} />
@@ -133,7 +132,9 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                       <div className="mt-1 ml-5 space-y-1 border-l border-white/10 pl-3">
                         {[
                           { id: "aaccup", label: "AACCUP", icon: GraduationCap },
-                           { id: "iso", label: "ISO 21001:2025", icon: ShieldCheck },
+                          { id: "iso", label: "ISO 21001:2025", icon: ShieldCheck },
+                          { id: "submissions", label: "Submissions", icon: FileCheck2 },
+                          { id: "tasks", label: "Tasks", icon: ClipboardList },
                         ].map((child) => {
                           const ChildIcon = child.icon
                           return (
@@ -165,7 +166,6 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                       isActive
                         ? "bg-primary text-white shadow-lift shadow-primary/30"
                         : "text-slate-300 hover:bg-white/5 hover:text-white",
-                      collapsed && "justify-center"
                     )}
                   >
                     <Icon className={cn(
@@ -186,8 +186,7 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                     rootConsoleHighlighted
                       ? "bg-white/10 text-white"
                       : "text-slate-400 hover:bg-white/5 hover:text-white",
-                    collapsed && "justify-center",
-                  )}
+                    )}
                 >
                   <ServerCog className="h-[18px] w-[18px] flex-shrink-0 text-blue-300" />
                   {!collapsed && <span className="flex-1 text-left">Root Console</span>}
@@ -209,8 +208,7 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                             isActive
                               ? "bg-primary/20 text-white ring-1 ring-primary/40"
                               : "text-slate-400 hover:bg-white/5 hover:text-white",
-                            collapsed && "justify-center",
-                          )}
+                            )}
                         >
                           <Icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-blue-300" : "text-slate-500")} />
                           {!collapsed && <span>{item.label}</span>}
@@ -229,11 +227,7 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
             variant="ghost"
             size="sm"
             onClick={onToggle}
-            className={cn(
-              "w-full justify-start text-slate-300 hover:text-white hover:bg-white/5 px-3",
-              collapsed && "justify-center px-2"
-            )}
-          >
+            className="w-full justify-start text-slate-300 hover:text-white hover:bg-white/5 px-3">
             {collapsed ? (
               <ChevronRight className="w-[18px] h-[18px]" />
             ) : (
@@ -250,12 +244,8 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
               if (!confirmLeaveIfUploading()) return
               logout()
             }}
-            className={cn(
-              "w-full justify-start px-3 text-red-300 hover:bg-white/5 hover:text-red-200",
-              collapsed && "justify-center px-2",
-            )}
-          >
-            <LogOut className={cn("h-[18px] w-[18px] flex-shrink-0", !collapsed && "mr-2.5")} />
+            className="w-full justify-start px-3 text-red-300 hover:bg-white/5 hover:text-red-200">
+            <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
             {!collapsed && <span className="text-[13px]">Logout</span>}
           </Button>
         </div>

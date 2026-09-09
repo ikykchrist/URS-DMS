@@ -98,12 +98,12 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const nav = (page: string, query?: Record<string, string>) => onNavigate(page, query)
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader title="Good morning, Admin" description="Review what needs attention and monitor accreditation progress." />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-5 mb-6 lg:mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 responsive-gap mb-6 lg:mb-8">
         <Card className="border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200 cursor-pointer" onClick={() => nav("submissions", { tab: "submissions", status: "PENDING" })}>
-          <CardContent className="p-4 md:p-5">
+          <CardContent className="p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600">
                 <FileCheck2 className="w-5 h-5" />
@@ -115,7 +115,7 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           </CardContent>
         </Card>
         <Card className="border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200 cursor-pointer" onClick={() => nav("requests", { status: "PENDING" })}>
-          <CardContent className="p-4 md:p-5">
+          <CardContent className="p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
                 <Send className="w-5 h-5" />
@@ -127,7 +127,7 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           </CardContent>
         </Card>
         <Card className="border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200 cursor-pointer" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "due-soon" })}>
-          <CardContent className="p-4 md:p-5">
+          <CardContent className="p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-red-50 flex items-center justify-center text-red-600">
                 <Clock3 className="w-5 h-5" />
@@ -212,7 +212,7 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 mb-6 lg:mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 responsive-gap mb-6 lg:mb-8">
         <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">

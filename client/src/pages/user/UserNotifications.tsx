@@ -99,7 +99,7 @@ export default function UserNotifications() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
         title="Notifications"
         description={`${unreadCount} unread notification${unreadCount !== 1 ? "s" : ""}`}
@@ -114,8 +114,8 @@ export default function UserNotifications() {
       />
 
       <Card className="border-border/60 dark:border-gray-700 shadow-soft mb-6">
-            <CardContent className="p-4 pt-4 md:p-5 md:pt-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <CardContent className="p-0">
+          <div className="toolbar-padding flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="relative max-w-md w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
@@ -166,7 +166,7 @@ export default function UserNotifications() {
                   !notif.read && "bg-primary/5 dark:bg-primary/10 border-l-4 border-l-primary"
                 )}
               >
-                <CardContent className="p-4 pt-4 md:p-5 md:pt-5">
+                <CardContent className="p-5 md:p-6">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5">
                       <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">

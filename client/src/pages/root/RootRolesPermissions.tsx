@@ -176,7 +176,7 @@ export default function RootRolesPermissions() {
 
   if (loading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8">
+      <div className="content-padding">
         <PageHeader title="Roles & Permissions" description="Configure system access and capabilities." />
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mt-6">
           <Skeleton className="h-64" />
@@ -187,7 +187,7 @@ export default function RootRolesPermissions() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
         title="Roles &amp; Permissions"
         description="Configure system access and capabilities — ROOT only."

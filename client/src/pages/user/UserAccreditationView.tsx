@@ -248,7 +248,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
         title={meta.title}
         description={meta.description}

@@ -213,7 +213,7 @@ export function NotificationCenter() {
 
             <div className="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
               <button
-                onClick={() => { setIsOpen(false); navigate("/user/notifications") }}
+                onClick={() => { setIsOpen(false); navigate("/notifications") }}
                 className="w-full text-center text-[12px] text-primary hover:text-primary font-medium"
               >
                 View all notifications

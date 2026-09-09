@@ -114,7 +114,7 @@ export function UserSidebar({
                   <div key={item.id}>
                     <button
                       type="button"
-                      onClick={() => handleNavigate("tasks")}
+                      onClick={() => setAaccupOpen((open) => !open)}
                       aria-expanded={!collapsed && aaccupOpen}
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-150 relative",
@@ -131,8 +131,9 @@ export function UserSidebar({
                       <div className="mt-1 ml-5 space-y-1 border-l border-white/10 pl-3">
                         {[
                           { id: "tasks", label: "My Tasks", icon: ClipboardList },
+                          { id: "submissions", label: "My Submissions", icon: FileText },
                           { id: "aaccup", label: "AACCUP", icon: GraduationCap },
-                           { id: "iso", label: "ISO 21001:2025", icon: ShieldCheck },
+                          { id: "iso", label: "ISO 21001:2025", icon: ShieldCheck },
                         ].map((child) => {
                           const ChildIcon = child.icon
                           return (

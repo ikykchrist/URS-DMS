@@ -63,11 +63,21 @@ export default function Settings() {
   const [dateFormat, setDateFormat] = useState<"mdy" | "dmy" | "ymd">("mdy")
   const [dashboardView, setDashboardView] = useState<"overview" | "submissions" | "documents">("overview")
 
-  const [notifications, setNotifications] = useState({
-    submissions: true,
-    approvals: true,
-    announcements: false,
-    security: true,
+  const [notifications, setNotifications] = useState<{
+    submissions: boolean
+    approvals: boolean
+    announcements: boolean
+    security: boolean
+  }>(() => {
+    const stored = localStorage.getItem("notificationPreferences")
+    if (stored) {
+      try {
+        return { submissions: true, approvals: true, announcements: false, security: true, ...JSON.parse(stored) }
+      } catch {
+        /* ignore malformed stored preferences */
+      }
+    }
+    return { submissions: true, approvals: true, announcements: false, security: true }
   })
 
   useEffect(() => {
@@ -107,7 +117,8 @@ export default function Settings() {
   }
 
   const handleSaveNotifications = async () => {
-    // Notification preferences are currently local-only.
+    localStorage.setItem("notificationPreferences", JSON.stringify(notifications))
+    toast.success("Notification preferences saved")
   }
 
   const handleLogoutAll = async () => {
@@ -135,13 +146,13 @@ export default function Settings() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
             title="Settings"
             description="Manage your account settings and preferences"
           />
 
-          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+          <div className="flex flex-col lg:flex-row responsive-gap">
             <div className="w-full lg:w-64 flex-shrink-0">
               <Card className="border-border/70 shadow-soft">
                 <CardContent className="p-2">
@@ -254,7 +265,7 @@ export default function Settings() {
                       </div>
                     ))}
                   </CardContent>
-                  <div className="flex justify-end px-4 pb-4">
+                  <div className="flex justify-end px-5 pb-5 md:px-6 md:pb-6">
                     <Button className="h-10 px-5 shadow-soft" onClick={handleSaveNotifications}>Save Preferences</Button>
                   </div>
                 </Card>

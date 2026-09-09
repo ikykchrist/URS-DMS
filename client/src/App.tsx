@@ -256,7 +256,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
         <PageHeader
           title="Dashboard"
           description="Welcome back! Here's an overview of your document management system."
@@ -268,7 +268,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
           }
         />
 
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 responsive-gap mb-6 lg:mb-8">
           <StatCard
             title="Total Folders"
             value={report ? String(report.documents.totalFolders) : "â€”"}
@@ -324,7 +324,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
           />
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 responsive-gap mb-6 lg:mb-8">
           {(
               [
                 { key: "AACCUP", label: "AACCUP Compliance", bg: "bg-amber-50", text: "text-amber-600" },
@@ -338,7 +338,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
                 className="border-border/70 shadow-soft hover:shadow-lift transition-shadow cursor-pointer"
                  onClick={() => onNavigate(key === "AACCUP" ? "aaccup" : "iso")}
               >
-                <CardContent className="p-4 md:p-5">
+                <CardContent className="p-5 md:p-6">
                   <div className="flex items-center justify-between">
                     <div className={`w-9 h-9 md:w-11 md:h-11 rounded-lg ${bg} flex items-center justify-center ${text}`}>
                       <Award className="w-5 h-5" />
@@ -366,7 +366,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
           })}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 responsive-gap mb-6 lg:mb-8">
           <ChartCard
             title="Submission Trends"
             description="Monthly document submissions"
@@ -460,7 +460,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
           </ChartCard>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 responsive-gap mb-6 lg:mb-8">
           <ChartCard title="Uploads by Department" description="Document uploads per department">
             <div className="h-[180px] sm:h-[200px] md:h-[220px]">
               {categoryChartData.length > 0 ? (
@@ -648,7 +648,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
                 )}
               </TableBody>
             </Table>
-            <div className="mt-4 px-4 md:px-5 pb-4 md:pb-5 flex items-center justify-between gap-3">
+            <div className="table-footer">
               <p className="text-[12px] md:text-[13px] text-gray-500">
                 <span className="sm:hidden">{visibleRequests.length}/{recentRequests.length}</span>
                 <span className="hidden sm:inline">
@@ -706,16 +706,21 @@ function AppContent() {
       "/root-users": "root-users",
     }
     const areaPage = location.pathname.match(/^\/(aaccup|iso)\/areas\/[^/]+$/)
-    const page = areaPage ? `${areaPage[1]}-area` : routeToPageMap[location.pathname]
+    let page = areaPage ? `${areaPage[1]}-area` : routeToPageMap[location.pathname]
     if (!page) return
-    setActivePage((prev) => prev !== page ? page : prev)
+    const tab = new URLSearchParams(location.search).get("tab")
+    if ((page === "aaccup" || page === "iso") && (tab === "tasks" || tab === "submissions")) {
+      page = tab
+    }
+    setActivePage((prev) => (prev !== page ? page : prev))
     localStorage.setItem("activePage", page)
-  }, [location.pathname])
+  }, [location.pathname, location.search])
 
   const pageTitles: Record<string, string> = {
     dashboard: "Dashboard",
     documents: "My Documents",
     submissions: "AACCUP | Submissions",
+    tasks: "Accreditation | Tasks",
     requests: "File Requests",
     profile: "Account & Security",
     users: "User Management",
@@ -757,6 +762,7 @@ function AppContent() {
       notifications: "/notifications",
       aaccup: "/aaccup",
       iso: "/iso",
+      tasks: "/aaccup",
       root: "/root",
       "root-organization": "/root-organization",
       "root-folder-builder": "/root-folder-builder",
@@ -771,7 +777,10 @@ function AppContent() {
       "root-users": "/root-users",
     }
     const route = pageToRouteMap[page] || "/dashboard"
-    const search = query ? new URLSearchParams(query).toString() : ""
+    const params = new URLSearchParams(query ?? {})
+    if (page === "tasks" && !params.has("tab")) params.set("tab", "tasks")
+    if (page === "submissions" && params.get("tab") === "submissions") params.delete("tab")
+    const search = params.toString()
     navigate(search ? `${route}?${search}` : route)
     setActivePage(page)
     localStorage.setItem("activePage", page)
@@ -858,6 +867,7 @@ function AppContent() {
           {activePage === "aaccup" && <AACCUPGroupPage initialTab="AACCUP" />}
           {activePage === "iso" && <AACCUPGroupPage initialTab="ISO" />}
           {activePage === "submissions" && <AACCUPGroupPage initialTab="submissions" />}
+          {activePage === "tasks" && <AACCUPGroupPage initialTab="tasks" />}
           </Suspense>
         </main>
       </div>
@@ -877,7 +887,6 @@ function UserAppContent() {
     return saved ? JSON.parse(saved) : false
   })
   const [activePage, setActivePage] = useState("dashboard")
-  const [showBrowseArchive, setShowBrowseArchive] = useState(false)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [attention, setAttention] = useState<UserAttention>({
@@ -910,6 +919,7 @@ function UserAppContent() {
     "/user/dashboard": "dashboard",
     "/user/documents": "documents",
     "/user/requests": "requests",
+    "/user/requests/browse": "requests-browse",
     "/user/aaccup": "aaccup",
     "/user/iso": "iso",
     "/user/submissions": "submissions",
@@ -924,7 +934,11 @@ function UserAppContent() {
     const page = userRouteToPageMap[location.pathname]
     if (!page) return
     const tab = new URLSearchParams(location.search).get("tab")
-    setActivePage(page === "aaccup" && (tab === "tasks" || tab === "submissions") ? tab : page)
+    const resolved =
+      (page === "aaccup" || page === "iso") && (tab === "tasks" || tab === "submissions")
+        ? tab
+        : page
+    setActivePage(resolved)
   }, [location.pathname, location.search])
 
   const handleNavigate = (page: string, query?: Record<string, string>) => {
@@ -932,28 +946,37 @@ function UserAppContent() {
       dashboard: "/user/dashboard",
       documents: "/user/documents",
       requests: "/user/requests",
+      "requests-browse": "/user/requests/browse",
       aaccup: "/user/aaccup",
       iso: "/user/iso",
-      submissions: "/user/aaccup?tab=submissions",
-      tasks: "/user/aaccup?tab=tasks",
+      submissions: "/user/aaccup",
+      tasks: "/user/aaccup",
       notifications: "/user/notifications",
       activity: "/user/activity",
       profile: "/user/profile",
       settings: "/user/settings",
     }
     const route = pageToRouteMap[page] || "/user/dashboard"
-    const search = query ? new URLSearchParams(query).toString() : ""
+    const params = new URLSearchParams(query ?? {})
+    if (page === "submissions" && !params.has("tab")) params.set("tab", "submissions")
+    if (page === "tasks" && !params.has("tab")) params.set("tab", "tasks")
+    if ((page === "aaccup" || page === "iso") && params.get("tab") === "submissions" && !params.has("areaSet")) {
+      params.set("areaSet", page === "iso" ? "ISO" : "AACCUP")
+    }
+    const search = params.toString()
     navigate(search ? `${route}?${search}` : route)
     setActivePage(page)
-    setShowBrowseArchive(false)
   }
 
   const userPageTitles: Record<string, string> = {
     dashboard: "My Dashboard",
     documents: "My Documents",
     requests: "My Requests",
-     aaccup: "Accreditation",
-     iso: "ISO 21001:2025",
+    "requests-browse": "Browse Archive",
+    aaccup: "Accreditation",
+    iso: "ISO 21001:2025",
+    submissions: "My Submissions",
+    tasks: "My Tasks",
     notifications: "Notifications",
     activity: "My Activity",
     profile: "My Profile",
@@ -970,11 +993,6 @@ function UserAppContent() {
     const newValue = !sidebarCollapsed
     setSidebarCollapsed(newValue)
     localStorage.setItem("userSidebarCollapsed", JSON.stringify(newValue))
-  }
-
-  const handleBrowseArchive = () => {
-    setShowBrowseArchive(true)
-    setActivePage("requests")
   }
 
   const handleLogout = async () => {
@@ -1026,16 +1044,17 @@ function UserAppContent() {
           open={isCommandPaletteOpen}
           onOpenChange={setIsCommandPaletteOpen}
           onNavigate={handleNavigate}
+          isUser
         />
         <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
           {activePage === "dashboard" && <UserDashboard onNavigate={handleNavigate} />}
           {activePage === "documents" && <UserDocuments />}
-          {activePage === "requests" && !showBrowseArchive && (
-            <UserRequests onBrowseArchive={handleBrowseArchive} />
+          {activePage === "requests" && (
+            <UserRequests onBrowseArchive={() => handleNavigate("requests-browse")} />
           )}
-          {activePage === "requests" && showBrowseArchive && (
+          {activePage === "requests-browse" && (
             <UserBrowseArchive
-              onBack={() => setShowBrowseArchive(false)}
+              onBack={() => handleNavigate("requests")}
               onSuccess={() => handleNavigate("requests")}
             />
           )}
