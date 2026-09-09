@@ -65,7 +65,7 @@ export async function getRegistrationOptions() {
   const [campuses, colleges, programs, offices] = await Promise.all([
     prisma.campus.findMany({ where: { deletedAt: null }, select: { id: true, name: true, code: true }, orderBy: { displayOrder: "asc" } }),
     prisma.college.findMany({ where: { deletedAt: null }, select: { id: true, name: true, code: true, campusId: true }, orderBy: { displayOrder: "asc" } }),
-    prisma.program.findMany({ where: { deletedAt: null, collegeId: { not: null } }, select: { id: true, name: true, code: true, campusId: true, collegeId: true }, orderBy: { displayOrder: "asc" } }),
+    prisma.program.findMany({ where: { deletedAt: null }, select: { id: true, name: true, code: true, campusId: true, collegeId: true }, orderBy: { displayOrder: "asc" } }),
     prisma.office.findMany({ where: { deletedAt: null }, select: { id: true, name: true, code: true, campusId: true, collegeId: true, departmentId: true }, orderBy: { displayOrder: "asc" } }),
   ]);
   return { campuses, colleges, programs, offices };

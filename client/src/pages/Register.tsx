@@ -56,10 +56,19 @@ export default function RegisterPage() {
     [form.campusId, options],
   )
 
-  const programs = useMemo(
-    () => options?.programs.filter((program) => program.collegeId === form.collegeId) ?? [],
-    [form.collegeId, options],
-  )
+  // Programs can live under a college OR directly on a campus (collegeId null).
+  // When a college is chosen, list its programs; otherwise list the campus-level
+  // programs so e.g. "BS Computer Science" is still selectable without picking
+  // a college first.
+  const programs = useMemo(() => {
+    const all = options?.programs ?? []
+    if (form.collegeId) return all.filter((program) => program.collegeId === form.collegeId)
+    return all.filter(
+      (program) =>
+        program.collegeId === null &&
+        (program.campusId === form.campusId || program.campusId === null),
+    )
+  }, [form.collegeId, form.campusId, options])
 
   // Offices belong to a campus (directly or through a college). When a college
   // is chosen, keep campus-wide offices + offices of that college; otherwise
@@ -181,7 +190,7 @@ export default function RegisterPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2"><Label htmlFor="collegeId">College <span className="text-slate-400 font-normal">(optional)</span></Label><select id="collegeId" value={form.collegeId} onChange={(event) => update("collegeId", event.target.value)} className={selectClass} disabled={!form.campusId}><option value="">Select college</option>{colleges.map((college) => <option key={college.id} value={college.id}>{college.name}</option>)}</select></div>
-              <div className="space-y-2"><Label htmlFor="programId">Program <span className="text-slate-400 font-normal">(optional)</span></Label><select id="programId" value={form.programId} onChange={(event) => update("programId", event.target.value)} className={selectClass} disabled={!form.collegeId}><option value="">Select program</option>{programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}</select></div>
+              <div className="space-y-2"><Label htmlFor="programId">Program <span className="text-slate-400 font-normal">(optional)</span></Label><select id="programId" value={form.programId} onChange={(event) => update("programId", event.target.value)} className={selectClass} disabled={!form.campusId}><option value="">Select program</option>{programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}</select></div>
             </div>
 
             <div className="space-y-2"><Label htmlFor="officeId">Office <span className="text-slate-400 font-normal">(optional)</span></Label><select id="officeId" value={form.officeId} onChange={(event) => update("officeId", event.target.value)} className={selectClass} disabled={!form.campusId}><option value="">Select office</option>{offices.map((office) => <option key={office.id} value={office.id}>{office.name}</option>)}</select></div>

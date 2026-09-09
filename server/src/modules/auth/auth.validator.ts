@@ -74,10 +74,6 @@ export const registrationSchema = z
     message: "Passwords do not match",
     path: ["confirmPassword"],
   })
-  .refine((value) => !value.programId || value.collegeId, {
-    message: "Select a college when choosing a program",
-    path: ["collegeId"],
-  })
   .refine((value) => !(value.programId && value.officeId), {
     message: "Choose either a program (faculty) or an office (staff), not both",
     path: ["officeId"],
