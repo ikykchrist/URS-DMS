@@ -21,6 +21,13 @@ export const globalLimiter: RateLimitRequestHandler = rateLimit({
     // from the global limiter leaks nothing while preventing a login-page
     // lockout.
     if (req.method === "GET" && req.path === "/v1/root/setup/logo") return true;
+    // Pre-login registration helpers needed to render the register page.
+    // They are still guarded by authLimiter (5 req / 15 min per IP) so
+    // brute-force attempts stay throttled; only the shared global bucket
+    // (which can lock out the whole campus behind one edge IP) skips them.
+    if (req.method === "GET" && req.path === "/v1/auth/registration-options") return true;
+    if (req.method === "POST" && req.path === "/v1/auth/registration/validate") return true;
+    if (req.method === "POST" && req.path === "/v1/auth/registration/request") return true;
     return false;
   },
   message: {
