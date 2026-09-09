@@ -8,6 +8,5 @@ logs
 Dockerfile
 .dockerignore
 .eslintrc*
-.prettierrc*
 coverage
 .vitest-cache

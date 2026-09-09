@@ -35,9 +35,16 @@ RUN npm run build
 # ---- 3. runtime ------------------------------------------------------------
 FROM nginx:1.27-alpine AS runtime
 
-# Replace default config with our SPA + reverse-proxy config
-RUN rm /etc/nginx/conf.d/default.conf
-COPY deploy/nginx/nginx.conf /etc/nginx/conf.d/app.conf
+RUN apk add --no-cache gettext
+
+# Replace default config with our SPA + reverse-proxy template. The upstream
+# hostname is substituted at container start from BACKEND_UPSTREAM (Dokploy
+# assigns randomized container names, so it cannot be baked at build time).
+RUN rm /etc/nginx/conf.d/default.conf \
+    && chown nginx:nginx /etc/nginx/conf.d
+COPY deploy/nginx/nginx.conf /etc/nginx/conf.d/app.conf.template
+COPY deploy/nginx/entrypoint.sh /usr/local/bin/nginx-entrypoint.sh
+RUN chmod +x /usr/local/bin/nginx-entrypoint.sh
 
 # Static assets
 COPY --from=build /app/dist /usr/share/nginx/html
@@ -54,4 +61,4 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/usr/local/bin/nginx-entrypoint.sh"]
