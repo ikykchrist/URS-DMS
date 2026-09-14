@@ -152,7 +152,7 @@ export async function createFolder(
         action: AUDIT_ACTIONS.ACCESS_DENIED,
         userId: actor.id,
         entity: "folder",
-        entityId: null,
+        entityId: undefined,
         ipAddress: actor.ipAddress,
         userAgent: actor.userAgent,
         category: "SECURITY",
