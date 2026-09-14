@@ -10,6 +10,8 @@ import { listAllOnlineSubmissions, listOnlineTasks, type OnlineAaccupTask, type 
 import { listRequests } from "@/services/requests"
 import { listAuditEntries, type AuditEntry } from "@/services/admin"
 import type { DocumentRequest } from "@/types/domain"
+import { useAuth } from "@/context/AuthContext"
+import { hasServerPermission } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 
 interface AdminDashboardProps {
@@ -57,6 +59,11 @@ function isOverdue(task: OnlineAaccupTask, now = Date.now()): boolean {
 }
 
 export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
+  const { user } = useAuth()
+  // Department Coordinators have admin-portal access but no `audit.read`; firing
+  // the request anyway would 403 and write a PERMISSION_DENIED audit event on
+  // every dashboard load.
+  const canReadAudit = hasServerPermission(user, "audit.read")
   const [overview, setOverview] = useState<SectionState<DashboardOverview>>({ data: null, error: false })
   const [submissions, setSubmissions] = useState<SectionState<OnlineSubmissionListItem[]>>({ data: null, error: false })
   const [requests, setRequests] = useState<SectionState<DocumentRequest[]>>({ data: null, error: false })
@@ -64,14 +71,21 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const [activity, setActivity] = useState<SectionState<AuditEntry[]>>({ data: null, error: false })
 
   useEffect(() => {
-    void Promise.all([
+    const pending: Promise<unknown>[] = [
       getDashboardOverview().then((data) => setOverview({ data, error: false })).catch(() => setOverview({ data: null, error: true })),
       listAllOnlineSubmissions().then((data) => setSubmissions({ data, error: false })).catch(() => setSubmissions({ data: null, error: true })),
       listRequests().then((data) => setRequests({ data, error: false })).catch(() => setRequests({ data: null, error: true })),
       listOnlineTasks().then((data) => setTasks({ data, error: false })).catch(() => setTasks({ data: null, error: true })),
-      listAuditEntries({ page: 1, pageSize: 8 }).then((page) => setActivity({ data: page.items, error: false })).catch(() => setActivity({ data: null, error: true })),
-    ])
-  }, [])
+    ]
+    if (canReadAudit) {
+      pending.push(
+        listAuditEntries({ page: 1, pageSize: 8 }).then((page) => setActivity({ data: page.items, error: false })).catch(() => setActivity({ data: null, error: true })),
+      )
+    } else {
+      setActivity({ data: [], error: false })
+    }
+    void Promise.all(pending)
+  }, [canReadAudit])
 
   const pendingSubmissions = submissions.data?.filter((s) => s.status === "PENDING").length ?? 0
   const pendingRequests = requests.data?.filter((r) => r.status === "Pending").length ?? 0

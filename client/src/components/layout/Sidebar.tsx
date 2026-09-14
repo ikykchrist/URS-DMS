@@ -28,6 +28,7 @@ import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import { Button } from "@/components/ui/Button"
 import { Logo } from "@/components/layout/Logo"
 import { useAuth } from "@/context/AuthContext"
+import { hasServerPermission } from "@/lib/permissions"
 
 interface SidebarItem {
   id: string
@@ -71,7 +72,11 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard", onNavigate, showRoot = false, className }: SidebarProps) {
   const [rootConsoleOpen, setRootConsoleOpen] = useState(true)
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
+  // Department Coordinators reach the admin portal but do not hold audit.read;
+  // hiding the item keeps the UI aligned with the server gate.
+  const canViewAudit = hasServerPermission(user, "audit.read")
+  const visibleItems = sidebarItems.filter((item) => item.id !== "audit" || canViewAudit)
   const accreditationActive = ["aaccup", "iso", "aaccup-area", "iso-area", "submissions", "tasks"].includes(activePage)
   const [aaccupOpen, setAaccupOpen] = useState(accreditationActive)
   const rootConsoleActive = rootConsoleItems.some((item) => item.id === activePage)
@@ -109,7 +114,7 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
 
         <nav className="flex-1 px-3 py-4 overflow-y-auto">
           <div className="space-y-1">
-            {sidebarItems.map((item) => {
+            {visibleItems.map((item) => {
               const Icon = item.icon
               const isActive = activePage === item.id
               if (item.id === "aaccup") {

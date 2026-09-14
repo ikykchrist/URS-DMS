@@ -8,7 +8,7 @@ export default function LoginPage() {
   }, [])
 
   return (
-    <AuthLayout>
+    <AuthLayout className="login-page">
       <LoginForm />
     </AuthLayout>
   )

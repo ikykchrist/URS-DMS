@@ -161,9 +161,8 @@ export const AUDIT_ACTIONS = {
   // Sprint 7.4.1 — System Administrator (ROOT) Foundation + Configuration
   // Engine. Configuration lifecycle + rollback actions are written by the
   // root config service on every mutation; ROOT_LOGIN / ROOT_LOGOUT are
-  // emitted by the root session watcher (modules/root/root.session.ts) — the
-  // auth module itself stays untouched (AI_CONTEXT §10), so root-session
-  // lifecycle is observed via the Session table instead.
+  // emitted by the auth service (login/logout) where the role and session
+  // are known — one authoritative event per session lifecycle.
   CONFIG_CREATED: "config.created",
   CONFIG_UPDATED: "config.updated",
   CONFIG_DELETED: "config.deleted",
@@ -288,6 +287,7 @@ export const AUDIT_ACTIONS = {
   // Sprint: Personal Document Repository & File Lifecycle
   REPOSITORY_PROVISIONED: "repository.provisioned",
   REPOSITORY_EMERGENCY_GRANTED: "repository.emergency.granted",
+  REPOSITORY_EMERGENCY_ACCESS_USED: "repository.emergency.access_used",
   REPOSITORY_EMERGENCY_REVOKED: "repository.emergency.revoked",
   DOCUMENT_COPIED: "document.copied",
   DOCUMENT_PERMANENTLY_DELETED: "document.permanently_deleted",
@@ -321,3 +321,14 @@ export const AUDIT_ACTIONS = {
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
+
+// Terminal failure audit actions follow two naming conventions in the catalog:
+//   * `*.failed`  (auth.login.failed, email.failed, maintenance.*.failed, …)
+//   * `*_failed`  (document.upload_failed)
+// Central predicate so classification (result/severity/status) stays in sync
+// everywhere an audit action is interpreted.
+const FAILED_ACTION_PATTERN = /(?:\.|_)failed$/;
+
+export function isFailedAuditAction(action: string): boolean {
+  return FAILED_ACTION_PATTERN.test(action);
+}

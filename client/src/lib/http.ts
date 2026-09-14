@@ -23,13 +23,18 @@ export function getAccessToken(): string | null {
 export function setServerToken(token: string): void {
   try {
     localStorage.setItem(SERVER_TOKEN_KEY, token);
-  } catch {}
+    sessionExpiredNotified = false;
+  } catch {
+    // Storage may be unavailable (private mode); auth state still lives in memory.
+  }
 }
 
 export function clearServerToken(): void {
   try {
     localStorage.removeItem(SERVER_TOKEN_KEY);
-  } catch {}
+  } catch {
+    // Storage may be unavailable (private mode); nothing to clear.
+  }
 }
 
 export interface ApiEnvelope<T> {
@@ -76,14 +81,20 @@ export class ApiRequestError extends Error {
  * runs; the rest await the same result and retry with the new token.
  */
 let refreshInFlight: Promise<boolean> | null = null;
+// A burst of parallel 401s must produce exactly ONE session-expired signal —
+// otherwise every waiter calls authService.logout() and hammers /auth/logout.
+let sessionExpiredNotified = false;
 
 async function refreshAccessToken(): Promise<boolean> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
   try {
     const refreshResponse = await fetch(`${API_BASE}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: "{}",
+      signal: controller.signal,
     });
     const refreshPayload = await refreshResponse.json() as
       | ApiEnvelope<{ accessToken: string }>
@@ -95,6 +106,8 @@ async function refreshAccessToken(): Promise<boolean> {
     return false;
   } catch {
     return false;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -134,8 +147,13 @@ async function requestEnvelope<T>(
     }
     clearServerToken();
     // Expired session: notify the auth layer so the UI returns to the login
-    // screen instead of showing broken pages (Sprint 7.8 acceptance).
-    window.dispatchEvent(new CustomEvent("urs:session-expired"));
+    // screen instead of showing broken pages (Sprint 7.8 acceptance). Only the
+    // first 401 of a burst dispatches — N parallel requests must not trigger N
+    // logouts.
+    if (!sessionExpiredNotified) {
+      sessionExpiredNotified = true;
+      window.dispatchEvent(new CustomEvent("urs:session-expired"));
+    }
   }
 
   if (res.status === 204) {

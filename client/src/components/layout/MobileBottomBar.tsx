@@ -16,6 +16,8 @@ import {
   FileText,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/context/AuthContext"
+import { hasServerPermission } from "@/lib/permissions"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,13 +74,24 @@ const userMoreTabs: BottomTab[] = [
 ]
 
 export function MobileBottomBar({ activePage, onNavigate, showRoot, isUser: userProp, badges }: MobileBottomBarProps) {
+  const { user } = useAuth()
+  const canViewAudit = hasServerPermission(user, "audit.read")
+  const canViewAccreditation = hasServerPermission(user, "aaccup.read")
+  const canUseRequests =
+    hasServerPermission(user, "request.create") || hasServerPermission(user, "request.manage")
   const isUser = userProp ?? (!showRoot && activePage !== "users" && activePage !== "audit" && activePage !== "settings")
-  const mainTabs = isUser ? userMainTabs : adminMainTabs
+  const mainTabs = isUser
+    ? userMainTabs.filter((tab) => {
+        if (tab.id === "aaccup") return canViewAccreditation
+        if (tab.id === "requests") return canUseRequests
+        return true
+      })
+    : adminMainTabs
   const moreTabs = isUser
     ? userMoreTabs
     : showRoot
       ? [...adminMoreTabs, ...rootMoreTabs]
-      : adminMoreTabs
+      : adminMoreTabs.filter((tab) => tab.id !== "audit" || canViewAudit)
   const isTabActive = (id: string) => {
     if (id === "aaccup") {
        return ["aaccup", "iso", "aaccup-area", "iso-area", "submissions", "tasks"].includes(activePage)

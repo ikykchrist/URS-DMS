@@ -189,13 +189,12 @@ async function assertDocumentUsable(documentId: string, actor: Actor): Promise<D
   if (document.deletedAt) {
     throw new BadRequestError("Document is archived and cannot be submitted");
   }
-  // Submitters must own the document OR hold documents.update (manager
-  // delegation). We never re-assert documents.read here — that is enforced
-  // upstream when they fetched the document. We only block obvious abuse.
+  // Only the document owner or an AACCUP manager may attach a document to a
+  // submission. The previous `documents.update` fallback let any role holding
+  // that code (FACULTY/STAFF/DEPT_COORD/QAO) commandeer another user's
+  // document and have it silently moved into the AACCUP archive folder.
   if (document.ownerId !== actor.id && !isManager(actor)) {
-    if (!actor.permissions.includes("documents.update")) {
-      throw new ForbiddenError("You can only submit documents you own");
-    }
+    throw new ForbiddenError("You can only submit documents you own");
   }
   return {
     id: document.id,

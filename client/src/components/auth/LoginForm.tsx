@@ -37,6 +37,7 @@ export function LoginForm() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    if (isLoading) return
     setError("")
     setValidationErrors({})
 
@@ -51,7 +52,7 @@ export function LoginForm() {
         navigate("/user/dashboard")
       }
     } else {
-      setError("Invalid email or password. Please try again.")
+      setError(result.error || "Invalid email or password. Please try again.")
     }
   }
 

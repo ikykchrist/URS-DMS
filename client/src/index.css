@@ -120,6 +120,158 @@ body {
   100% { transform: translateX(100%); }
 }
 
+/* ===================================================================
+   MOTION SYSTEM
+   -------------------------------------------------------------------
+   A quiet, global layer for existing pages and shared primitives. Motion
+   communicates hierarchy and feedback without changing page structure.
+   All non-essential movement is disabled for reduced-motion preferences.
+   =================================================================== */
+
+@keyframes urs-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes urs-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes urs-scale-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes urs-soft-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.62; }
+}
+
+@keyframes urs-auth-panel-in {
+  from { opacity: 0; transform: translateX(-18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes urs-auth-card-in {
+  from { opacity: 0; transform: translate3d(18px, 10px, 0) scale(0.985); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #root {
+    animation: urs-fade-in 180ms ease-out both;
+  }
+
+  /* Page components mount directly inside the application main regions. */
+  main > * {
+    animation: urs-fade-up 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Shared cards gain a small entrance and clear, restrained affordance. */
+  .rounded-card {
+    animation: urs-fade-up 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  }
+
+  .rounded-card[class*="cursor-pointer"]:hover,
+  button.rounded-card:hover,
+  a.rounded-card:hover {
+    transform: translateY(-2px);
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select,
+  [role="button"] {
+    transition-property: color, background-color, border-color, opacity, box-shadow, transform;
+    transition-duration: 160ms;
+    transition-timing-function: ease;
+  }
+
+  button:not(:disabled):active,
+  [role="button"]:active {
+    transform: scale(0.985);
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    transform: translateY(-1px);
+  }
+
+  /* Data views enter in a scan-friendly sequence when their rows mount. */
+  tbody > tr {
+    animation: urs-fade-up 220ms ease-out both;
+  }
+
+  tbody > tr:nth-child(2) { animation-delay: 20ms; }
+  tbody > tr:nth-child(3) { animation-delay: 40ms; }
+  tbody > tr:nth-child(4) { animation-delay: 60ms; }
+  tbody > tr:nth-child(5) { animation-delay: 80ms; }
+  tbody > tr:nth-child(n + 6) { animation-delay: 100ms; }
+
+  /* Radix dialogs, menus, and listboxes have consistent open feedback even
+     where a component does not supply its own animation utility classes. */
+  [data-state="open"][role="dialog"],
+  [data-state="open"][role="menu"],
+  [data-state="open"][role="listbox"] {
+    animation: urs-scale-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  [data-state="open"].fixed.inset-0 {
+    animation: urs-fade-in 160ms ease-out both;
+  }
+
+  [aria-busy="true"] {
+    animation: urs-soft-pulse 1.4s ease-in-out infinite;
+  }
+
+  /* Login gets a slightly more deliberate first impression: the branded
+     context settles first, then the sign-in card and its form sequence. */
+  .login-page > :first-child {
+    animation: urs-auth-panel-in 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .login-page > :first-child h2 {
+    animation: urs-fade-up 440ms 100ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .login-page > :first-child h2 + p,
+  .login-page > :first-child svg,
+  .login-page > :first-child > div:last-child {
+    animation: urs-fade-up 420ms 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .login-page > :last-child > div > div {
+    animation: urs-auth-card-in 440ms 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .login-page form > * {
+    animation: urs-fade-up 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .login-page form > :nth-child(1) { animation-delay: 180ms; }
+  .login-page form > :nth-child(2) { animation-delay: 220ms; }
+  .login-page form > :nth-child(3) { animation-delay: 260ms; }
+  .login-page form > :nth-child(4) { animation-delay: 300ms; }
+  .login-page form > :nth-child(5) { animation-delay: 340ms; }
+  .login-page form > :nth-child(6) { animation-delay: 380ms; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Keep the admin and user portals on the same calm, rounded surface system.
    Root tools contain a few intentionally denser utility panels, so scope this
    polish to the admin shell rather than changing user-owned content. */

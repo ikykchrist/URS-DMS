@@ -20,6 +20,7 @@ import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import { Button } from "@/components/ui/Button"
 import { Logo } from "@/components/layout/Logo"
 import { useAuth } from "@/context/AuthContext"
+import { hasServerPermission } from "@/lib/permissions"
 
 interface SidebarItem {
   id: string
@@ -59,7 +60,17 @@ export function UserSidebar({
   attention,
   className,
 }: UserSidebarProps) {
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
+  // READ_ONLY accounts hold neither aaccup.* nor request.* permissions; showing
+  // those items would only lead to 403s and PERMISSION_DENIED audit noise.
+  const canViewAccreditation = hasServerPermission(user, "aaccup.read")
+  const canUseRequests =
+    hasServerPermission(user, "request.create") || hasServerPermission(user, "request.manage")
+  const visibleItems = sidebarItems.filter((item) => {
+    if (item.id === "aaccup") return canViewAccreditation
+    if (item.id === "requests") return canUseRequests
+    return true
+  })
   const accreditationActive = ["aaccup", "iso", "submissions", "tasks"].includes(activePage)
   const [aaccupOpen, setAaccupOpen] = useState(accreditationActive)
   const activeNavPage = accreditationActive
@@ -105,7 +116,7 @@ export function UserSidebar({
 
         <nav className="flex-1 px-3 py-4 overflow-y-auto">
           <div className="space-y-1">
-            {sidebarItems.map((item) => {
+            {visibleItems.map((item) => {
               const Icon = item.icon
               const isActive = activeNavPage === item.id
               if (item.id === "aaccup") {

@@ -31,7 +31,7 @@ import { SessionManagementModal } from "@/components/modals/SessionManagementMod
 import { useAuth } from "@/context/AuthContext"
 import { useTheme } from "@/lib/theme"
 import { toast } from "@/lib/toast"
-import { ROLE_LABELS } from "@/lib/permissions"
+import { ROLE_LABELS, hasServerPermission } from "@/lib/permissions"
 import { getSystemSettings, updateSystemSettings, type SystemSettingsView } from "@/services/admin"
 import { getDashboardStorage, type StorageStats } from "@/services/dashboard"
 import { authService } from "@/services/auth"
@@ -81,9 +81,14 @@ export default function Settings() {
   })
 
   useEffect(() => {
-    getSystemSettings().then(setSettings).catch((err) => console.error("Failed to load settings:", err))
+    // Department Coordinators reach the admin portal without admin.settings.read;
+    // requesting the singleton anyway would 403 and write a PERMISSION_DENIED
+    // audit event on every Settings visit.
+    if (hasServerPermission(user, "admin.settings.read")) {
+      getSystemSettings().then(setSettings).catch((err) => console.error("Failed to load settings:", err))
+    }
     getDashboardStorage().then(setStorageStats).catch((err) => console.error("Failed to load storage stats:", err))
-  }, [])
+  }, [user])
 
   const handleSaveSettings = async (patch: Partial<Omit<SystemSettingsView, "updatedAt" | "updatedById">>) => {
     const updated = settings ? { ...settings, ...patch } : null

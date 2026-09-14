@@ -22,7 +22,7 @@ import {
   recordWorkflowAction,
   scopesForDocument,
 } from "@/modules/workflow/workflow.engine";
-import { BadRequestError, ConflictError, NotFoundError } from "@/utils/errors";
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "@/utils/errors";
 import { resolveFolderAccess, assertFolderAccess } from "@/modules/folders/folderSharing.service";
 import * as repo from "@/modules/documents/documents.repository";
 import type { Prisma } from "@prisma/client";
@@ -114,8 +114,9 @@ async function assertCanRead(actor: Actor, doc: { ownerId: string; id: string; f
   // a document that is the subject of a submission/request (never write).
   if (await hasManagedReadAccess(actor, doc.id)) return;
   // Rule 1: direct-ID access to another account's item must NOT reveal
-  // existence — always 404.
-  void writeAudit({
+  // existence — always 404. The denial audit is awaited so the DENIED row is
+  // persisted before the error propagates to the client.
+  await writeAudit({
     action: AUDIT_ACTIONS.ACCESS_DENIED,
     userId: actor.id,
     entity: "document",
@@ -158,7 +159,7 @@ async function assertCanWrite(actor: Actor, doc: { ownerId: string; id: string; 
   if (doc.folderId && (await resolveFolderAccess(actor.id, doc.folderId)) === "EDITOR") return;
   const share = await repo.findActiveShare(doc.id, actor.id);
   if (share && (share.permission === "WRITE" || share.permission === "OWNER")) return;
-  void writeAudit({
+  await writeAudit({
     action: AUDIT_ACTIONS.ACCESS_DENIED,
     userId: actor.id,
     entity: "document",
@@ -175,7 +176,7 @@ async function assertCanWrite(actor: Actor, doc: { ownerId: string; id: string; 
 
 async function assertCanManage(actor: Actor, doc: { ownerId: string; id: string }): Promise<void> {
   if (actor.id === doc.ownerId) return;
-  void writeAudit({
+  await writeAudit({
     action: AUDIT_ACTIONS.ACCESS_DENIED,
     userId: actor.id,
     entity: "document",
@@ -357,6 +358,40 @@ export async function updateDocument(
   if (!existing) throw new NotFoundError("Document not found");
   await assertCanWrite(actor, existing);
 
+  // BUG-2 FIX: only the document owner may change its departmentId; WRITE sharees
+  // must not be able to reclassify the document into another department archive.
+  if (
+    input.departmentId !== undefined &&
+    input.departmentId !== existing.departmentId &&
+    actor.id !== existing.ownerId
+  ) {
+    await writeAudit({
+      action: AUDIT_ACTIONS.ACCESS_DENIED,
+      userId: actor.id,
+      entity: "document",
+      entityId: id,
+      ipAddress: actor.ipAddress,
+      userAgent: actor.userAgent,
+      category: "SECURITY",
+      severity: "WARNING",
+      result: "DENIED",
+      newValue: { reason: "non_owner_department_change", ownerId: existing.ownerId },
+    });
+    throw new ForbiddenError("Only the document owner can change its department");
+  }
+
+  // Moving a document requires write access to the destination folder, exactly
+  // like createDocument. Without this a WRITE-share holder could relocate the
+  // owner's document into a folder they control and retain access after the
+  // share expires.
+  if (
+    input.folderId !== undefined &&
+    input.folderId !== null &&
+    input.folderId !== existing.folderId
+  ) {
+    await assertFolderAccess(actor.id, input.folderId, "EDITOR");
+  }
+
   const statusChanged =
     input.status !== undefined && input.status !== existing.status;
   let updated: DocumentDetail | undefined;
@@ -467,7 +502,7 @@ export async function restoreDocument(
   const existing = await repo.findByIdIncludingDeleted(id);
   if (!existing) throw new NotFoundError("Document not found");
   if (existing.ownerId !== actor.id) {
-    void writeAudit({
+    await writeAudit({
       action: AUDIT_ACTIONS.ACCESS_DENIED,
       userId: actor.id,
       entity: "document",
@@ -571,7 +606,14 @@ async function resolveDocumentUrl(
     version = doc.versions.find((v) => v.id === versionId);
     if (!version) throw new NotFoundError("Version not found");
   } else {
-    const current = doc.versions[0];
+    // Prefer the explicitly promoted current version. Only fall back to the
+    // newest row for legacy documents whose currentVersionId predates the
+    // field — otherwise an unverified/abandoned version would be served as
+    // the document's content.
+    const current =
+      (doc.currentVersionId
+        ? doc.versions.find((v) => v.id === doc.currentVersionId)
+        : undefined) ?? doc.versions[0];
     if (!current) throw new NotFoundError("Document has no versions");
     version = current;
   }
@@ -638,7 +680,9 @@ export async function getThumbnailStream(id: string, actor: Actor): Promise<{ st
   const doc = await repo.findById(id);
   if (!doc) throw new NotFoundError("Document not found");
   await assertCanRead(actor, doc);
-  const version = doc.versions[0];
+  const version =
+    (doc.currentVersionId ? doc.versions.find((v) => v.id === doc.currentVersionId) : undefined) ??
+    doc.versions[0];
   if (!version) throw new NotFoundError("Document has no versions");
   const key = thumbnailObjectKey(version.objectKey);
   if (!(await objectExists(key))) {
@@ -815,7 +859,7 @@ export async function permanentDeleteDocument(id: string, actor: Actor): Promise
   const doc = await prisma.document.findUnique({ where: { id } });
   if (!doc) throw new NotFoundError("Document not found");
   if (doc.ownerId !== actor.id) {
-    void writeAudit({
+    await writeAudit({
       action: AUDIT_ACTIONS.ACCESS_DENIED,
       userId: actor.id,
       entity: "document",
@@ -1120,7 +1164,7 @@ export async function addVersion(
   );
   const objectKey = upload.objectKey;
 
-  const created = await repo.createVersion({
+  await repo.createVersion({
     documentId,
     versionNumber,
     objectKey,
@@ -1132,22 +1176,11 @@ export async function addVersion(
     uploadedById: actor.id,
   });
 
-  await writeAudit({
-    action: AUDIT_ACTIONS.DOCUMENT_VERSION_ADDED,
-    userId: actor.id,
-    entity: "document",
-    entityId: documentId,
-    newValue: {
-      versionId: created.id,
-      versionNumber,
-      filename: input.filename,
-      mimeType: input.mimeType,
-      sizeBytes: input.sizeBytes.toString(),
-      checksum: input.checksum,
-    },
-    ipAddress: actor.ipAddress,
-    userAgent: actor.userAgent,
-  });
+  // NOTE: no audit event here. The upload is only final once the client PUTs
+  // the bytes and `verifyUpload` confirms size + checksum — that is the single
+  // authoritative DOCUMENT_VERSION_ADDED event (mirrors recordUploadFailure,
+  // which owns the failure event). Auditing here produced two identical rows
+  // for one upload.
 
   const refreshed = await repo.findById(documentId);
   if (!refreshed) throw new NotFoundError("Document not found after version add");

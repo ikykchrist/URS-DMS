@@ -44,7 +44,9 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
 import { ExportLogsModal } from "@/components/modals/ExportLogsModal"
 import { listAuditEntries, exportAuditEntries, clearAuditLogs, type AuditEntry } from "@/services/admin"
-import { API_BASE } from "@/lib/http"
+import { apiGet } from "@/lib/http"
+import { useAuth } from "@/context/AuthContext"
+import { isRootRole } from "@/lib/permissions"
 import { toast } from "@/lib/toast"
 
 interface AuditLog {
@@ -56,7 +58,7 @@ interface AuditLog {
   action: string
   module: string
   ipAddress: string
-  status: "Success" | "Warning" | "Failed"
+  status: "Success" | "Warning" | "Failed" | "Denied"
   details: string
   device: string
   browser: string
@@ -87,6 +89,10 @@ const PRESETS = [
 ]
 
 export default function AuditLogs() {
+  const { user } = useAuth()
+  // Clearing the audit trail is a ROOT-only destructive action (server gate
+  // matches); hiding the control keeps the UI aligned with the backend.
+  const canClearLogs = isRootRole(user?.role)
   const [searchParams, setSearchParams] = useSearchParams()
   const [isExportLogsModalOpen, setIsExportLogsModalOpen] = useState(() => searchParams.get("modal") === "generate-report")
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false)
@@ -148,7 +154,7 @@ export default function AuditLogs() {
       action: entry.action,
       module: entry.module,
       ipAddress: entry.ipAddress ?? "—",
-      status: entry.status === "FAILED" ? "Failed" : "Success",
+      status: entry.status === "FAILED" ? "Failed" : entry.status === "DENIED" ? "Denied" : "Success",
       details: entry.entity?.type ? `${entry.entity.type} ${entry.entity.id ?? ""}`.trim() : "No additional details",
       device: "",
       browser: "",
@@ -220,19 +226,13 @@ export default function AuditLogs() {
       .then((res) => { if (!cancelled) setFailedTotal(res.meta.total) })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [debouncedQuery, actionFilter, statusFilter, activePreset])
+  }, [debouncedQuery, actionFilter, statusFilter, activePreset, reloadKey])
 
   const loadLoginGroups = async () => {
     try {
-      const res = await fetch(`${API_BASE}/audit/login-groups?withinMinutes=10&minAttempts=3`, {
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-      })
-      if (res.ok) {
-        const json = await res.json()
-        setLoginGroups(json.data ?? [])
-        setShowLoginGroups(true)
-      }
+      const groups = await apiGet<LoginGroup[]>("/audit/login-groups?withinMinutes=10&minAttempts=3")
+      setLoginGroups(groups ?? [])
+      setShowLoginGroups(true)
     } catch { /* ignore */ }
   }
 
@@ -306,10 +306,12 @@ export default function AuditLogs() {
               <Download className="w-4 h-4 mr-2" />
               Export CSV
             </Button>
-            <Button variant="destructive" onClick={() => setIsClearDialogOpen(true)}>
-              <Trash2 className="w-4 h-4 mr-2" />
-              Clear Logs
-            </Button>
+            {canClearLogs && (
+              <Button variant="destructive" onClick={() => setIsClearDialogOpen(true)}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Clear Logs
+              </Button>
+            )}
           </>
         }
       />

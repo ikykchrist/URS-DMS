@@ -810,6 +810,11 @@ function AppContent() {
     return null
   }
 
+  // Guard against a persisted ROOT-only page from a previous session being
+  // rendered for a non-ROOT administrator. Rendering it even for one frame
+  // fires /root/* requests that 403 and write PERMISSION_DENIED audit events.
+  const page = activePage.startsWith("root") && !isRootRole(user.role) ? "dashboard" : activePage
+
   // AppContent return â€” admin sees this
 
   return (
@@ -818,7 +823,7 @@ function AppContent() {
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={handleToggleSidebar}
-        activePage={activePage}
+        activePage={page}
         onNavigate={handleNavigate}
         showRoot={isRootRole(user.role)}
         className="hidden lg:flex"
@@ -842,37 +847,37 @@ function AppContent() {
               </div>
             }
           >
-          {activePage === "root" && <RootDashboard />}
-          {activePage === "root-organization" && <RootOrganization />}
-          {activePage === "root-folder-builder" && <RootFolderBuilder />}
-          {activePage === "root-requirement-builder" && <RootRequirementBuilder />}
-          {activePage === "root-workflow-builder" && <RootWorkflowBuilder />}
-          {activePage === "root-form-builder" && <RootFormBuilder />}
-          {activePage === "root-setup-wizard" && <RootSetupWizard />}
-          {activePage === "root-config" && <RootConfigurations />}
-          {activePage === "root-maintenance" && <RootMaintenance />}
-          {activePage === "root-roles-permissions" && <RootRolesPermissions />}
-          {activePage === "root-audit" && <RootAudit />}
-          {activePage === "root-users" && <RootUsers />}
-           {activePage === "dashboard" && <AdminDashboard onNavigate={handleNavigate} />}
-           {activePage === "aaccup-area" && <AdminAreaDetailPage areaSet="AACCUP" />}
-           {activePage === "iso-area" && <AdminAreaDetailPage areaSet="ISO" />}
-          {activePage === "documents" && <DocumentRepository />}
-          {activePage === "requests" && <RequestsReview />}
-          {activePage === "profile" && <AccountSecurity />}
-          {activePage === "users" && <UserManagement />}
-          {activePage === "audit" && <AuditLogs />}
-           {activePage === "settings" && <Settings />}
-           {activePage === "notifications" && <UserNotifications />}
-          {activePage === "aaccup" && <AACCUPGroupPage initialTab="AACCUP" />}
-          {activePage === "iso" && <AACCUPGroupPage initialTab="ISO" />}
-          {activePage === "submissions" && <AACCUPGroupPage initialTab="submissions" />}
-          {activePage === "tasks" && <AACCUPGroupPage initialTab="tasks" />}
+          {page === "root" && <RootDashboard />}
+          {page === "root-organization" && <RootOrganization />}
+          {page === "root-folder-builder" && <RootFolderBuilder />}
+          {page === "root-requirement-builder" && <RootRequirementBuilder />}
+          {page === "root-workflow-builder" && <RootWorkflowBuilder />}
+          {page === "root-form-builder" && <RootFormBuilder />}
+          {page === "root-setup-wizard" && <RootSetupWizard />}
+          {page === "root-config" && <RootConfigurations />}
+          {page === "root-maintenance" && <RootMaintenance />}
+          {page === "root-roles-permissions" && <RootRolesPermissions />}
+          {page === "root-audit" && <RootAudit />}
+          {page === "root-users" && <RootUsers />}
+           {page === "dashboard" && <AdminDashboard onNavigate={handleNavigate} />}
+           {page === "aaccup-area" && <AdminAreaDetailPage areaSet="AACCUP" />}
+           {page === "iso-area" && <AdminAreaDetailPage areaSet="ISO" />}
+          {page === "documents" && <DocumentRepository />}
+          {page === "requests" && <RequestsReview />}
+          {page === "profile" && <AccountSecurity />}
+          {page === "users" && <UserManagement />}
+          {page === "audit" && <AuditLogs />}
+           {page === "settings" && <Settings />}
+           {page === "notifications" && <UserNotifications />}
+          {page === "aaccup" && <AACCUPGroupPage initialTab="AACCUP" />}
+          {page === "iso" && <AACCUPGroupPage initialTab="ISO" />}
+          {page === "submissions" && <AACCUPGroupPage initialTab="submissions" />}
+          {page === "tasks" && <AACCUPGroupPage initialTab="tasks" />}
           </Suspense>
         </main>
       </div>
     </div>
-    <MobileBottomBar activePage={activePage} onNavigate={handleNavigate} showRoot={isRootRole(user.role)} />
+    <MobileBottomBar activePage={page} onNavigate={handleNavigate} showRoot={isRootRole(user.role)} />
     <NavigationAssistant />
     </>
   )
@@ -899,7 +904,7 @@ function UserAppContent() {
   useEffect(() => {
     if (!user) return
     const unsub = notificationService.subscribeUnread(setUnreadCount)
-    const unsubAttn = subscribeUserAttention(setAttention)
+    const unsubAttn = subscribeUserAttention(setAttention, user.id)
     return () => { unsub(); unsubAttn() }
   }, [user])
 
