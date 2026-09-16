@@ -19,7 +19,7 @@ URS-DMS is a university document-management system with authenticated user and a
 - [Architecture](architecture.md), [technology stack](tech-stack.md), [project structure](project-structure.md)
 - [Frontend](frontend.md), [backend](backend.md), [database](database.md), [API reference](api-reference.md)
 - [Authentication and RBAC](authentication-rbac.md), [document management](document-management.md), [audit logging](audit-logging.md), [workflows](workflows.md)
-- [UI guidelines](ui-guidelines.md), [configuration](configuration.md), [testing](testing.md), [known issues](known-issues.md), [development guide](development-guide.md)
+- [UI guidelines](ui-guidelines.md), [configuration](configuration.md), [Root Console manual](ROOT_CONSOLE_MANUAL.md), [testing](testing.md), [known issues](known-issues.md), [development guide](development-guide.md)
 
 ## Development notes
 
