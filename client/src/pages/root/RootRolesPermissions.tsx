@@ -42,10 +42,10 @@ export default function RootRolesPermissions() {
       const data = await getRolesPermissionMatrix()
       setMatrix(data)
       setModified(new Map())
-      if (!selectedRoleId || !data.roles.find((r) => r.id === selectedRoleId)) {
-        const first = data.roles.find((r) => !r.deletedAt)
-        if (first) setSelectedRoleId(first.id)
-      }
+      setSelectedRoleId((current) => {
+        if (current && data.roles.some((r) => r.id === current)) return current
+        return data.roles.find((r) => !r.deletedAt)?.id ?? current
+      })
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Unable to load roles & permissions")
     } finally {

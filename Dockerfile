@@ -10,7 +10,7 @@
 # forwards /api/* to the backend service. Same-domain routing avoids CORS and
 # keeps cookies simple.
 #
-# Build context: repo root (so it can copy ./client and ./deploy/nginx.conf).
+# Build context: repo root (so it can copy ./client and ./deploy/nginx/*).
 # Build arg:
 #   VITE_API_BASE  — defaults to "/api/v1" (same-origin). Override only if the
 #                    backend lives on a different domain.

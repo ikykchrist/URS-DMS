@@ -188,7 +188,7 @@ export default function RootAudit() {
               </TableHeader>
               <TableBody>
                 {(entries as RootAuditEntry[]).map((entry) => {
-                  const e = entry as any
+                  const e = entry
                   return (
                   <TableRow key={entry.id}>
                     <TableCell className="text-[12px] text-gray-500 whitespace-nowrap">

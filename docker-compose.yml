@@ -156,6 +156,7 @@ services:
       MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://minio.localhost:9000}
       REDIS_HOST: urs-redis
       REDIS_PORT: 6379
+      GOTENBERG_URL: http://gotenberg:3000
       NODE_ENV: production
       PORT: 4000
     extra_hosts:
@@ -177,6 +178,15 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    networks:
+      - urs-net
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: urs-gotenberg
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
     networks:
       - urs-net
 

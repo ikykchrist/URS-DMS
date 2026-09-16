@@ -6,7 +6,8 @@ logs
 .gitignore
 .dockerignore
 Dockerfile
-.dockerignore
 .eslintrc*
 coverage
 .vitest-cache
+.env
+.env.*

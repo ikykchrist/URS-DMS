@@ -38,6 +38,7 @@ import { Card, CardContent } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/Label"
+import { Skeleton } from "@/components/ui/Skeleton"
 import {
   Dialog,
   DialogContent,
@@ -195,6 +196,7 @@ function LazyThumbnail({ doc }: { doc: Document; className?: string }) {
   const [url, setUrl] = useState<string | null>(null)
   const [errored, setErrored] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [imageLoaded, setImageLoaded] = useState(false)
   const fetched = useRef(false)
 
   useEffect(() => {
@@ -232,28 +234,33 @@ function LazyThumbnail({ doc }: { doc: Document; className?: string }) {
 
   if (loading && !url) {
     return (
-      <div className="w-full h-full flex items-center justify-center rounded-t-xl bg-gray-50 dark:bg-gray-800">
-        <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+      <div className="w-full h-full rounded-t-xl p-3 bg-gray-50 dark:bg-gray-800" aria-busy="true" aria-label="Loading thumbnail">
+        <Skeleton className="h-full w-full" variant="rectangular" />
       </div>
     )
   }
 
   if (isImageType(doc) && url) {
     return (
-      <img
-        src={url}
-        alt={doc.name}
-        className="w-full h-full object-cover rounded-t-xl"
-        loading="lazy"
-        onError={() => setErrored(true)}
-      />
+      <div className="relative h-full w-full overflow-hidden rounded-t-xl bg-gray-50 dark:bg-gray-800" aria-busy={!imageLoaded}>
+        {!imageLoaded && <Skeleton className="absolute inset-0 h-full w-full" variant="rectangular" />}
+        <img
+          src={url}
+          alt={doc.name}
+          className={cn("h-full w-full object-cover transition-opacity duration-300", imageLoaded ? "opacity-100" : "opacity-0")}
+          loading="lazy"
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setErrored(true)}
+        />
+      </div>
     )
   }
 
   if (isPdfType(doc) && url) {
     return (
       <div className="w-full h-full relative rounded-t-xl overflow-hidden bg-gray-100 dark:bg-gray-800">
-        <img src={url} alt={doc.name} className="w-full h-full object-cover" loading="lazy" onError={() => setErrored(true)} />
+        {!imageLoaded && <Skeleton className="absolute inset-0 h-full w-full" variant="rectangular" />}
+        <img src={url} alt={doc.name} className={cn("w-full h-full object-cover transition-opacity duration-300", imageLoaded ? "opacity-100" : "opacity-0")} loading="lazy" onLoad={() => setImageLoaded(true)} onError={() => setErrored(true)} />
         <div className="absolute inset-0 rounded-t-xl ring-1 ring-inset ring-black/5 pointer-events-none" />
       </div>
     )

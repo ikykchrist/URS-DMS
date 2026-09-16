@@ -8,7 +8,11 @@ import { notificationService } from "@/services/notifications"
 import { resolveNotificationRoute, buildNotificationUrl } from "@/lib/notificationNav"
 import type { Notification } from "@/types/domain"
 
-const POLL_INTERVAL_MS = 3_000
+// Notifications are background convenience data. Polling every three seconds
+// consumed the shared API rate-limit budget during normal use and could block
+// the refresh/login endpoints after enough activity. Keep this aligned with
+// the dashboard polling cadence instead.
+const POLL_INTERVAL_MS = 30_000
 
 const typeMeta: Record<string, { label: string; color: string; bg: string }> = {
   approval:     { label: "Approvals",    color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/30" },
@@ -32,18 +36,26 @@ export function NotificationCenter() {
   const [activeTab, setActiveTab] = useState<string>("All")
   const navigate = useNavigate()
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const loadInFlightRef = useRef<Promise<void> | null>(null)
 
   const load = useCallback(async () => {
-    try {
-      const n = await notificationService.listAll()
-      setNotifications(n)
-      setLoading(false)
-    } catch { /* silent */ }
+    if (loadInFlightRef.current) return loadInFlightRef.current
+    const request = notificationService.listAll()
+      .then((n) => {
+        setNotifications(n)
+        setLoading(false)
+      })
+      .catch(() => { /* silent */ })
+      .finally(() => {
+        loadInFlightRef.current = null
+      })
+    loadInFlightRef.current = request
+    return request
   }, [])
 
   useEffect(() => {
-    load()
-    intervalRef.current = setInterval(load, POLL_INTERVAL_MS)
+    void load()
+    intervalRef.current = setInterval(() => { void load() }, POLL_INTERVAL_MS)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [load])
 

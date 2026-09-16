@@ -667,6 +667,64 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
   )
 }
 
+const ADMIN_PAGE_TITLES: Record<string, string> = {
+  dashboard: "Dashboard",
+  documents: "My Documents",
+  submissions: "AACCUP | Submissions",
+  tasks: "Accreditation | Tasks",
+  requests: "File Requests",
+  profile: "Account & Security",
+  users: "User Management",
+  audit: "Audit Logs",
+  settings: "Settings",
+  notifications: "Notifications",
+  aaccup: "AACCUP",
+  iso: "Accreditation | ISO 21001:2025",
+  root: "Platform Overview",
+  "root-organization": "Organization",
+  "root-folder-builder": "Folder Builder",
+  "root-requirement-builder": "Requirement Builder",
+  "root-workflow-builder": "Workflow Builder",
+  "root-form-builder": "Form Builder",
+  "root-setup-wizard": "Setup Wizard",
+  "root-config": "Configuration Engine",
+  "root-maintenance": "Storage Maintenance",
+  "root-roles-permissions": "Roles &amp; Permissions",
+  "root-audit": "System Audit",
+  "root-users": "System Users",
+}
+
+const USER_ROUTE_TO_PAGE: Record<string, string> = {
+  "/user": "dashboard",
+  "/user/dashboard": "dashboard",
+  "/user/documents": "documents",
+  "/user/requests": "requests",
+  "/user/requests/browse": "requests-browse",
+  "/user/aaccup": "aaccup",
+  "/user/iso": "iso",
+  "/user/submissions": "submissions",
+  "/user/tasks": "tasks",
+  "/user/notifications": "notifications",
+  "/user/activity": "activity",
+  "/user/profile": "profile",
+  "/user/settings": "settings",
+}
+
+const USER_PAGE_TITLES: Record<string, string> = {
+  dashboard: "My Dashboard",
+  documents: "My Documents",
+  requests: "My Requests",
+  "requests-browse": "Browse Archive",
+  aaccup: "Accreditation",
+  iso: "ISO 21001:2025",
+  submissions: "My Submissions",
+  tasks: "My Tasks",
+  notifications: "Notifications",
+  activity: "My Activity",
+  profile: "My Profile",
+  settings: "Settings",
+}
+
 function AppContent() {
   const { isAuthenticated, authStatus, user } = useAuth()
   const navigate = useNavigate()
@@ -716,36 +774,9 @@ function AppContent() {
     localStorage.setItem("activePage", page)
   }, [location.pathname, location.search])
 
-  const pageTitles: Record<string, string> = {
-    dashboard: "Dashboard",
-    documents: "My Documents",
-    submissions: "AACCUP | Submissions",
-    tasks: "Accreditation | Tasks",
-    requests: "File Requests",
-    profile: "Account & Security",
-    users: "User Management",
-    audit: "Audit Logs",
-    settings: "Settings",
-    notifications: "Notifications",
-    aaccup: "AACCUP",
-    iso: "Accreditation | ISO 21001:2025",
-    root: "Platform Overview",
-    "root-organization": "Organization",
-    "root-folder-builder": "Folder Builder",
-    "root-requirement-builder": "Requirement Builder",
-    "root-workflow-builder": "Workflow Builder",
-    "root-form-builder": "Form Builder",
-    "root-setup-wizard": "Setup Wizard",
-    "root-config": "Configuration Engine",
-    "root-maintenance": "Storage Maintenance",
-    "root-roles-permissions": "Roles &amp; Permissions",
-    "root-audit": "System Audit",
-    "root-users": "System Users",
-  }
-
   useEffect(() => {
-    document.title = pageTitles[activePage]
-       ? `${pageTitles[activePage]} | URS-DMS`
+    document.title = ADMIN_PAGE_TITLES[activePage]
+       ? `${ADMIN_PAGE_TITLES[activePage]} | URS-DMS`
       : "URS-DMS"
   }, [activePage])
 
@@ -919,24 +950,8 @@ function UserAppContent() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [])
 
-  const userRouteToPageMap: Record<string, string> = {
-    "/user": "dashboard",
-    "/user/dashboard": "dashboard",
-    "/user/documents": "documents",
-    "/user/requests": "requests",
-    "/user/requests/browse": "requests-browse",
-    "/user/aaccup": "aaccup",
-    "/user/iso": "iso",
-    "/user/submissions": "submissions",
-    "/user/tasks": "tasks",
-    "/user/notifications": "notifications",
-    "/user/activity": "activity",
-    "/user/profile": "profile",
-    "/user/settings": "settings",
-  }
-
   useEffect(() => {
-    const page = userRouteToPageMap[location.pathname]
+    const page = USER_ROUTE_TO_PAGE[location.pathname]
     if (!page) return
     const tab = new URLSearchParams(location.search).get("tab")
     const resolved =
@@ -973,24 +988,9 @@ function UserAppContent() {
     setActivePage(page)
   }
 
-  const userPageTitles: Record<string, string> = {
-    dashboard: "My Dashboard",
-    documents: "My Documents",
-    requests: "My Requests",
-    "requests-browse": "Browse Archive",
-    aaccup: "Accreditation",
-    iso: "ISO 21001:2025",
-    submissions: "My Submissions",
-    tasks: "My Tasks",
-    notifications: "Notifications",
-    activity: "My Activity",
-    profile: "My Profile",
-    settings: "Settings",
-  }
-
   useEffect(() => {
-    document.title = userPageTitles[activePage]
-       ? `${userPageTitles[activePage]} | URS-DMS`
+    document.title = USER_PAGE_TITLES[activePage]
+       ? `${USER_PAGE_TITLES[activePage]} | URS-DMS`
       : "URS-DMS"
   }, [activePage])
 

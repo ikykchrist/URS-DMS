@@ -132,7 +132,7 @@ the abandoned-multipart-upload limitation noted in the README.
 ## 3. Backend service (urs-server)
 
 - **Type:** Application
-- **Source:** Git provider → this repo, branch `master`
+- **Source:** Git provider → this repo, branch `main`
 - **Build:** Docker
 - **Dockerfile:** `server/Dockerfile`
 - **Port:** `4000`
@@ -157,6 +157,14 @@ every `GENERATE_*` placeholder with your real secret. Reference values:
 **Important:** do **not** set `MINIO_PUBLIC_ENDPOINT` — the backend already
 streams files via signed tokens through the same origin.
 
+### Optional: Office preview conversion
+
+If server-side previews for DOC/DOCX/PPT/PPTX/XLS/XLSX are required, add a
+Dokploy application using `gotenberg/gotenberg:8` and expose it only on the
+internal Dokploy network. Set `GOTENBERG_URL=http://gotenberg:3000` on
+`urs-server`. Native browser previews continue to work when this service is
+omitted.
+
 ### Domain
 
 You do **not** need to attach a public domain to the backend in Dokploy —
@@ -174,12 +182,13 @@ Postgres + Redis + MinIO must be `healthy` before the backend starts. Set
 ## 4. Frontend service (urs-frontend)
 
 - **Type:** Application
-- **Source:** Git provider → this repo, branch `master`
+- **Source:** Git provider → this repo, branch `main`
 - **Build:** Docker
 - **Dockerfile:** `./Dockerfile` (the new root Dockerfile)
 - **Build args:**
   ```
   VITE_API_BASE=/api/v1
+  BACKEND_UPSTREAM=urs-server:4000
   ```
 - **Port:** `80`
 - **Health check:** `/`
@@ -247,10 +256,10 @@ The deployment is wired for **auto-deploy on push**:
 
 1. In Dokploy → Service Settings → **Git** → enable **Auto Deploy** on push.
 2. Optionally protect `master` with branch protection rules in GitHub.
-3. Push to `master`:
+3. Push to `main`:
 
    ```bash
-   git push origin master
+   git push origin main
    ```
 
 4. Dokploy detects the push, rebuilds the image, runs migrations on container

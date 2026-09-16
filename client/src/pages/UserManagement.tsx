@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import {
   Search,
@@ -170,9 +170,9 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
       .catch(() => setSystemDepartments([]))
   }, [])
 
-  const refresh = () => listSystemUsers({ pageSize: 100 })
+  const refresh = useCallback(() => listSystemUsers({ pageSize: 100 })
     .then((page) => setUsers(page.items.map(toDomainUser)))
-    .catch((err) => console.error("Failed to refresh user list:", err))
+    .catch((err) => console.error("Failed to refresh user list:", err)), [])
 
   // Realtime: re-sync the list (fresh presigned photo URLs + profile updates)
   // whenever the tab regains focus or becomes visible again.
@@ -186,8 +186,7 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
       window.removeEventListener("focus", refresh)
       document.removeEventListener("visibilitychange", onVisible)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [refresh])
 
   const handleCloseAddUserModal = (open: boolean) => {
     setIsAddUserModalOpen(open)

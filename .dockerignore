@@ -21,10 +21,17 @@ REPLACED/
 dist/
 **/dist/
 **/node_modules/
+node_modules/
+**/.vite/
+**/coverage/
 
 # Logs and runtime
 logs/
 *.log
+server-output.txt
+test*.txt
+version*.txt
+npm-ver.txt
 
 # Env files and secrets
 .env

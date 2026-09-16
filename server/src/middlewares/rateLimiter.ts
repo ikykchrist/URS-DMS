@@ -13,6 +13,11 @@ export const globalLimiter: RateLimitRequestHandler = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
+    // Authentication endpoints have their own limiter. Keeping them in the
+    // broad API bucket means ordinary authenticated polling can exhaust the
+    // shared IP budget and prevent a valid session from refreshing or a user
+    // from logging back in.
+    if (isAuthRoute(req.path)) return true;
     // Health checks are probed frequently by ops and monitoring and must
     // never be throttled.
     if (req.path.startsWith("/v1/health")) return true;
@@ -36,12 +41,18 @@ export const globalLimiter: RateLimitRequestHandler = rateLimit({
   },
 });
 
+export function isAuthRoute(path: string): boolean {
+  return path.startsWith("/v1/auth/");
+}
+
 export const authLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (_req, res) => res.statusCode < 400,
+  // Successful login/refresh requests do not consume the auth-attempt budget;
+  // failed attempts are counted after the response status is known.
+  skipSuccessfulRequests: true,
   message: {
     success: false,
     error: { code: "RATE_LIMITED", message: "Too many auth attempts, please try again later." },

@@ -225,6 +225,10 @@ export function thumbnailObjectKey(objectKey: string): string {
   return `${objectKey}.thumbnail.webp`;
 }
 
+export function previewObjectKey(objectKey: string): string {
+  return `${objectKey}.preview.pdf`;
+}
+
 export function objectKeyFor(documentId: string, versionId: string, filename: string): string {
   return buildObjectKey(documentId, versionId, filename);
 }

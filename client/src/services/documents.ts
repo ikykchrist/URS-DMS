@@ -28,6 +28,7 @@ interface OnlineDocumentRow {
 interface DownloadResult {
   url: string
   filename: string
+  mimeType?: string
 }
 
 function documentStatus(status: OnlineDocumentRow["status"]): DocumentStatus {

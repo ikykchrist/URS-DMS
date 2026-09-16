@@ -117,7 +117,19 @@ body {
 }
 
 @keyframes skeleton-shimmer {
-  100% { transform: translateX(100%); }
+  0% { transform: translateX(-120%); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateX(120%); opacity: 0; }
+}
+
+@keyframes urs-spinner {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes urs-loading-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.72; }
 }
 
 /* ===================================================================
@@ -139,8 +151,28 @@ body {
 }
 
 @keyframes urs-scale-in {
-  from { opacity: 0; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; scale: 0.98; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes urs-dialog-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 0.75rem)) scale(0.985); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes urs-dialog-out {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, calc(-50% + 0.35rem)) scale(0.99); }
+}
+
+@keyframes urs-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes urs-overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 @keyframes urs-soft-pulse {
@@ -160,18 +192,18 @@ body {
 
 @media (prefers-reduced-motion: no-preference) {
   #root {
-    animation: urs-fade-in 180ms ease-out both;
+    animation: urs-fade-in 260ms ease-out both;
   }
 
   /* Page components mount directly inside the application main regions. */
   main > * {
-    animation: urs-fade-up 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: urs-fade-up 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   /* Shared cards gain a small entrance and clear, restrained affordance. */
   .rounded-card {
-    animation: urs-fade-up 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    animation: urs-fade-up 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
   }
 
   .rounded-card[class*="cursor-pointer"]:hover,
@@ -187,7 +219,7 @@ body {
   select,
   [role="button"] {
     transition-property: color, background-color, border-color, opacity, box-shadow, transform;
-    transition-duration: 160ms;
+    transition-duration: 200ms;
     transition-timing-function: ease;
   }
 
@@ -213,9 +245,24 @@ body {
   tbody > tr:nth-child(5) { animation-delay: 80ms; }
   tbody > tr:nth-child(n + 6) { animation-delay: 100ms; }
 
-  /* Radix dialogs, menus, and listboxes have consistent open feedback even
-     where a component does not supply its own animation utility classes. */
-  [data-state="open"][role="dialog"],
+  .urs-dialog-surface[data-state="open"] {
+    animation: urs-dialog-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .urs-dialog-surface[data-state="closed"] {
+    animation: urs-dialog-out 160ms ease-in both;
+  }
+
+  .urs-dialog-overlay[data-state="open"] {
+    animation: urs-overlay-in 180ms ease-out both;
+  }
+
+  .urs-dialog-overlay[data-state="closed"] {
+    animation: urs-overlay-out 140ms ease-in both;
+  }
+
+  /* Menus and listboxes retain a lighter open response. */
+  [data-state="open"][role="menu"],
   [data-state="open"][role="menu"],
   [data-state="open"][role="listbox"] {
     animation: urs-scale-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -226,7 +273,15 @@ body {
   }
 
   [aria-busy="true"] {
-    animation: urs-soft-pulse 1.4s ease-in-out infinite;
+    animation: urs-loading-pulse 1.8s ease-in-out infinite;
+  }
+
+  .animate-spin {
+    animation: urs-spinner 1.15s linear infinite;
+  }
+
+  .animate-pulse {
+    animation: urs-loading-pulse 1.8s ease-in-out infinite;
   }
 
   /* Login gets a slightly more deliberate first impression: the branded

@@ -6,6 +6,8 @@ import {
   deleteObject,
   objectExists,
   thumbnailObjectKey,
+  previewObjectKey,
+  putObject,
 } from "@/lib/storage";
 import { createHash } from "node:crypto";
 import type { Readable } from "node:stream";
@@ -22,7 +24,8 @@ import {
   recordWorkflowAction,
   scopesForDocument,
 } from "@/modules/workflow/workflow.engine";
-import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "@/utils/errors";
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError, ServiceUnavailableError } from "@/utils/errors";
+import { env } from "@/config/env";
 import { resolveFolderAccess, assertFolderAccess } from "@/modules/folders/folderSharing.service";
 import * as repo from "@/modules/documents/documents.repository";
 import type { Prisma } from "@prisma/client";
@@ -588,6 +591,69 @@ interface ResolvedDocumentUrl {
   versionId: string;
 }
 
+const OFFICE_PREVIEW_TYPES = new Set([
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+]);
+
+async function streamToBuffer(stream: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  return Buffer.concat(chunks);
+}
+
+async function getConvertedPreview(
+  objectKey: string,
+  filename: string,
+  mimeType: string,
+): Promise<DownloadResult | null> {
+  if (!OFFICE_PREVIEW_TYPES.has(mimeType) || !env.GOTENBERG_URL) return null;
+
+  const convertedKey = previewObjectKey(objectKey);
+  if (!await objectExists(convertedKey)) {
+    const source = await streamToBuffer(await getObjectStream(objectKey));
+    const form = new FormData();
+    form.append("files", new Blob([source], { type: mimeType }), filename);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), env.GOTENBERG_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${env.GOTENBERG_URL}/forms/libreoffice/convert`, {
+        method: "POST",
+        body: form,
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new ServiceUnavailableError("Document preview conversion failed", { status: response.status });
+      }
+      const pdf = Buffer.from(await response.arrayBuffer());
+      if (pdf.length === 0) throw new ServiceUnavailableError("Document preview conversion returned no data");
+      await putObject(convertedKey, pdf, pdf.length, "application/pdf");
+    } catch (error) {
+      if (error instanceof ServiceUnavailableError) throw error;
+      throw new ServiceUnavailableError("Document preview conversion is unavailable", {
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  const converted = await statObject(convertedKey);
+  const download = await presignDownload(convertedKey, { inline: true });
+  return {
+    url: download.url,
+    objectKey: convertedKey,
+    expiresInSeconds: download.expiresInSeconds,
+    filename: filename.replace(/\.[^.]+$/, "") + ".pdf",
+    sizeBytes: String(converted.size),
+    mimeType: "application/pdf",
+  };
+}
+
 async function resolveDocumentUrl(
   id: string,
   actor: Actor,
@@ -665,6 +731,7 @@ export async function getDownloadUrl(
 // -----------------------------------------------------------------------------
 export async function getPreviewUrl(id: string, actor: Actor): Promise<DownloadResult> {
   const { result } = await resolveDocumentUrl(id, actor, undefined, { inline: true });
+  const convertedPreview = await getConvertedPreview(result.objectKey, result.filename, result.mimeType);
   await writeAudit({
     action: AUDIT_ACTIONS.DOCUMENT_PREVIEWED,
     userId: actor.id,
@@ -673,7 +740,7 @@ export async function getPreviewUrl(id: string, actor: Actor): Promise<DownloadR
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
   });
-  return result;
+  return convertedPreview ?? result;
 }
 
 export async function getThumbnailStream(id: string, actor: Actor): Promise<{ stream: Readable; mimeType: string; filename: string }> {

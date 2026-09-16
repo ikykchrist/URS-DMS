@@ -80,12 +80,14 @@ export class ApiRequestError extends Error {
  * Serialising refresh behind a single shared promise ensures only one refresh
  * runs; the rest await the same result and retry with the new token.
  */
-let refreshInFlight: Promise<boolean> | null = null;
+type RefreshResult = "success" | "invalid" | "unavailable";
+
+let refreshInFlight: Promise<RefreshResult> | null = null;
 // A burst of parallel 401s must produce exactly ONE session-expired signal —
 // otherwise every waiter calls authService.logout() and hammers /auth/logout.
 let sessionExpiredNotified = false;
 
-async function refreshAccessToken(): Promise<boolean> {
+async function refreshAccessToken(): Promise<RefreshResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
   try {
@@ -101,11 +103,16 @@ async function refreshAccessToken(): Promise<boolean> {
       | ApiErrorEnvelope;
     if (refreshResponse.ok && refreshPayload.success) {
       setServerToken(refreshPayload.data.accessToken);
-      return true;
+      return "success";
     }
-    return false;
+    // Only an explicit auth rejection proves that the refresh session is no
+    // longer valid. Rate limits, 5xx responses, and other temporary failures
+    // must not be turned into an automatic logout.
+    return refreshResponse.status === 401 || refreshResponse.status === 403
+      ? "invalid"
+      : "unavailable";
   } catch {
-    return false;
+    return "unavailable";
   } finally {
     clearTimeout(timeout);
   }
@@ -142,17 +149,18 @@ async function requestEnvelope<T>(
       });
     }
     const refreshed = await refreshInFlight;
-    if (refreshed) {
+    if (refreshed === "success") {
       return requestEnvelope<T>(method, path, body, true);
     }
-    clearServerToken();
-    // Expired session: notify the auth layer so the UI returns to the login
-    // screen instead of showing broken pages (Sprint 7.8 acceptance). Only the
-    // first 401 of a burst dispatches — N parallel requests must not trigger N
-    // logouts.
-    if (!sessionExpiredNotified) {
-      sessionExpiredNotified = true;
-      window.dispatchEvent(new CustomEvent("urs:session-expired"));
+    if (refreshed === "invalid") {
+      clearServerToken();
+      // Expired session: notify the auth layer so the UI returns to the login
+      // screen instead of showing broken pages. Only the first 401 of a burst
+      // dispatches — N parallel requests must not trigger N logouts.
+      if (!sessionExpiredNotified) {
+        sessionExpiredNotified = true;
+        window.dispatchEvent(new CustomEvent("urs:session-expired"));
+      }
     }
   }
 
