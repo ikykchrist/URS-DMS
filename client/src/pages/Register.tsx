@@ -15,7 +15,7 @@ interface RegistrationOptions {
   campuses: Array<{ id: string; name: string; code: string }>
   colleges: Array<{ id: string; name: string; code: string; campusId: string | null }>
   programs: Array<{ id: string; name: string; code: string; campusId: string | null; collegeId: string }>
-  offices: Array<{ id: string; name: string; code: string; campusId: string | null; collegeId: string | null; departmentId: string | null }>
+  offices: Array<{ id: string; name: string; code: string; campusId: string | null; collegeId: string | null }>
 }
 
 const selectClass = "h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-sm transition-colors focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"

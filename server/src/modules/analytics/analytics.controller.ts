@@ -56,7 +56,9 @@ function toFilter(req: Request): AnalyticsFilter {
     granularity: q.granularity,
     from: q.from,
     to: q.to,
-    departmentId: q.departmentId,
+    campusId: q.campusId,
+    collegeId: q.collegeId,
+    programId: q.programId,
     areaId: q.areaId,
     ownerId: permissions.includes("root.access") ? undefined : req.auth!.userId,
   };

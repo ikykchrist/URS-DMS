@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { useSearchParams } from "react-router-dom"
 import {
   AlertCircle,
-  CheckCircle2,
   ClipboardList,
   Clock3,
   Flag,
@@ -25,7 +24,7 @@ import { TaskSubmitDialog } from "@/components/aaccup/TaskSubmitDialog"
 
 // =============================================================================
 // UserTasksTab — "My Tasks" inside the AACCUP group. Shows the tasks
-// assigned to the current user (or their department). Assignees can move a
+// assigned to the current user (or their program). Assignees can move a
 // task OPEN → IN_PROGRESS → COMPLETED and submit evidence directly into a
 // task that is linked to a requirement. Shared with the admin group tab.
 // =============================================================================
@@ -34,6 +33,7 @@ function taskStatusBadge(status: OnlineAaccupTask["status"]) {
   switch (status) {
     case "COMPLETED": return <Badge variant="success">Completed</Badge>
     case "IN_PROGRESS": return <Badge variant="default">In Progress</Badge>
+    case "NEEDS_REVISION": return <Badge variant="danger">Needs Revision</Badge>
     case "CANCELLED": return <Badge variant="danger">Cancelled</Badge>
     default: return <Badge variant="warning">Open</Badge>
   }
@@ -53,6 +53,7 @@ export function UserTasksTab({ navigation }: { navigation?: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [submitTask, setSubmitTask] = useState<OnlineAaccupTask | null>(null)
+  const [submitRequirement, setSubmitRequirement] = useState<{ id: string; title: string; documentCode: string } | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -68,11 +69,11 @@ export function UserTasksTab({ navigation }: { navigation?: ReactNode }) {
 
   useEffect(() => { void load() }, [load])
 
-  const handleStatusChange = async (task: OnlineAaccupTask, status: "IN_PROGRESS" | "COMPLETED") => {
+  const handleStatusChange = async (task: OnlineAaccupTask, status: "IN_PROGRESS") => {
     setUpdatingId(task.id)
     try {
       await updateOnlineTask(task.id, { status })
-      toast.success(status === "COMPLETED" ? "Task marked as completed" : "Task started")
+      toast.success("Task started")
       await load()
     } catch (changeError) {
       toast.error(changeError instanceof Error ? changeError.message : "Failed to update task")
@@ -81,7 +82,7 @@ export function UserTasksTab({ navigation }: { navigation?: ReactNode }) {
     }
   }
 
-  const actionable = (task: OnlineAaccupTask) => task.status === "OPEN" || task.status === "IN_PROGRESS"
+  const actionable = (task: OnlineAaccupTask) => task.status === "OPEN" || task.status === "IN_PROGRESS" || task.status === "NEEDS_REVISION"
   const taskFilter = searchParams.get("taskFilter")
   const highlightTaskId = searchParams.get("highlight")
   const visibleTasks = tasks.filter((task) => {
@@ -103,7 +104,7 @@ export function UserTasksTab({ navigation }: { navigation?: ReactNode }) {
     <div className="content-padding">
       <PageHeader
         title="My Tasks"
-        description="Tasks assigned to you or your department — submit evidence and track progress."
+        description="Tasks assigned to you or your program — submit evidence and track progress."
         actions={
           <Button variant="outline" onClick={() => void load()}>
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -135,7 +136,7 @@ export function UserTasksTab({ navigation }: { navigation?: ReactNode }) {
               <EmptyState
                 variant="tasks"
                 title="No tasks assigned"
-                description="When an admin or QAO assigns a task to you or your department, it will appear here."
+                description="When an admin or QAO assigns a task to you or your program, it will appear here."
               />
             </CardContent>
           </Card>
@@ -180,7 +181,7 @@ export function UserTasksTab({ navigation }: { navigation?: ReactNode }) {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      {canChange && task.status === "OPEN" && (
+                      {canChange && (task.status === "OPEN" || task.status === "NEEDS_REVISION") && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -188,35 +189,47 @@ export function UserTasksTab({ navigation }: { navigation?: ReactNode }) {
                           onClick={() => void handleStatusChange(task, "IN_PROGRESS")}
                         >
                           <Clock3 className="mr-1.5 h-3.5 w-3.5" />
-                          Start
+                          {task.status === "NEEDS_REVISION" ? "Resume" : "Start"}
                         </Button>
                       )}
-                      {canChange && task.status === "IN_PROGRESS" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                          disabled={updatingId === task.id}
-                          onClick={() => void handleStatusChange(task, "COMPLETED")}
-                        >
-                          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                          Mark Complete
-                        </Button>
-                      )}
-                      {canChange && task.requirementId ? (
-                        <Button size="sm" className="shadow-soft" onClick={() => setSubmitTask(task)}>
-                          <Upload className="mr-1.5 h-3.5 w-3.5" />
-                          Submit Evidence
-                        </Button>
-                      ) : (
-                        canChange && (
-                          <Badge variant="secondary" className="text-[10px]">
-                            {task.requirementTemplateId ? "Complete template requirements" : "No requirement linked"}
-                          </Badge>
-                        )
+                      {canChange && task.requirementProgress.length === 0 && !task.requirementId && (
+                        <Badge variant="secondary" className="text-[10px]">No requirements linked</Badge>
                       )}
                     </div>
                   </div>
+                  {task.requirementProgress.length > 0 && (
+                    <div className="mt-4 border-t border-slate-100 pt-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Required evidence</p>
+                        <p className="text-[11px] text-slate-500">
+                          {task.requirementProgress.filter((item) => item.isRequired && item.submissionStatus === "APPROVED").length}/{task.requirementProgress.filter((item) => item.isRequired).length} required approved
+                        </p>
+                      </div>
+                      <p className="mb-2 text-[11px] text-slate-500">Shared area progress across program members. Your personal submissions are tracked separately.</p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {task.requirementProgress.map((item) => {
+                          const approved = item.submissionStatus === "APPROVED"
+                          const submitted = item.submissionStatus !== null
+                          return (
+                            <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-[12px] font-medium text-slate-800">{item.documentCode} — {item.title}</p>
+                                <p className={approved ? "text-[11px] text-emerald-600" : submitted ? "text-[11px] text-amber-600" : "text-[11px] text-slate-500"}>
+                                  {approved ? "Approved" : submitted ? item.submissionStatus === "NEEDS_REVISION" ? "Needs revision" : "Awaiting review" : "Not submitted"}
+                                </p>
+                              </div>
+                              {canChange && !approved && (
+                                <Button size="sm" variant="outline" onClick={() => { setSubmitTask(task); setSubmitRequirement({ id: item.id, title: item.title, documentCode: item.documentCode }) }}>
+                                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                                  {submitted ? "Resubmit" : "Submit"}
+                                </Button>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )
@@ -226,7 +239,8 @@ export function UserTasksTab({ navigation }: { navigation?: ReactNode }) {
 
       <TaskSubmitDialog
         task={submitTask}
-        onClose={() => setSubmitTask(null)}
+        requirement={submitRequirement}
+        onClose={() => { setSubmitTask(null); setSubmitRequirement(null) }}
         onSubmitted={() => void load()}
       />
     </div>

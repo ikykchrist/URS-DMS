@@ -46,8 +46,12 @@ export interface AuthenticatedUser {
   suffix: string | null;
   status: string;
   role: string;
-  departmentId: string | null;
-  departmentName: string | null;
+  campusId: string | null;
+  campusName: string | null;
+  collegeId: string | null;
+  collegeName: string | null;
+  programId: string | null;
+  programName: string | null;
   createdAt: string;
   lastLogin: string | null;
   permissions: string[];
@@ -72,7 +76,12 @@ async function buildUserView(userId: string): Promise<AuthenticatedUser> {
       lastName: true,
       suffix: true,
       status: true,
-      departmentId: true,
+      campusId: true,
+      collegeId: true,
+      programId: true,
+      campus: { select: { name: true } },
+      college: { select: { name: true } },
+      program: { select: { name: true } },
       createdAt: true,
       lastLogin: true,
       profilePhotoKey: true,
@@ -82,12 +91,6 @@ async function buildUserView(userId: string): Promise<AuthenticatedUser> {
   });
   if (!user) throw new NotFoundError("User not found");
   const permissions = await loadCodesByRoleId(user.roleId);
-  const departmentName = user.departmentId
-    ? (await prisma.department.findUnique({
-        where: { id: user.departmentId },
-        select: { name: true },
-      }))?.name ?? null
-    : null;
   return {
     id: user.id,
     employeeId: user.employeeId,
@@ -98,8 +101,12 @@ async function buildUserView(userId: string): Promise<AuthenticatedUser> {
     suffix: user.suffix,
     status: user.status,
     role: user.role.name,
-    departmentId: user.departmentId,
-    departmentName,
+    campusId: user.campusId,
+    campusName: user.campus?.name ?? null,
+    collegeId: user.collegeId,
+    collegeName: user.college?.name ?? null,
+    programId: user.programId,
+    programName: user.program?.name ?? null,
     createdAt: user.createdAt.toISOString(),
     lastLogin: user.lastLogin?.toISOString() ?? null,
     permissions,

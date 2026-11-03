@@ -134,6 +134,7 @@ interface TemplateForm {
   code: string;
   description: string;
   category: string;
+  areaSet: "AACCUP" | "ISO";
   status: RequirementTemplateStatus;
 }
 
@@ -162,6 +163,7 @@ const EMPTY_TEMPLATE: TemplateForm = {
   code: "",
   description: "",
   category: "AACCUP",
+  areaSet: "AACCUP",
   status: "INACTIVE",
 };
 
@@ -189,13 +191,7 @@ const TARGET_TYPES: Array<{
   value: RequirementAssignmentTargetType;
   label: string;
 }> = [
-  { value: "UNIVERSITY", label: "University" },
-  { value: "COLLEGE", label: "College" },
-  { value: "DEPARTMENT", label: "Department" },
-  { value: "PROGRAM", label: "Program" },
-  { value: "OFFICE", label: "Office" },
   { value: "AACCUP_AREA", label: "AACCUP Area" },
-  { value: "ACCREDITATION_CYCLE", label: "Accreditation Cycle" },
 ];
 
 const NODE_TYPES: Array<{ value: RequirementNodeType; label: string }> = [
@@ -685,6 +681,11 @@ export default function RootRequirementBuilder() {
   const templateRequest = useRef(0);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  const selectTemplate = useCallback((id: string | null) => {
+    selectedIdRef.current = id;
+    setSelectedId(id);
+  }, []);
   const [detail, setDetail] = useState<RequirementTemplateDetail | null>(null);
   const [allNodes, setAllNodes] = useState<RequirementTreeNode[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -716,9 +717,11 @@ export default function RootRequirementBuilder() {
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
   const [assignmentsError, setAssignmentsError] = useState<string | null>(null);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
+  const [assignmentTemplateId, setAssignmentTemplateId] = useState<string | null>(null);
   const [assignmentType, setAssignmentType] =
-    useState<RequirementAssignmentTargetType>("UNIVERSITY");
+    useState<RequirementAssignmentTargetType>("AACCUP_AREA");
   const [assignmentTarget, setAssignmentTarget] = useState(NO_TARGET);
+  const [assignmentDueDate, setAssignmentDueDate] = useState("");
   const [targetOptions, setTargetOptions] = useState<RequirementTargetOption[]>(
     [],
   );
@@ -766,11 +769,9 @@ export default function RootRequirementBuilder() {
       setTemplates(result.items);
       setTemplatePages(Math.max(1, result.meta.totalPages));
       setTemplateTotal(result.meta.total);
-      setSelectedId((current) => {
-        if (current && result.items.some((template) => template.id === current))
-          return current;
-        return result.items[0]?.id ?? null;
-      });
+      const current = selectedIdRef.current;
+      selectTemplate(current && result.items.some((template) => template.id === current)
+        ? current : result.items[0]?.id ?? null);
     } catch (error) {
       if (requestId === templateRequest.current)
         setTemplatesError(
@@ -779,7 +780,7 @@ export default function RootRequirementBuilder() {
     } finally {
       if (requestId === templateRequest.current) setTemplatesLoading(false);
     }
-  }, [deferredSearch, includeArchived, statusFilter, templatePage]);
+  }, [deferredSearch, includeArchived, statusFilter, templatePage, selectTemplate]);
 
   const loadDetail = useCallback(async (id: string, showLoading = true) => {
     const requestId = ++detailRequest.current;
@@ -790,7 +791,7 @@ export default function RootRequirementBuilder() {
         getRequirementTemplate(id),
         listRequirementNodes(id, { includeArchived: true }),
       ]);
-      if (requestId !== detailRequest.current) return;
+      if (requestId !== detailRequest.current || id !== selectedIdRef.current) return;
       setDetail(nextDetail);
       setAllNodes(nodesWithArchived);
       setExpanded((current) =>
@@ -851,7 +852,9 @@ export default function RootRequirementBuilder() {
 
   const refresh = useCallback(async () => {
     await loadTemplates();
-    if (selectedId) await loadDetail(selectedId, false);
+    const currentId = selectedIdRef.current;
+    if (currentId) await loadDetail(currentId, false);
+    else { setDetail(null); setAllNodes([]); }
     if (mainTab === "assignments") await loadAssignments();
     if (mainTab === "history") await loadHistory();
   }, [
@@ -860,7 +863,6 @@ export default function RootRequirementBuilder() {
     loadHistory,
     loadTemplates,
     mainTab,
-    selectedId,
   ]);
 
   const run = async (
@@ -891,6 +893,7 @@ export default function RootRequirementBuilder() {
       code: template.code,
       description: template.description ?? "",
       category: template.category ?? "",
+      areaSet: template.areaSet === "ISO" ? "ISO" : "AACCUP",
       status: template.status,
     });
     setTemplateDialog({ mode: "edit", template });
@@ -908,14 +911,16 @@ export default function RootRequirementBuilder() {
             code: templateForm.code.trim() || suggestedCode(templateForm.name, "REQUIREMENTS"),
             description: templateForm.description || null,
             category: templateForm.category || null,
+            areaSet: templateForm.areaSet,
           });
-          setSelectedId(created.template.id);
+          selectTemplate(created.template.id);
         } else {
           await updateRequirementTemplate(templateDialog.template.id, {
             ...templateForm,
             code: templateForm.code.trim() || suggestedCode(templateForm.name, "REQUIREMENTS"),
             description: templateForm.description || null,
             category: templateForm.category || null,
+            areaSet: templateForm.areaSet,
           });
         }
         setTemplateDialog(null);
@@ -926,12 +931,12 @@ export default function RootRequirementBuilder() {
     );
   };
 
-  const publishTemplate = async () => {
+  const activateTemplate = async () => {
     if (!selectedTemplate || selectedTemplate.deletedAt) return;
     await run(
-      "publish-template",
+      "activate-template",
       () => updateRequirementTemplate(selectedTemplate.id, { status: "ACTIVE" }),
-      "Template published",
+      "Template activated",
     );
   };
 
@@ -1110,20 +1115,29 @@ export default function RootRequirementBuilder() {
   };
 
   const openAssignment = () => {
+    const initialTemplateId =
+      selectedId ?? templates.find((template) => !template.deletedAt)?.id ?? null;
+    setAssignmentTemplateId(initialTemplateId);
+    if (initialTemplateId && initialTemplateId !== selectedId) {
+      selectTemplate(initialTemplateId);
+    }
     setAssignmentOpen(true);
-    void loadTargets("UNIVERSITY");
+    setAssignmentDueDate("");
+    void loadTargets("AACCUP_AREA");
   };
 
   const saveAssignment = async () => {
-    if (!detail) return;
+    const templateId = assignmentTemplateId ?? selectedId;
+    if (!templateId) return;
     if (assignmentType !== "UNIVERSITY" && assignmentTarget === NO_TARGET)
       return;
     await run(
       "assign",
       async () => {
         await assignRequirementTemplate(
-          detail.template.id,
+          templateId,
           assignmentType,
+          assignmentDueDate ? new Date(`${assignmentDueDate}T23:59:59`).toISOString() : undefined,
           assignmentType === "UNIVERSITY" ? null : assignmentTarget,
         );
         setAssignmentOpen(false);
@@ -1145,8 +1159,9 @@ export default function RootRequirementBuilder() {
     }
   };
 
-  const selectedTemplate = detail?.template ?? null;
-  const liveNodes = detail?.tree ?? [];
+  const selectedDetail = detail?.template.id === selectedId ? detail : null;
+  const selectedTemplate = selectedDetail?.template ?? null;
+  const liveNodes = selectedDetail?.tree ?? [];
   const archivedNodes = flatten(allNodes).filter((node) => node.deletedAt);
   const liveNodeList = flatten(liveNodes);
   const reviewWarnings = [
@@ -1287,7 +1302,7 @@ export default function RootRequirementBuilder() {
                       <button
                         key={template.id}
                         type="button"
-                        onClick={() => setSelectedId(template.id)}
+                        onClick={() => selectTemplate(template.id)}
                         className={`w-full px-4 py-3 text-left transition-colors ${selectedId === template.id ? "bg-primary-50/80 ring-1 ring-inset ring-primary-100" : "hover:bg-slate-50"}`}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -1442,11 +1457,12 @@ export default function RootRequirementBuilder() {
                         {selectedTemplate.status !== "ACTIVE" && !selectedTemplate.deletedAt && (
                           <Button
                             size="sm"
-                            onClick={() => void publishTemplate()}
-                            disabled={Boolean(busy)}
+                            onClick={() => void activateTemplate()}
+                            disabled={Boolean(busy) || !liveNodeList.some((node) => node.type !== "SECTION" && node.status === "ACTIVE")}
+                            title="Activation requires at least one active document requirement"
                           >
                             <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                            Publish
+                            Activate
                           </Button>
                         )}
                       </div>
@@ -1477,7 +1493,7 @@ export default function RootRequirementBuilder() {
                 {reviewWarnings.length > 0 ? (
                   <Card className="border-amber-200 bg-amber-50/50">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-[14px] text-amber-900">Before you publish</CardTitle>
+                      <CardTitle className="text-[14px] text-amber-900">Template checklist</CardTitle>
                     </CardHeader>
                     <CardContent className="pt-0">
                       <ul className="space-y-1.5 text-[12px] text-amber-800">
@@ -1489,7 +1505,7 @@ export default function RootRequirementBuilder() {
                   <Card className="border-emerald-200 bg-emerald-50/50">
                     <CardContent className="flex items-center gap-2 p-4 text-[12px] text-emerald-800">
                       <CheckCircle2 className="h-4 w-4" />
-                      This template is ready for review and publishing.
+                      This template is ready to use. Changes save a new version and apply to assigned scopes.
                     </CardContent>
                   </Card>
                 )}
@@ -1672,7 +1688,7 @@ export default function RootRequirementBuilder() {
               <div>
                 <CardTitle className="text-[15px]">Assignment Matrix</CardTitle>
                 <p className="mt-1 text-[12px] text-slate-500">
-                  The most specific active scope wins for each AACCUP area.
+                  Users receive requirements only after a template is attached to their accreditation area.
                 </p>
               </div>
               <div className="flex gap-2">
@@ -1684,7 +1700,7 @@ export default function RootRequirementBuilder() {
                   <CalendarRange className="mr-1.5 h-4 w-4" />
                   New Cycle
                 </Button>
-                <Button size="sm" onClick={openAssignment} disabled={!detail}>
+                <Button size="sm" onClick={openAssignment} disabled={templates.length === 0}>
                   <Plus className="mr-1.5 h-4 w-4" />
                   Assign Selected
                 </Button>
@@ -1892,7 +1908,7 @@ export default function RootRequirementBuilder() {
             </DialogTitle>
             <DialogDescription>
               Templates are versioned automatically after every structural
-              change.
+              change. Active templates remain editable; changes apply to their assigned scopes.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-3 sm:grid-cols-2">
@@ -1945,9 +1961,23 @@ export default function RootRequirementBuilder() {
               />
             </div>
             <div className="space-y-2">
+              <Label>Accreditation set</Label>
+              <Select
+                value={templateForm.areaSet}
+                onValueChange={(value) => setTemplateForm((form) => ({ ...form, areaSet: value as "AACCUP" | "ISO" }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="AACCUP">AACCUP</SelectItem>
+                  <SelectItem value="ISO">ISO 21001:2025</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Status</Label>
               <Select
                 value={templateForm.status}
+                disabled={templateDialog?.mode === "create"}
                 onValueChange={(value) =>
                   setTemplateForm((form) => ({
                     ...form,
@@ -2308,10 +2338,34 @@ export default function RootRequirementBuilder() {
           <DialogHeader>
             <DialogTitle>Assign Selected Template</DialogTitle>
             <DialogDescription>
-              {detail?.template.name ?? "Select a template first"}
+              Choose the requirement template and scope to assign.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-3">
+            <div className="space-y-2">
+              <Label>Requirement template</Label>
+              <Select
+                value={assignmentTemplateId ?? NO_TARGET}
+                onValueChange={(value) => {
+                  const nextTemplateId = value === NO_TARGET ? null : value;
+                  setAssignmentTemplateId(nextTemplateId);
+                  if (nextTemplateId) selectTemplate(nextTemplateId);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates
+                    .filter((template) => !template.deletedAt)
+                    .map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name} ({template.code})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label>Scope</Label>
               <Select
@@ -2358,9 +2412,18 @@ export default function RootRequirementBuilder() {
                 </Select>
               </div>
             )}
+            <div className="space-y-2">
+              <Label>Requirement deadline (optional)</Label>
+              <Input
+                type="date"
+                value={assignmentDueDate}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(event) => setAssignmentDueDate(event.target.value)}
+              />
+              <p className="text-[11px] text-slate-500">Requirements attach to this area. Accreditation administrators create tasks separately.</p>
+            </div>
             <div className="rounded-lg bg-amber-50 p-3 text-[11px] text-amber-800">
-              One active template is allowed per target. More specific area and
-              cycle assignments override organization-wide defaults.
+              One template is attached per area. Library and organization-wide assignments do not automatically appear for users.
             </div>
           </div>
           <DialogFooter>
@@ -2371,6 +2434,7 @@ export default function RootRequirementBuilder() {
               onClick={() => void saveAssignment()}
               disabled={
                 busy === "assign" ||
+                !assignmentTemplateId && !selectedId ||
                 (assignmentType !== "UNIVERSITY" &&
                   assignmentTarget === NO_TARGET)
               }

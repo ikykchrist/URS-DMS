@@ -10,7 +10,7 @@ export type RequirementNodeStatusValue = "ACTIVE" | "INACTIVE";
 export type RequirementTargetType =
   | "UNIVERSITY"
   | "COLLEGE"
-  | "DEPARTMENT"
+  | "CAMPUS"
   | "PROGRAM"
   | "OFFICE"
   | "AACCUP_AREA"
@@ -37,6 +37,7 @@ export interface RequirementTemplateView {
   code: string;
   description: string | null;
   category: string | null;
+  areaSet: "AACCUP" | "ISO" | "CERT";
   metadata: Prisma.JsonValue;
   status: RequirementTemplateStatusValue;
   version: number;
@@ -95,6 +96,7 @@ export interface RequirementAssignmentView {
   targetType: RequirementTargetType;
   targetId: string | null;
   targetName: string | null;
+  dueDate: Date | null;
   createdAt: Date;
 }
 
@@ -161,6 +163,7 @@ export interface RequirementSnapshot {
   code: string;
   description: string | null;
   category: string | null;
+  areaSet?: "AACCUP" | "ISO" | "CERT";
   metadata: Prisma.JsonValue;
   status: RequirementTemplateStatusValue;
   nodes: RequirementSnapshotNode[];
@@ -168,6 +171,7 @@ export interface RequirementSnapshot {
     id: string;
     targetType: RequirementTargetType;
     targetId: string | null;
+    dueDate?: Date | string | null;
   }>;
 }
 

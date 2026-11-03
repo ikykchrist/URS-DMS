@@ -16,6 +16,7 @@ export interface RequirementTemplateRow {
   code: string;
   description: string | null;
   category: string | null;
+  areaSet: "AACCUP" | "ISO" | "CERT";
   metadata: Prisma.JsonValue;
   status: RequirementTemplateStatusValue;
   version: number;
@@ -36,6 +37,7 @@ const templateSelect = {
   code: true,
   description: true,
   category: true,
+  areaSet: true,
   metadata: true,
   status: true,
   version: true,
@@ -280,6 +282,7 @@ export interface RequirementAssignmentRow {
   templateId: string;
   targetType: RequirementTargetType;
   targetId: string | null;
+  dueDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -290,6 +293,7 @@ const assignmentSelect = {
   templateId: true,
   targetType: true,
   targetId: true,
+  dueDate: true,
   createdAt: true,
   updatedAt: true,
   deletedAt: true,

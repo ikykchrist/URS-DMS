@@ -49,6 +49,7 @@ import { FilePreviewModal } from "@/components/preview/FilePreviewModal"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/context/AuthContext"
 import { hasPermission } from "@/lib/permissions"
+import { AreaRequirementTemplate } from "@/components/aaccup/AreaRequirementTemplate"
 import type { Document, DocumentStatus } from "@/types/domain"
 
 interface AACCUPArea {
@@ -78,7 +79,7 @@ interface AreaSubmission {
   fileName: string
   fileSize: string
   submittedBy: string
-  department: string
+  program: string
   dateSubmitted: string
   status: "Approved" | "Pending" | "Returned" | "Rejected"
 }
@@ -181,7 +182,7 @@ export function AACCUPAreaDetailsModal({
           fileName: submission.documentTitle,
           fileSize: "",
           submittedBy: submission.submittedByName ?? "Unknown",
-          department: submission.departmentName ?? "—",
+          program: submission.programName ?? "—",
           dateSubmitted: formatDate(submission.submittedAt),
           status: statusLabel[submission.status],
         }))
@@ -232,7 +233,7 @@ export function AACCUPAreaDetailsModal({
     }
   }
 
-  const handleTaskStatusChange = async (task: OnlineAaccupTask, status: "IN_PROGRESS" | "COMPLETED") => {
+  const handleTaskStatusChange = async (task: OnlineAaccupTask, status: "IN_PROGRESS") => {
     setUpdatingTaskId(task.id)
     try {
       await updateOnlineTask(task.id, { status })
@@ -248,6 +249,7 @@ export function AACCUPAreaDetailsModal({
   const taskStatusLabel: Record<OnlineAaccupTask["status"], string> = {
     OPEN: "Open",
     IN_PROGRESS: "In Progress",
+    NEEDS_REVISION: "Needs Revision",
     COMPLETED: "Completed",
     CANCELLED: "Cancelled",
   }
@@ -404,12 +406,13 @@ export function AACCUPAreaDetailsModal({
             <div className="flex-1 overflow-auto p-6">
               {view === "requirements" ? (
                 <div>
+                  {canManageTasks && area.serverId && <AreaRequirementTemplate areaId={area.serverId} onApplied={loadRequirements} />}
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-[14px] font-semibold text-gray-900">Submission Requirements</h3>
                       <p className="text-[12px] text-gray-500">
                         {requirements.some((r) => r.sourceTemplateId || r.sourceNodeId)
-                          ? "This area is managed by the Root Requirement Builder — manage requirements there."
+                          ? "Requirements come from the template attached to this area. Edit the reusable template in Requirement Builder."
                           : "Users submit evidence against these requirements."}
                       </p>
                     </div>
@@ -538,7 +541,7 @@ export function AACCUPAreaDetailsModal({
                         </TableRow>
                       ) : (
                         tasks.map((task) => {
-                          const actionable = task.status === "OPEN" || task.status === "IN_PROGRESS"
+                          const actionable = task.status === "OPEN" || task.status === "IN_PROGRESS" || task.status === "NEEDS_REVISION"
                           return (
                           <TableRow key={task.id} className="border-b border-gray-100">
                             <TableCell>
@@ -566,7 +569,7 @@ export function AACCUPAreaDetailsModal({
                                 </Avatar>
                                 <div>
                                   <p className="text-[13px] text-gray-700">{task.assigneeLabel ?? "Unassigned"}</p>
-                                  <p className="text-[11px] text-gray-500">{task.assigneeType === "DEPARTMENT" ? "Department" : "User"}</p>
+                                  <p className="text-[11px] text-gray-500">{task.assigneeType === "PROGRAM" ? "Program" : "User"}</p>
                                 </div>
                               </div>
                             </TableCell>
@@ -602,17 +605,6 @@ export function AACCUPAreaDetailsModal({
                                       onClick={() => void handleTaskStatusChange(task, "IN_PROGRESS")}
                                     >
                                       Start
-                                    </Button>
-                                  )}
-                                  {actionable && task.status === "IN_PROGRESS" && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-8 text-[12px] border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                                      disabled={updatingTaskId === task.id}
-                                      onClick={() => void handleTaskStatusChange(task, "COMPLETED")}
-                                    >
-                                      Mark Complete
                                     </Button>
                                   )}
                                   {actionable && task.requirementId && (
@@ -668,7 +660,7 @@ export function AACCUPAreaDetailsModal({
                     categoryId: raw.requirementId,
                     categoryName: raw.requirementCode,
                     area: raw.areaName,
-                    department: raw.departmentName ?? "Unassigned",
+                    program: raw.programName ?? "Unassigned",
                     ownerId: raw.submittedById ?? "",
                     ownerName: raw.submittedByName ?? "Unknown",
                     size: 0,
@@ -723,7 +715,7 @@ export function AACCUPAreaDetailsModal({
                                 </Avatar>
                                 <div>
                                   <p className="text-[13px] text-gray-700">{submission.submittedBy}</p>
-                                  <p className="text-[11px] text-gray-500">{submission.department}</p>
+                                  <p className="text-[11px] text-gray-500">{submission.program}</p>
                                 </div>
                               </div>
                             </TableCell>
@@ -818,8 +810,8 @@ export function AACCUPAreaDetailsModal({
                                       </div>
                                     </div>
 
-                                    <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mt-4 mb-2">Department</p>
-                                    <p className="text-[13px] text-gray-700">{submission.department}</p>
+                                    <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mt-4 mb-2">Program</p>
+                                    <p className="text-[13px] text-gray-700">{submission.program}</p>
                                   </div>
 
                                   <div>
@@ -838,7 +830,7 @@ export function AACCUPAreaDetailsModal({
                                         <div className="w-1.5 h-1.5 rounded-full bg-gray-300 mt-1.5" />
                                         <div>
                                           <p className="text-[13px] text-gray-700">
-                                            Document under review by {submission.department}
+                                            Document under review by {submission.program}
                                           </p>
                                           <p className="text-[11px] text-gray-400">Awaiting review</p>
                                         </div>

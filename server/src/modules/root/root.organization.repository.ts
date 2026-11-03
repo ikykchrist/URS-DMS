@@ -35,12 +35,10 @@ export interface RawOrgRow {
   displayOrder: number;
   campusId: string | null;
   collegeId: string | null;
-  departmentId: string | null;
   headId: string | null;
   level: ProgramLevel | null;
   campus: { id: string; name: string } | null;
   college: { id: string; name: string } | null;
-  department: { id: string; name: string } | null;
   head: { id: string; firstName: string; lastName: string } | null;
   createdAt: Date;
   updatedAt: Date;
@@ -70,22 +68,6 @@ const selects = {
     updatedAt: true,
     deletedAt: true,
   } satisfies Prisma.CollegeSelect,
-  department: {
-    id: true,
-    name: true,
-    code: true,
-    description: true,
-    displayOrder: true,
-    campusId: true,
-    campus: { select: { id: true, name: true } },
-    collegeId: true,
-    college: { select: { id: true, name: true } },
-    headId: true,
-    head: { select: { id: true, firstName: true, lastName: true } },
-    createdAt: true,
-    updatedAt: true,
-    deletedAt: true,
-  } satisfies Prisma.DepartmentSelect,
   office: {
     id: true,
     name: true,
@@ -96,8 +78,6 @@ const selects = {
     campus: { select: { id: true, name: true } },
     collegeId: true,
     college: { select: { id: true, name: true } },
-    departmentId: true,
-    department: { select: { id: true, name: true } },
     headId: true,
     head: { select: { id: true, firstName: true, lastName: true } },
     createdAt: true,
@@ -115,8 +95,6 @@ const selects = {
     campus: { select: { id: true, name: true } },
     collegeId: true,
     college: { select: { id: true, name: true } },
-    departmentId: true,
-    department: { select: { id: true, name: true } },
     createdAt: true,
     updatedAt: true,
     deletedAt: true,
@@ -128,7 +106,7 @@ export interface OrgListFilter {
   includeArchived?: boolean;
   campusId?: string;
   collegeId?: string;
-  departmentId?: string;
+  /** @deprecated legacy filter retained only for historical records */
 }
 
 function normalize(
@@ -144,9 +122,7 @@ function normalize(
     campusId: row.campusId ?? null,
     campusName: row.campus?.name ?? null,
     collegeId: row.collegeId ?? null,
-    collegeName: row.college?.name ?? null,
-    departmentId: row.departmentId ?? null,
-    departmentName: row.department?.name ?? null,
+  collegeName: row.college?.name ?? null,
     headId: row.headId ?? null,
     headName: row.head ? `${row.head.firstName} ${row.head.lastName}` : null,
     level: row.level ?? null,
@@ -164,8 +140,7 @@ function snapshotData(row: RawOrgRow): OrgSnapshotData {
     description: row.description,
     displayOrder: row.displayOrder ?? 0,
     campusId: row.campusId ?? null,
-    collegeId: row.collegeId ?? null,
-    departmentId: row.departmentId ?? null,
+  collegeId: row.collegeId ?? null,
     headId: row.headId ?? null,
     level: row.level ?? null,
   };
@@ -221,11 +196,8 @@ function buildWhere(cfg: OrgEntityConfig, filter: OrgListFilter): Record<string,
   if (filter.campusId && cfg.model !== "campus") {
     base.campusId = filter.campusId;
   }
-  if (filter.collegeId && (cfg.model === "department" || cfg.model === "office" || cfg.model === "program")) {
+  if (filter.collegeId && (cfg.model === "office" || cfg.model === "program")) {
     base.collegeId = filter.collegeId;
-  }
-  if (filter.departmentId && (cfg.model === "office" || cfg.model === "program")) {
-    base.departmentId = filter.departmentId;
   }
   return base;
 }
@@ -264,19 +236,6 @@ async function findManyRaw(
       ]);
       return { rows: items as unknown as RawOrgRow[], total };
     }
-    case "department": {
-      const [items, total] = await Promise.all([
-        prisma.department.findMany({
-          where: where as Prisma.DepartmentWhereInput,
-          orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
-          skip,
-          take: pageSize,
-          select: selects.department,
-        }),
-        prisma.department.count({ where: where as Prisma.DepartmentWhereInput }),
-      ]);
-      return { rows: items as unknown as RawOrgRow[], total };
-    }
     case "office": {
       const [items, total] = await Promise.all([
         prisma.office.findMany({
@@ -304,6 +263,7 @@ async function findManyRaw(
       return { rows: items as unknown as RawOrgRow[], total };
     }
   }
+  throw new Error(`Unsupported organization entity: ${cfg.model}`);
 }
 
 async function currentVersions(
@@ -355,12 +315,6 @@ export async function findRecordById(
         select: selects.college,
       })) as unknown as RawOrgRow | null;
       break;
-    case "department":
-      row = (await prisma.department.findFirst({
-        where: includeDeleted ? { id } : { id, deletedAt: null },
-        select: selects.department,
-      })) as unknown as RawOrgRow | null;
-      break;
     case "office":
       row = (await prisma.office.findFirst({
         where: includeDeleted ? { id } : { id, deletedAt: null },
@@ -400,13 +354,6 @@ export async function codeTaken(
           select: { id: true },
         }),
       );
-    case "department":
-      return Boolean(
-        await prisma.department.findFirst({
-          where: { code, ...notSelf } as Prisma.DepartmentWhereInput,
-          select: { id: true },
-        }),
-      );
     case "office":
       return Boolean(
         await prisma.office.findFirst({
@@ -428,7 +375,7 @@ export async function codeTaken(
 // Mutations (record write + version snapshot in one transaction)
 // -----------------------------------------------------------------------------
 export async function parentExists(
-  kind: "campus" | "college" | "department" | "user",
+  kind: "campus" | "college" | "user",
   id: string,
 ): Promise<boolean> {
   switch (kind) {
@@ -442,13 +389,6 @@ export async function parentExists(
     case "college":
       return Boolean(
         await prisma.college.findFirst({
-          where: { id, deletedAt: null },
-          select: { id: true },
-        }),
-      );
-    case "department":
-      return Boolean(
-        await prisma.department.findFirst({
           where: { id, deletedAt: null },
           select: { id: true },
         }),
@@ -470,7 +410,6 @@ export interface OrgWriteFields {
   displayOrder?: number;
   campusId?: string | null;
   collegeId?: string | null;
-  departmentId?: string | null;
   headId?: string | null;
   level?: ProgramLevel | null;
 }
@@ -516,26 +455,6 @@ export async function createWithSnapshot(
       });
       return normalize(row, 1);
     }
-    case "department": {
-      const row = await prisma.$transaction(async (tx) => {
-        const created = await tx.department.create({
-          data: {
-            name: data.name,
-            code: data.code,
-            description: data.description,
-            displayOrder: data.displayOrder ?? 0,
-            campusId: data.campusId ?? null,
-            collegeId: data.collegeId ?? null,
-            headId: data.headId ?? null,
-          },
-          select: selects.department,
-        });
-        const raw = created as unknown as RawOrgRow;
-        await snapshotInTx(tx, cfg.entity, created.id, "CREATED", snapshotData(raw), actorId);
-        return raw;
-      });
-      return normalize(row, 1);
-    }
     case "office": {
       const row = await prisma.$transaction(async (tx) => {
         const created = await tx.office.create({
@@ -546,7 +465,6 @@ export async function createWithSnapshot(
             displayOrder: data.displayOrder ?? 0,
             campusId: data.campusId ?? null,
             collegeId: data.collegeId ?? null,
-            departmentId: data.departmentId ?? null,
             headId: data.headId ?? null,
           },
           select: selects.office,
@@ -568,7 +486,6 @@ export async function createWithSnapshot(
             level: data.level ?? "UNDERGRADUATE",
             campusId: data.campusId ?? null,
             collegeId: data.collegeId ?? null,
-            departmentId: data.departmentId ?? null,
           },
           select: selects.program,
         });
@@ -621,25 +538,6 @@ export async function updateWithSnapshot(
         const version = await snapshotInTx(tx, cfg.entity, id, "UPDATED", snapshotData(raw), actorId);
         return normalize(raw, version);
       });
-    case "department":
-      return prisma.$transaction(async (tx) => {
-        const updated = await tx.department.update({
-          where: { id },
-          data: {
-            name: data.name,
-            code: data.code,
-            description: data.description,
-            displayOrder: data.displayOrder ?? 0,
-            campusId: data.campusId ?? null,
-            collegeId: data.collegeId ?? null,
-            headId: data.headId ?? null,
-          },
-          select: selects.department,
-        });
-        const raw = updated as unknown as RawOrgRow;
-        const version = await snapshotInTx(tx, cfg.entity, id, "UPDATED", snapshotData(raw), actorId);
-        return normalize(raw, version);
-      });
     case "office":
       return prisma.$transaction(async (tx) => {
         const updated = await tx.office.update({
@@ -651,7 +549,6 @@ export async function updateWithSnapshot(
             displayOrder: data.displayOrder ?? 0,
             campusId: data.campusId ?? null,
             collegeId: data.collegeId ?? null,
-            departmentId: data.departmentId ?? null,
             headId: data.headId ?? null,
           },
           select: selects.office,
@@ -672,7 +569,6 @@ export async function updateWithSnapshot(
             level: data.level ?? "UNDERGRADUATE",
             campusId: data.campusId ?? null,
             collegeId: data.collegeId ?? null,
-            departmentId: data.departmentId ?? null,
           },
           select: selects.program,
         });
@@ -707,17 +603,6 @@ export async function setArchivedWithSnapshot(
           where: { id },
           data: { deletedAt },
           select: selects.college,
-        });
-        const raw = updated as unknown as RawOrgRow;
-        const version = await snapshotInTx(tx, cfg.entity, id, "ARCHIVED", snapshotData(raw), actorId);
-        return normalize(raw, version);
-      });
-    case "department":
-      return prisma.$transaction(async (tx) => {
-        const updated = await tx.department.update({
-          where: { id },
-          data: { deletedAt },
-          select: selects.department,
         });
         const raw = updated as unknown as RawOrgRow;
         const version = await snapshotInTx(tx, cfg.entity, id, "ARCHIVED", snapshotData(raw), actorId);
@@ -771,17 +656,6 @@ export async function setRestoredWithSnapshot(
           where: { id },
           data: { deletedAt: null },
           select: selects.college,
-        });
-        const raw = updated as unknown as RawOrgRow;
-        const version = await snapshotInTx(tx, cfg.entity, id, "RESTORED", snapshotData(raw), actorId);
-        return normalize(raw, version);
-      });
-    case "department":
-      return prisma.$transaction(async (tx) => {
-        const updated = await tx.department.update({
-          where: { id },
-          data: { deletedAt: null },
-          select: selects.department,
         });
         const raw = updated as unknown as RawOrgRow;
         const version = await snapshotInTx(tx, cfg.entity, id, "RESTORED", snapshotData(raw), actorId);
@@ -854,26 +728,6 @@ export async function rollbackToVersion(
         const version = await snapshotInTx(tx, cfg.entity, id, "ROLLED_BACK", snapshotData(raw), actorId);
         return normalize(raw, version);
       });
-    case "department":
-      return prisma.$transaction(async (tx) => {
-        const updated = await tx.department.update({
-          where: { id },
-          data: {
-            name: data.name,
-            code: data.code,
-            description: data.description,
-            displayOrder: data.displayOrder ?? 0,
-            campusId: data.campusId ?? null,
-            collegeId: data.collegeId ?? null,
-            headId: data.headId ?? null,
-            deletedAt: null,
-          },
-          select: selects.department,
-        });
-        const raw = updated as unknown as RawOrgRow;
-        const version = await snapshotInTx(tx, cfg.entity, id, "ROLLED_BACK", snapshotData(raw), actorId);
-        return normalize(raw, version);
-      });
     case "office":
       return prisma.$transaction(async (tx) => {
         const updated = await tx.office.update({
@@ -885,7 +739,6 @@ export async function rollbackToVersion(
             displayOrder: data.displayOrder ?? 0,
             campusId: data.campusId ?? null,
             collegeId: data.collegeId ?? null,
-            departmentId: data.departmentId ?? null,
             headId: data.headId ?? null,
             deletedAt: null,
           },
@@ -907,7 +760,6 @@ export async function rollbackToVersion(
             level: data.level ?? "UNDERGRADUATE",
             campusId: data.campusId ?? null,
             collegeId: data.collegeId ?? null,
-            departmentId: data.departmentId ?? null,
             deletedAt: null,
           },
           select: selects.program,
@@ -969,8 +821,7 @@ export async function findVersion(
 }
 
 // -----------------------------------------------------------------------------
-// Organization tree (live rows only) — campus → college → department →
-// offices/programs.
+// Organization tree (live rows only) — campus → college → offices/programs.
 // -----------------------------------------------------------------------------
 export interface TreeCampusRow {
   id: string;
@@ -981,25 +832,19 @@ export interface TreeCampusRow {
 export interface TreeCollegeRow extends TreeCampusRow {
   campusId: string | null;
 }
-export interface TreeDeptRow extends TreeCollegeRow {
+export interface TreeOfficeRow extends TreeCollegeRow { collegeId: string | null }
+export interface TreeProgramRow extends TreeCollegeRow {
   collegeId: string | null;
-}
-export interface TreeOfficeRow extends TreeDeptRow {
-  departmentId: string | null;
-}
-export interface TreeProgramRow extends TreeDeptRow {
-  departmentId: string | null;
   level: ProgramLevel;
 }
 
 export async function getTreeData(): Promise<{
   campuses: TreeCampusRow[];
   colleges: TreeCollegeRow[];
-  departments: TreeDeptRow[];
   offices: TreeOfficeRow[];
   programs: TreeProgramRow[];
 }> {
-  const [campuses, colleges, departments, offices, programs] = await Promise.all([
+  const [campuses, colleges, offices, programs] = await Promise.all([
     prisma.campus.findMany({
       where: { deletedAt: null },
       orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
@@ -1010,45 +855,16 @@ export async function getTreeData(): Promise<{
       orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
       select: { id: true, name: true, code: true, description: true, campusId: true },
     }),
-    prisma.department.findMany({
-      where: { deletedAt: null },
-      orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
-      select: {
-        id: true,
-        name: true,
-        code: true,
-        description: true,
-        campusId: true,
-        collegeId: true,
-      },
-    }),
     prisma.office.findMany({
       where: { deletedAt: null },
       orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
-      select: {
-        id: true,
-        name: true,
-        code: true,
-        description: true,
-        campusId: true,
-        collegeId: true,
-        departmentId: true,
-      },
+      select: { id: true, name: true, code: true, description: true, campusId: true, collegeId: true },
     }),
     prisma.program.findMany({
       where: { deletedAt: null },
       orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
-      select: {
-        id: true,
-        name: true,
-        code: true,
-        description: true,
-        level: true,
-        campusId: true,
-        collegeId: true,
-        departmentId: true,
-      },
+      select: { id: true, name: true, code: true, description: true, level: true, campusId: true, collegeId: true },
     }),
   ]);
-  return { campuses, colleges, departments, offices, programs };
+  return { campuses, colleges, offices, programs };
 }

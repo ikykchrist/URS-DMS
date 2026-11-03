@@ -22,7 +22,7 @@ import * as foldersService from "@/modules/folders/folders.service";
 import * as documentsService from "@/modules/documents/documents.service";
 
 const createdUserIds: string[] = [];
-const createdDepartmentIds: string[] = [];
+const createdProgramIds: string[] = [];
 
 afterAll(async () => {
   for (const id of createdUserIds) {
@@ -32,9 +32,9 @@ afterAll(async () => {
   }
   await prisma.user.updateMany({
     where: { id: { in: createdUserIds } },
-    data: { departmentId: null },
+    data: { programId: null },
   });
-  await prisma.department.deleteMany({ where: { id: { in: createdDepartmentIds } } });
+  await prisma.program.deleteMany({ where: { id: { in: createdProgramIds } } });
   await prisma.repository.deleteMany({ where: { ownerId: { in: createdUserIds } } });
 });
 
@@ -42,13 +42,13 @@ function actorOf(user: TestUser) {
   return { id: user.id, permissions: [] as string[], ipAddress: "127.0.0.1", userAgent: "vitest" };
 }
 
-async function createDepartment(label: string): Promise<string> {
-  const dept = await prisma.department.create({
+async function createProgram(label: string): Promise<string> {
+  const program = await prisma.program.create({
     data: { name: `RT Authz ${label}`, code: `RT-${label}-${randomUUID().slice(0, 8)}` },
     select: { id: true },
   });
-  createdDepartmentIds.push(dept.id);
-  return dept.id;
+  createdProgramIds.push(program.id);
+  return program.id;
 }
 
 async function pair(suffix: string): Promise<{ a: TestUser; b: TestUser }> {
@@ -110,7 +110,7 @@ describe("folder move destination authorization", () => {
 describe("shared-WRITE document boundaries", () => {
   it("rejects a WRITE sharee changing departmentId and leaves the document unchanged", async () => {
     const { a, b } = await pair("doc-dept");
-    const dept = await createDepartment("doc-dept");
+    const program = await createProgram("doc-program");
     const doc = await createTestDocument(b.id, "B Dept Doc");
     await prisma.documentShare.create({
       data: { documentId: doc.id, userId: a.id, permission: "WRITE" },
@@ -119,12 +119,12 @@ describe("shared-WRITE document boundaries", () => {
 
     await runWithRequestId(corr, async () => {
       await expect(
-        documentsService.updateDocument(doc.id, { departmentId: dept }, actorOf(a)),
+        documentsService.updateDocument(doc.id, { programId: program }, actorOf(a)),
       ).rejects.toThrow();
     });
 
     const after = await prisma.document.findUnique({ where: { id: doc.id } });
-    expect(after?.departmentId).toBeNull();
+    expect(after?.programId).toBeNull();
 
     const denials = await prisma.auditLog.findMany({ where: { correlationId: corr } });
     expect(denials).toHaveLength(1);
@@ -137,11 +137,11 @@ describe("shared-WRITE document boundaries", () => {
 
   it("allows the owner to change the document department", async () => {
     const { b } = await pair("doc-dept-owner");
-    const dept = await createDepartment("doc-dept-owner");
+    const program = await createProgram("doc-program-owner");
     const doc = await createTestDocument(b.id, "B Own Dept Doc");
 
-    const updated = await documentsService.updateDocument(doc.id, { departmentId: dept }, actorOf(b));
-    expect(updated.departmentId).toBe(dept);
+    const updated = await documentsService.updateDocument(doc.id, { programId: program }, actorOf(b));
+    expect(updated.programId).toBe(program);
   });
 
   it("still allows a WRITE sharee to rename the document (non-sensitive edit)", async () => {
@@ -159,18 +159,18 @@ describe("shared-WRITE document boundaries", () => {
 describe("folder department tagging authorization", () => {
   it("rejects tagging a folder to a department the actor does not belong to", async () => {
     const { a } = await pair("folder-dept");
-    const own = await createDepartment("folder-dept-own");
-    const other = await createDepartment("folder-dept-other");
-    await prisma.user.update({ where: { id: a.id }, data: { departmentId: own } });
+    const own = await createProgram("folder-program-own");
+    const other = await createProgram("folder-program-other");
+    await prisma.user.update({ where: { id: a.id }, data: { programId: own } });
 
     const corr = `test-folder-dept-${randomUUID()}`;
     await runWithRequestId(corr, async () => {
       await expect(
-        foldersService.createFolder({ name: "Cross Dept Folder", departmentId: other }, actorOf(a)),
+        foldersService.createFolder({ name: "Cross Program Folder", programId: other }, actorOf(a)),
       ).rejects.toThrow();
     });
 
-    const created = await prisma.folder.findFirst({ where: { ownerId: a.id, name: "Cross Dept Folder" } });
+    const created = await prisma.folder.findFirst({ where: { ownerId: a.id, name: "Cross Program Folder" } });
     expect(created).toBeNull();
 
     const denials = await prisma.auditLog.findMany({ where: { correlationId: corr } });
@@ -183,13 +183,13 @@ describe("folder department tagging authorization", () => {
 
   it("allows tagging a folder to the actor's own department", async () => {
     const { a } = await pair("folder-dept-own");
-    const own = await createDepartment("folder-dept-allowed");
-    await prisma.user.update({ where: { id: a.id }, data: { departmentId: own } });
+    const own = await createProgram("folder-program-allowed");
+    await prisma.user.update({ where: { id: a.id }, data: { programId: own } });
 
     const folder = await foldersService.createFolder(
-      { name: "Own Dept Folder", departmentId: own },
+      { name: "Own Program Folder", programId: own },
       actorOf(a),
     );
-    expect(folder.departmentId).toBe(own);
+    expect(folder.programId).toBe(own);
   });
 });

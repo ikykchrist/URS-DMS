@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { areaRequirementVisibility } from "@/modules/requirements/requirement.visibility";
 import { AUDIT_ACTIONS } from "@/config/constants";
 import { writeAudit } from "@/modules/audit/audit.service";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "@/utils/errors";
@@ -61,28 +62,22 @@ function assertCanRead(actor: Actor): void {
   }
 }
 
-async function actorDepartmentIds(actor: Actor): Promise<string[]> {
+async function actorProgramIds(actor: Actor): Promise<string[]> {
   const user = await prisma.user.findUnique({
     where: { id: actor.id },
-    select: { departmentId: true, departments: { select: { id: true } } },
+    select: { programId: true },
   });
-  return [
-    ...new Set(
-      [user?.departmentId, ...(user?.departments.map((department) => department.id) ?? [])].filter(
-        (id): id is string => Boolean(id),
-      ),
-    ),
-  ];
+  return user?.programId ? [user.programId] : [];
 }
 
-async function assertAreaScope(actor: Actor, areaId: string): Promise<{ departmentId: string }> {
+async function assertAreaScope(actor: Actor, areaId: string): Promise<{ programId: string | null }> {
   const area = await prisma.aaccupArea.findFirst({
     where: { id: areaId, deletedAt: null },
-    select: { departmentId: true },
+    select: { programId: true },
   });
   if (!area) throw new BadRequestError("Referenced AACCUP area not found");
-  if (!isManager(actor) && !(await actorDepartmentIds(actor)).includes(area.departmentId)) {
-    throw new ForbiddenError("AACCUP area is outside your department scope");
+  if (!isManager(actor) && (!area.programId || !(await actorProgramIds(actor)).includes(area.programId))) {
+    throw new ForbiddenError("AACCUP area is outside your program scope");
   }
   return area;
 }
@@ -124,8 +119,9 @@ export async function listRequirements(
   } else if (!isManager(actor)) {
     where.area = {
       deletedAt: null,
-      departmentId: { in: await actorDepartmentIds(actor) },
+      programId: { in: await actorProgramIds(actor) },
     };
+    where.AND = [areaRequirementVisibility];
   }
   if (query.status) where.status = query.status;
   if (query.category) where.category = query.category;
@@ -179,6 +175,10 @@ export async function getRequirement(id: string, actor: Actor): Promise<AaccupRe
   const requirement = await repo.findById(id);
   if (!requirement) throw new NotFoundError("AACCUP requirement not found");
   await assertAreaScope(actor, requirement.areaId);
+  if (requirement.sourceNodeId) {
+    const assignment = await resolveRequirementAssignmentForArea(requirement.areaId);
+    if (!assignment || assignment.id !== requirement.sourceAssignmentId) throw new NotFoundError("Requirement template is not attached to this area");
+  }
   return requirement;
 }
 
@@ -402,8 +402,6 @@ export async function validateUpload(
   actor: Actor,
 ): Promise<UploadValidationResult> {
   assertCanRead(actor);
-  const requirement = await repo.findById(id);
-  if (!requirement) throw new NotFoundError("AACCUP requirement not found");
-  await assertAreaScope(actor, requirement.areaId);
+  await getRequirement(id, actor);
   return validateRequirementUpload(id, input);
 }

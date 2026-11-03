@@ -167,7 +167,7 @@ export type RollbackFormInput = z.infer<typeof rollbackFormSchema>;
 
 export const listAssignmentsQuerySchema = z.object({
   templateId: z.string().uuid().optional(),
-  targetType: z.enum(["REQUIREMENT_TEMPLATE", "WORKFLOW_STEP", "AACCUP_AREA", "FOLDER_TEMPLATE", "UNIVERSITY"]).optional(),
+  targetType: z.enum(["REQUIREMENT_TEMPLATE", "WORKFLOW_STEP", "AACCUP_AREA", "FOLDER_TEMPLATE", "UNIVERSITY", "CAMPUS", "COLLEGE", "PROGRAM"]).optional(),
   targetId: z.string().uuid().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
@@ -176,7 +176,7 @@ export type ListAssignmentsQuery = z.infer<typeof listAssignmentsQuerySchema>;
 
 export const createAssignmentSchema = z
   .object({
-    targetType: z.enum(["REQUIREMENT_TEMPLATE", "WORKFLOW_STEP", "AACCUP_AREA", "FOLDER_TEMPLATE", "UNIVERSITY"]),
+    targetType: z.enum(["REQUIREMENT_TEMPLATE", "WORKFLOW_STEP", "AACCUP_AREA", "FOLDER_TEMPLATE", "UNIVERSITY", "CAMPUS", "COLLEGE", "PROGRAM"]),
     targetId: z.string().uuid().nullable().optional(),
     priority: z.number().int().min(0).default(0),
   })

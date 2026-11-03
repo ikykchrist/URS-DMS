@@ -3,8 +3,8 @@
 // =============================================================================
 // URS-DMS â€” Root Â· Organization Management Engine validators (Sprint 7.4.2)
 // -----------------------------------------------------------------------------
-// Per-entity create/update schemas (colleges/departments share the Sprint 7.1
-// rows; offices add parent/head links; programs add `level`). Query params
+// Per-entity create/update schemas (offices add parent/head links; programs
+// add `level`). Query params
 // mirror the admin surfaces (page/pageSize/q/includeArchived) plus optional
 // parent filters. Body schemas are `.strict()` so unknown fields are rejected.
 // =============================================================================
@@ -38,7 +38,6 @@ export const listOrganizationQuerySchema = z.object({
   includeArchived: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
   campusId: z.string().uuid().optional(),
   collegeId: z.string().uuid().optional(),
-  departmentId: z.string().uuid().optional(),
 });
 export type ListOrganizationQuery = z.infer<typeof listOrganizationQuerySchema>;
 
@@ -66,18 +65,6 @@ export const createCollegeSchema = z
   .strict();
 export type CreateCollegeBody = z.infer<typeof createCollegeSchema>;
 
-export const createDepartmentSchema = z
-  .object({
-    name: nameSchema,
-    code: codeSchema,
-    description: descriptionSchema,
-    displayOrder: displayOrderSchema,
-    campusId: optionalIdSchema,
-    collegeId: optionalIdSchema,
-  })
-  .strict();
-export type CreateDepartmentBody = z.infer<typeof createDepartmentSchema>;
-
 export const createOfficeSchema = z
   .object({
     name: nameSchema,
@@ -86,7 +73,6 @@ export const createOfficeSchema = z
     displayOrder: displayOrderSchema,
     campusId: optionalIdSchema,
     collegeId: optionalIdSchema,
-    departmentId: optionalIdSchema,
     headId: optionalIdSchema,
   })
   .strict();
@@ -101,7 +87,6 @@ export const createProgramSchema = z
     level: programLevelSchema.optional(),
     campusId: optionalIdSchema,
     collegeId: optionalIdSchema,
-    departmentId: optionalIdSchema,
   })
   .strict();
 export type CreateProgramBody = z.infer<typeof createProgramSchema>;
@@ -130,18 +115,6 @@ export const updateCollegeSchema = z
   .strict();
 export type UpdateCollegeBody = z.infer<typeof updateCollegeSchema>;
 
-export const updateDepartmentSchema = z
-  .object({
-    name: nameSchema.optional(),
-    code: codeSchema.optional(),
-    description: descriptionSchema,
-    displayOrder: displayOrderSchema,
-    campusId: optionalIdSchema,
-    collegeId: optionalIdSchema,
-  })
-  .strict();
-export type UpdateDepartmentBody = z.infer<typeof updateDepartmentSchema>;
-
 export const updateOfficeSchema = z
   .object({
     name: nameSchema.optional(),
@@ -150,7 +123,6 @@ export const updateOfficeSchema = z
     displayOrder: displayOrderSchema,
     campusId: optionalIdSchema,
     collegeId: optionalIdSchema,
-    departmentId: optionalIdSchema,
     headId: optionalIdSchema,
   })
   .strict();
@@ -165,7 +137,6 @@ export const updateProgramSchema = z
     level: programLevelSchema.optional(),
     campusId: optionalIdSchema,
     collegeId: optionalIdSchema,
-    departmentId: optionalIdSchema,
   })
   .strict();
 export type UpdateProgramBody = z.infer<typeof updateProgramSchema>;

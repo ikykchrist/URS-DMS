@@ -10,6 +10,7 @@ import {
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "@/utils/errors";
 import type { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
+import { assertRequirementActivation } from "./root.requirement.activation";
 import type {
   AccreditationCycleView,
   ListResult,
@@ -75,6 +76,7 @@ function toTemplateView(row: repo.RequirementTemplateRow): RequirementTemplateVi
     code: row.code,
     description: row.description,
     category: row.category,
+    areaSet: row.areaSet,
     metadata: row.metadata,
     status: row.status,
     version: row.version,
@@ -190,7 +192,7 @@ async function resolveTargetNames(
 ): Promise<Map<string, string>> {
   const ids = {
     COLLEGE: [] as string[],
-    DEPARTMENT: [] as string[],
+    CAMPUS: [] as string[],
     PROGRAM: [] as string[],
     OFFICE: [] as string[],
     AACCUP_AREA: [] as string[],
@@ -199,13 +201,13 @@ async function resolveTargetNames(
   for (const row of rows) {
     if (row.targetId && row.targetType !== "UNIVERSITY") ids[row.targetType].push(row.targetId);
   }
-  const [colleges, departments, programs, offices, areas, cycles] = await Promise.all([
-    prisma.college.findMany({
-      where: { id: { in: ids.COLLEGE } },
+  const [campuses, colleges, programs, offices, areas, cycles] = await Promise.all([
+    prisma.campus.findMany({
+      where: { id: { in: ids.CAMPUS } },
       select: { id: true, name: true },
     }),
-    prisma.department.findMany({
-      where: { id: { in: ids.DEPARTMENT } },
+    prisma.college.findMany({
+      where: { id: { in: ids.COLLEGE } },
       select: { id: true, name: true },
     }),
     prisma.program.findMany({
@@ -223,7 +225,7 @@ async function resolveTargetNames(
     }),
   ]);
   return new Map(
-    [...colleges, ...departments, ...programs, ...offices, ...areas, ...cycles].map((row) => [
+    [...campuses, ...colleges, ...programs, ...offices, ...areas, ...cycles].map((row) => [
       row.id,
       row.name,
     ]),
@@ -250,6 +252,7 @@ async function assignmentViews(
     targetType: row.targetType,
     targetId: row.targetId,
     targetName: row.targetId ? (names.get(row.targetId) ?? "Unknown target") : "Entire University",
+    dueDate: row.dueDate,
     createdAt: row.createdAt,
   }));
 }
@@ -301,6 +304,7 @@ async function buildSnapshotInTx(
     code: template.code,
     description: template.description,
     category: template.category,
+    areaSet: template.areaSet,
     metadata: template.metadata,
     status: template.status,
     nodes: nodes.map((node) => ({
@@ -323,6 +327,7 @@ async function buildSnapshotInTx(
       id: assignment.id,
       targetType: assignment.targetType,
       targetId: assignment.targetId,
+      dueDate: assignment.dueDate?.toISOString() ?? null,
     })),
   };
 }
@@ -450,6 +455,7 @@ export async function createTemplate(
   actor: Actor,
 ): Promise<RequirementTemplateDetail> {
   assertCan(actor, PERMISSION.create, "You do not have permission to create requirement templates");
+  if (input.status === "ACTIVE") assertRequirementActivation([]);
   if (await repo.findTemplateByCode(input.code)) {
     throw new ConflictError(`A requirement template with code "${input.code}" already exists`);
   }
@@ -464,6 +470,7 @@ export async function createTemplate(
         code: input.code,
         description: input.description ?? null,
         category: input.category ?? null,
+        areaSet: input.areaSet,
         metadata: (input.metadata ?? undefined) as Prisma.InputJsonValue | undefined,
         status: input.status,
         version: 1,
@@ -512,6 +519,9 @@ export async function updateTemplate(
   assertCan(actor, PERMISSION.update, "You do not have permission to update requirement templates");
   const template = await repo.findTemplateById(id);
   if (!template) throw new NotFoundError("Requirement template not found");
+  if (input.status === "ACTIVE" && template.status !== "ACTIVE") {
+    assertRequirementActivation(await repo.listTemplateNodes(id));
+  }
   if (input.code && input.code !== template.code) {
     const duplicate = await repo.findTemplateByCode(input.code);
     if (duplicate && duplicate.id !== id)
@@ -533,6 +543,7 @@ export async function updateTemplate(
           ...(input.code !== undefined ? { code: input.code } : {}),
           ...(input.description !== undefined ? { description: input.description } : {}),
           ...(input.category !== undefined ? { category: input.category } : {}),
+          ...(input.areaSet !== undefined ? { areaSet: input.areaSet } : {}),
           ...(input.metadata !== undefined
             ? {
                 metadata: (input.metadata ?? null) as
@@ -1204,8 +1215,8 @@ async function assertTargetExists(
         select: { id: true },
       });
       break;
-    case "DEPARTMENT":
-      found = await prisma.department.findFirst({
+    case "CAMPUS":
+      found = await prisma.campus.findFirst({
         where: { id: targetId, deletedAt: null },
         select: { id: true },
       });
@@ -1244,11 +1255,31 @@ export async function assignTemplate(
   actor: Actor,
 ): Promise<RequirementTemplateDetail> {
   assertCan(actor, PERMISSION.assign, "You do not have permission to assign requirement templates");
+  if (input.targetType !== "AACCUP_AREA") throw new BadRequestError("Attach requirement templates to a specific accreditation area. Organization-wide templates are library entries only.");
+  await assignTemplateRecord(templateId, input, actor);
+  return getTemplate(templateId, actor);
+}
+
+async function assignTemplateRecord(templateId: string, input: AssignRequirementTemplateBody, actor: Actor): Promise<void> {
   const template = await requireLiveTemplate(templateId);
   const targetId = input.targetId ?? null;
   await assertTargetExists(input.targetType, targetId);
+  if (input.targetType === "AACCUP_AREA" && targetId) {
+    const area = await prisma.aaccupArea.findFirst({ where: { id: targetId, deletedAt: null }, select: { areaSet: true } });
+    if (!area || area.areaSet !== template.areaSet) throw new BadRequestError("Choose a template from the area's accreditation set");
+  }
   const live = await repo.findAssignmentByTarget(input.targetType, targetId);
-  if (live?.templateId === templateId) return getDetail(template, actor);
+  if (live?.templateId === templateId) {
+    if (input.dueDate !== undefined && (live.dueDate?.getTime() ?? null) !== (input.dueDate?.getTime() ?? null)) {
+      await mutateTemplate(template, actor, async (tx) => {
+        await tx.requirementAssignment.update({ where: { id: live.id }, data: { dueDate: input.dueDate ?? null } });
+      }, "ASSIGNED", AUDIT_ACTIONS.REQUIREMENT_TEMPLATE_ASSIGNED, "requirement_assignment", live.id,
+      { templateId, targetType: input.targetType, targetId, dueDate: input.dueDate?.toISOString() ?? null },
+      `Updated assignment deadline for ${input.targetType}`);
+      return;
+    }
+    return;
+  }
   if (live)
     throw new ConflictError("This target is already assigned to another requirement template");
   const archived = await repo.findAssignmentByTarget(input.targetType, targetId, true);
@@ -1260,7 +1291,12 @@ export async function assignTemplate(
       if (archived) {
         await tx.requirementAssignment.update({
           where: { id: archived.id },
-          data: { templateId, deletedAt: null, createdBy: actor.id },
+          data: {
+            templateId,
+            deletedAt: null,
+            createdBy: actor.id,
+            dueDate: input.dueDate ?? null,
+          },
         });
       } else {
         await tx.requirementAssignment.create({
@@ -1269,6 +1305,7 @@ export async function assignTemplate(
             templateId,
             targetType: input.targetType,
             targetId,
+            dueDate: input.dueDate ?? null,
             createdBy: actor.id,
           },
           select: { id: true },
@@ -1282,7 +1319,28 @@ export async function assignTemplate(
     { templateId, targetType: input.targetType, targetId },
     `Assigned template to ${input.targetType}`,
   );
-  return getTemplate(templateId, actor);
+}
+
+/** Area managers may attach an active library template only to this area's scope. */
+export async function attachTemplateToArea(areaId: string, templateId: string, actor: Actor): Promise<void> {
+  assertCan(actor, "aaccup.manage", "Only accreditation managers can configure area requirements");
+  const area = await prisma.aaccupArea.findFirst({ where: { id: areaId, deletedAt: null }, select: { areaSet: true } });
+  if (!area) throw new NotFoundError("Accreditation area not found");
+  const template = await requireLiveTemplate(templateId);
+  if (template.status !== "ACTIVE" || template.areaSet !== area.areaSet) throw new BadRequestError("Choose an active template from this area's accreditation set");
+  assertRequirementActivation(await repo.listTemplateNodes(templateId));
+  await assignTemplateRecord(templateId, { targetType: "AACCUP_AREA", targetId: areaId }, actor);
+}
+
+export async function detachTemplateFromArea(areaId: string, actor: Actor): Promise<void> {
+  assertCan(actor, "aaccup.manage", "Only accreditation managers can configure area requirements");
+  const assignment = await repo.findAssignmentByTarget("AACCUP_AREA", areaId);
+  if (!assignment) return;
+  const template = await requireLiveTemplate(assignment.templateId);
+  await mutateTemplate(template, actor, async (tx) => {
+    await tx.requirementAssignment.update({ where: { id: assignment.id }, data: { deletedAt: new Date() } });
+  }, "ASSIGNED", AUDIT_ACTIONS.REQUIREMENT_TEMPLATE_ASSIGNED, "requirement_assignment", assignment.id,
+  { templateId: template.id, targetType: "AACCUP_AREA", targetId: areaId }, "Removed area requirement template");
 }
 
 export async function unassignTemplate(
@@ -1398,6 +1456,7 @@ export async function rollbackTemplate(
   const version = await repo.findVersion(input.templateId, input.version);
   if (!version) throw new NotFoundError(`Requirement template version ${input.version} not found`);
   const snapshot = assertSnapshot(version.data);
+  if (snapshot.status === "ACTIVE") assertRequirementActivation(snapshot.nodes);
   const codeOwner = await repo.findTemplateByCode(snapshot.code);
   if (codeOwner && codeOwner.id !== template.id)
     throw new ConflictError(`Template code "${snapshot.code}" is now in use`);
@@ -1423,6 +1482,7 @@ export async function rollbackTemplate(
         code: snapshot.code,
         description: snapshot.description,
         category: snapshot.category,
+        areaSet: snapshot.areaSet ?? template.areaSet,
         metadata: (snapshot.metadata ?? null) as
           | Prisma.NullableJsonNullValueInput
           | Prisma.InputJsonValue,
@@ -1538,6 +1598,7 @@ export async function rollbackTemplate(
           templateId: template.id,
           targetType: assignment.targetType,
           targetId: assignment.targetId,
+          dueDate: assignment.dueDate ? new Date(assignment.dueDate) : null,
           deletedAt: null,
           createdBy: actor.id,
         },
@@ -1546,6 +1607,7 @@ export async function rollbackTemplate(
           templateId: template.id,
           targetType: assignment.targetType,
           targetId: assignment.targetId,
+          dueDate: assignment.dueDate ? new Date(assignment.dueDate) : null,
           createdBy: actor.id,
         },
       });

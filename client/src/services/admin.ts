@@ -19,10 +19,12 @@ export interface SystemUser {
   status: string
   roleId: string
   roleName: string
-  departmentId: string | null
-  departmentName: string | null
+  campusId: string | null
+  campusName: string | null
   collegeId: string | null
   collegeName: string | null
+  programId: string | null
+  programName: string | null
   mustChangePassword: boolean
   lastLogin: string | null
   createdAt: string
@@ -38,7 +40,8 @@ export async function listSystemUsers(query?: {
   search?: string
   status?: string
   roleId?: string
-  departmentId?: string
+  campusId?: string
+  collegeId?: string
   includeArchived?: boolean
 }): Promise<ApiPage<SystemUser>> {
   const params = new URLSearchParams()
@@ -47,7 +50,8 @@ export async function listSystemUsers(query?: {
   if (query?.search) params.set("q", query.search)
   if (query?.status) params.set("status", query.status)
   if (query?.roleId) params.set("roleId", query.roleId)
-  if (query?.departmentId) params.set("departmentId", query.departmentId)
+  if (query?.campusId) params.set("campusId", query.campusId)
+  if (query?.collegeId) params.set("collegeId", query.collegeId)
   if (query?.includeArchived) params.set("includeArchived", "true")
   const qs = params.size > 0 ? `?${params.toString()}` : ""
   return apiGetPage<SystemUser>(`/admin/users${qs}`)
@@ -66,7 +70,9 @@ export interface CreateSystemUserInput {
   lastName: string
   suffix?: string
   roleId: string
-  departmentId?: string | null
+  campusId?: string | null
+  collegeId?: string | null
+  programId?: string | null
   mustChangePassword?: boolean
 }
 
@@ -83,7 +89,9 @@ export async function updateSystemUser(
     lastName: string
     suffix: string | null
     roleId: string
-    departmentId: string | null
+    campusId: string | null
+    collegeId: string | null
+    programId: string | null
   }>,
 ): Promise<SystemUser> {
   return apiPatch<SystemUser>(`/admin/users/${encodeURIComponent(id)}`, patch)
@@ -184,51 +192,6 @@ export async function updateRolePermissions(
     `/root/roles-permissions/roles/${encodeURIComponent(roleId)}/permissions`,
     { permissions },
   )
-}
-
-// ── Departments (/admin/departments) ─────────────────────────────────────────
-
-export interface SystemDepartment {
-  id: string
-  name: string
-  code: string
-  description: string | null
-  headId: string | null
-  headName: string | null
-  collegeId: string | null
-  collegeName: string | null
-  userCount: number
-  documentCount: number
-  folderCount: number
-  areaCount: number
-  createdAt: string
-  updatedAt: string
-  deletedAt: string | null
-}
-
-export async function listSystemDepartments(query?: {
-  page?: number
-  pageSize?: number
-  q?: string
-  includeArchived?: boolean
-}): Promise<ApiPage<SystemDepartment>> {
-  const params = new URLSearchParams()
-  if (query?.page) params.set("page", String(query.page))
-  if (query?.pageSize) params.set("pageSize", String(query.pageSize))
-  if (query?.q) params.set("q", query.q)
-  if (query?.includeArchived) params.set("includeArchived", "true")
-  const qs = params.size > 0 ? `?${params.toString()}` : ""
-  return apiGetPage<SystemDepartment>(`/admin/departments${qs}`)
-}
-
-export async function createSystemDepartment(input: {
-  name: string
-  code: string
-  description?: string | null
-  headId?: string | null
-  collegeId?: string | null
-}): Promise<SystemDepartment> {
-  return apiPost<SystemDepartment>("/admin/departments", input)
 }
 
 // ── Colleges (/admin/colleges) ───────────────────────────────────────────────

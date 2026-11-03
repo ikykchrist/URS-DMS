@@ -4,6 +4,7 @@ import { writeAudit } from "@/modules/audit/audit.service";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "@/utils/errors";
 import * as repo from "@/modules/aaccup/aaccup.repository";
 import type { Prisma } from "@prisma/client";
+import { attachTemplateToArea, detachTemplateFromArea } from "@/modules/root/root.requirement.service";
 import type {
   CreateAreaInput,
   ListAreasQuery,
@@ -52,16 +53,35 @@ function assertCanRead(actor: Actor): void {
   }
 }
 
-// Validate department existence before relying on FK constraint. Archived
-// departments (soft-deleted) are rejected so callers get a clear 400 instead
-// of a P2003 FK violation surfacing as an opaque 500.
-async function assertDepartmentExists(departmentId: string): Promise<void> {
-  const dept = await prisma.department.findFirst({
-    where: { id: departmentId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!dept) {
-    throw new BadRequestError("Referenced department not found");
+export async function listAreaSetupPrograms(actor: Actor) {
+  assertCanManage(actor);
+  return (await repo.listSetupPrograms()).filter((program) => program.campusId && program.collegeId && program.college?.campusId === program.campusId)
+    .map((program) => ({ id: program.id, name: program.name, campusId: program.campusId!, collegeId: program.collegeId!, campusName: program.campus!.name, collegeName: program.college!.name }));
+}
+
+export async function getAreaTemplateSetup(areaId: string, actor: Actor) {
+  assertCanManage(actor);
+  const area = await repo.findById(areaId);
+  if (!area) throw new NotFoundError("Accreditation area not found");
+  return repo.areaTemplateSetup(areaId, area.areaSet as "AACCUP" | "ISO" | "CERT");
+}
+
+export async function setAreaTemplate(areaId: string, templateId: string | null, actor: Actor) {
+  assertCanManage(actor);
+  if (templateId) await attachTemplateToArea(areaId, templateId, actor);
+  else await detachTemplateFromArea(areaId, actor);
+  await syncAreaRequirementProjection(areaId, actor.id);
+  return getAreaTemplateSetup(areaId, actor);
+}
+
+async function assertOrganizationScopeExists(input: { campusId: string; collegeId: string; programId: string }): Promise<void> {
+  const [campus, college, program] = await Promise.all([
+    prisma.campus.findFirst({ where: { id: input.campusId, deletedAt: null }, select: { id: true } }),
+    prisma.college.findFirst({ where: { id: input.collegeId, deletedAt: null }, select: { id: true, campusId: true } }),
+    prisma.program.findFirst({ where: { id: input.programId, deletedAt: null }, select: { id: true, campusId: true, collegeId: true } }),
+  ]);
+  if (!campus || !college || !program || college.campusId !== input.campusId || program.campusId !== input.campusId || program.collegeId !== input.collegeId) {
+    throw new BadRequestError("Campus, college, and program must belong to the same organization scope");
   }
 }
 
@@ -74,24 +94,22 @@ async function assertCycleExists(cycleId: string | null | undefined): Promise<vo
   if (!cycle) throw new BadRequestError("Referenced accreditation cycle not found");
 }
 
-async function actorDepartmentIds(actor: Actor): Promise<string[]> {
+async function actorProgramIds(actor: Actor): Promise<string[]> {
   const user = await prisma.user.findUnique({
     where: { id: actor.id },
-    select: { departmentId: true, departments: { select: { id: true } } },
+    select: { programId: true },
   });
   return [
     ...new Set(
-      [user?.departmentId, ...(user?.departments.map((department) => department.id) ?? [])].filter(
-        (id): id is string => Boolean(id),
-      ),
+      [user?.programId].filter((id): id is string => Boolean(id)),
     ),
   ];
 }
 
-async function assertAreaInScope(actor: Actor, departmentId: string): Promise<void> {
+async function assertAreaInScope(actor: Actor, programId: string | null): Promise<void> {
   if (isManager(actor)) return;
-  if (!(await actorDepartmentIds(actor)).includes(departmentId)) {
-    throw new ForbiddenError("AACCUP area is outside your department scope");
+  if (!programId || !(await actorProgramIds(actor)).includes(programId)) {
+    throw new ForbiddenError("AACCUP area is outside your program scope");
   }
 }
 
@@ -103,14 +121,13 @@ export async function listAreas(query: ListAreasQuery, actor: Actor): Promise<Li
   const where: Prisma.AaccupAreaWhereInput = { deletedAt: null };
   if (query.areaSet) where.areaSet = query.areaSet;
   if (query.status) where.status = query.status;
-  if (query.departmentId) where.departmentId = query.departmentId;
+  if (query.programId) where.programId = query.programId;
   if (query.accreditationCycleId) where.accreditationCycleId = query.accreditationCycleId;
   if (!isManager(actor)) {
-    const allowed = await actorDepartmentIds(actor);
-    where.departmentId =
-      query.departmentId && allowed.includes(query.departmentId)
-        ? query.departmentId
-        : { in: query.departmentId ? [] : allowed };
+    const allowed = await actorProgramIds(actor);
+    where.programId = query.programId && allowed.includes(query.programId)
+      ? query.programId
+      : { in: query.programId ? [] : allowed };
   }
   if (query.q) {
     where.OR = [
@@ -143,7 +160,7 @@ export async function getArea(id: string, actor: Actor): Promise<AaccupAreaDetai
   assertCanRead(actor);
   const area = await repo.findById(id);
   if (!area) throw new NotFoundError("AACCUP area not found");
-  await assertAreaInScope(actor, area.departmentId);
+  await assertAreaInScope(actor, area.programId);
   return area;
 }
 
@@ -152,7 +169,7 @@ export async function getArea(id: string, actor: Actor): Promise<AaccupAreaDetai
 // -----------------------------------------------------------------------------
 export async function createArea(input: CreateAreaInput, actor: Actor): Promise<AaccupAreaDetail> {
   assertCanManage(actor);
-  await assertDepartmentExists(input.departmentId);
+  await assertOrganizationScopeExists(input);
   await assertCycleExists(input.accreditationCycleId);
 
   // Check code uniqueness (before insert to avoid relying solely on DB exception)
@@ -168,7 +185,9 @@ export async function createArea(input: CreateAreaInput, actor: Actor): Promise<
     code: input.code,
     name: input.name,
     description: input.description ?? null,
-    departmentId: input.departmentId,
+    campusId: input.campusId,
+    collegeId: input.collegeId,
+    programId: input.programId,
     accreditationCycleId: input.accreditationCycleId ?? null,
     areaSet: input.areaSet ?? "AACCUP",
     createdBy: actor.id,
@@ -186,7 +205,9 @@ export async function createArea(input: CreateAreaInput, actor: Actor): Promise<
     newValue: {
       code: area.code,
       name: area.name,
-      departmentId: area.departmentId,
+      campusId: area.campusId,
+      collegeId: area.collegeId,
+      programId: area.programId,
     },
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
@@ -207,8 +228,12 @@ export async function updateArea(
   const existing = await repo.findById(id);
   if (!existing) throw new NotFoundError("AACCUP area not found");
 
-  if (input.departmentId && input.departmentId !== existing.departmentId) {
-    await assertDepartmentExists(input.departmentId);
+  if (input.campusId || input.collegeId || input.programId) {
+    await assertOrganizationScopeExists({
+      campusId: input.campusId ?? existing.campusId ?? "",
+      collegeId: input.collegeId ?? existing.collegeId ?? "",
+      programId: input.programId ?? existing.programId ?? "",
+    });
   }
   await assertCycleExists(input.accreditationCycleId);
 
@@ -226,7 +251,9 @@ export async function updateArea(
       code: input.code,
       name: input.name,
       description: input.description,
-      departmentId: input.departmentId,
+      campusId: input.campusId,
+      collegeId: input.collegeId,
+      programId: input.programId,
       accreditationCycleId: input.accreditationCycleId,
       areaSet: input.areaSet,
       status: input.status,

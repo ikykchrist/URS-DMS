@@ -14,14 +14,16 @@ export type Granularity = "daily" | "weekly" | "monthly" | "yearly";
 
 /**
  * Filter parsed from query string and shared across all analytics services.
- * `from`/`to` are optional inclusive Date bounds. `departmentId` / `areaId`
- * scope the aggregates to a single department / AACCUP area respectively.
+ * `from`/`to` are optional inclusive Date bounds. `programId` / `areaId`
+ * scope the aggregates to a single program / AACCUP area respectively.
  */
 export interface AnalyticsFilter {
   granularity: Granularity;
   from?: Date;
   to?: Date;
-  departmentId?: string;
+  campusId?: string;
+  collegeId?: string;
+  programId?: string;
   areaId?: string;
   ownerId?: string;
 }
@@ -37,7 +39,7 @@ export interface TimeSeriesPoint {
   value: number;
 }
 
-/** A categorical breakdown (e.g. uploads per department, requests by status). */
+/** A categorical breakdown (e.g. uploads per program, requests by status). */
 export interface CategoryBucket {
   label: string;
   value: number;
@@ -50,8 +52,8 @@ export interface CategoryBucket {
 export interface UploadsAnalytics {
   /** Uploads grouped by the requested granularity over the date range. */
   overTime: TimeSeriesPoint[];
-  /** Uploads grouped by department (top-N by count, descending). */
-  perDepartment: CategoryBucket[];
+  /** Uploads grouped by program (top-N by count, descending). */
+  perProgram: CategoryBucket[];
 }
 
 // -----------------------------------------------------------------------------

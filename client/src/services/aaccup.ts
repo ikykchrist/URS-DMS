@@ -8,8 +8,12 @@ export interface OnlineAaccupArea {
   code: string
   name: string
   description: string | null
-  departmentId: string
-  departmentName: string
+  campusId: string | null
+  campusName: string | null
+  collegeId: string | null
+  collegeName: string | null
+  programId: string | null
+  programName: string | null
   accreditationCycleId: string | null
   accreditationCycleName: string | null
   areaSet: AreaSet
@@ -107,13 +111,17 @@ export async function listOnlineAaccupAreas(areaSet?: AreaSet): Promise<OnlineAa
 
 export async function listAllOnlineAaccupAreas(query?: {
   q?: string
-  departmentId?: string
+  campusId?: string
+  collegeId?: string
+  programId?: string
   status?: "ACTIVE" | "INACTIVE"
   areaSet?: AreaSet
 }): Promise<OnlineAaccupArea[]> {
   const params = new URLSearchParams()
   if (query?.q) params.set("q", query.q)
-  if (query?.departmentId) params.set("departmentId", query.departmentId)
+  if (query?.campusId) params.set("campusId", query.campusId)
+  if (query?.collegeId) params.set("collegeId", query.collegeId)
+  if (query?.programId) params.set("programId", query.programId)
   if (query?.status) params.set("status", query.status)
   if (query?.areaSet) params.set("areaSet", query.areaSet)
   const qs = params.size > 0 ? `?${params.toString()}` : ""
@@ -124,10 +132,20 @@ export interface CreateOnlineAreaInput {
   code: string
   name: string
   description?: string
-  departmentId: string
+  campusId: string
+  collegeId: string
+  programId: string
   accreditationCycleId?: string | null
   areaSet?: AreaSet
   status?: "ACTIVE" | "INACTIVE"
+}
+
+export interface AreaSetupProgram { id: string; name: string; campusId: string; collegeId: string; campusName: string; collegeName: string }
+export interface AreaTemplateSetup { templateId: string | null; templates: Array<{ id: string; name: string; code: string; version: number }> }
+export function listAreaSetupPrograms() { return apiGet<AreaSetupProgram[]>("/aaccup/setup/programs") }
+export function getAreaTemplateSetup(id: string) { return apiGet<AreaTemplateSetup>(`/aaccup/areas/${encodeURIComponent(id)}/requirement-template`) }
+export function setAreaRequirementTemplate(id: string, templateId: string | null) {
+  return apiPost<AreaTemplateSetup>(`/aaccup/areas/${encodeURIComponent(id)}/requirement-template`, { templateId })
 }
 
 export async function createOnlineArea(input: CreateOnlineAreaInput): Promise<OnlineAaccupArea> {
@@ -158,11 +176,15 @@ export interface OnlineSubmissionListItem {
   areaCode: string
   areaName: string
   areaSet: string
-  departmentId: string | null
-  departmentName: string | null
+  campusId: string | null
+  campusName: string | null
+  collegeId: string | null
+  collegeName: string | null
+  programId: string | null
+  programName: string | null
   taskId: string | null
   taskTitle: string | null
-  taskStatus: "OPEN" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | null
+  taskStatus: "OPEN" | "IN_PROGRESS" | "NEEDS_REVISION" | "COMPLETED" | "CANCELLED" | null
   documentId: string
   documentTitle: string
   status: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_REVISION"
@@ -256,7 +278,7 @@ export async function getOnlineArea(id: string): Promise<OnlineAaccupArea> {
 // ── Analytics (/aaccup/analytics) ────────────────────────────────────────────
 
 export interface OnlineComplianceOverview {
-  totalDepartments: number
+  totalPrograms: number
   totalAreas: number
   totalRequirements: number
   requirementStatusCounts: Record<string, number>
@@ -269,7 +291,7 @@ export interface OnlineComplianceOverview {
     areaId: string
     areaCode: string
     areaName: string
-    departmentId: string
+    programId: string
     requirementCounts: Record<string, number>
     totalRequirements: number
     completedRequirements: number
@@ -279,12 +301,12 @@ export interface OnlineComplianceOverview {
 
 export async function getOnlineComplianceOverview(query?: {
   areaSet?: AreaSet
-  departmentId?: string
+  programId?: string
   areaId?: string
 }): Promise<OnlineComplianceOverview> {
   const params = new URLSearchParams()
   if (query?.areaSet) params.set("areaSet", query.areaSet)
-  if (query?.departmentId) params.set("departmentId", query.departmentId)
+  if (query?.programId) params.set("programId", query.programId)
   if (query?.areaId) params.set("areaId", query.areaId)
   const qs = params.size > 0 ? `?${params.toString()}` : ""
   return apiGet<OnlineComplianceOverview>(`/aaccup/analytics/overview${qs}`)
@@ -338,7 +360,16 @@ export async function listMyAaccupSubmissions(areaId: string): Promise<OnlineAac
 // ── Tasks (/aaccup/tasks) ────────────────────────────────────────────────────
 
 export type OnlineTaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT"
-export type OnlineTaskStatus = "OPEN" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
+export type OnlineTaskStatus = "OPEN" | "IN_PROGRESS" | "NEEDS_REVISION" | "COMPLETED" | "CANCELLED"
+
+export interface OnlineTaskRequirementProgress {
+  id: string
+  title: string
+  documentCode: string
+  isRequired: boolean
+  submissionStatus: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_REVISION" | null
+  submittedAt: string | null
+}
 
 export interface OnlineAaccupTask {
   id: string
@@ -346,7 +377,9 @@ export interface OnlineAaccupTask {
   areaCode: string
   areaName: string
   areaSet: AreaSet
-  departmentId: string | null
+  campusId: string | null
+  collegeId: string | null
+  programId: string | null
   title: string
   description: string | null
   category: string | null
@@ -359,7 +392,9 @@ export interface OnlineAaccupTask {
   requirementTemplateId: string | null
   requirementTemplateName: string | null
   requirementTemplateVersion: number | null
-  assigneeType: "USER" | "DEPARTMENT"
+  sourceAssignmentId: string | null
+  requirementProgress: OnlineTaskRequirementProgress[]
+  assigneeType: "USER" | "PROGRAM"
   assigneeId: string | null
   assigneeLabel: string | null
   createdByName: string
@@ -377,7 +412,7 @@ export interface CreateOnlineTaskInput {
   dueDate?: string | null
   requirementId?: string | null
   requirementTemplateId?: string | null
-  assigneeType: "USER" | "DEPARTMENT"
+  assigneeType: "USER" | "PROGRAM"
   assigneeId: string
 }
 
@@ -397,16 +432,16 @@ export interface TaskAssigneeOption {
   fullName: string
 }
 
-export interface TaskDepartmentOption {
+export interface TaskProgramOption {
   id: string
   name: string
 }
 
 export async function listTaskAssignees(): Promise<{
   users: TaskAssigneeOption[]
-  departments: TaskDepartmentOption[]
+  programs: TaskProgramOption[]
 }> {
-  return apiGet<{ users: TaskAssigneeOption[]; departments: TaskDepartmentOption[] }>("/aaccup/tasks/assignees")
+  return apiGet<{ users: TaskAssigneeOption[]; programs: TaskProgramOption[] }>("/aaccup/tasks/assignees")
 }
 
 export async function listOnlineAreaTasks(
@@ -461,7 +496,9 @@ async function sha256(file: File): Promise<string> {
 
 export interface RequirementUploadInput {
   requirementId: string
-  departmentId: string
+  campusId: string
+  collegeId: string
+  programId: string
   title: string
   areaName?: string
   requirementCode?: string
@@ -510,7 +547,9 @@ export async function uploadOnlineRequirementDocument(
   const created = await apiPost<DocumentCreateResult>("/documents", {
     title: input.title,
     classification: "INTERNAL",
-    departmentId: input.departmentId,
+    campusId: input.campusId,
+    collegeId: input.collegeId,
+    programId: input.programId,
     metadata,
   })
   const checksum = await sha256(input.file)

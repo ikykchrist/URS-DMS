@@ -26,6 +26,13 @@ function getQueue(name: QueueName): Queue {
         backoff: { type: "exponential", delay: 2000 },
       },
     });
+    // BullMQ emits connection and command failures through EventEmitter's
+    // special `error` event. Without a listener, Node turns that event into
+    // an uncaught exception and terminates the API process. Queue failures
+    // must be observable, but they must not bring down request handling.
+    q.on("error", (err) => {
+      logger.error(`[queue:${name}] queue error`, { err: err.message });
+    });
     queues.set(name, q);
   }
   return q;
@@ -63,6 +70,12 @@ export function createWorker<T = Record<string, unknown>>(
       err: err.message,
       attempts: job?.attemptsMade,
     });
+  });
+  // An unhandled EventEmitter `error` exits Node. This is especially
+  // important for the thumbnail worker started after uploads: a transient
+  // Redis failure must leave the API available and let BullMQ retry work.
+  worker.on("error", (err) => {
+    logger.error(`[queue:${name}] worker error`, { err: err.message });
   });
 
   return worker;

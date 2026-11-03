@@ -174,44 +174,44 @@ export default function RequestsReview() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 responsive-gap mb-6 lg:mb-8">
-        <StatCard title="All Requests" value={String(requests.length)} icon={<Inbox className="w-5 h-5" />} />
+        <StatCard
+          title="All Requests"
+          value={String(requests.length)}
+          icon={<span className="inline-flex rounded-lg bg-blue-50 p-1.5 text-blue-600 dark:bg-blue-50/30 dark:text-blue-400"><Inbox className="w-4 h-4" /></span>}
+        />
         <StatCard
           title="Pending"
           value={String(pendingCount)}
-          icon={<FileText className="w-5 h-5" />}
-          trend={{
-            value: requests.length > 0 ? Math.round((pendingCount / requests.length) * 100) : 0,
-            positive: false,
-          }}
+          icon={<span className="inline-flex rounded-lg bg-indigo-50 p-1.5 text-indigo-600 dark:bg-indigo-50/30 dark:text-indigo-400"><FileText className="w-4 h-4" /></span>}
         />
         <StatCard
           title="Approved"
           value={String(approvedCount)}
-          icon={<CheckCircle className="w-5 h-5" />}
-          trend={{
-            value: requests.length > 0 ? Math.round((approvedCount / requests.length) * 100) : 0,
-            positive: approvedCount > 0,
-          }}
+          icon={<span className="inline-flex rounded-lg bg-emerald-50 p-1.5 text-emerald-600 dark:bg-emerald-50/30 dark:text-emerald-400"><CheckCircle className="w-4 h-4" /></span>}
         />
-        <StatCard title="Rejected" value={String(rejectedCount)} icon={<XCircle className="w-5 h-5" />} />
+        <StatCard
+          title="Rejected"
+          value={String(rejectedCount)}
+          icon={<span className="inline-flex rounded-lg bg-red-50 p-1.5 text-red-600 dark:bg-red-50/30 dark:text-red-400"><XCircle className="w-4 h-4" /></span>}
+        />
       </div>
 
-      <Card className="border-border/70 shadow-soft mb-6">
-        <CardContent className="p-0">
-          <div className="toolbar-padding flex flex-col gap-3 lg:flex-row lg:items-center">
-            <div className="flex-1">
-              <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <Card className="border-border/70 shadow-soft mb-5">
+        <CardContent className="p-0 md:p-0">
+          <div className="flex min-h-[52px] w-full -translate-y-0.5 flex-col gap-2.5 px-3 py-3 lg:flex-row lg:items-center">
+            <div className="min-w-0 flex-1">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                 <Input
                   placeholder="Search requests or requesters..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-9 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white focus:ring-1.5 focus:ring-gray-200"
+                  className="h-7 w-full rounded-lg border-0 bg-transparent pl-9 text-[12px] shadow-none placeholder:text-gray-400 hover:bg-gray-50/60 focus:bg-transparent focus:ring-0"
                 />
               </div>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px] h-9">
+              <SelectTrigger className="h-7 w-full rounded-lg border border-gray-200/70 bg-gray-50/70 px-3 text-[12px] shadow-none lg:w-[135px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -226,7 +226,7 @@ export default function RequestsReview() {
         </CardContent>
       </Card>
 
-      <Card className="border-border/70 shadow-soft">
+      <Card className="border-border/70 shadow-soft overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader>

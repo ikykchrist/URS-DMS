@@ -6,7 +6,6 @@ import type { ReportFilters } from "@/modules/reports/reports.types";
 import {
   aaccupReport,
   auditReport,
-  departmentReport,
   documentReport,
   requestReport,
   storageReport,
@@ -43,7 +42,6 @@ function toInputs(q: ReportQuery): {
   const filters: ReportFilters = {
     from: q.from,
     to: q.to,
-    departmentId: q.departmentId,
     areaId: q.areaId,
     status: q.status,
     userId: q.userId,
@@ -65,8 +63,6 @@ async function buildReport(type: string, q: ReportQuery) {
       return requestReport(filters, page, pageSize);
     case "aaccup":
       return aaccupReport(filters);
-    case "departments":
-      return departmentReport(filters);
     case "users":
       return userActivityReport(filters, page, pageSize);
     case "storage":
@@ -101,11 +97,6 @@ export async function aaccupListHandler(req: Request, res: Response): Promise<vo
   sendSuccess(res, result);
 }
 
-export async function departmentsListHandler(req: Request, res: Response): Promise<void> {
-  const q = req.query as unknown as ReportQuery;
-  const result = await departmentReport(toInputs(q).filters);
-  sendSuccess(res, result);
-}
 
 export async function usersListHandler(req: Request, res: Response): Promise<void> {
   const q = req.query as unknown as ReportQuery;

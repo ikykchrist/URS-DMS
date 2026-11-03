@@ -8,8 +8,12 @@ interface OnlineDocumentRow {
   status: "DRAFT" | "UNDER_REVIEW" | "APPROVED" | "PUBLISHED" | "ARCHIVED"
   ownerId: string
   ownerName: string
-  departmentId: string | null
-  departmentName: string | null
+  campusId: string | null
+  campusName: string | null
+  collegeId: string | null
+  collegeName: string | null
+  programId: string | null
+  programName: string | null
   folderId: string | null
   currentVersionId: string | null
   currentVersionNumber: number | null
@@ -55,7 +59,7 @@ function toLegacyDocument(row: OnlineDocumentRow): Document | null {
     categoryId: "online",
     categoryName: typeof metadata.requirementCode === "string" ? metadata.requirementCode : "Online Repository",
     area: typeof metadata.aaccupAreaName === "string" ? metadata.aaccupAreaName : "Repository",
-    department: row.departmentName ?? "Unassigned",
+    program: row.programName ?? "Unassigned",
     ownerId: row.ownerId,
     ownerName: row.ownerName,
     folderId: row.folderId,
@@ -81,14 +85,14 @@ export async function listOnlineDocuments(options?: {
   search?: string
   ownerId?: string
   archived?: boolean
-  departmentId?: string
+  programId?: string
   folderId?: string | null
 }): Promise<Document[]> {
   const params = new URLSearchParams({ page: "1", pageSize: "100" })
   if (options?.search) params.set("q", options.search)
   if (options?.ownerId) params.set("ownerId", options.ownerId)
   if (options?.archived === true) params.set("status", "ARCHIVED")
-  if (options?.departmentId) params.set("departmentId", options.departmentId)
+  if (options?.programId) params.set("programId", options.programId)
   if (options?.folderId !== undefined) params.set("folderId", options.folderId ?? "null")
   const first = await apiGetPage<OnlineDocumentRow>(`/documents?${params.toString()}`)
   const remaining = await Promise.all(
@@ -297,7 +301,9 @@ async function sha256(file: File): Promise<string> {
 export interface OnlineDocumentUploadInput {
   title: string
   description?: string
-  departmentId?: string | null
+  campusId?: string | null
+  collegeId?: string | null
+  programId?: string | null
   folderId?: string | null
   classification?: "PUBLIC" | "INTERNAL" | "RESTRICTED" | "CONFIDENTIAL"
   metadata?: Record<string, unknown>
@@ -311,7 +317,9 @@ export async function uploadOnlineDocument(input: OnlineDocumentUploadInput): Pr
     title: input.title,
     description: input.description,
     classification: input.classification ?? "INTERNAL",
-    departmentId: input.departmentId ?? null,
+    campusId: input.campusId ?? null,
+    collegeId: input.collegeId ?? null,
+    programId: input.programId ?? null,
     folderId: input.folderId ?? null,
     metadata: input.metadata,
     tags: input.tags,
@@ -354,7 +362,9 @@ export async function uploadOnlineDocumentWithProgress(
     title: input.title,
     description: input.description,
     classification: input.classification ?? "INTERNAL",
-    departmentId: input.departmentId ?? null,
+    campusId: input.campusId ?? null,
+    collegeId: input.collegeId ?? null,
+    programId: input.programId ?? null,
     folderId: input.folderId ?? null,
     metadata: input.metadata,
     tags: input.tags,
@@ -458,7 +468,9 @@ export interface RepositoryLegacyFolder {
   id: string
   name: string
   parentId: string | null
-  departmentId: string | null
+  campusId: string | null
+  collegeId: string | null
+  programId: string | null
   ownerId: string | null
   documentCount: number
   childCount: number
@@ -487,7 +499,9 @@ export async function resolveRepositoryStructure(): Promise<ResolvedRepositorySt
 export async function createRepositoryFolder(input: {
   name: string
   parentId?: string | null
-  departmentId?: string | null
+  campusId?: string | null
+  collegeId?: string | null
+  programId?: string | null
 }): Promise<{ id: string; name: string; parentId: string | null }> {
   return apiPost<{ id: string; name: string; parentId: string | null }>("/folders", input)
 }
@@ -496,7 +510,9 @@ export interface RepositoryFolderRow {
   id: string
   name: string
   parentId: string | null
-  departmentId: string | null
+  campusId: string | null
+  collegeId: string | null
+  programId: string | null
   ownerId: string | null
   color: string | null
   icon: string | null
@@ -524,20 +540,32 @@ export async function listRepositoryFolders(options?: {
 export type FolderSharePermission = "VIEWER" | "EDITOR"
 export interface FolderShareRow {
   id: string
-  recipientType: "USER" | "DEPARTMENT"
+  recipientType: "USER" | "PROGRAM"
   userId: string | null
-  departmentId: string | null
+  programId: string | null
   permission: "READ" | "WRITE"
   user?: { firstName: string; lastName: string; email: string } | null
-  department?: { name: string; code: string } | null
+  program?: { name: string; code: string } | null
 }
-export interface ShareableUser { id: string; firstName: string; lastName: string; departmentId: string | null }
+export type ShareableUserScope = "CAMPUS" | "COLLEGE" | "PROGRAM"
+export interface ShareableUser {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  campusId: string | null
+  collegeId: string | null
+  programId: string | null
+  campus: { name: string } | null
+  college: { name: string } | null
+  program: { name: string } | null
+}
 export interface SharedFolderRow extends RepositoryFolderRow { permission: "VIEWER" | "EDITOR"; shareId: string }
 
 export async function listFolderShares(folderId: string): Promise<FolderShareRow[]> {
   return apiGet<FolderShareRow[]>(`/folders/${encodeURIComponent(folderId)}/shares`)
 }
-export async function shareRepositoryFolder(folderId: string, input: { recipientType: "USER" | "DEPARTMENT"; userIds?: string[]; departmentId?: string; permission: FolderSharePermission }): Promise<FolderShareRow[]> {
+export async function shareRepositoryFolder(folderId: string, input: { recipientType: "USER" | "PROGRAM"; userIds?: string[]; programId?: string; permission: FolderSharePermission }): Promise<FolderShareRow[]> {
   return apiPost<FolderShareRow[]>(`/folders/${encodeURIComponent(folderId)}/shares`, input)
 }
 export async function updateFolderShare(folderId: string, shareId: string, permission: FolderSharePermission): Promise<FolderShareRow> {
@@ -546,8 +574,8 @@ export async function updateFolderShare(folderId: string, shareId: string, permi
 export async function removeFolderShare(folderId: string, shareId: string): Promise<void> {
   await apiDelete<{ success: true }>(`/folders/${encodeURIComponent(folderId)}/shares/${encodeURIComponent(shareId)}`)
 }
-export async function listShareableUsers(): Promise<ShareableUser[]> {
-  return apiGet<ShareableUser[]>("/folders/shareable-users")
+export async function listShareableUsers(scope: ShareableUserScope = "CAMPUS"): Promise<ShareableUser[]> {
+  return apiGet<ShareableUser[]>(`/folders/shareable-users?scope=${scope}`)
 }
 export async function listSharedWithMe(): Promise<SharedFolderRow[]> {
   return apiGet<SharedFolderRow[]>("/folders/shared-with-me")

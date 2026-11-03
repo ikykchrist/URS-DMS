@@ -17,8 +17,12 @@ export interface DocumentListItem {
   classification: DocumentClassification;
   ownerId: string;
   ownerName: string;
-  departmentId: string | null;
-  departmentName: string | null;
+  campusId: string | null;
+  campusName: string | null;
+  collegeId: string | null;
+  collegeName: string | null;
+  programId: string | null;
+  programName: string | null;
   folderId: string | null;
   currentVersionId: string | null;
   currentVersionNumber: number | null;
@@ -81,8 +85,12 @@ export const documentSelect = {
   retentionUntil: true,
   metadata: true,
   ownerId: true,
-  departmentId: true,
-  department: { select: { name: true } },
+  campusId: true,
+  campus: { select: { name: true } },
+  collegeId: true,
+  college: { select: { name: true } },
+  programId: true,
+  program: { select: { name: true } },
   folderId: true,
   currentVersionId: true,
   createdAt: true,

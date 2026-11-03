@@ -38,6 +38,7 @@ export const COOKIE_NAMES = {
 } as const;
 
 export const AUDIT_ACTIONS = {
+  BUG_REPORT_CREATED: "bug_report.created",
   LOGIN_SUCCESS: "auth.login.success",
   LOGIN_FAILED: "auth.login.failed",
   LOGOUT: "auth.logout",
@@ -112,12 +113,6 @@ export const AUDIT_ACTIONS = {
   REQUEST_FULFILLED: "request.fulfilled",
   REQUEST_CANCELLED: "request.cancelled",
 
-  DEPARTMENT_CREATED: "department.created",
-  DEPARTMENT_UPDATED: "department.updated",
-  DEPARTMENT_DELETED: "department.deleted",
-  DEPARTMENT_ARCHIVED: "department.archived",
-  DEPARTMENT_RESTORED: "department.restored",
-
   COLLEGE_CREATED: "college.created",
   COLLEGE_UPDATED: "college.updated",
   COLLEGE_ARCHIVED: "college.archived",
@@ -172,8 +167,7 @@ export const AUDIT_ACTIONS = {
   ROOT_LOGOUT: "root.logout",
 
   // Sprint 7.4.2 — Organization Management Engine (ROOT-only master data).
-  // Colleges and departments reuse the Sprint 7.1 action constants above
-  // (same physical rows); offices and programs get their own. The rollback
+  // Offices and programs get their own action constants. The rollback
   // actions are written by the root organization service when a record is
   // rolled back to an earlier version snapshot.
   OFFICE_CREATED: "office.created",
@@ -185,7 +179,6 @@ export const AUDIT_ACTIONS = {
   PROGRAM_ARCHIVED: "program.archived",
   PROGRAM_RESTORED: "program.restored",
   ORGANIZATION_COLLEGE_ROLLED_BACK: "organization.college.rolled_back",
-  ORGANIZATION_DEPARTMENT_ROLLED_BACK: "organization.department.rolled_back",
   ORGANIZATION_OFFICE_ROLLED_BACK: "organization.office.rolled_back",
   ORGANIZATION_PROGRAM_ROLLED_BACK: "organization.program.rolled_back",
   CAMPUS_CREATED: "campus.created",

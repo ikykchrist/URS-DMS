@@ -20,7 +20,7 @@ import { browseArchive, createRequest, type BrowseBucketItem } from "@/services/
 import { cn } from "@/lib/utils"
 
 // =============================================================================
-// UserBrowseArchive — department file bucket browser (Sprint).
+// UserBrowseArchive — program file bucket browser.
 // List-only surface: file name, type, owner, date uploaded and size. Files
 // cannot be opened or downloaded here. The user selects up to 3 files and
 // must provide an explanation before submitting ONE request for them.
@@ -59,7 +59,7 @@ interface UserBrowseArchiveProps {
 
 export default function UserBrowseArchive({ onBack, onSuccess }: UserBrowseArchiveProps) {
   const [items, setItems] = useState<BrowseBucketItem[]>([])
-  const [departmentName, setDepartmentName] = useState<string | null>(null)
+  const [programName, setProgramName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [explanation, setExplanation] = useState("")
@@ -70,10 +70,10 @@ export default function UserBrowseArchive({ onBack, onSuccess }: UserBrowseArchi
     try {
       const bucket = await browseArchive()
       setItems(bucket.items)
-      setDepartmentName(bucket.departmentName)
+      setProgramName(bucket.programName)
     } catch {
       setItems([])
-      setDepartmentName(null)
+      setProgramName(null)
       toast.error("Unable to load the archive. Please try again.")
     } finally {
       setLoading(false)
@@ -129,7 +129,7 @@ export default function UserBrowseArchive({ onBack, onSuccess }: UserBrowseArchi
     <div className="content-padding">
       <PageHeader
         title="Browse Archive"
-        description={departmentName ? `Files from the ${departmentName} archive — preview and download are disabled while browsing.` : "Files from your department's archive"}
+        description={programName ? `Files from the ${programName} archive — preview and download are disabled while browsing.` : "Files from your program's archive"}
         actions={
           <Button variant="outline" onClick={onBack}>
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -178,8 +178,8 @@ export default function UserBrowseArchive({ onBack, onSuccess }: UserBrowseArchi
                   <TableCell colSpan={6}>
                     <EmptyState
                       variant="archives"
-                      title="No files in your department archive"
-                      description="Files shared by your department will appear here once uploaded"
+                      title="No files in your program archive"
+                      description="Files shared by your program will appear here once uploaded"
                     />
                   </TableCell>
                 </TableRow>

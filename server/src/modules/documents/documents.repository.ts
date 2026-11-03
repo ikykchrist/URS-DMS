@@ -29,8 +29,12 @@ function toListItem(d: DocumentWithRelations): DocumentListItem {
     classification: d.classification,
     ownerId: d.ownerId,
     ownerName: fullName(d.owner.firstName, d.owner.lastName),
-    departmentId: d.departmentId,
-    departmentName: d.department?.name ?? null,
+    campusId: d.campusId,
+    campusName: d.campus?.name ?? null,
+    collegeId: d.collegeId,
+    collegeName: d.college?.name ?? null,
+    programId: d.programId,
+    programName: d.program?.name ?? null,
     folderId: d.folderId,
     currentVersionId: d.currentVersionId,
     currentVersionNumber: d.currentVersion?.versionNumber ?? null,
@@ -119,7 +123,9 @@ export async function findByIdIncludingDeleted(id: string): Promise<DocumentDeta
 
 export interface CreateArgs {
   ownerId: string;
-  departmentId: string | null;
+  campusId: string | null;
+  collegeId: string | null;
+  programId: string | null;
   folderId: string | null;
   title: string;
   description: string | null;
@@ -136,7 +142,9 @@ export async function create(
   const row = await client.document.create({
     data: {
       ownerId: args.ownerId,
-      departmentId: args.departmentId,
+      campusId: args.campusId,
+      collegeId: args.collegeId,
+      programId: args.programId,
       folderId: args.folderId,
       title: args.title,
       description: args.description,
@@ -158,7 +166,9 @@ export interface UpdateArgs {
     classification?: string;
     status?: string;
     folderId?: string | null;
-    departmentId?: string | null;
+    campusId?: string | null;
+    collegeId?: string | null;
+    programId?: string | null;
     retentionUntil?: Date | null;
     metadata?: Prisma.InputJsonValue | null;
     currentVersionId?: string | null;
@@ -185,7 +195,9 @@ export async function update(
         ? { status: args.data.status as Prisma.DocumentUpdateInput["status"] }
         : {}),
       ...(args.data.folderId !== undefined ? { folderId: args.data.folderId } : {}),
-      ...(args.data.departmentId !== undefined ? { departmentId: args.data.departmentId } : {}),
+      ...(args.data.campusId !== undefined ? { campusId: args.data.campusId } : {}),
+      ...(args.data.collegeId !== undefined ? { collegeId: args.data.collegeId } : {}),
+      ...(args.data.programId !== undefined ? { programId: args.data.programId } : {}),
       ...(args.data.retentionUntil !== undefined
         ? { retentionUntil: args.data.retentionUntil }
         : {}),
@@ -388,12 +400,12 @@ export async function findActiveShare(
 }
 
 // Permission / ownership helper used by the service
-export async function getOwnerAndDepartment(
+export async function getOwnerAndScope(
   documentId: string,
-): Promise<{ ownerId: string; departmentId: string | null; deletedAt: Date | null } | null> {
+): Promise<{ ownerId: string; campusId: string | null; collegeId: string | null; programId: string | null; deletedAt: Date | null } | null> {
   const row = await prisma.document.findUnique({
     where: { id: documentId },
-    select: { ownerId: true, departmentId: true, deletedAt: true },
+    select: { ownerId: true, campusId: true, collegeId: true, programId: true, deletedAt: true },
   });
   return row;
 }

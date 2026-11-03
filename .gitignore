@@ -20,4 +20,9 @@ dist/
 deploy/dokploy/env.production
 deploy/dokploy/.env.local
 
+# Ephemeral deployment credentials (never commit private keys)
+.deploy_key*
+
+# Ephemeral deployment credentials (never commit private keys)
+.deploy_key*
 

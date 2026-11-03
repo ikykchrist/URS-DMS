@@ -1,5 +1,17 @@
 # URS-DMS — Changelog
 
+## v2.0 — Thesis Prep (2026-11-04)
+
+- Updated organization scoping across campus, college and program workflows.
+- Stabilized Root Console requirement templates, activation, assignments and version history.
+- Made accreditation requirements visible through explicit area template attachments.
+- Simplified area creation and improved user requirement refresh and upload guidance.
+- Added bug reporting with validated attachments and protected downloads.
+- Updated login branding, administration, repository and deployment behavior.
+- Includes the schema migrations required by this source release; no database contents or uploaded files are included.
+- Campus/college card navigation remains a design proposal and is not included in this release.
+
+
 > Chronological log of changes per sprint. Newest first. Companion:
 > `PROJECT_STATUS.md` (sprint reports), `AI_CONTEXT.md` (current state),
 > `ENGINEERING_RULES.md` (standards), `URS_DMS_SPECIFICATION.md` (spec).

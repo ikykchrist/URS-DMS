@@ -64,6 +64,7 @@ import {
 import DocumentRepository from "@/pages/DocumentRepository"
 import UserManagement from "@/pages/UserManagement"
 import AuditLogs from "@/pages/AuditLogs"
+import BugReports from "@/pages/BugReports"
 import Settings from "@/pages/Settings"
 import AACCUPGroupPage from "@/pages/AACCUPGroupPage"
 import RequestsReview from "@/pages/RequestsReview"
@@ -111,6 +112,7 @@ import UserNotifications from "@/pages/user/UserNotifications"
 import UserProfile from "@/pages/user/UserProfile"
 import UserSettings from "@/pages/user/UserSettings"
 import MyActivity from "@/pages/user/MyActivity"
+import UserBugReport from "@/pages/user/UserBugReport"
 
 function shortBucketLabel(label: string): string {
   const month = /^(\d{4})-(\d{2})$/.exec(label)
@@ -211,7 +213,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
     submissions: p.value,
   }))
 
-  const categoryChartData = (uploads?.perDepartment ?? []).map((b) => ({
+  const categoryChartData = (uploads?.perProgram ?? []).map((b) => ({
     category: b.label,
     count: b.value,
   }))
@@ -461,7 +463,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 responsive-gap mb-6 lg:mb-8">
-          <ChartCard title="Uploads by Department" description="Document uploads per department">
+          <ChartCard title="Uploads by Program" description="Document uploads per program">
             <div className="h-[180px] sm:h-[200px] md:h-[220px]">
               {categoryChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -676,6 +678,7 @@ const ADMIN_PAGE_TITLES: Record<string, string> = {
   profile: "Account & Security",
   users: "User Management",
   audit: "Audit Logs",
+  "bug-reports": "Bug Reports",
   settings: "Settings",
   notifications: "Notifications",
   aaccup: "AACCUP",
@@ -708,6 +711,7 @@ const USER_ROUTE_TO_PAGE: Record<string, string> = {
   "/user/activity": "activity",
   "/user/profile": "profile",
   "/user/settings": "settings",
+  "/user/bug-report": "bug-report",
 }
 
 const USER_PAGE_TITLES: Record<string, string> = {
@@ -723,6 +727,7 @@ const USER_PAGE_TITLES: Record<string, string> = {
   activity: "My Activity",
   profile: "My Profile",
   settings: "Settings",
+  "bug-report": "Bug Report",
 }
 
 function AppContent() {
@@ -754,7 +759,7 @@ function AppContent() {
     const routeToPageMap: Record<string, string> = {
       "/": "dashboard", "/dashboard": "dashboard", "/documents": "documents", "/repository": "documents",
       "/submissions": "submissions", "/requests": "requests", "/profile": "profile", "/users": "users",
-      "/user-management": "users", "/audit": "audit", "/audit-logs": "audit", "/settings": "settings",
+      "/user-management": "users", "/audit": "audit", "/audit-logs": "audit", "/bug-reports": "bug-reports", "/settings": "settings",
       "/notifications": "notifications", "/aaccup": "aaccup", "/aaccup-management": "aaccup", "/iso": "iso",
       "/root": "root", "/root-organization": "root-organization",
       "/root-folder-builder": "root-folder-builder", "/root-requirement-builder": "root-requirement-builder",
@@ -789,6 +794,7 @@ function AppContent() {
       profile: "/profile",
       users: "/users",
       audit: "/audit",
+      "bug-reports": "/bug-reports",
       settings: "/settings",
       notifications: "/notifications",
       aaccup: "/aaccup",
@@ -898,6 +904,7 @@ function AppContent() {
           {page === "profile" && <AccountSecurity />}
           {page === "users" && <UserManagement />}
           {page === "audit" && <AuditLogs />}
+          {page === "bug-reports" && <BugReports />}
            {page === "settings" && <Settings />}
            {page === "notifications" && <UserNotifications />}
           {page === "aaccup" && <AACCUPGroupPage initialTab="AACCUP" />}
@@ -975,6 +982,7 @@ function UserAppContent() {
       activity: "/user/activity",
       profile: "/user/profile",
       settings: "/user/settings",
+      "bug-report": "/user/bug-report",
     }
     const route = pageToRouteMap[page] || "/user/dashboard"
     const params = new URLSearchParams(query ?? {})
@@ -1081,6 +1089,7 @@ function UserAppContent() {
           {activePage === "activity" && <MyActivity />}
           {activePage === "profile" && <UserProfile />}
           {activePage === "settings" && <UserSettings />}
+          {activePage === "bug-report" && <UserBugReport />}
         </main>
       </div>
     </div>
@@ -1158,6 +1167,10 @@ function AppRoutes() {
       />
       <Route
         path="/audit-logs"
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/bug-reports"
         element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route

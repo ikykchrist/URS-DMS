@@ -88,7 +88,10 @@ model User {
   status                        UserStatus              @default(ACTIVE)
   roleId                        String
   role                          Role                    @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  departmentId                  String?
+  campusId                      String?
+  campus                        Campus?                 @relation("UserCampus", fields: [campusId], references: [id], onDelete: SetNull)
+  collegeId                     String?
+  college                       College?                @relation("UserCollege", fields: [collegeId], references: [id], onDelete: SetNull)
   programId                     String?
   program                       Program?                @relation("UserProgram", fields: [programId], references: [id], onDelete: SetNull)
   mustChangePassword            Boolean                 @default(false)
@@ -102,8 +105,7 @@ model User {
   sessions                      Session[]
   passwordResetTokens           PasswordResetToken[]
   auditLogs                     AuditLog[]
-  departments                   Department[]            @relation("UserDepartment")
-  headedDepartments             Department[]            @relation("DepartmentHead")
+  bugReports                    BugReport[]
   folders                       Folder[]
   folderShares                  FolderShare[]          @relation("FolderShareUser")
   folderSharesCreated           FolderShare[]          @relation("FolderShareCreator")
@@ -136,6 +138,7 @@ model User {
   emergencyAccessGrantedBy      EmergencyAccess[]       @relation("EmergencyGrantor")
   systemSettingsUpdated         SystemSetting[]         @relation("SystemSettingUpdater")
   notifications                 Notification[]
+  taskReminders                 AaccupTaskReminder[]
   configCategoriesCreated       ConfigurationCategory[] @relation("ConfigCategoryCreatedBy")
   configCategoriesUpdated       ConfigurationCategory[] @relation("ConfigCategoryUpdatedBy")
   configurationsCreated         Configuration[]         @relation("ConfigurationCreatedBy")
@@ -175,6 +178,8 @@ model User {
   workflowActionsActed          WorkflowAction[]        @relation("WorkflowActionActor")
 
   @@index([roleId])
+  @@index([campusId])
+  @@index([collegeId])
   @@index([status])
   @@index([deletedAt])
   @@map("users")
@@ -326,7 +331,22 @@ enum SharePermission {
 
 enum FolderShareRecipientType {
   USER
-  DEPARTMENT
+  PROGRAM
+}
+
+model BugReport {
+  id          String   @id @default(uuid())
+  reporterId  String
+  reporter    User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  tab         String
+  description String
+  attachmentKey String?
+  attachmentName String?
+  createdAt   DateTime @default(now())
+
+  @@index([reporterId])
+  @@index([createdAt])
+  @@map("bug_reports")
 }
 
 enum RequestStatus {
@@ -356,36 +376,6 @@ enum RequirementStatus {
   INACTIVE
 }
 
-model Department {
-  id            String       @id @default(uuid())
-  name          String
-  code          String       @unique
-  description   String?
-  displayOrder  Int          @default(0)
-  headId        String?
-  head          User?        @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
-  collegeId     String?
-  college       College?     @relation(fields: [collegeId], references: [id], onDelete: SetNull)
-  campusId      String?
-  campus        Campus?      @relation(fields: [campusId], references: [id], onDelete: SetNull)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  deletedAt     DateTime?
-  users         User[]       @relation("UserDepartment")
-  folderShares  FolderShare[]
-  documents     Document[]
-  folders       Folder[]
-  aaccupAreas   AaccupArea[]
-  offices       Office[]
-  programs      Program[]
-
-  @@index([deletedAt])
-  @@index([collegeId])
-  @@index([campusId])
-  @@index([displayOrder])
-  @@map("departments")
-}
-
 model Folder {
   id            String      @id @default(uuid())
   name          String
@@ -396,8 +386,12 @@ model Folder {
   children      Folder[]    @relation("FolderTree")
   repositoryId  String?
   repository    Repository? @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
-  departmentId  String?
-  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  campusId      String?
+  campus        Campus?     @relation("FolderCampus", fields: [campusId], references: [id], onDelete: SetNull)
+  collegeId     String?
+  college       College?    @relation("FolderCollege", fields: [collegeId], references: [id], onDelete: SetNull)
+  programId     String?
+  program       Program?    @relation("FolderProgram", fields: [programId], references: [id], onDelete: SetNull)
   ownerId       String?
   owner         User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   createdAt     DateTime    @default(now())
@@ -411,7 +405,9 @@ model Folder {
 
   @@index([parentId])
   @@index([repositoryId])
-  @@index([departmentId])
+  @@index([campusId])
+  @@index([collegeId])
+  @@index([programId])
   @@index([ownerId])
   @@index([deletedAt])
   @@map("folders")
@@ -424,8 +420,8 @@ model FolderShare {
   recipientType   FolderShareRecipientType
   userId          String?
   user            User?                     @relation("FolderShareUser", fields: [userId], references: [id], onDelete: Cascade)
-  departmentId    String?
-  department      Department?               @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  programId       String?
+  program         Program?                  @relation("FolderShareProgram", fields: [programId], references: [id], onDelete: Cascade)
   permission      SharePermission           @default(READ)
   createdById     String
   createdBy       User                      @relation("FolderShareCreator", fields: [createdById], references: [id], onDelete: Restrict)
@@ -433,10 +429,9 @@ model FolderShare {
   updatedAt       DateTime                  @updatedAt
 
   @@unique([folderId, userId])
-  @@unique([folderId, departmentId])
+  @@unique([folderId, programId])
   @@index([folderId])
   @@index([userId])
-  @@index([departmentId])
   @@map("folder_shares")
 }
 
@@ -450,8 +445,12 @@ model Document {
   metadata          Json?
   ownerId           String
   owner             User                   @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  departmentId      String?
-  department        Department?            @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  campusId          String?
+  campus            Campus?                @relation("DocumentCampus", fields: [campusId], references: [id], onDelete: SetNull)
+  collegeId         String?
+  college           College?               @relation("DocumentCollege", fields: [collegeId], references: [id], onDelete: SetNull)
+  programId         String?
+  program           Program?               @relation("DocumentProgram", fields: [programId], references: [id], onDelete: SetNull)
   folderId          String?
   folder            Folder?                @relation(fields: [folderId], references: [id], onDelete: SetNull)
   repositoryId      String?
@@ -470,7 +469,9 @@ model Document {
   deletedAt         DateTime?
 
   @@index([ownerId])
-  @@index([departmentId])
+  @@index([campusId])
+  @@index([collegeId])
+  @@index([programId])
   @@index([folderId])
   @@index([status])
   @@index([deletedAt])
@@ -574,8 +575,12 @@ model AaccupArea {
   code                 String              @unique
   name                 String
   description          String?
-  departmentId         String
-  department           Department          @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  campusId             String?
+  campus               Campus?             @relation("AaccupAreaCampus", fields: [campusId], references: [id], onDelete: SetNull)
+  collegeId            String?
+  college              College?            @relation("AaccupAreaCollege", fields: [collegeId], references: [id], onDelete: SetNull)
+  programId            String?
+  program              Program?            @relation("AaccupAreaProgram", fields: [programId], references: [id], onDelete: SetNull)
   accreditationCycleId String?
   accreditationCycle   AccreditationCycle? @relation(fields: [accreditationCycleId], references: [id], onDelete: SetNull)
   areaSet              AreaSet             @default(AACCUP)
@@ -590,7 +595,9 @@ model AaccupArea {
   requirements         AaccupRequirement[]
   tasks                AaccupTask[]
 
-  @@index([departmentId])
+  @@index([campusId])
+  @@index([collegeId])
+  @@index([programId])
   @@index([accreditationCycleId])
   @@index([areaSet])
   @@index([status])
@@ -696,6 +703,7 @@ model AaccupSubmission {
 enum AaccupTaskStatus {
   OPEN
   IN_PROGRESS
+  NEEDS_REVISION
   COMPLETED
   CANCELLED
 }
@@ -721,6 +729,8 @@ model AaccupTask {
   requirement   AaccupRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
   requirementTemplateId String?
   requirementTemplate   RequirementTemplate? @relation("AaccupTaskRequirementTemplate", fields: [requirementTemplateId], references: [id], onDelete: SetNull)
+  sourceAssignmentId String?
+  sourceAssignment   RequirementAssignment? @relation("AaccupTaskSourceAssignment", fields: [sourceAssignmentId], references: [id], onDelete: SetNull)
   assigneeType  String             @default("USER")
   assigneeId    String?
   assigneeLabel String?
@@ -733,10 +743,12 @@ model AaccupTask {
   updatedAt     DateTime           @updatedAt
   deletedAt     DateTime?
   submissions   AaccupSubmission[]
+  reminders     AaccupTaskReminder[]
 
   @@index([areaId])
   @@index([requirementId])
   @@index([requirementTemplateId])
+  @@index([sourceAssignmentId])
   @@index([assigneeType, assigneeId])
   @@index([status])
   @@index([dueDate])
@@ -781,6 +793,11 @@ enum NotificationType {
   AACCUP_SUBMISSION_RETURNED
   AACCUP_SUBMISSION_PENDING_REVIEW
   AACCUP_TASK_ASSIGNED
+  AACCUP_TASK_DUE_SOON
+  AACCUP_TASK_DUE_IN_3_DAYS
+  AACCUP_TASK_DUE_TOMORROW
+  AACCUP_TASK_DUE_TODAY
+  AACCUP_TASK_OVERDUE
   RECYCLE_BIN_CLEANUP
   STORAGE_WARNING
   PASSWORD_RESET
@@ -817,6 +834,21 @@ model Notification {
   @@index([userId, deletedAt])
   @@index([createdAt])
   @@map("notifications")
+}
+
+model AaccupTaskReminder {
+  id          String     @id @default(uuid())
+  taskId      String
+  task        AaccupTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminderKey String
+  sentAt      DateTime   @default(now())
+
+  @@unique([taskId, userId, reminderKey])
+  @@index([taskId])
+  @@index([userId, sentAt])
+  @@map("aaccup_task_reminders")
 }
 
 enum EmailStatus {
@@ -859,9 +891,12 @@ model Campus {
   updatedAt     DateTime    @updatedAt
   deletedAt     DateTime?
   colleges      College[]
-  departments   Department[]
   offices       Office[]
   programs      Program[]
+  users         User[]      @relation("UserCampus")
+  folders       Folder[]    @relation("FolderCampus")
+  documents     Document[]  @relation("DocumentCampus")
+  aaccupAreas   AaccupArea[] @relation("AaccupAreaCampus")
 
   @@index([deletedAt])
   @@index([displayOrder])
@@ -879,9 +914,12 @@ model College {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   deletedAt     DateTime?
-  departments   Department[]
   offices       Office[]
   programs      Program[]
+  users         User[]        @relation("UserCollege")
+  folders       Folder[]      @relation("FolderCollege")
+  documents     Document[]    @relation("DocumentCollege")
+  aaccupAreas   AaccupArea[]  @relation("AaccupAreaCollege")
 
   @@index([deletedAt])
   @@index([campusId])
@@ -1066,7 +1104,6 @@ model ConfigurationHistory {
 enum OrganizationEntity {
   CAMPUS
   COLLEGE
-  DEPARTMENT
   OFFICE
   PROGRAM
 }
@@ -1099,8 +1136,6 @@ model Office {
   college       College?    @relation(fields: [collegeId], references: [id], onDelete: SetNull)
   campusId      String?
   campus        Campus?     @relation(fields: [campusId], references: [id], onDelete: SetNull)
-  departmentId  String?
-  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   deletedAt     DateTime?
@@ -1108,7 +1143,6 @@ model Office {
   @@index([deletedAt])
   @@index([collegeId])
   @@index([campusId])
-  @@index([departmentId])
   @@index([displayOrder])
   @@map("offices")
 }
@@ -1124,9 +1158,11 @@ model Program {
   college       College?     @relation(fields: [collegeId], references: [id], onDelete: SetNull)
   campusId      String?
   campus        Campus?      @relation(fields: [campusId], references: [id], onDelete: SetNull)
-  departmentId  String?
-  department    Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   users         User[]       @relation("UserProgram")
+  folders       Folder[]     @relation("FolderProgram")
+  documents     Document[]   @relation("DocumentProgram")
+  aaccupAreas   AaccupArea[] @relation("AaccupAreaProgram")
+  folderShares  FolderShare[] @relation("FolderShareProgram")
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   deletedAt     DateTime?
@@ -1134,7 +1170,6 @@ model Program {
   @@index([deletedAt])
   @@index([collegeId])
   @@index([campusId])
-  @@index([departmentId])
   @@index([displayOrder])
   @@map("programs")
 }
@@ -1206,8 +1241,8 @@ enum FolderNodeStatus {
 
 enum FolderAssignmentTargetType {
   UNIVERSITY
+  CAMPUS
   COLLEGE
-  DEPARTMENT
   PROGRAM
   OFFICE
   AACCUP_AREA
@@ -1359,8 +1394,8 @@ enum RequirementNodeStatus {
 
 enum RequirementAssignmentTargetType {
   UNIVERSITY
+  CAMPUS
   COLLEGE
-  DEPARTMENT
   PROGRAM
   OFFICE
   AACCUP_AREA
@@ -1424,6 +1459,7 @@ model RequirementTemplate {
   code          String                    @unique
   description   String?
   category      String?
+  areaSet       AreaSet                   @default(AACCUP)
   metadata      Json?
   status        RequirementTemplateStatus @default(ACTIVE)
   version       Int                       @default(1)
@@ -1515,12 +1551,14 @@ model RequirementAssignment {
   template            RequirementTemplate             @relation(fields: [templateId], references: [id], onDelete: Cascade)
   targetType          RequirementAssignmentTargetType
   targetId            String?
+  dueDate             DateTime?
   createdBy           String?
   createdByUser       User?                           @relation("RequirementAssignmentCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   createdAt           DateTime                        @default(now())
   updatedAt           DateTime                        @updatedAt
   deletedAt           DateTime?
   runtimeRequirements AaccupRequirement[]
+  sourceTasks         AaccupTask[]                  @relation("AaccupTaskSourceAssignment")
 
   @@unique([targetType, targetId])
   @@index([templateId])
@@ -1874,6 +1912,9 @@ enum FormAssignmentTargetType {
   AACCUP_AREA
   FOLDER_TEMPLATE
   UNIVERSITY
+  CAMPUS
+  COLLEGE
+  PROGRAM
 }
 
 enum FormChangeType {

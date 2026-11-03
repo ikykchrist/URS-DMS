@@ -20,10 +20,12 @@ export interface AdminUserListItem {
   status: UserStatus;
   roleId: string;
   roleName: RoleName;
-  departmentId: string | null;
-  departmentName: string | null;
-  collegeId: string | null;        // Derived via department → college (FK chain)
+  campusId: string | null;
+  campusName: string | null;
+  collegeId: string | null;
   collegeName: string | null;
+  programId: string | null;
+  programName: string | null;
   mustChangePassword: boolean;
   lastLogin: Date | null;
   createdAt: Date;

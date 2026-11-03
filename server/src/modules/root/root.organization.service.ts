@@ -56,7 +56,6 @@ export interface OrgCreateInput {
   displayOrder?: number;
   campusId?: string | null;
   collegeId?: string | null;
-  departmentId?: string | null;
   headId?: string | null;
   level?: OrgLevel | null;
 }
@@ -68,7 +67,6 @@ export interface OrgUpdateInput {
   displayOrder?: number;
   campusId?: string | null;
   collegeId?: string | null;
-  departmentId?: string | null;
   headId?: string | null;
   level?: OrgLevel | null;
 }
@@ -110,7 +108,6 @@ function assertCanRollback(actor: Actor): void {
 interface ParentRefs {
   campusId?: string | null;
   collegeId?: string | null;
-  departmentId?: string | null;
   headId?: string | null;
 }
 
@@ -122,10 +119,6 @@ async function assertParentsValid(refs: ParentRefs): Promise<void> {
   if (refs.collegeId) {
     const ok = await repo.parentExists("college", refs.collegeId);
     if (!ok) throw new BadRequestError("The referenced college does not exist or is archived");
-  }
-  if (refs.departmentId) {
-    const ok = await repo.parentExists("department", refs.departmentId);
-    if (!ok) throw new BadRequestError("The referenced department does not exist or is archived");
   }
   if (refs.headId) {
     const ok = await repo.parentExists("user", refs.headId);
@@ -150,7 +143,6 @@ export async function listRecords(
       includeArchived: query.includeArchived,
       campusId: query.campusId,
       collegeId: query.collegeId,
-      departmentId: query.departmentId,
     },
     query.page,
     query.pageSize,
@@ -205,7 +197,6 @@ export async function createRecord(
       displayOrder: input.displayOrder ?? 0,
       campusId: input.campusId ?? null,
       collegeId: input.collegeId ?? null,
-      departmentId: input.departmentId ?? null,
       headId: input.headId ?? null,
       level: input.level ?? null,
     },
@@ -250,7 +241,6 @@ export async function updateRecord(
   await assertParentsValid({
     campusId: input.campusId !== undefined ? input.campusId : existing.campusId,
     collegeId: input.collegeId !== undefined ? input.collegeId : existing.collegeId,
-    departmentId: input.departmentId !== undefined ? input.departmentId : existing.departmentId,
     headId: input.headId !== undefined ? input.headId : existing.headId,
   });
 
@@ -265,8 +255,6 @@ export async function updateRecord(
       displayOrder: input.displayOrder ?? existing.displayOrder,
       campusId: input.campusId !== undefined ? input.campusId : existing.campusId,
       collegeId: input.collegeId !== undefined ? input.collegeId : existing.collegeId,
-      departmentId:
-        input.departmentId !== undefined ? input.departmentId : existing.departmentId,
       headId: input.headId !== undefined ? input.headId : existing.headId,
       level: input.level !== undefined ? input.level : existing.level,
     },
@@ -416,11 +404,9 @@ export async function getOrganizationTree(actor: Actor): Promise<OrganizationTre
     description: null,
     level: null,
     colleges: [],
-    departments: [],
     offices: [],
     programs: [],
   });
-  const deptNode = (d: repo.TreeDeptRow): TreeNode => ({ ...baseNode(), id: d.id, name: d.name, code: d.code, description: d.description });
   const officeNode = (o: repo.TreeOfficeRow): TreeNode => ({ ...baseNode(), id: o.id, name: o.name, code: o.code, description: o.description });
   const programNode = (p: repo.TreeProgramRow): TreeNode => ({ ...baseNode(), id: p.id, name: p.name, code: p.code, description: p.description, level: p.level });
   const collegeNode = (c: repo.TreeCollegeRow): TreeNode => ({ ...baseNode(), id: c.id, name: c.name, code: c.code, description: c.description });
@@ -448,24 +434,13 @@ export async function getOrganizationTree(actor: Actor): Promise<OrganizationTre
     else unassigned.colleges.push(node);
   }
 
-  // Department nodes; attach to their college (or Unassigned).
-  const deptNodes = new Map<string, TreeNode>();
-  for (const d of raw.departments) {
-    const node = deptNode(d);
-    deptNodes.set(d.id, node);
-    if (d.collegeId && collegeMap.has(d.collegeId)) collegeMap.get(d.collegeId)!.departments.push(node);
-    else unassigned.departments.push(node);
-  }
-
-  // Offices / programs → department node, else college node, else Unassigned.
+  // Offices / programs attach to their college, then the unassigned bucket.
   for (const o of raw.offices) {
-    if (o.departmentId && deptNodes.has(o.departmentId)) deptNodes.get(o.departmentId)!.offices.push(officeNode(o));
-    else if (o.collegeId && collegeMap.has(o.collegeId)) collegeMap.get(o.collegeId)!.offices.push(officeNode(o));
+    if (o.collegeId && collegeMap.has(o.collegeId)) collegeMap.get(o.collegeId)!.offices.push(officeNode(o));
     else unassigned.offices.push(officeNode(o));
   }
   for (const p of raw.programs) {
-    if (p.departmentId && deptNodes.has(p.departmentId)) deptNodes.get(p.departmentId)!.programs.push(programNode(p));
-    else if (p.collegeId && collegeMap.has(p.collegeId)) collegeMap.get(p.collegeId)!.programs.push(programNode(p));
+    if (p.collegeId && collegeMap.has(p.collegeId)) collegeMap.get(p.collegeId)!.programs.push(programNode(p));
     else unassigned.programs.push(programNode(p));
   }
 

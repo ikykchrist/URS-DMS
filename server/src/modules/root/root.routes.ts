@@ -138,7 +138,7 @@ rootRouter.get(
 );
 
 // Sprint 7.4.2 â€” Organization Management Engine. Mounted last; its paths
-// (/organization/*, /colleges, /departments, /offices, /programs) share no
+// (/organization/*, /colleges, /offices, /programs) share no
 // segment with the config routes above, so ordering is safe.
 rootRouter.use(organizationRouter);
 

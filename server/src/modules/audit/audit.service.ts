@@ -305,7 +305,9 @@ function buildWhere(q: ListAuditQuery | ExportAuditQuery): Prisma.AuditLogWhereI
   const userFilter: Prisma.UserWhereInput = {};
   if (q.userId) userFilter.id = q.userId;
   if (q.roleId) userFilter.roleId = q.roleId;
-  if (q.departmentId) userFilter.departmentId = q.departmentId;
+  if (q.campusId) userFilter.campusId = q.campusId;
+  if (q.collegeId) userFilter.collegeId = q.collegeId;
+  if (q.programId) userFilter.programId = q.programId;
 
   if (q.q) {
     const t = q.q;
@@ -761,12 +763,12 @@ export async function listMyActivity12m(
 export function scopeIpVisibility(
   items: AuditLogListItem[],
   viewerRole: string,
-  viewerDepartmentId: string | null,
+  viewerProgramId: string | null,
 ): AuditLogListItem[] {
   return items.map((item) => {
     if (viewerRole === "ROOT") return item;
     if (["ADMINISTRATOR", "QUALITY_ASSURANCE_OFFICER", "DEPARTMENT_COORDINATOR"].includes(viewerRole)) {
-      if (viewerDepartmentId && item.user.departmentId !== viewerDepartmentId) {
+      if (viewerProgramId && item.user.programId !== viewerProgramId) {
         return { ...item, ipAddress: null };
       }
       return item;
@@ -844,7 +846,7 @@ export async function getLoginGroups(q: LoginGroupsQuerySchema): Promise<LoginGr
     },
     include: {
       user: {
-        select: { id: true, firstName: true, lastName: true, email: true, departmentId: true, role: { select: { name: true } } },
+        select: { id: true, firstName: true, lastName: true, email: true, campusId: true, collegeId: true, programId: true, campus: { select: { name: true } }, college: { select: { name: true } }, program: { select: { name: true } }, role: { select: { name: true } } },
       },
     },
     orderBy: { createdAt: "desc" },

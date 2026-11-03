@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ShieldCheck,
   ClipboardList,
+  Bug,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
@@ -37,6 +38,7 @@ const sidebarItems: SidebarItem[] = [
   { id: "activity", icon: Activity, label: "My Activity" },
   { id: "profile", icon: User, label: "Profile" },
   { id: "settings", icon: Settings, label: "Settings" },
+  { id: "bug-report", icon: Bug, label: "Bug Report" },
 ]
 
 interface UserSidebarProps {

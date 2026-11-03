@@ -87,6 +87,10 @@ filesRouter.put(
       throw new BadRequestError("Content-Length is required");
     }
     const declared = normalizeContentType(req.headers["content-type"] as string | undefined);
+    if (payload.k.startsWith("documents/bug-reports-") &&
+        (sizeBytes > 5 * 1024 * 1024 || !["image/png", "image/jpeg", "image/webp", "application/pdf"].includes(declared))) {
+      throw new BadRequestError("Report attachments must be PNG, JPG, WebP or PDF up to 5 MB");
+    }
     const mimeType = ACTIVE_CONTENT_TYPES.has(declared) ? "application/octet-stream" : declared;
 
     await putObject(payload.k, req, sizeBytes, mimeType);

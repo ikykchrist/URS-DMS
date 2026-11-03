@@ -47,6 +47,7 @@ import {
 } from "@/services/aaccup"
 import { RepositoryDocumentPicker } from "@/components/aaccup/RepositoryDocumentPicker"
 import type { Document } from "@/types/domain"
+import { requirementUploadHints } from "@/lib/requirementUploadHints"
 
 // =============================================================================
 // UserAccreditationView — shared accreditation surface for the user portal
@@ -133,7 +134,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
     try {
       const nextAreas = await listOnlineAaccupAreas(areaSet)
       setAreas(nextAreas)
-      setActiveAreaId((current) => current || nextAreas[0]?.id || "")
+      setActiveAreaId((current) => nextAreas.some((area) => area.id === current) ? current : nextAreas[0]?.id || "")
       const ownSubmissions = await listAllOnlineSubmissions({ areaSet })
       setAreaSubmissionCounts(
         ownSubmissions.reduce<Record<string, number>>((acc, submission) => {
@@ -141,6 +142,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
           return acc
         }, {}),
       )
+      return nextAreas
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : `Unable to load dynamic ${meta.title} areas`)
     } finally {
@@ -169,6 +171,14 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
 
   useEffect(() => { void loadAreas() }, [loadAreas])
   useEffect(() => { if (activeAreaId) void loadAreaData(activeAreaId) }, [activeAreaId, loadAreaData])
+
+  async function refreshArea() {
+    const nextAreas = await loadAreas()
+    if (!nextAreas) return
+    const next = nextAreas.find((area) => area.id === activeAreaId) ?? nextAreas[0]
+    if (next) await loadAreaData(next.id)
+    else { setRequirements([]); setSubmissions([]) }
+  }
 
   const submissionByRequirement = new Map(
     submissions
@@ -216,7 +226,9 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
       if (!file) return
       const input = {
         requirementId: uploadRequirement.id,
-        departmentId: activeArea.departmentId,
+        campusId: activeArea.campusId ?? "",
+        collegeId: activeArea.collegeId ?? "",
+        programId: activeArea.programId ?? "",
         title: title.trim(),
         areaName: activeArea.name,
         requirementCode: uploadRequirement.documentCode,
@@ -252,14 +264,14 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
       <PageHeader
         title={meta.title}
         description={meta.description}
-        actions={<Button variant="outline" onClick={() => void loadAreas()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>}
+        actions={<Button variant="outline" onClick={() => void refreshArea()} disabled={areasLoading || requirementsLoading}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>}
       />
       {navigation && <div className="mb-6 lg:mb-8">{navigation}</div>}
 
       {error && (
         <div className="mb-5 flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" /><div><p className="text-[13px] font-semibold text-red-900">Dynamic requirements unavailable</p><p className="mt-1 text-[12px] text-red-700">{error}</p></div></div>
-          <Button size="sm" variant="outline" onClick={() => void loadAreas()}>Retry</Button>
+          <Button size="sm" variant="outline" onClick={() => void refreshArea()}>Retry</Button>
         </div>
       )}
 
@@ -278,7 +290,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
                 const count = areaSubmissionCounts[area.id] ?? 0
                 return (
                   <TabsTrigger key={area.id} value={area.id} className="min-w-max px-4 py-1.5 text-[12px]">
-                    {area.code}
+                    {area.name}
                     {count > 0 && (
                       <span className="ml-2 inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-primary-100 px-1 text-[10px] font-semibold text-primary-600">
                         {count}
@@ -300,7 +312,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
           </CardHeader>
           <CardContent className="p-0">
             {requirementsLoading ? <div className="space-y-3 p-5">{Array.from({ length: 4 }, (_, index) => <Skeleton key={index} variant="rectangular" className="h-16" />)}</div>
-              : requirements.length === 0 ? <EmptyState variant="tasks" title="No active requirements" description="A ROOT administrator must assign an active Requirement Builder template to this area or its organization scope." />
+              : requirements.length === 0 ? <EmptyState variant="tasks" title="No requirements assigned to this area yet" description="An accreditation administrator will attach a requirement template inside this AACCUP or ISO area before evidence is requested." />
                 : groups(requirements).map(([category, rows]) => (
                   <section key={category}>
                     <div className="border-b border-t border-border/70 bg-slate-50 px-4 py-2.5 first:border-t-0 sm:px-5"><h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{category}</h3></div>
@@ -342,7 +354,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
             <div className="space-y-2"><Label>Evidence source</Label>
               {repositoryDocument ? (
                 <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-primary-50 p-3"><FileText className="h-5 w-5 shrink-0 text-primary-600" /><div className="min-w-0 flex-1"><p className="truncate text-[12px] font-medium text-blue-900">{repositoryDocument.name}</p><p className="text-[11px] text-blue-700">Selected from My Documents</p></div><Button type="button" size="sm" variant="outline" onClick={() => setRepositoryDocument(null)}>Change</Button></div>
-              ) : (<><Dropzone accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.csv,.txt,.mp4,.webm,.mov,.avi,.mkv" onChange={(files) => { setFile(files[0] ?? null); setRepositoryDocument(null) }} /><div className="flex items-center gap-2"><span className="h-px flex-1 bg-slate-200" /><span className="text-[10px] uppercase tracking-wider text-slate-400">or</span><span className="h-px flex-1 bg-slate-200" /></div><Button type="button" variant="outline" className="w-full" onClick={() => setRepositoryPickerOpen(true)}><FileText className="mr-2 h-4 w-4" />Choose from My Documents</Button></>)}
+              ) : (<><Dropzone {...requirementUploadHints(uploadRequirement?.validations ?? [])} onChange={(files) => { setFile(files[0] ?? null); setRepositoryDocument(null) }} /><div className="flex items-center gap-2"><span className="h-px flex-1 bg-slate-200" /><span className="text-[10px] uppercase tracking-wider text-slate-400">or</span><span className="h-px flex-1 bg-slate-200" /></div><Button type="button" variant="outline" className="w-full" onClick={() => setRepositoryPickerOpen(true)}><FileText className="mr-2 h-4 w-4" />Choose from My Documents</Button></>)}
             </div>
             {uploadRequirement?.validations.some((rule) => rule.type === "PAGE_COUNT") && <div className="space-y-2"><Label>Page Count</Label><Input type="number" min="1" value={pageCount} onChange={(event) => setPageCount(event.target.value)} /></div>}
             {uploadRequirement?.validations.some((rule) => rule.type === "EXPIRATION_DATE") && <div className="space-y-2"><Label>Expiration Date</Label><Input type="date" value={expirationDate} onChange={(event) => setExpirationDate(event.target.value)} /></div>}

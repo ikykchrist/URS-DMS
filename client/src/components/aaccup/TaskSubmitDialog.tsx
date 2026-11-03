@@ -32,12 +32,16 @@ import { cn } from "@/lib/utils"
 
 interface TaskSubmitDialogProps {
   task: OnlineAaccupTask | null
+  requirement?: { id: string; title: string; documentCode: string } | null
   onClose: () => void
   onSubmitted?: () => void
 }
 
-export function TaskSubmitDialog({ task, onClose, onSubmitted }: TaskSubmitDialogProps) {
-  const [title, setTitle] = useState(task?.requirementTitle ?? task?.title ?? "")
+export function TaskSubmitDialog({ task, requirement, onClose, onSubmitted }: TaskSubmitDialogProps) {
+  const effectiveRequirement = requirement ?? (task?.requirementId && task.requirementTitle && task.requirementCode
+    ? { id: task.requirementId, title: task.requirementTitle, documentCode: task.requirementCode }
+    : null)
+  const [title, setTitle] = useState(effectiveRequirement?.title ?? task?.title ?? "")
   const [file, setFile] = useState<File | null>(null)
   const [repositoryDocument, setRepositoryDocument] = useState<Document | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -46,21 +50,24 @@ export function TaskSubmitDialog({ task, onClose, onSubmitted }: TaskSubmitDialo
   const [validationMessages, setValidationMessages] = useState<string[]>([])
 
   useEffect(() => {
-    setTitle(task?.requirementTitle ?? task?.title ?? "")
+    const nextRequirement = requirement ?? (task?.requirementId && task.requirementTitle && task.requirementCode
+      ? { id: task.requirementId, title: task.requirementTitle, documentCode: task.requirementCode }
+      : null)
+    setTitle(nextRequirement?.title ?? task?.title ?? "")
     setFile(null)
     setRepositoryDocument(null)
     setRemarks("")
     setValidationMessages([])
-  }, [task])
+  }, [requirement, task])
 
   const handleSubmit = async () => {
-    if (!task || !task.requirementId || (!file && !repositoryDocument) || !title.trim()) return
+    if (!task || !effectiveRequirement || (!file && !repositoryDocument) || !title.trim()) return
     setUploading(true)
     setValidationMessages([])
     try {
       if (repositoryDocument) {
         await submitOnlineRepositoryDocument({
-          requirementId: task.requirementId,
+          requirementId: effectiveRequirement.id,
           documentId: repositoryDocument.id,
           taskId: task.id,
           remarks: remarks.trim() || undefined,
@@ -72,8 +79,10 @@ export function TaskSubmitDialog({ task, onClose, onSubmitted }: TaskSubmitDialo
       }
       if (!file) return
       const input = {
-        requirementId: task.requirementId,
-        departmentId: task.departmentId ?? "",
+        requirementId: effectiveRequirement.id,
+        campusId: task.campusId ?? "",
+        collegeId: task.collegeId ?? "",
+        programId: task.programId ?? "",
         title: title.trim(),
         areaName: task.areaName,
         requirementCode: task.requirementCode ?? undefined,
@@ -108,7 +117,7 @@ export function TaskSubmitDialog({ task, onClose, onSubmitted }: TaskSubmitDialo
         <DialogHeader>
           <DialogTitle>Submit Evidence</DialogTitle>
           <DialogDescription>
-            {task?.title} ({task?.requirementCode})
+            {task?.title} — {effectiveRequirement?.documentCode ?? "Requirement"}
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[68vh] space-y-4 overflow-y-auto py-3">
@@ -151,7 +160,7 @@ export function TaskSubmitDialog({ task, onClose, onSubmitted }: TaskSubmitDialo
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button
             onClick={() => void handleSubmit()}
-            disabled={uploading || (!file && !repositoryDocument) || !title.trim() || !task?.requirementId}
+            disabled={uploading || (!file && !repositoryDocument) || !title.trim() || !effectiveRequirement}
           >
             <Upload className="mr-1.5 h-3.5 w-3.5" />
             {uploading ? "Submitting..." : repositoryDocument ? "Submit Selected Document" : "Upload and Submit"}

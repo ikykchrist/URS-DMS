@@ -266,6 +266,11 @@ export async function runOrphanScan(
       cursor += keys.length;
     }
 
+    const attachments = await prisma.bugReport.findMany({
+      where: { attachmentKey: { not: null } }, select: { attachmentKey: true },
+    });
+    for (const attachment of attachments) if (attachment.attachmentKey) referenced.add(attachment.attachmentKey);
+
     // List MinIO objects (paginated internally, capped).
     const objectKeys = await listObjectKeys(SCAN_OBJECT_LIMIT);
     counts.totalScanned = objectKeys.length;
@@ -369,7 +374,8 @@ export async function runOrphanCleanup(
         const refs = await prisma.documentVersion.count({
           where: { objectKey: candidate.objectKey },
         });
-        if (refs > 0) {
+        const attachmentRefs = await prisma.bugReport.count({ where: { attachmentKey: candidate.objectKey } });
+        if (refs > 0 || attachmentRefs > 0) {
           await prisma.maintenanceOrphanCandidate.update({
             where: { id: candidate.id },
             data: { status: "RE_REFERENCED" },

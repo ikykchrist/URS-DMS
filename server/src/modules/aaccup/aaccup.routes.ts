@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { areaTemplateSchema } from "./aaccup.validator";
+import { areaSetupProgramsHandler, areaTemplateSetupHandler, setAreaTemplateHandler } from "./aaccup.controller";
 import { asyncHandler } from "@/utils/asyncHandler";
 import { authenticate } from "@/middlewares/authenticate";
 import { requirePermission } from "@/middlewares/authorize";
@@ -33,6 +35,10 @@ import { aaccupTasksRouter } from "@/modules/aaccup/tasks/aaccup.tasks.routes";
 export const aaccupRouter: Router = Router();
 
 aaccupRouter.use(authenticate);
+
+aaccupRouter.get("/setup/programs", requirePermission("aaccup.manage"), asyncHandler(areaSetupProgramsHandler));
+aaccupRouter.get("/areas/:id/requirement-template", requirePermission("aaccup.manage"), validateParams(areaIdParamSchema), asyncHandler(areaTemplateSetupHandler));
+aaccupRouter.post("/areas/:id/requirement-template", requirePermission("aaccup.manage"), validateParams(areaIdParamSchema), validateBody(areaTemplateSchema), asyncHandler(setAreaTemplateHandler));
 
 // GET /aaccup/areas
 aaccupRouter.get(

@@ -25,22 +25,6 @@ export const PERMISSIONS = [
   { code: "folders.update", module: "folders", description: "Rename / move folders" },
   { code: "folders.delete", module: "folders", description: "Delete folders" },
 
-  { code: "departments.create", module: "departments", description: "Create departments" },
-  { code: "departments.read", module: "departments", description: "View departments" },
-  { code: "departments.update", module: "departments", description: "Update departments" },
-  { code: "departments.delete", module: "departments", description: "Delete departments" },
-
-  // Sprint 7.1 — Administration Backend (granular RBAC surfaced from the
-  // existing `departments.*` group; ADMINISTRATOR-only per the sprint spec).
-  { code: "department.read", module: "admin", description: "View departments (admin surface)" },
-  { code: "department.create", module: "admin", description: "Create departments (admin surface)" },
-  { code: "department.update", module: "admin", description: "Update departments (admin surface)" },
-  {
-    code: "department.archive",
-    module: "admin",
-    description: "Archive / restore departments (admin surface)",
-  },
-
   { code: "college.read", module: "admin", description: "View colleges (admin surface)" },
   { code: "college.create", module: "admin", description: "Create colleges (admin surface)" },
   { code: "college.update", module: "admin", description: "Update colleges (admin surface)" },
@@ -201,12 +185,12 @@ export const PERMISSIONS = [
   // (roles.constants.ts), so ADMINISTRATOR and every other role can never
   // acquire them — the /root/organization surface stays Root-only by
   // construction (plus the hard requireRole("ROOT") gate on the router).
-  // Colleges/departments share the Sprint 7.1 physical rows; offices and
-  // programs are the new 7.4.2 tables.
+  // Campuses/colleges are the parent rows; offices and programs are the
+  // child organization tables.
   {
     code: "organization.read",
     module: "root",
-    description: "Read organization master data (colleges, departments, offices, programs)",
+    description: "Read organization master data (campuses, colleges, offices, programs)",
   },
   { code: "organization.create", module: "root", description: "Create organization records" },
   { code: "organization.update", module: "root", description: "Update organization records" },
@@ -248,7 +232,7 @@ export const PERMISSIONS = [
     code: "folder.assign",
     module: "root",
     description:
-      "Assign folder templates to scopes (university / college / department / program / office / AACCUP area)",
+      "Assign folder templates to scopes (university / campus / college / program / office / AACCUP area)",
   },
   {
     code: "folder.rollback",

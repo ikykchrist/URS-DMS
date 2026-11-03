@@ -43,16 +43,20 @@ export interface BrowseBucketItem {
   mimeType: string | null
   sizeBytes: string | null
   ownerName: string
-  departmentId: string | null
-  departmentName: string | null
+  campusId: string | null
+  collegeId: string | null
+  programId: string | null
+  programName: string | null
   uploadedAt: string
   folderName: string | null
 }
 
 export interface BrowseBucket {
   items: BrowseBucketItem[]
-  departmentId: string | null
-  departmentName: string | null
+  campusId: string | null
+  collegeId: string | null
+  programId: string | null
+  programName: string | null
 }
 
 function adaptStatusFromBackend(s: BackendRequest["status"]): RequestStatus {
@@ -95,7 +99,7 @@ function adaptRequestFromBackend(r: BackendRequest): DocumentRequest {
     priority: hasUrgent ? "Urgent" : "Normal",
     submittedBy: r.requesterId,
     submittedByName: r.requesterName,
-    department: "",
+    program: "",
     documents: docs,
     status: adaptStatusFromBackend(r.status),
     dateSubmitted: r.createdAt,

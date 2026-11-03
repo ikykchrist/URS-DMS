@@ -218,8 +218,9 @@ Nginx upstream `urs-server:4000` will be unreachable on first boot. Set
    ```
 3. Once backend is healthy, deploy the frontend.
 4. Visit `https://urs-dms.online/`. The SPA should load.
-5. Probe the API: `curl -s https://urs-dms.online/api/v1/health | jq`.
-   Expect `services.minio.status === "up"` and `services.database.status === "up"`.
+5. Probe the public liveness endpoint: `curl -s https://urs-dms.online/api/v1/health | jq`.
+   It intentionally returns only `status` and `timestamp`; dependency and
+   queue diagnostics remain inside the authenticated Root Console.
 
 ---
 
@@ -283,7 +284,7 @@ The frontend Nginx upstream can't reach the backend. Check:
 - Both services are on the same Dokploy network
 - Backend health check is green
 
-### `services.minio.status === "down"` in `/api/v1/health`
+### Storage or dependency status is degraded in the Root Console
 
 - `MINIO_ENDPOINT` and `MINIO_PORT` match the Dokploy-internal MinIO service
 - `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` match the MinIO service env

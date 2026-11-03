@@ -62,7 +62,7 @@ export async function refreshUserAttention(userId: string, permissions?: string[
     const returnedSubs = submissions.filter((s) => s.status === "NEEDS_REVISION")
     const dueSoon = tasks.filter((t) => within7Days(t.dueDate) && t.status !== "COMPLETED" && t.status !== "CANCELLED")
     const overdue = tasks.filter((t) => isOverdue(t.dueDate, t.status))
-    const openTaskList = tasks.filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS")
+    const openTaskList = tasks.filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS" || t.status === "NEEDS_REVISION")
     const pendingReqs = requests.filter((r) => r.status === "Pending")
     const approvedReqs = requests.filter((r) => r.status === "Approved")
     const fulfilledReqs = requests.filter((r) => r.status === "Fulfilled")

@@ -63,7 +63,9 @@ interface AACCUPArea {
   status: "Completed" | "In Progress" | "Pending" | "Overdue"
   completion: number
   dueDate: string
-  departmentId: string
+  campusId: string
+  collegeId: string
+  programId: string
   isActive: boolean
 }
 
@@ -117,7 +119,9 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
     id: string
     name: string
     description: string
-    departmentId: string
+    campusId: string
+    collegeId: string
+    programId: string
     isActive: boolean
   } | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -242,7 +246,9 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
       status,
       completion,
       dueDate: area.accreditationCycleName ?? area.updatedAt.slice(0, 10),
-      departmentId: area.departmentId,
+      campusId: area.campusId ?? "",
+      collegeId: area.collegeId ?? "",
+      programId: area.programId ?? "",
       isActive: area.status === "ACTIVE",
     }
   }
@@ -284,7 +290,9 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
     id: area.serverId,
     name: area.title,
     description: area.description,
-    departmentId: area.departmentId,
+    campusId: area.campusId,
+    collegeId: area.collegeId,
+    programId: area.programId,
     isActive: area.isActive,
   })
 
@@ -331,36 +339,28 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
             <StatCard
               title="Total Submissions"
               value={totalSubmissions.toString()}
-              icon={<Award className="w-5 h-5" />}
+              icon={<span className="inline-flex rounded-lg bg-blue-50 p-1.5 text-blue-600 dark:bg-blue-50/30 dark:text-blue-400"><Award className="w-4 h-4" /></span>}
             />
             <StatCard
               title="Approved"
               value={completedSubmissions.toString()}
-              icon={<CheckCircle className="w-5 h-5" />}
-              trend={{
-                value: totalSubmissions > 0 ? Math.round((completedSubmissions / totalSubmissions) * 100) : 0,
-                positive: completedSubmissions > 0,
-              }}
+              icon={<span className="inline-flex rounded-lg bg-emerald-50 p-1.5 text-emerald-600 dark:bg-emerald-50/30 dark:text-emerald-400"><CheckCircle className="w-4 h-4" /></span>}
             />
             <StatCard
               title="Pending Review"
               value={pendingSubmissions.toString()}
-              icon={<Clock className="w-5 h-5" />}
-              trend={{
-                value: totalSubmissions > 0 ? Math.round((pendingSubmissions / totalSubmissions) * 100) : 0,
-                positive: false,
-              }}
+              icon={<span className="inline-flex rounded-lg bg-amber-50 p-1.5 text-amber-600 dark:bg-amber-50/30 dark:text-amber-400"><Clock className="w-4 h-4" /></span>}
             />
             <StatCard
               title="Compliance Rate"
               value={`${calculateOverallCompliance()}%`}
-              icon={<TrendingUp className="w-5 h-5" />}
+              icon={<span className="inline-flex rounded-lg bg-indigo-50 p-1.5 text-indigo-600 dark:bg-indigo-50/30 dark:text-indigo-400"><TrendingUp className="w-4 h-4" /></span>}
             />
           </div>
 
           <Card className="border-border/70 shadow-soft mb-6">
-            <CardContent className="p-0">
-              <div className="toolbar-padding flex flex-col gap-3 lg:flex-row lg:items-center">
+            <CardContent className="p-0 md:p-0">
+              <div className="flex w-full flex-col gap-3 p-4 lg:flex-row lg:items-center">
                 <div className="flex-1">
                   <div className="relative max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -465,14 +465,14 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                 <Card
                   key={area.id}
                   className={cn(
-                    "border-border/70 shadow-soft hover:shadow-lift transition-shadow cursor-pointer flex flex-col h-full",
+                    "border-border/70 shadow-soft hover:shadow-lift transition-shadow cursor-pointer flex flex-col h-full overflow-hidden",
                     selectedIds.includes(area.serverId) && "ring-2 ring-primary/40"
                   )}
                   onClick={() => handleViewArea(area)}
                 >
                   <CardContent className="flex flex-1 flex-col p-5 text-center md:p-6">
-                    <div className="mb-5 flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 flex-1 items-center justify-center gap-3">
+                    <div className="mb-6 flex items-start justify-between gap-4">
+                      <div className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
                         <input
                           type="checkbox"
                           className="w-4 h-4 shrink-0 rounded border-gray-300 accent-primary cursor-pointer"
@@ -493,12 +493,12 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                         )}>
                           {area.id}
                         </div>
-                        <div className="min-w-0 text-center">
+                        <div className="min-w-0">
                           <h3 className="text-[14px] font-semibold text-gray-900 truncate">Area {area.id}</h3>
                           <p className="text-[12px] text-gray-500 line-clamp-1">{area.title}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex shrink-0 items-center gap-1.5">
                         <Badge variant={statusBadge[area.status]} className="text-[10px]">
                           {area.status}
                         </Badge>
@@ -527,12 +527,12 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                       </div>
                     </div>
 
-                    <div className="mb-5">
-                      <div className="mb-2 flex items-center justify-center gap-3">
+                    <div className="mb-6">
+                      <div className="mb-2 flex items-center justify-between gap-3">
                         <span className="text-[12px] text-gray-500">Progress</span>
                         <span className="text-[14px] font-semibold text-primary">{area.completion}%</span>
                       </div>
-                      <div className="w-full h-2 bg-navy-50 rounded-full overflow-hidden">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-navy-50">
                         <div
                           className={cn("h-full rounded-full", statusColors[area.status])}
                           style={{ width: `${area.completion}%` }}
@@ -540,12 +540,12 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                       </div>
                     </div>
 
-                    <div className="mb-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12px] text-gray-500">
-                      <div className="flex items-center gap-1.5">
+                    <div className="mb-6 grid grid-cols-2 gap-3 rounded-lg bg-gray-50/60 px-3 py-2.5 text-[12px] text-gray-500">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5" />
-                        <span>{stats.total} Submissions</span>
+                        <span className="truncate">{stats.total} Submissions</span>
                       </div>
-                      <div className="flex items-center justify-center gap-3.5">
+                      <div className="flex items-center justify-end gap-3">
                         <span className="flex items-center gap-1.5">
                           <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
                           {stats.completed}
@@ -561,7 +561,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                       </div>
                     </div>
 
-                    <div className="mt-auto flex items-center justify-center gap-5 border-t border-gray-100 pt-4">
+                    <div className="mt-auto flex items-center justify-between gap-4 border-t border-gray-100 pt-4">
                       <div className="flex -space-x-2 min-w-0">
                         {[...new Set(areaSubs.map(s => s.submittedByName).filter((name): name is string => Boolean(name)))].slice(0, 3).map((name, i) => (
                           <Avatar key={i} className="h-7 w-7 border-2 border-white bg-primary/10">
@@ -609,7 +609,9 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
         areaId={selectedArea?.serverId}
         areaTitle={selectedArea?.title}
         areaSet={areaSet}
-        departmentId={areas.find((a) => a.id === selectedArea?.serverId)?.departmentId}
+        campusId={areas.find((a) => a.id === selectedArea?.serverId)?.campusId ?? undefined}
+        collegeId={areas.find((a) => a.id === selectedArea?.serverId)?.collegeId ?? undefined}
+        programId={areas.find((a) => a.id === selectedArea?.serverId)?.programId ?? undefined}
         onSuccess={() => {
           setIsAddSubmissionOpen(false)
           setDetailsReloadKey((k) => k + 1)
@@ -637,9 +639,11 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
         }}
         areaSet={areaSet.toLowerCase() as "aaccup" | "iso"}
         area={editingArea}
-        onSuccess={() => {
+          onSuccess={(createdArea) => {
+            const isNew = !editingArea
           setEditingArea(null)
           fetchData()
+            if (isNew) navigate(`${areaSet === "ISO" ? "/iso" : "/aaccup"}/areas/${encodeURIComponent(createdArea.id)}?tab=requirements`)
         }}
       />
 

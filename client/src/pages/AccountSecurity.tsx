@@ -269,8 +269,8 @@ export default function AccountSecurity() {
                   <p className="text-[14px] text-gray-700 mt-1">{profile?.employeeId ?? "—"}</p>
                 </div>
                 <div>
-                  <Label className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Department</Label>
-                  <p className="text-[14px] text-gray-700 mt-1">{profile?.departmentName ?? "—"}</p>
+                  <Label className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Program</Label>
+                  <p className="text-[14px] text-gray-700 mt-1">{profile?.programName ?? "—"}</p>
                 </div>
                 <div>
                   <Label className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Member Since</Label>

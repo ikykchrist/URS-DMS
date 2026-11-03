@@ -338,9 +338,9 @@ export function DocumentPreviewModal({
               <div>
                 <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wide flex items-center gap-1.5 mb-1.5">
                   <Building2 className="w-3 h-3" />
-                  Department
+                  Program
                 </label>
-                <p className="text-[13px] text-gray-700">{document?.department}</p>
+                <p className="text-[13px] text-gray-700">{document?.program}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

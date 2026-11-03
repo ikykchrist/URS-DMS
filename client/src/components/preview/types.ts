@@ -3,7 +3,7 @@ export interface DocumentFile {
   name: string
   type: string
   area: string
-  department: string
+  program: string
   dateModified: string
   size: string
   status: string

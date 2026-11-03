@@ -316,10 +316,22 @@ export default function AuditLogs() {
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        <StatCard title="Total Activities" value={total.toLocaleString()} icon={<Activity className="w-5 h-5" />} />
-        <StatCard title="Successful Actions" value={successTotal.toLocaleString()} icon={<CheckCircle className="w-5 h-5" />} />
-        <StatCard title="Failed Actions" value={failedTotal.toLocaleString()} icon={<XCircle className="w-5 h-5" />} />
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3 mb-8">
+        <StatCard
+          title="Total Activities"
+          value={total.toLocaleString()}
+          icon={<span className="inline-flex rounded-lg bg-blue-50 p-1.5 text-blue-600 dark:bg-blue-50/30 dark:text-blue-400"><Activity className="w-4 h-4" /></span>}
+        />
+        <StatCard
+          title="Successful Actions"
+          value={successTotal.toLocaleString()}
+          icon={<span className="inline-flex rounded-lg bg-emerald-50 p-1.5 text-emerald-600 dark:bg-emerald-50/30 dark:text-emerald-400"><CheckCircle className="w-4 h-4" /></span>}
+        />
+        <StatCard
+          title="Failed Actions"
+          value={failedTotal.toLocaleString()}
+          icon={<span className="inline-flex rounded-lg bg-red-50 p-1.5 text-red-600 dark:bg-red-50/30 dark:text-red-400"><XCircle className="w-4 h-4" /></span>}
+        />
       </div>
 
       <div className="flex flex-wrap gap-1.5 mb-4">
@@ -337,7 +349,7 @@ export default function AuditLogs() {
       </div>
 
       <Card className="border-border/70 shadow-soft mb-6">
-        <CardContent className="p-0">
+        <CardContent className="p-0 md:p-0">
           <div className="toolbar-padding flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="flex-1">
               <div className="relative max-w-md">
@@ -428,8 +440,8 @@ export default function AuditLogs() {
         </Card>
       )}
 
-      <Card className="border-border/70 shadow-soft">
-        <CardContent className="p-0">
+      <Card className="border-border/70 shadow-soft overflow-hidden">
+        <CardContent className="p-0 md:p-0">
           <div className="max-h-[70vh] overflow-y-auto">
           <Table>
             <TableHeader className="bg-white">

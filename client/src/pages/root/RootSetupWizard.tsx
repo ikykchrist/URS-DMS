@@ -72,8 +72,9 @@ import {
   type OrgEntity,
   type OrgRecord,
   type FormAssignmentTargetType,
+  getOrganizationTree,
 } from "@/services/root"
-import { createSystemUser, listSystemUsers, listSystemDepartments, listSystemRoles } from "@/services/admin"
+import { createSystemUser, listSystemUsers, listSystemRoles } from "@/services/admin"
 import { cn } from "@/lib/utils"
 
 const STEPS = [
@@ -1105,19 +1106,19 @@ function StepForms({ flash }: { flash: (message: string) => void }) {
 // ── Step 7 · Administrators ──────────────────────────────────────────────────
 
 function StepAdministrators({ flash }: { flash: (message: string) => void }) {
-  const [admins, setAdmins] = useState<Array<{ id: string; name: string; email: string; departmentName: string | null }>>([])
-  const [departments, setDepartments] = useState<Array<{ id: string; name: string }>>([])
+  const [admins, setAdmins] = useState<Array<{ id: string; name: string; email: string; programName: string | null }>>([])
+  const [organization, setOrganization] = useState<{ campuses: Array<{ id: string; name: string; colleges: Array<{ id: string; name: string; programs: Array<{ id: string; name: string }> }> }> }>({ campuses: [] })
   const [roles, setRoles] = useState<Array<{ id: string; name: string }>>([])
   const [dialog, setDialog] = useState(false)
-  const [form, setForm] = useState({ name: "", email: "", password: "", departmentId: "", roleId: "" })
+  const [form, setForm] = useState({ name: "", email: "", password: "", campusId: "", collegeId: "", programId: "", roleId: "" })
   const [sending, setSending] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      const [userRows, deptRows, roleRows] = await Promise.all([
+      const [userRows, orgTree, roleRows] = await Promise.all([
         listSystemUsers({ pageSize: 100 }),
-        listSystemDepartments({ pageSize: 100 }),
+        getOrganizationTree(),
         listSystemRoles({ pageSize: 100 }),
       ])
       setAdmins(
@@ -1127,14 +1128,14 @@ function StepAdministrators({ flash }: { flash: (message: string) => void }) {
             id: user.id,
             name: [user.firstName, user.lastName].filter(Boolean).join(" "),
             email: user.email,
-            departmentName: user.departmentName,
+            programName: user.programName,
           })),
       )
-      setDepartments(deptRows.items)
+      setOrganization(orgTree)
       setRoles(roleRows.items)
     } catch {
       setAdmins([])
-      setDepartments([])
+      setOrganization({ campuses: [] })
       setRoles([])
     }
   }, [])
@@ -1152,11 +1153,13 @@ function StepAdministrators({ flash }: { flash: (message: string) => void }) {
         firstName: nameParts[0] ?? form.name,
         lastName: nameParts.slice(1).join(" ") || (nameParts[0] ?? "User"),
         roleId: form.roleId,
-        departmentId: form.departmentId || null,
+        campusId: form.campusId || null,
+        collegeId: form.collegeId || null,
+        programId: form.programId || null,
         mustChangePassword: true,
       })
       setDialog(false)
-      setForm({ name: "", email: "", password: "", departmentId: "", roleId: "" })
+      setForm({ name: "", email: "", password: "", campusId: "", collegeId: "", programId: "", roleId: "" })
       await load()
       flash("Administrator account created")
     } catch (err) {
@@ -1187,7 +1190,7 @@ function StepAdministrators({ flash }: { flash: (message: string) => void }) {
     <div className="space-y-5">
       <div>
         <h3 className="text-[15px] font-semibold text-gray-900">Administrator Setup</h3>
-        <p className="text-[13px] text-gray-500 mt-0.5">Create administrator accounts with department and role assignment</p>
+        <p className="text-[13px] text-gray-500 mt-0.5">Create administrator accounts with organization scope and role assignment</p>
       </div>
       <div className="flex justify-end">
         <Button size="sm" className="h-9 shadow-soft" onClick={() => setDialog(true)}>
@@ -1204,7 +1207,7 @@ function StepAdministrators({ flash }: { flash: (message: string) => void }) {
               </div>
               <div>
                 <p className="text-[14px] font-medium text-gray-900">{admin.name}</p>
-                <p className="text-[12px] text-gray-400">{admin.email} · {admin.departmentName ?? "No department"}</p>
+                <p className="text-[12px] text-gray-400">{admin.email} · {admin.programName ?? "No program"}</p>
               </div>
             </div>
             <Button variant="outline" size="sm" className="h-8 text-[12px]" disabled={sending === admin.id}
@@ -1255,15 +1258,38 @@ function StepAdministrators({ flash }: { flash: (message: string) => void }) {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label className="text-[13px] font-medium">Department</Label>
-                <Select value={form.departmentId} onValueChange={(v) => setForm((f) => ({ ...f, departmentId: v === NONE_VALUE ? "" : v }))}>
+                <Label className="text-[13px] font-medium">Campus</Label>
+                <Select value={form.campusId} onValueChange={(v) => setForm((f) => ({ ...f, campusId: v === NONE_VALUE ? "" : v, collegeId: "", programId: "" }))}>
                   <SelectTrigger className="h-10">
-                    <SelectValue placeholder="No department" />
+                    <SelectValue placeholder="Select campus" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NONE_VALUE}>No department</SelectItem>
-                    {departments.map((dept) => (
-                      <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                    {organization.campuses.map((campus) => (
+                      <SelectItem key={campus.id} value={campus.id}>{campus.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label className="text-[13px] font-medium">College</Label>
+                <Select value={form.collegeId} onValueChange={(v) => setForm((f) => ({ ...f, collegeId: v, programId: "" }))} disabled={!form.campusId}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="Select college" /></SelectTrigger>
+                  <SelectContent>
+                    {(organization.campuses.find((campus) => campus.id === form.campusId)?.colleges ?? []).map((college) => (
+                      <SelectItem key={college.id} value={college.id}>{college.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label className="text-[13px] font-medium">Program</Label>
+                <Select value={form.programId} onValueChange={(v) => setForm((f) => ({ ...f, programId: v }))} disabled={!form.collegeId}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="Select program" /></SelectTrigger>
+                  <SelectContent>
+                    {(organization.campuses.find((campus) => campus.id === form.campusId)?.colleges.find((college) => college.id === form.collegeId)?.programs ?? []).map((program) => (
+                      <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

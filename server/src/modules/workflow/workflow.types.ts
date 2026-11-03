@@ -18,8 +18,8 @@ export type WorkflowInstanceStatus = "RUNNING" | "COMPLETED" | "TERMINATED";
 export type WorkflowStepInstanceStatus = "PENDING" | "ACTIVE" | "COMPLETED" | "SKIPPED";
 export type WorkflowTargetType =
   | "UNIVERSITY"
+  | "CAMPUS"
   | "COLLEGE"
-  | "DEPARTMENT"
   | "PROGRAM"
   | "OFFICE"
   | "AACCUP_AREA"

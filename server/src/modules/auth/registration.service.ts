@@ -66,7 +66,7 @@ export async function getRegistrationOptions() {
     prisma.campus.findMany({ where: { deletedAt: null }, select: { id: true, name: true, code: true }, orderBy: { displayOrder: "asc" } }),
     prisma.college.findMany({ where: { deletedAt: null }, select: { id: true, name: true, code: true, campusId: true }, orderBy: { displayOrder: "asc" } }),
     prisma.program.findMany({ where: { deletedAt: null }, select: { id: true, name: true, code: true, campusId: true, collegeId: true }, orderBy: { displayOrder: "asc" } }),
-    prisma.office.findMany({ where: { deletedAt: null }, select: { id: true, name: true, code: true, campusId: true, collegeId: true, departmentId: true }, orderBy: { displayOrder: "asc" } }),
+    prisma.office.findMany({ where: { deletedAt: null }, select: { id: true, name: true, code: true, campusId: true, collegeId: true }, orderBy: { displayOrder: "asc" } }),
   ]);
   return { campuses, colleges, programs, offices };
 }
@@ -99,9 +99,7 @@ export async function register(input: RegistrationInput, ipAddress: string | nul
             id: true,
             campusId: true,
             collegeId: true,
-            departmentId: true,
             college: { select: { campusId: true } },
-            department: { select: { campusId: true } },
           },
         })
       : Promise.resolve(null),
@@ -124,7 +122,7 @@ export async function register(input: RegistrationInput, ipAddress: string | nul
   if (input.officeId && !office) throw new NotFoundError("Selected office was not found");
   if (office) {
     // An office belongs to a campus directly, or through its college/department.
-    const officeCampusId = office.campusId ?? office.college?.campusId ?? office.department?.campusId ?? null;
+    const officeCampusId = office.campusId ?? office.college?.campusId ?? null;
     if (!officeCampusId) {
       throw new NotFoundError("Selected office is not assigned to a campus");
     }
@@ -152,10 +150,9 @@ export async function register(input: RegistrationInput, ipAddress: string | nul
         lastName: input.lastName,
         suffix: input.suffix || null,
         roleId: role.id,
+        campusId: input.campusId,
+        collegeId: input.collegeId ?? office?.collegeId ?? null,
         programId: input.programId ?? null,
-        // When a registrant belongs to a department-level office, keep the
-        // department link so the user shows up under the right department.
-        departmentId: office?.departmentId ?? null,
         status: "ACTIVE",
       },
       select: { id: true, email: true, firstName: true, lastName: true },

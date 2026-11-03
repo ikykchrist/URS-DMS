@@ -49,7 +49,7 @@ export type ListFolderHistoryQuery = z.infer<typeof listFolderHistoryQuerySchema
 
 export const listFolderAssignmentsQuerySchema = z.object({
   templateId: z.string().uuid().optional(),
-  targetType: z.enum(["UNIVERSITY", "COLLEGE", "DEPARTMENT", "PROGRAM", "OFFICE", "AACCUP_AREA"]).optional(),
+  targetType: z.enum(["UNIVERSITY", "CAMPUS", "COLLEGE", "PROGRAM", "OFFICE", "AACCUP_AREA"]).optional(),
 });
 export type ListFolderAssignmentsQuery = z.infer<typeof listFolderAssignmentsQuerySchema>;
 
@@ -152,7 +152,7 @@ export type MoveFolderNodeBody = z.infer<typeof moveFolderNodeSchema>;
 // -----------------------------------------------------------------------------
 export const assignFolderTemplateSchema = z
   .object({
-    targetType: z.enum(["UNIVERSITY", "COLLEGE", "DEPARTMENT", "PROGRAM", "OFFICE", "AACCUP_AREA"]),
+    targetType: z.enum(["UNIVERSITY", "CAMPUS", "COLLEGE", "PROGRAM", "OFFICE", "AACCUP_AREA"]),
     targetId: optionalIdSchema,
   })
   .strict()

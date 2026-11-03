@@ -39,12 +39,10 @@
 
 ## Behavior rules
 
-- Published templates are immutable; editing requires rollback to a draft
-  first (409 on published mutation).
+- Published workflow definitions are immutable. Requirement templates use ACTIVE/INACTIVE states and remain versioned and editable; activating them requires an active document requirement. Edits affect areas explicitly attached to that template.
 - Every mutation is versioned and audited; rollback replays an older snapshot
   as a new version.
-- Assignments resolve by specificity (area → cycle → department → college →
-  university) and can be re-prioritized.
+- Requirement templates resolve only through an explicit area attachment. Template-library and organization-wide assignments do not automatically expose requirements to users. See `specification/aaccup.md` for the administrator area setup flow.
 
 ## Related documents
 

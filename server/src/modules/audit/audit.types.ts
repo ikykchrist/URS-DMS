@@ -17,7 +17,9 @@ export interface AuditActor {
   name: string | null;
   email: string | null;
   role: string | null;
-  departmentId: string | null;
+  campusId: string | null;
+  collegeId: string | null;
+  programId: string | null;
 }
 
 export interface AuditEntityRef {

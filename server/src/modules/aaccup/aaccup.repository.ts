@@ -2,12 +2,33 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { type AaccupAreaDetail, type AaccupAreaListItem } from "@/modules/aaccup/aaccup.types";
 
+export function listSetupPrograms() {
+  return prisma.program.findMany({
+    where: { deletedAt: null, campus: { deletedAt: null }, college: { deletedAt: null } },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, campusId: true, collegeId: true,
+      campus: { select: { name: true } }, college: { select: { name: true, campusId: true } } },
+  });
+}
+
+export async function areaTemplateSetup(areaId: string, areaSet: "AACCUP" | "ISO" | "CERT") {
+  const [templates, assignment] = await Promise.all([
+    prisma.requirementTemplate.findMany({ where: { areaSet, status: "ACTIVE", deletedAt: null },
+      orderBy: { name: "asc" }, select: { id: true, name: true, code: true, version: true } }),
+    prisma.requirementAssignment.findFirst({ where: { targetType: "AACCUP_AREA", targetId: areaId, deletedAt: null },
+      select: { templateId: true } }),
+  ]);
+  return { templates, templateId: assignment?.templateId ?? null };
+}
+
 // =============================================================================
 // URS-DMS — AACCUP repository
 // =============================================================================
 
 const AREA_WITH_RELATIONS_INCLUDE = {
-  department: { select: { id: true, name: true } },
+  campus: { select: { id: true, name: true } },
+  college: { select: { id: true, name: true } },
+  program: { select: { id: true, name: true } },
   accreditationCycle: { select: { id: true, name: true } },
   createdByUser: { select: { firstName: true, lastName: true } },
   updatedByUser: { select: { firstName: true, lastName: true } },
@@ -27,8 +48,12 @@ function toListItem(row: AreaWithRelations): AaccupAreaListItem {
     code: row.code,
     name: row.name,
     description: row.description,
-    departmentId: row.departmentId,
-    departmentName: row.department?.name ?? "",
+    campusId: row.campusId,
+    campusName: row.campus?.name ?? null,
+    collegeId: row.collegeId,
+    collegeName: row.college?.name ?? null,
+    programId: row.programId,
+    programName: row.program?.name ?? null,
     accreditationCycleId: row.accreditationCycleId,
     accreditationCycleName: row.accreditationCycle?.name ?? null,
     areaSet: row.areaSet,
@@ -91,7 +116,9 @@ export interface CreateArgs {
   code: string;
   name: string;
   description: string | null;
-  departmentId: string;
+  campusId: string;
+  collegeId: string;
+  programId: string;
   accreditationCycleId: string | null;
   areaSet: "AACCUP" | "ISO" | "CERT";
   createdBy: string;
@@ -104,7 +131,9 @@ export async function create(args: CreateArgs): Promise<AaccupAreaDetail> {
       code: args.code,
       name: args.name,
       description: args.description,
-      departmentId: args.departmentId,
+      campusId: args.campusId,
+      collegeId: args.collegeId,
+      programId: args.programId,
       accreditationCycleId: args.accreditationCycleId,
       areaSet: args.areaSet,
       status: args.status ?? "ACTIVE",
@@ -121,7 +150,9 @@ export interface UpdateArgs {
     code?: string;
     name?: string;
     description?: string | null;
-    departmentId?: string;
+    campusId?: string;
+    collegeId?: string;
+    programId?: string;
     accreditationCycleId?: string | null;
     areaSet?: "AACCUP" | "ISO" | "CERT";
     status?: "ACTIVE" | "INACTIVE";
@@ -136,7 +167,9 @@ export async function update(args: UpdateArgs): Promise<AaccupAreaDetail> {
       ...(args.data.code !== undefined ? { code: args.data.code } : {}),
       ...(args.data.name !== undefined ? { name: args.data.name } : {}),
       ...(args.data.description !== undefined ? { description: args.data.description } : {}),
-      ...(args.data.departmentId !== undefined ? { departmentId: args.data.departmentId } : {}),
+      ...(args.data.campusId !== undefined ? { campusId: args.data.campusId } : {}),
+      ...(args.data.collegeId !== undefined ? { collegeId: args.data.collegeId } : {}),
+      ...(args.data.programId !== undefined ? { programId: args.data.programId } : {}),
       ...(args.data.accreditationCycleId !== undefined
         ? { accreditationCycleId: args.data.accreditationCycleId }
         : {}),

@@ -313,6 +313,10 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
   const [sort, setSort] = useState<"newest" | "oldest" | "name" | "name-desc" | "size" | "size-asc">("newest")
   const [view, setView] = useState<ViewMode>("grid")
   const [loading, setLoading] = useState(true)
+  // Folder navigation can issue a second load before the previous view has
+  // finished. Keep only the newest response so a personal-repository request
+  // cannot overwrite the contents of an opened shared folder.
+  const loadSequenceRef = useRef(0)
 
   // Queue
   const [queue, setQueue] = useState<UploadItem[]>([])
@@ -378,6 +382,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
 
   const load = useCallback(async () => {
     if (!ownerId) return
+    const requestSequence = ++loadSequenceRef.current
     setLoading(true)
     try {
       const [sharedRows, folderRows, docRows, pinRows, favRows, recentRows, delFolders, delDocs, reqRows, storageRow, jobRows] = await Promise.all([
@@ -393,6 +398,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
         getRepositoryStorage().catch(() => null),
         listCopyJobs().catch(() => [] as FolderCopyJob[]),
       ])
+      if (requestSequence !== loadSequenceRef.current) return
       setFolders(folderRows)
       setSharedFolders(sharedRows)
       setDocs(docRows)
@@ -405,10 +411,11 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
       setStorage(storageRow)
       setJobs(jobRows)
     } catch {
+      if (requestSequence !== loadSequenceRef.current) return
       setFolders([])
       setDocs([])
     } finally {
-      setLoading(false)
+      if (requestSequence === loadSequenceRef.current) setLoading(false)
     }
   }, [ownerId, currentFolderId, section])
 
@@ -622,7 +629,14 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
     return attach(null)
   }, [folders])
 
-  const folderById = useMemo(() => new Map(folders.map((f) => [f.id, f])), [folders])
+  const folderById = useMemo(
+    () => new Map([...sharedFolders, ...folders].map((folder) => [folder.id, folder])),
+    [folders, sharedFolders],
+  )
+  const sharedFolderIds = useMemo(
+    () => new Set(sharedFolders.filter((folder) => folder.ownerId !== ownerId).map((folder) => folder.id)),
+    [ownerId, sharedFolders],
+  )
 
   const crumbs = useMemo(() => {
     const path: RepositoryFolderRow[] = []
@@ -638,6 +652,18 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
   }, [currentFolderId, folderById])
 
   const navigate = (folderId: string | null) => {
+    // Shared folders can appear in a mixed My Documents listing. Route them
+    // through the shared context so their owner is never sent as the current
+    // user's personal-repository filter.
+    if (folderId && sharedFolderIds.has(folderId)) {
+      setCurrentFolderId(folderId)
+      setFolderFilter(folderId)
+      setSection("shared")
+      setSelectedId(null)
+      setSelectedIds(new Set())
+      setSearch("")
+      return
+    }
     setCurrentFolderId(folderId)
     setFolderFilter(folderId ?? "current")
     setSection("all")
@@ -651,6 +677,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
     setFolderFilter(folderId ?? "shared")
     setSection("shared")
     setSelectedIds(new Set())
+    setSearch("")
   }
 
   const toggleExpand = (folderId: string) => {
@@ -840,7 +867,9 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           await uploadOnlineDocumentWithProgress(
             {
               title,
-              departmentId: null,
+              campusId: null,
+              collegeId: null,
+              programId: null,
               folderId: item.targetFolderId !== undefined ? item.targetFolderId : currentFolderId,
               file,
               changeNote: "Repository upload",
@@ -1198,7 +1227,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
     }
     const visibleFolders = searching
       ? folders.filter((f) => f.parentId === currentFolderId && f.name.toLowerCase().includes(q))
-      : section === "all"
+      : (section === "all" || (section === "shared" && currentFolderId !== null))
         ? folders.filter((f) => f.parentId === currentFolderId)
         : []
     const visibleFiles =
@@ -1871,7 +1900,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           {/* Breadcrumb (repository views) */}
           {(section === "all" || section === "shared") && currentFolderId !== null && (
             <div className="flex items-center gap-1.5 flex-wrap text-[13px] mb-3">
-              <button type="button" onClick={() => navigate(null)}
+              <button type="button" onClick={() => section === "shared" ? navigateShared(null) : navigate(null)}
                 className={cn("px-2 py-1 rounded-md flex items-center gap-1.5 transition-colors",
                   currentFolderId === null ? "bg-primary text-white font-medium" : "text-gray-600 hover:bg-gray-100")}>
                 <FolderOpen className="w-3.5 h-3.5" /> {section === "shared" ? "Shared with Me" : "My Documents"}

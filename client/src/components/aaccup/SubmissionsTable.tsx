@@ -43,7 +43,6 @@ import {
   type OnlineSubmissionListItem,
 } from "@/services/aaccup"
 import { getOnlineDocument, openOnlineDocument, deleteOnlineDocument } from "@/services/documents"
-import { listSystemDepartments } from "@/services/admin"
 import type { Document, DocumentStatus } from "@/types/domain"
 import { BulkActionsToolbar, SelectAllCheckbox, RowCheckbox } from "@/components/ui/BulkActionsToolbar"
 import { SavedFilterViews } from "@/components/ui/SavedFilterViews"
@@ -76,7 +75,7 @@ const toSubmissionDocument = (s: OnlineSubmissionListItem): Document => {
     categoryId: s.requirementId,
     categoryName: s.requirementCode,
     area: s.areaName,
-    department: s.departmentName ?? "Unassigned",
+    program: s.programName ?? "Unassigned",
     ownerId: s.submittedById ?? "",
     ownerName: s.submittedByName ?? "Unknown",
     size: 0,
@@ -149,7 +148,6 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
     return normalized && ["pending", "approved", "rejected", "returned"].includes(normalized) ? { status: normalized } : {}
   })
   const [searchQuery, setSearchQuery] = useState("")
-  const [systemDepartments, setSystemDepartments] = useState<Array<{ id: string; name: string }>>([])
   const highlightId = searchParams.get("highlight")
   const queryStatus = searchParams.get("status")
 
@@ -174,12 +172,6 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
       setSubmissions([])
     })
   }, [load])
-
-  useEffect(() => {
-    listSystemDepartments({ pageSize: 100 })
-      .then((page) => setSystemDepartments(page.items.map((d) => ({ id: d.id, name: d.name }))))
-      .catch(() => setSystemDepartments([]))
-  }, [])
 
   useEffect(() => {
     setSetFilter(areaSet ?? "ALL")
@@ -263,7 +255,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
       if (s.status.toLowerCase() !== normalizedStatus.toLowerCase()) return false
     }
     if (currentFilters.area && currentFilters.area !== "all" && s.area !== currentFilters.area) return false
-    if (currentFilters.department && currentFilters.department !== "all" && s.department !== currentFilters.department) return false
+    if (currentFilters.program && currentFilters.program !== "all" && s.program !== currentFilters.program) return false
     return true
   })
 
@@ -299,8 +291,8 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
 
   const exportCsv = () => {
     const rows = filteredSubmissions.length > 0 ? filteredSubmissions : submissions
-    const csv = "Title,Area,Submitted By,Department,Date,Status\n" +
-      rows.map((s) => `"${s.name}","${s.area}","${s.ownerName}","${s.department}","${s.dateModified.slice(0, 10)}","${s.status}"`).join("\n")
+    const csv = "Title,Area,Submitted By,Program,Date,Status\n" +
+      rows.map((s) => `"${s.name}","${s.area}","${s.ownerName}","${s.program}","${s.dateModified.slice(0, 10)}","${s.status}"`).join("\n")
     const blob = new Blob([csv], { type: "text/csv" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -318,13 +310,13 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
 
   return (
     <div>
-      <div className={cn("mb-6 lg:mb-8", isReview ? "grid grid-cols-2 responsive-gap" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 responsive-gap")}>
+      <div className={cn("mb-6 lg:mb-8", isReview ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 responsive-gap" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 responsive-gap")}>
         {isReview ? (
           <>
-            <StatCard title="All Submissions" value={submissions.length.toString()} icon={<FileText className="w-5 h-5" />} />
-            <StatCard title="Pending" value={String(pendingCount)} icon={<Clock className="w-5 h-5" />} trend={{ value: submissions.length > 0 ? Math.round((pendingCount / submissions.length) * 100) : 0, positive: false }} />
-            <StatCard title="Approved" value={String(approvedCount)} icon={<CheckCircle className="w-5 h-5" />} trend={{ value: submissions.length > 0 ? Math.round((approvedCount / submissions.length) * 100) : 0, positive: approvedCount > 0 }} />
-            <StatCard title="Returned" value={String(returnedCount)} icon={<RotateCcw className="w-5 h-5" />} />
+            <StatCard title="All Submissions" value={submissions.length.toString()} icon={<span className="inline-flex rounded-lg bg-blue-50 p-1.5 text-blue-600 dark:bg-blue-50/30 dark:text-blue-400"><FileText className="w-4 h-4" /></span>} />
+            <StatCard title="Pending" value={String(pendingCount)} icon={<span className="inline-flex rounded-lg bg-amber-50 p-1.5 text-amber-600 dark:bg-amber-50/30 dark:text-amber-400"><Clock className="w-4 h-4" /></span>} />
+            <StatCard title="Approved" value={String(approvedCount)} icon={<span className="inline-flex rounded-lg bg-emerald-50 p-1.5 text-emerald-600 dark:bg-emerald-50/30 dark:text-emerald-400"><CheckCircle className="w-4 h-4" /></span>} />
+            <StatCard title="Returned" value={String(returnedCount)} icon={<span className="inline-flex rounded-lg bg-red-50 p-1.5 text-red-600 dark:bg-red-50/30 dark:text-red-400"><RotateCcw className="w-4 h-4" /></span>} />
           </>
         ) : (
           <>
@@ -337,8 +329,8 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
       </div>
 
       <Card className="border-border/70 shadow-soft mb-6">
-        <CardContent className="p-0">
-          <div className="toolbar-padding flex flex-col gap-3 lg:flex-row lg:items-center">
+        <CardContent className="p-0 md:p-0">
+          <div className="flex w-full flex-col gap-3 p-4 lg:flex-row lg:items-center">
             <div className="flex-1">
               <div className="relative max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -394,16 +386,14 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
                 onApplyFilter={handleApplyFilter}
                 currentFilters={currentFilters}
               />
-              <Select value={currentFilters.department || "all"} onValueChange={(v) => handleFilterChange("department", v)}>
+              <Select value={currentFilters.program || "all"} onValueChange={(v) => handleFilterChange("program", v)}>
                 <SelectTrigger className="w-[200px] h-9">
-                  <SelectValue placeholder="Department" />
+                  <SelectValue placeholder="Program" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Departments</SelectItem>
-                  {systemDepartments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.name}>
-                      {dept.name}
-                    </SelectItem>
+                  <SelectItem value="all">All Programs</SelectItem>
+                  {Array.from(new Set(submissions.map((submission) => submission.program).filter(Boolean))).map((program) => (
+                    <SelectItem key={program} value={program}>{program}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -428,7 +418,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
         </CardContent>
       </Card>
 
-      <Card className="border-border/70 shadow-soft">
+      <Card className="border-border/70 shadow-soft overflow-hidden">
         {isReview && (
           <BulkActionsToolbar
             selectedCount={selectedIds.size}
@@ -483,7 +473,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
             {setFilter === "ALL" ? "All accreditation sets" : `Set: ${setFilter}`}
           </p>
         </div>
-        <CardContent className="p-0">
+        <CardContent className="p-0 md:p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -499,7 +489,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
                 <TableHead>Document Title</TableHead>
                 <TableHead>AACCUP Area</TableHead>
                 <TableHead>Submitted By</TableHead>
-                <TableHead>Department</TableHead>
+                <TableHead>Program</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Status</TableHead>
                 {isReview && <TableHead className="text-right">Actions</TableHead>}
@@ -566,7 +556,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="text-[13px] text-gray-600">{submission.department}</span>
+                      <span className="text-[13px] text-gray-600">{submission.program}</span>
                     </TableCell>
                     <TableCell>
                       <span className="text-[13px] text-gray-500">{submission.dateModified.slice(0, 10)}</span>

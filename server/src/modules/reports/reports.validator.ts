@@ -26,7 +26,7 @@ const optionalTrimmedString = z.string().trim().min(1).max(255).optional();
 export const reportFilterSchema = z.object({
   from: optionalDate,
   to: optionalDate,
-  departmentId: optionalUuid,
+  programId: optionalUuid,
   areaId: optionalUuid,
   status: optionalTrimmedString,
   userId: optionalUuid,

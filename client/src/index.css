@@ -340,6 +340,15 @@ body {
 .dark .admin-portal .border-slate-100,
 .dark .admin-portal .border-slate-200 { border-color: #1e293b; }
 
+/* Admin filter/toolbars use the same compact, vertically balanced rhythm as
+   the Requests search bar. Root and user surfaces keep their own spacing. */
+.admin-portal .toolbar-padding {
+  padding: 0.75rem;
+}
+.admin-portal .toolbar-padding.flex {
+  gap: 0.625rem;
+}
+
 .admin-toast-container { max-width: 24rem; }
 .admin-toast { border-radius: 0.875rem; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14); }
 .admin-toast-container .admin-toast span { line-height: 1.35; }

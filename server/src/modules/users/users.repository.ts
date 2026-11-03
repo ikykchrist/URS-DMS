@@ -17,7 +17,9 @@ const userSelect = {
   status: true,
   roleId: true,
   role: { select: { name: true } },
-  departmentId: true,
+  campusId: true,
+  collegeId: true,
+  programId: true,
   lastLogin: true,
   createdAt: true,
   updatedAt: true,
@@ -39,7 +41,9 @@ function toListItem(u: UserRow): UserListItem {
     status: u.status,
     roleId: u.roleId,
     role: u.role.name,
-    departmentId: u.departmentId,
+    campusId: u.campusId,
+    collegeId: u.collegeId,
+    programId: u.programId,
     lastLogin: u.lastLogin,
     createdAt: u.createdAt,
   };
@@ -124,7 +128,9 @@ export interface CreateArgs {
     lastName: string;
     suffix?: string | null;
     roleId: string;
-    departmentId?: string | null;
+    campusId?: string | null;
+    collegeId?: string | null;
+    programId?: string | null;
   };
   passwordHash: string;
 }
@@ -140,7 +146,9 @@ export async function create(args: CreateArgs): Promise<UserDetail> {
       lastName: args.data.lastName,
       suffix: args.data.suffix ?? null,
       roleId: args.data.roleId,
-      departmentId: args.data.departmentId ?? null,
+      campusId: args.data.campusId ?? null,
+      collegeId: args.data.collegeId ?? null,
+      programId: args.data.programId ?? null,
       status: "ACTIVE",
     },
     select: userSelect,
@@ -157,7 +165,9 @@ export interface UpdateArgs {
     lastName?: string;
     suffix?: string | null;
     roleId?: string;
-    departmentId?: string | null;
+    campusId?: string | null;
+    collegeId?: string | null;
+    programId?: string | null;
   };
 }
 
@@ -171,7 +181,9 @@ export async function update(args: UpdateArgs): Promise<UserDetail> {
       ...(args.data.lastName !== undefined ? { lastName: args.data.lastName } : {}),
       ...(args.data.suffix !== undefined ? { suffix: args.data.suffix } : {}),
       ...(args.data.roleId !== undefined ? { roleId: args.data.roleId } : {}),
-      ...(args.data.departmentId !== undefined ? { departmentId: args.data.departmentId } : {}),
+      ...(args.data.campusId !== undefined ? { campusId: args.data.campusId } : {}),
+      ...(args.data.collegeId !== undefined ? { collegeId: args.data.collegeId } : {}),
+      ...(args.data.programId !== undefined ? { programId: args.data.programId } : {}),
     },
     select: userSelect,
   });

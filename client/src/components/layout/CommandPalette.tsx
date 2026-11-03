@@ -76,7 +76,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate, isUser }: Comma
           id: `doc-${doc.id}`,
           type: "document",
           title: doc.name,
-          subtitle: `${doc.department} · ${doc.area}`,
+          subtitle: `${doc.program} · ${doc.area}`,
           badge: doc.status,
           page: "documents",
           query: { highlight: doc.id },

@@ -118,7 +118,9 @@ export default function AdminAreaDetailPage({ areaSet }: { areaSet: AreaSet }) {
         areaId={area.id}
         areaTitle={area.name}
         areaSet={areaSet}
-        departmentId={area.departmentId}
+        campusId={area.campusId ?? undefined}
+        collegeId={area.collegeId ?? undefined}
+        programId={area.programId ?? undefined}
         onSuccess={() => {
           setAddSubmissionOpen(false)
           setReloadKey((key) => key + 1)
@@ -138,7 +140,7 @@ export default function AdminAreaDetailPage({ areaSet }: { areaSet: AreaSet }) {
         open={editOpen}
         onOpenChange={setEditOpen}
         areaSet={areaSet.toLowerCase() as "aaccup" | "iso"}
-        area={{ id: area.id, name: area.name, description: area.description ?? "", departmentId: area.departmentId, isActive: area.status === "ACTIVE" }}
+        area={{ id: area.id, name: area.name, description: area.description ?? "", campusId: area.campusId ?? "", collegeId: area.collegeId ?? "", programId: area.programId ?? "", isActive: area.status === "ACTIVE" }}
         onSuccess={() => {
           setEditOpen(false)
           setReloadKey((key) => key + 1)

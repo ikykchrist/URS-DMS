@@ -180,7 +180,6 @@ const ASSIGNMENT_TARGETS: ReadonlyArray<{
 }> = [
   { value: "UNIVERSITY", label: "University" },
   { value: "COLLEGE", label: "College" },
-  { value: "DEPARTMENT", label: "Department" },
   { value: "PROGRAM", label: "Program" },
   { value: "OFFICE", label: "Office" },
   { value: "AACCUP_AREA", label: "AACCUP Area" },

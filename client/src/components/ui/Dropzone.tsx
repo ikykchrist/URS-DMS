@@ -8,10 +8,11 @@ interface DropzoneProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "onCh
   multiple?: boolean
   onChange?: (files: File[]) => void
   maxFiles?: number
+  helperText?: string
 }
 
 const Dropzone = React.forwardRef<HTMLDivElement, DropzoneProps>(
-  ({ className, accept, multiple = false, onChange, maxFiles = 1, ...props }, ref) => {
+  ({ className, accept, multiple = false, onChange, maxFiles = 1, helperText = "PDF, DOC, DOCX, JPG, PNG up to 10MB", ...props }, ref) => {
     const [files, setFiles] = React.useState<File[]>([])
     const [isDragging, setIsDragging] = React.useState(false)
     const inputRef = React.useRef<HTMLInputElement>(null)
@@ -80,7 +81,7 @@ const Dropzone = React.forwardRef<HTMLDivElement, DropzoneProps>(
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
           className={cn(
-            "relative flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-150",
+            "relative flex flex-col items-center justify-center w-full min-h-36 p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-150",
             isDragging
               ? "border-primary bg-primary-500"
               : "border-border hover:border-gray-300 hover:bg-gray-50",
@@ -106,8 +107,8 @@ const Dropzone = React.forwardRef<HTMLDivElement, DropzoneProps>(
             <p className="text-[14px] text-gray-700">
               <span className="font-medium">Click to upload</span> or drag and drop
             </p>
-            <p className="text-[12px] text-gray-400 mt-1">
-              PDF, DOC, DOCX, JPG, PNG up to 10MB
+            <p className="text-[12px] text-gray-400 mt-1 break-words text-center">
+              {helperText}
             </p>
           </div>
         </div>

@@ -15,7 +15,7 @@ function toAccess(permission: SharePermission): FolderAccess {
 }
 
 export async function resolveFolderAccess(actorId: string, folderId: string): Promise<FolderAccess> {
-  const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { departmentId: true } });
+  const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { programId: true } });
   if (!actor) return "NONE";
 
   let currentId: string | null = folderId;
@@ -28,23 +28,23 @@ export async function resolveFolderAccess(actorId: string, folderId: string): Pr
         id: true,
         ownerId: true,
         parentId: true,
-        departmentId: true,
+        programId: true,
         shares: {
           where: {
             OR: [
               { recipientType: "USER", userId: actorId },
-              ...(actor.departmentId ? [{ recipientType: "DEPARTMENT" as const, departmentId: actor.departmentId }] : []),
+              ...(actor.programId ? [{ recipientType: "PROGRAM" as const, programId: actor.programId }] : []),
             ],
           },
           select: { permission: true },
         },
       },
-    }) as { id: string; ownerId: string | null; parentId: string | null; departmentId: string | null; shares: Array<{ permission: SharePermission }> } | null;
+    }) as { id: string; ownerId: string | null; parentId: string | null; programId: string | null; shares: Array<{ permission: SharePermission }> } | null;
     if (!folder) return "NONE";
     if (folder.ownerId === actorId) return "OWNER";
-    // Department-owned repository folders are visible only to members of the
-    // matching department. Explicit shares still apply to personal folders.
-    if (folder.departmentId && folder.departmentId === actor.departmentId) return "VIEWER";
+    // Program-owned repository folders are visible only to members of the
+    // matching program. Explicit shares still apply to personal folders.
+    if (folder.programId && folder.programId === actor.programId) return "VIEWER";
     for (const share of folder.shares) {
       const candidate = toAccess(share.permission);
       if (rank[candidate] > rank[effective]) effective = candidate;
@@ -69,16 +69,50 @@ export async function assertFolderAccess(actorId: string, folderId: string, mini
 }
 
 async function ownerFolder(folderId: string, actorId: string) {
-  const folder = await prisma.folder.findFirst({ where: { id: folderId, deletedAt: null }, select: { id: true, name: true, ownerId: true, departmentId: true, owner: { select: { departmentId: true } } } });
+  const folder = await prisma.folder.findFirst({ where: { id: folderId, deletedAt: null }, select: { id: true, name: true, ownerId: true, programId: true, owner: { select: { campusId: true, collegeId: true, programId: true } } } });
   if (!folder || folder.ownerId !== actorId) throw new NotFoundError("Folder not found");
   return folder;
 }
 
-async function assertShareableUser(actorId: string, userId: string, ownerDepartmentId: string | null) {
+async function assertShareableUser(actorId: string, userId: string, ownerCampusId: string | null) {
   if (actorId === userId) throw new BadRequestError("You cannot share a folder with yourself");
-  const user = await prisma.user.findFirst({ where: { id: userId, status: "ACTIVE", deletedAt: null }, select: { id: true, firstName: true, lastName: true, departmentId: true } });
-  if (!user || !ownerDepartmentId || user.departmentId !== ownerDepartmentId) throw new BadRequestError("The recipient must be an active user in your department");
+  const user = await prisma.user.findFirst({ where: { id: userId, status: "ACTIVE", deletedAt: null }, select: { id: true, campusId: true } });
+  if (!user || !ownerCampusId || user.campusId !== ownerCampusId) throw new BadRequestError("The recipient must be an active user in your campus");
   return user;
+}
+
+export async function listShareableUsers(actorId: string, scope: "CAMPUS" | "COLLEGE" | "PROGRAM" = "CAMPUS") {
+  const actor = await prisma.user.findUnique({
+    where: { id: actorId },
+    select: { id: true, campusId: true, collegeId: true, programId: true },
+  });
+  if (!actor?.campusId) return [];
+  if (scope === "COLLEGE" && !actor.collegeId) return [];
+  if (scope === "PROGRAM" && !actor.programId) return [];
+
+  return prisma.user.findMany({
+    where: {
+      campusId: actor.campusId,
+      ...(scope === "COLLEGE" ? { collegeId: actor.collegeId! } : {}),
+      ...(scope === "PROGRAM" ? { programId: actor.programId! } : {}),
+      status: "ACTIVE",
+      deletedAt: null,
+      id: { not: actor.id },
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      campusId: true,
+      collegeId: true,
+      programId: true,
+      campus: { select: { name: true } },
+      college: { select: { name: true } },
+      program: { select: { name: true } },
+    },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+  });
 }
 
 function permissionValue(permission: FolderSharePermission): SharePermission {
@@ -88,46 +122,49 @@ function permissionValue(permission: FolderSharePermission): SharePermission {
 export async function listFolderShares(folderId: string, actorId: string) {
   await ownerFolder(folderId, actorId);
   return prisma.folderShare.findMany({
-    where: { folderId },
+    // Older databases may retain a retired DEPARTMENT enum row from the
+    // scope cutover. Never let an unreadable legacy row break the owner's
+    // sharing screen; the repair migration converts valid rows to PROGRAM.
+    where: { folderId, recipientType: { in: ["USER", "PROGRAM"] } },
     orderBy: { createdAt: "asc" },
     select: {
-      id: true, recipientType: true, permission: true, userId: true, departmentId: true, createdAt: true,
+      id: true, recipientType: true, permission: true, userId: true, programId: true, createdAt: true,
       user: { select: { firstName: true, lastName: true, email: true } },
-      department: { select: { name: true, code: true } },
+      program: { select: { name: true, code: true } },
     },
   });
 }
 
-export async function shareFolder(folderId: string, actorId: string, input: { recipientType: FolderShareRecipientType; userIds?: string[]; departmentId?: string; permission: FolderSharePermission }, auditContext?: { ipAddress?: string; userAgent?: string }) {
+export async function shareFolder(folderId: string, actorId: string, input: { recipientType: FolderShareRecipientType; userIds?: string[]; programId?: string; permission: FolderSharePermission }, auditContext?: { ipAddress?: string; userAgent?: string }) {
   const folder = await ownerFolder(folderId, actorId);
   if (input.recipientType === "USER") {
     const userIds = [...new Set(input.userIds ?? [])];
     if (!userIds.length) throw new BadRequestError("Select at least one user");
-    await Promise.all(userIds.map((id) => assertShareableUser(actorId, id, folder.owner?.departmentId ?? null)));
+    await Promise.all(userIds.map((id) => assertShareableUser(actorId, id, folder.owner?.campusId ?? null)));
     await prisma.$transaction(userIds.map((userId) => prisma.folderShare.upsert({
       where: { folderId_userId: { folderId, userId } },
       create: { folderId, recipientType: "USER", userId, permission: permissionValue(input.permission), createdById: actorId },
       update: { permission: permissionValue(input.permission) },
     })));
   } else {
-    if (!input.departmentId || input.departmentId !== (folder.owner?.departmentId ?? null)) throw new BadRequestError("You may share only with your own department");
-    await prisma.department.findFirstOrThrow({ where: { id: input.departmentId, deletedAt: null } });
+    if (!input.programId || input.programId !== (folder.owner?.programId ?? null)) throw new BadRequestError("You may share only with your own program");
+    await prisma.program.findFirstOrThrow({ where: { id: input.programId, deletedAt: null } });
     await prisma.folderShare.upsert({
-      where: { folderId_departmentId: { folderId, departmentId: input.departmentId } },
-      create: { folderId, recipientType: "DEPARTMENT", departmentId: input.departmentId, permission: permissionValue(input.permission), createdById: actorId },
+      where: { folderId_programId: { folderId, programId: input.programId } },
+      create: { folderId, recipientType: "PROGRAM", programId: input.programId, permission: permissionValue(input.permission), createdById: actorId },
       update: { permission: permissionValue(input.permission) },
     });
   }
   void notifyShareRecipients(folderId, folder.name, input).catch(() => undefined);
-  await writeAudit({ action: AUDIT_ACTIONS.FOLDER_SHARED, userId: actorId, entity: "folder", entityId: folderId, newValue: { folderName: folder.name, recipientType: input.recipientType, userIds: input.userIds, departmentId: input.departmentId, permission: input.permission }, ...auditContext });
+  await writeAudit({ action: AUDIT_ACTIONS.FOLDER_SHARED, userId: actorId, entity: "folder", entityId: folderId, newValue: { folderName: folder.name, recipientType: input.recipientType, userIds: input.userIds, programId: input.programId, permission: input.permission }, ...auditContext });
   return listFolderShares(folderId, actorId);
 }
 
-async function notifyShareRecipients(folderId: string, folderName: string, input: { recipientType: FolderShareRecipientType; userIds?: string[]; departmentId?: string; permission: FolderSharePermission }) {
+async function notifyShareRecipients(folderId: string, folderName: string, input: { recipientType: FolderShareRecipientType; userIds?: string[]; programId?: string; permission: FolderSharePermission }) {
   const userIds = input.recipientType === "USER"
     ? [...new Set(input.userIds ?? [])]
-    : input.departmentId
-      ? (await prisma.user.findMany({ where: { departmentId: input.departmentId, status: "ACTIVE", deletedAt: null }, select: { id: true } })).map((user) => user.id)
+    : input.programId
+      ? (await prisma.user.findMany({ where: { programId: input.programId, status: "ACTIVE", deletedAt: null }, select: { id: true } })).map((user) => user.id)
       : [];
   await notifyUsers(userIds, "FOLDER_SHARED_ACCESS", {
     entity: "folder",
@@ -153,14 +190,14 @@ export async function removeFolderShare(folderId: string, shareId: string, actor
   const share = await prisma.folderShare.findFirst({ where: { id: shareId, folderId } });
   if (!share) throw new NotFoundError("Share not found");
   await prisma.folderShare.delete({ where: { id: shareId } });
-  await writeAudit({ action: AUDIT_ACTIONS.FOLDER_SHARE_REMOVED, userId: actorId, entity: "folder_share", entityId: shareId, oldValue: { recipientType: share.recipientType, userId: share.userId, departmentId: share.departmentId, permission: share.permission }, ...auditContext });
+  await writeAudit({ action: AUDIT_ACTIONS.FOLDER_SHARE_REMOVED, userId: actorId, entity: "folder_share", entityId: shareId, oldValue: { recipientType: share.recipientType, userId: share.userId, programId: share.programId, permission: share.permission }, ...auditContext });
 }
 
 export async function listSharedWithMe(actorId: string) {
-  const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { departmentId: true } });
+  const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { programId: true } });
   if (!actor) return [];
   const shares = await prisma.folderShare.findMany({
-    where: { OR: [{ recipientType: "USER", userId: actorId }, ...(actor.departmentId ? [{ recipientType: "DEPARTMENT" as const, departmentId: actor.departmentId }] : [])], folder: { deletedAt: null, ownerId: { not: actorId } } },
+    where: { OR: [{ recipientType: "USER", userId: actorId }, ...(actor.programId ? [{ recipientType: "PROGRAM" as const, programId: actor.programId }] : [])], folder: { deletedAt: null, ownerId: { not: actorId } } },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -168,7 +205,7 @@ export async function listSharedWithMe(actorId: string) {
       recipientType: true,
       folder: {
         select: {
-          id: true, name: true, parentId: true, ownerId: true, departmentId: true,
+          id: true, name: true, parentId: true, ownerId: true, programId: true,
           color: true, icon: true, createdAt: true, updatedAt: true,
           _count: { select: { children: { where: { deletedAt: null } }, documents: { where: { deletedAt: null } } } },
         },

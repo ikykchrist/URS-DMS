@@ -11,23 +11,34 @@ interface AuthLayoutProps {
 }
 
 export function AuthLayout({ children, className, maxWidthClass }: AuthLayoutProps) {
+  const isLogin = className?.split(" ").includes("login-page")
   return (
     // h-full chain: html/body/#root are already height:100% + overflow:hidden
     // (index.css), so this root exactly fills the viewport without relying on
     // viewport units that some mobile webviews do not support.
     <div className={cn("h-full flex bg-canvas dark:bg-canvas-dark", className)}>
       {/* Branding Panel - Left Side */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-navy-900 via-navy-800 to-primary-700 flex-col justify-between p-12 xl:p-16">
+      <div className={cn("hidden lg:flex lg:w-1/2 bg-gradient-to-br from-navy-900 via-navy-800 to-primary-700 flex-col justify-between p-12 xl:p-16", isLogin && "!p-[42px] !pt-12 !pb-7")}>
         <div>
           <div className="flex items-center gap-3 mb-16">
-            <Logo size="lg" showText={true} subtitle="Document Management System" className="[&_h1]:text-white [&_p]:text-white/70" />
+            {isLogin ? (
+              <div className="flex items-center gap-3">
+                <img src="/urs-university-seal-transparent.png" alt="University of Rizal System logo" className="h-16 w-16 shrink-0 object-contain" />
+                <div>
+                  <h1 className="text-[15px] font-extrabold text-white">URS-QA DMS</h1>
+                  <p className="text-[11px] font-medium text-white/80">Quality Assurance Data Management System</p>
+                </div>
+              </div>
+            ) : (
+              <Logo size="lg" showText={true} subtitle="Document Management System" className="[&_h1]:text-white [&_p]:text-white/70" />
+            )}
           </div>
 
           <div className="mb-12">
-            <h2 className="text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-6">
-              Secure.<br />
+            <h2 className={cn("text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-6", isLogin && "!text-[38px] tracking-tight")}>
+              {isLogin ? "Quality Assurance Office" : <>Secure.<br />
               Organized.<br />
-              Accessible.
+              Accessible.</>}
             </h2>
             <p className="text-white/80 text-lg leading-relaxed max-w-md">
               A centralized platform for managing university documents efficiently and securely.
@@ -38,7 +49,13 @@ export function AuthLayout({ children, className, maxWidthClass }: AuthLayoutPro
         {/* Illustration */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-t from-navy-950 to-transparent opacity-0"></div>
-          <svg width="100%" height="200" viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-20">
+          {isLogin ? (
+            <svg aria-hidden="true" width="100%" height="200" viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="50" y="80" width="120" height="80" rx="8" fill="white" />
+              <rect x="200" y="60" width="100" height="60" rx="8" fill="white" />
+              <rect x="230" y="140" width="120" height="50" rx="8" fill="white" />
+            </svg>
+          ) : <svg width="100%" height="200" viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-20">
             <rect x="50" y="80" width="120" height="80" rx="8" fill="white"/>
             <rect x="70" y="100" width="80" height="8" rx="2" fill="white" opacity="0.6"/>
             <rect x="70" y="116" width="60" height="6" rx="2" fill="white" opacity="0.4"/>
@@ -52,7 +69,7 @@ export function AuthLayout({ children, className, maxWidthClass }: AuthLayoutPro
             <rect x="230" y="140" width="120" height="50" rx="8" fill="white"/>
             <rect x="245" y="155" width="90" height="6" rx="2" fill="white" opacity="0.6"/>
             <rect x="245" y="169" width="60" height="4" rx="2" fill="white" opacity="0.4"/>
-          </svg>
+          </svg>}
         </div>
 
         <div className="flex items-center gap-6 text-white/60 text-sm">

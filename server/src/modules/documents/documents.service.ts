@@ -49,7 +49,7 @@ import type { DocumentStatus } from "@prisma/client";
 // URS-DMS â€” documents service
 // RBAC model:
 //   - "managers" = users holding documents.delete (admins + QAOs).
-//   - otherwise: owner OR active share OR folder/department scope.
+//   - otherwise: owner OR active share OR folder/program scope.
 // No `if (role === "admin")` anywhere â€” every check routes through permissions.
 // =============================================================================
 
@@ -204,7 +204,7 @@ export async function listDocuments(query: ListDocumentsQuery, actor: Actor): Pr
 
   if (query.status) where.status = query.status;
   if (query.classification) where.classification = query.classification;
-  if (query.departmentId) where.departmentId = query.departmentId;
+  if (query.programId) where.programId = query.programId;
   if (query.folderId !== undefined) {
     where.folderId = query.folderId; // null => root-level documents (no folder)
     if (query.folderId) {
@@ -212,7 +212,10 @@ export async function listDocuments(query: ListDocumentsQuery, actor: Actor): Pr
       delete where.ownerId;
     }
   }
-  if (query.ownerId) where.ownerId = query.ownerId;
+  // A folder access check above is authoritative. A legacy/mixed repository
+  // view may still include the recipient's ownerId while opening a shared
+  // folder; applying it here would incorrectly hide the owner's documents.
+  if (query.ownerId && !query.folderId) where.ownerId = query.ownerId;
   if (query.uploadedById) {
     where.versions = { some: { uploadedById: query.uploadedById } };
   }
@@ -278,7 +281,9 @@ export async function createDocument(
     created = await repo.create(
       {
         ownerId: actor.id,
-        departmentId: input.departmentId ?? null,
+        campusId: input.campusId ?? null,
+        collegeId: input.collegeId ?? null,
+        programId: input.programId ?? null,
         folderId: input.folderId ?? null,
         title: input.title,
         description: input.description ?? null,
@@ -290,7 +295,7 @@ export async function createDocument(
     );
 
     // Sprint 7.4.5 â€” bind a published workflow instance (if one is assigned
-    // to the document's folder/department scope) inside the same transaction.
+    // to the document's folder/program scope) inside the same transaction.
     // No assignment â†’ legacy flow unchanged.
     const scopes = await scopesForDocument(created.id, tx);
     await bindWorkflowInstance({
@@ -361,11 +366,11 @@ export async function updateDocument(
   if (!existing) throw new NotFoundError("Document not found");
   await assertCanWrite(actor, existing);
 
-  // BUG-2 FIX: only the document owner may change its departmentId; WRITE sharees
-  // must not be able to reclassify the document into another department archive.
+  // Only the document owner may change its organization scope; WRITE sharees
+  // must not be able to reclassify the document into another program archive.
   if (
-    input.departmentId !== undefined &&
-    input.departmentId !== existing.departmentId &&
+    input.programId !== undefined &&
+    input.programId !== existing.programId &&
     actor.id !== existing.ownerId
   ) {
     await writeAudit({
@@ -378,9 +383,9 @@ export async function updateDocument(
       category: "SECURITY",
       severity: "WARNING",
       result: "DENIED",
-      newValue: { reason: "non_owner_department_change", ownerId: existing.ownerId },
+      newValue: { reason: "non_owner_program_change", ownerId: existing.ownerId },
     });
-    throw new ForbiddenError("Only the document owner can change its department");
+    throw new ForbiddenError("Only the document owner can change its program");
   }
 
   // Moving a document requires write access to the destination folder, exactly
@@ -422,7 +427,9 @@ export async function updateDocument(
           classification: input.classification,
           status: input.status,
           folderId: input.folderId,
-          departmentId: input.departmentId,
+          campusId: input.campusId,
+          collegeId: input.collegeId,
+          programId: input.programId,
           retentionUntil: input.retentionUntil,
           metadata:
             input.metadata === undefined
@@ -448,14 +455,18 @@ export async function updateDocument(
       status: existing.status,
       classification: existing.classification,
       folderId: existing.folderId,
-      departmentId: existing.departmentId,
+      campusId: existing.campusId,
+      collegeId: existing.collegeId,
+      programId: existing.programId,
     },
     newValue: {
       title: updated.title,
       status: updated.status,
       classification: updated.classification,
       folderId: updated.folderId,
-      departmentId: updated.departmentId,
+      campusId: updated.campusId,
+      collegeId: updated.collegeId,
+      programId: updated.programId,
     },
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,

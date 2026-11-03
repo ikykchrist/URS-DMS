@@ -191,7 +191,6 @@ const STEP_TYPES: Array<{ value: WorkflowStepType; label: string }> = [
 const TARGET_TYPES: Array<{ value: WorkflowAssignmentTargetType; label: string }> = [
   { value: "UNIVERSITY", label: "University" },
   { value: "COLLEGE", label: "College" },
-  { value: "DEPARTMENT", label: "Department" },
   { value: "PROGRAM", label: "Program" },
   { value: "OFFICE", label: "Office" },
   { value: "AACCUP_AREA", label: "AACCUP Area" },

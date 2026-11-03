@@ -20,7 +20,7 @@ import {
   resolveMyFolderStructureHandler,
   updateFolderHandler,
 } from "@/modules/folders/folders.controller";
-import { folderShareSchema, folderShareUpdateSchema } from "@/modules/folders/folderSharing.validator";
+import { folderShareSchema, folderShareUpdateSchema, shareableUsersQuerySchema } from "@/modules/folders/folderSharing.validator";
 import { listFolderSharesHandler, shareFolderHandler, updateFolderShareHandler, removeFolderShareHandler, listSharedWithMeHandler, listShareableUsersHandler } from "@/modules/folders/folderSharing.controller";
 import {
   copyFolderHandler,
@@ -47,7 +47,7 @@ export const foldersRouter: Router = Router();
 foldersRouter.use(authenticate);
 
 foldersRouter.get("/shared-with-me", requirePermission("folders.read"), asyncHandler(listSharedWithMeHandler));
-foldersRouter.get("/shareable-users", requirePermission("folders.read"), asyncHandler(listShareableUsersHandler));
+foldersRouter.get("/shareable-users", requirePermission("folders.read"), validateQuery(shareableUsersQuerySchema), asyncHandler(listShareableUsersHandler));
 
 // GET /folders/resolve — resolved repository structure for the current user
 // (Sprint 7.4.3: Folder Builder template assigned to DEPARTMENT → COLLEGE →

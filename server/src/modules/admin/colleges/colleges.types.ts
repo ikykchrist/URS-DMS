@@ -33,9 +33,4 @@ export const collegeSelect = {
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
-  _count: {
-    select: {
-      departments: { where: { deletedAt: null } },
-    },
-  },
 } satisfies Prisma.CollegeSelect;

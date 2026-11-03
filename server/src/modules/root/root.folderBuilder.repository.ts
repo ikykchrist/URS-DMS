@@ -382,7 +382,7 @@ export async function renumberSiblings(
 export interface FolderAssignmentRow {
   id: string;
   templateId: string;
-  targetType: "UNIVERSITY" | "COLLEGE" | "DEPARTMENT" | "PROGRAM" | "OFFICE" | "AACCUP_AREA";
+  targetType: "UNIVERSITY" | "CAMPUS" | "COLLEGE" | "PROGRAM" | "OFFICE" | "AACCUP_AREA";
   targetId: string | null;
   createdAt: Date;
   deletedAt: Date | null;

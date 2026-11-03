@@ -13,6 +13,16 @@ filter by `areaSet`; admin and user tabs are wired to their own set.
 
 ## Structure
 
+### Requirement library and area setup
+
+- Requirement Builder creates reusable, versioned templates. Creating or activating a template does not expose it to users.
+- Create an AACCUP or ISO area with its name and program; the program supplies campus and college. Optional details include description and area status.
+- Inside the administrator area's Requirements tab, attach an active template from the matching accreditation set. Only this explicit `AACCUP_AREA` assignment supplies dynamic requirements to the area and its program-scoped users.
+- Campus, college, program, university and cycle assignments retained from older versions are historical configuration; they no longer automatically resolve area requirements. New attachments must target a specific area.
+- Removing the area attachment retires its projected requirements without deleting submission history. Reattaching the same nodes preserves existing requirement identities.
+- Area template attachment does not create tasks automatically. Accreditation administrators create tasks separately.
+- Users refresh the selected area's requirements and submissions together after configuration changes.
+
 - **Areas** — per set, CRUD + archive/restore (soft).
 - **Requirements** — per set, under areas; live rows either legacy or
   projected from Requirement Builder templates (see

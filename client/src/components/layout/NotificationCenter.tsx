@@ -112,7 +112,7 @@ export function NotificationCenter() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative z-[110]">
       <Button
         variant="ghost"
         size="icon"
@@ -128,7 +128,7 @@ export function NotificationCenter() {
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-black/5" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-96 rounded-xl border border-border bg-white shadow-2xl z-[60] dark:border-gray-700 dark:bg-[#111827] overflow-hidden">
+          <div className="absolute right-0 top-full z-[120] mt-2 w-96 overflow-hidden rounded-xl border border-border bg-white opacity-100 shadow-2xl dark:border-gray-700 dark:bg-[#111827]">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-2">
                 <h3 className="text-[14px] font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>

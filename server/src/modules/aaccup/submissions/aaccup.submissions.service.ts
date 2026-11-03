@@ -18,13 +18,14 @@ import type {
   AaccupSubmissionDetail,
   AaccupSubmissionListItem,
 } from "@/modules/aaccup/submissions/aaccup.submissions.types";
-import { assertRequirementUploadValid } from "@/modules/requirements/requirement.runtime";
+import { assertRequirementUploadValid, resolveRequirementAssignmentForArea } from "@/modules/requirements/requirement.runtime";
 import {
   bindWorkflowInstance,
   evaluateWorkflowAction,
   recordWorkflowAction,
   scopesForAaccupSubmission,
 } from "@/modules/workflow/workflow.engine";
+import { syncTaskProgressForRequirement } from "@/modules/aaccup/tasks/aaccup.tasks.service";
 
 // Sprint 7.4.5 — review decision → workflow action adapter (glue convention,
 // not workflow data: the action names themselves are authored by ROOT).
@@ -110,12 +111,12 @@ const SORT_FIELDS = new Set(["submittedAt", "createdAt", "updatedAt", "status"])
 // -----------------------------------------------------------------------------
 
 // Requirement must exist and not be archived. Returns the joined area
-// department so the document-belonging check can run afterwards.
+// program so the document-belonging check can run afterwards.
 interface RequirementContext {
   id: string;
-  areaDepartmentId: string;
+  areaProgramId: string | null;
   dynamic: boolean;
-  area: { id: string; name: string; areaSet: string; departmentId: string };
+  area: { id: string; name: string; areaSet: string; programId: string | null };
 }
 
 async function assertRequirementUsable(requirementId: string): Promise<RequirementContext> {
@@ -125,8 +126,9 @@ async function assertRequirementUsable(requirementId: string): Promise<Requireme
       id: true,
       status: true,
       sourceNodeId: true,
+        sourceAssignmentId: true,
       area: {
-        select: { id: true, name: true, areaSet: true, deletedAt: true, departmentId: true, status: true },
+        select: { id: true, name: true, areaSet: true, deletedAt: true, programId: true, status: true },
       },
     },
   });
@@ -142,25 +144,31 @@ async function assertRequirementUsable(requirementId: string): Promise<Requireme
   if (requirement.area.status !== "ACTIVE") {
     throw new BadRequestError("Parent AACCUP area is inactive");
   }
-  return {
+    if (requirement.sourceNodeId) {
+      const assignment = await resolveRequirementAssignmentForArea(requirement.area.id);
+      if (!assignment || assignment.id !== requirement.sourceAssignmentId) throw new BadRequestError("Requirement template is not attached to this area");
+    }
+    return {
     id: requirement.id,
-    areaDepartmentId: requirement.area.departmentId,
+    areaProgramId: requirement.area.programId,
     dynamic: requirement.sourceNodeId !== null,
     area: {
       id: requirement.area.id,
       name: requirement.area.name,
       areaSet: requirement.area.areaSet,
-      departmentId: requirement.area.departmentId,
+      programId: requirement.area.programId,
     },
   };
 }
 
-// Document must exist and not be soft-deleted. Returns its department + owner
+// Document must exist and not be soft-deleted. Returns its program + owner
 // for ownership scoping and the belonging check.
 interface DocumentContext {
   id: string;
   ownerId: string;
-  departmentId: string | null;
+  campusId: string | null;
+  collegeId: string | null;
+  programId: string | null;
   metadata: Prisma.JsonValue;
   currentVersion: {
     filename: string;
@@ -176,7 +184,9 @@ async function assertDocumentUsable(documentId: string, actor: Actor): Promise<D
     select: {
       id: true,
       ownerId: true,
-      departmentId: true,
+      campusId: true,
+      collegeId: true,
+      programId: true,
       deletedAt: true,
       status: true,
       metadata: true,
@@ -199,7 +209,9 @@ async function assertDocumentUsable(documentId: string, actor: Actor): Promise<D
   return {
     id: document.id,
     ownerId: document.ownerId,
-    departmentId: document.departmentId,
+    campusId: document.campusId,
+    collegeId: document.collegeId,
+    programId: document.programId,
     metadata: document.metadata,
     currentVersion: document.currentVersion,
   };
@@ -237,15 +249,15 @@ async function assertDynamicRules(
   });
 }
 
-// If the document has a department, it must match the requirement's area
-// department. Documents without a department are allowed (the sprint spec
+// If the document has a program, it must match the requirement's area
+// program. Documents without a program are allowed (the sprint spec
 // qualifies this check with "if applicable").
-function assertDocumentBelongsToAreaDepartment(
+function assertDocumentBelongsToAreaProgram(
   doc: DocumentContext,
   requirement: RequirementContext,
 ): void {
-  if (doc.departmentId && doc.departmentId !== requirement.areaDepartmentId) {
-    throw new BadRequestError("Document does not belong to the requirement's area department");
+  if (doc.programId && doc.programId !== requirement.areaProgramId) {
+    throw new BadRequestError("Document does not belong to the requirement's area program");
   }
 }
 
@@ -258,10 +270,16 @@ async function assertTaskUsable(
   areaId: string,
 ): Promise<void> {
   if (!taskId) return;
-  const task = await prisma.aaccupTask.findFirst({
+  const [task, requirement] = await Promise.all([
+    prisma.aaccupTask.findFirst({
     where: { id: taskId, deletedAt: null },
-    select: { areaId: true, status: true, requirementId: true },
-  });
+      select: { areaId: true, status: true, requirementId: true, requirementTemplateId: true, sourceAssignmentId: true },
+    }),
+    prisma.aaccupRequirement.findFirst({
+      where: { id: requirementId, deletedAt: null },
+      select: { sourceAssignmentId: true, sourceNode: { select: { templateId: true } } },
+    }),
+  ]);
   if (!task) throw new BadRequestError("Referenced AACCUP task not found");
   if (task.areaId !== areaId) {
     throw new BadRequestError("Task does not belong to the submission's area");
@@ -271,6 +289,14 @@ async function assertTaskUsable(
   }
   if (task.requirementId && task.requirementId !== requirementId) {
     throw new BadRequestError("Submission requirement does not match the task's requirement");
+  }
+  if (task.requirementTemplateId && (
+    !requirement ||
+    (task.sourceAssignmentId
+      ? requirement.sourceAssignmentId !== task.sourceAssignmentId
+      : requirement.sourceNode?.templateId !== task.requirementTemplateId)
+  )) {
+    throw new BadRequestError("Submission requirement does not belong to the task's requirement template");
   }
 }
 
@@ -444,26 +470,26 @@ export async function exportApprovedSubmissionsZip(
 // folder (AACCUP / ISO / CERT) with a per-area subfolder named after the area:
 //   <areaSet>/<area name>/<document>
 // Folders are created lazily on first submission, scoped to the area's
-// department so they surface in that department's File Archive.
+// program so they surface in that program's File Archive.
 // -----------------------------------------------------------------------------
 
 async function ensureAreaArchiveFolder(
   tx: Prisma.TransactionClient,
-  area: { id: string; name: string; areaSet: string; departmentId: string },
+  area: { id: string; name: string; areaSet: string; programId: string | null },
 ) {
   const setFolder =
     (await tx.folder.findFirst({
       where: { parentId: null, name: area.areaSet, deletedAt: null },
     })) ??
     (await tx.folder.create({
-      data: { name: area.areaSet, departmentId: area.departmentId },
+      data: { name: area.areaSet, programId: area.programId },
     }));
   const areaFolder =
     (await tx.folder.findFirst({
       where: { parentId: setFolder.id, name: area.name, deletedAt: null },
     })) ??
     (await tx.folder.create({
-      data: { name: area.name, parentId: setFolder.id, departmentId: area.departmentId },
+      data: { name: area.name, parentId: setFolder.id, programId: area.programId },
     }));
   return areaFolder;
 }
@@ -481,7 +507,7 @@ export async function createSubmission(
     assertRequirementUsable(input.requirementId),
     assertDocumentUsable(input.documentId, actor),
   ]);
-  assertDocumentBelongsToAreaDepartment(document, requirement);
+  assertDocumentBelongsToAreaProgram(document, requirement);
   await assertDynamicRules(requirement, document);
   await assertTaskUsable(input.taskId, input.requirementId, requirement.area.id);
 
@@ -556,6 +582,9 @@ export async function createSubmission(
   // Rule 19: alert every reviewer (aaccup.submission.review / aaccup.manage)
   // that a new submission awaits their action (best-effort, once).
   await safeNotifyReviewers(detail);
+  if (detail.taskId) {
+    await syncTaskProgressForRequirement(detail.requirementId, "SUBMITTED", actor.id);
+  }
 
   return detail;
 }
@@ -715,6 +744,9 @@ export async function reviewSubmission(
 
   // Rule 19: notify the submitter of the review outcome (best-effort, once).
   await safeNotifySubmitter(existing.submittedById, input.decision, id);
+  if (existing.taskId) {
+    await syncTaskProgressForRequirement(existing.requirementId, input.decision, actor.id);
+  }
 
   return detail;
 }

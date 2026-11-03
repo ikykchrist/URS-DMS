@@ -77,7 +77,6 @@ export async function getSummary(): Promise<SetupSummary> {
   const [
     campuses,
     colleges,
-    departments,
     offices,
     programs,
     folderTemplates,
@@ -89,7 +88,6 @@ export async function getSummary(): Promise<SetupSummary> {
   ] = await Promise.all([
     prisma.campus.count({ where: { deletedAt: null } }),
     prisma.college.count({ where: { deletedAt: null } }),
-    prisma.department.count({ where: { deletedAt: null } }),
     prisma.office.count({ where: { deletedAt: null } }),
     prisma.program.count({ where: { deletedAt: null } }),
     prisma.folderTemplate.count({ where: { deletedAt: null } }),
@@ -105,7 +103,7 @@ export async function getSummary(): Promise<SetupSummary> {
     prisma.configuration.count({ where: { status: "ACTIVE", deletedAt: null } }),
   ]);
   return {
-    organizations: { campuses, colleges, departments, offices, programs },
+    organizations: { campuses, colleges, offices, programs },
     folderTemplates,
     requirementTemplates,
     workflows,

@@ -27,7 +27,9 @@ interface AddSubmissionModalProps {
   areaId?: string
   areaTitle?: string
   areaSet?: "AACCUP" | "ISO"
-  departmentId?: string
+  campusId?: string
+  collegeId?: string
+  programId?: string
   onSuccess?: () => void
 }
 
@@ -37,7 +39,9 @@ export function AddSubmissionModal({
   areaId,
   areaTitle,
   areaSet = "AACCUP",
-  departmentId,
+  campusId,
+  collegeId,
+  programId,
   onSuccess,
 }: AddSubmissionModalProps) {
   const [requirementId, setRequirementId] = useState("")
@@ -114,7 +118,9 @@ export function AddSubmissionModal({
     try {
       await uploadOnlineRequirementDocument({
         requirementId,
-        departmentId: departmentId ?? "",
+        campusId: campusId ?? "",
+        collegeId: collegeId ?? "",
+        programId: programId ?? "",
         title: requirement ? `${requirement.documentCode} - ${requirement.title}` : files[0].name,
         areaName: areaTitle,
         requirementCode: requirement?.documentCode,

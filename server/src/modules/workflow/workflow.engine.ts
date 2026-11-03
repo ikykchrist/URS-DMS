@@ -150,7 +150,9 @@ export async function scopesForAaccupSubmission(
           id: true,
           accreditationCycleId: true,
           accreditationCycle: { select: { status: true, deletedAt: true } },
-          department: { select: { id: true, collegeId: true } },
+          campusId: true,
+          collegeId: true,
+          programId: true,
         },
       },
     },
@@ -165,10 +167,9 @@ export async function scopesForAaccupSubmission(
   ) {
     scopes.push({ targetType: "ACCREDITATION_CYCLE", targetId: area.accreditationCycleId });
   }
-  if (area.department.id) scopes.push({ targetType: "DEPARTMENT", targetId: area.department.id });
-  if (area.department.collegeId) {
-    scopes.push({ targetType: "COLLEGE", targetId: area.department.collegeId });
-  }
+  if (area.programId) scopes.push({ targetType: "PROGRAM", targetId: area.programId });
+  if (area.collegeId) scopes.push({ targetType: "COLLEGE", targetId: area.collegeId });
+  if (area.campusId) scopes.push({ targetType: "CAMPUS", targetId: area.campusId });
   scopes.push({ targetType: "UNIVERSITY", targetId: null });
   return scopes;
 }
@@ -181,24 +182,15 @@ export async function scopesForDocumentRequest(
   const user = await db.user.findFirst({
     where: { id: requesterId, deletedAt: null },
     select: {
-      departmentId: true,
-      departments: { where: { deletedAt: null }, select: { id: true, collegeId: true } },
+      campusId: true,
+      collegeId: true,
+      programId: true,
     },
   });
-  const departmentId = user?.departmentId ?? user?.departments[0]?.id ?? null;
-  let collegeId: string | null = null;
-  if (departmentId) {
-    const department = await db.department.findFirst({
-      where: { id: departmentId },
-      select: { collegeId: true },
-    });
-    collegeId = department?.collegeId ?? null;
-  }
   const scopes: WorkflowScope[] = [];
-  if (departmentId) {
-    scopes.push({ targetType: "DEPARTMENT", targetId: departmentId });
-    if (collegeId) scopes.push({ targetType: "COLLEGE", targetId: collegeId });
-  }
+  if (user?.programId) scopes.push({ targetType: "PROGRAM", targetId: user.programId });
+  if (user?.collegeId) scopes.push({ targetType: "COLLEGE", targetId: user.collegeId });
+  if (user?.campusId) scopes.push({ targetType: "CAMPUS", targetId: user.campusId });
   scopes.push({ targetType: "UNIVERSITY", targetId: null });
   return scopes;
 }
@@ -211,18 +203,19 @@ export async function scopesForDocument(
   const document = await db.document.findFirst({
     where: { id: documentId, deletedAt: null },
     select: {
-      department: { select: { id: true, collegeId: true } },
-      folder: { select: { departmentId: true } },
+      campusId: true,
+      collegeId: true,
+      programId: true,
+      folder: { select: { campusId: true, collegeId: true, programId: true } },
     },
   });
-  const departmentId = document?.department?.id ?? document?.folder?.departmentId ?? null;
+  const programId = document?.programId ?? document?.folder?.programId ?? null;
+  const collegeId = document?.collegeId ?? document?.folder?.collegeId ?? null;
+  const campusId = document?.campusId ?? document?.folder?.campusId ?? null;
   const scopes: WorkflowScope[] = [];
-  if (departmentId) {
-    scopes.push({ targetType: "DEPARTMENT", targetId: departmentId });
-    if (document?.department?.collegeId) {
-      scopes.push({ targetType: "COLLEGE", targetId: document.department.collegeId });
-    }
-  }
+  if (programId) scopes.push({ targetType: "PROGRAM", targetId: programId });
+  if (collegeId) scopes.push({ targetType: "COLLEGE", targetId: collegeId });
+  if (campusId) scopes.push({ targetType: "CAMPUS", targetId: campusId });
   scopes.push({ targetType: "UNIVERSITY", targetId: null });
   return scopes;
 }

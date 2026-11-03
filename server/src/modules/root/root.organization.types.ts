@@ -15,14 +15,14 @@ import { AUDIT_ACTIONS, type AuditAction } from "@/config/constants";
 // is the Prisma model key, and `audit` carries the per-action audit constants.
 // =============================================================================
 
-export type OrgEntityName = "campus" | "college" | "department" | "office" | "program";
+export type OrgEntityName = "campus" | "college" | "office" | "program";
 
 export interface OrgEntityConfig {
   entity: OrganizationEntity;
   name: OrgEntityName;
   path: string;
   label: string;
-  model: "campus" | "college" | "department" | "office" | "program";
+  model: "campus" | "college" | "office" | "program";
   audit: {
     created: AuditAction;
     updated: AuditAction;
@@ -59,20 +59,6 @@ export const ORG_ENTITIES: Record<OrgEntityName, OrgEntityConfig> = {
       archived: AUDIT_ACTIONS.COLLEGE_ARCHIVED,
       restored: AUDIT_ACTIONS.COLLEGE_RESTORED,
       rolledBack: AUDIT_ACTIONS.ORGANIZATION_COLLEGE_ROLLED_BACK,
-    },
-  },
-  department: {
-    entity: "DEPARTMENT",
-    name: "department",
-    path: "departments",
-    label: "Department",
-    model: "department",
-    audit: {
-      created: AUDIT_ACTIONS.DEPARTMENT_CREATED,
-      updated: AUDIT_ACTIONS.DEPARTMENT_UPDATED,
-      archived: AUDIT_ACTIONS.DEPARTMENT_ARCHIVED,
-      restored: AUDIT_ACTIONS.DEPARTMENT_RESTORED,
-      rolledBack: AUDIT_ACTIONS.ORGANIZATION_DEPARTMENT_ROLLED_BACK,
     },
   },
   office: {
@@ -121,8 +107,6 @@ export interface OrganizationRecordRow {
   campusName: string | null;
   collegeId: string | null;
   collegeName: string | null;
-  departmentId: string | null;
-  departmentName: string | null;
   headId: string | null;
   headName: string | null;
   level: ProgramLevel | null;
@@ -140,7 +124,6 @@ export interface OrgSnapshotData {
   displayOrder: number;
   campusId: string | null;
   collegeId: string | null;
-  departmentId: string | null;
   headId: string | null;
   level: ProgramLevel | null;
 }
@@ -170,7 +153,6 @@ export interface OrgTreeNode {
   description: string | null;
   level: ProgramLevel | null;
   colleges: OrgTreeNode[];
-  departments: OrgTreeNode[];
   offices: OrgTreeNode[];
   programs: OrgTreeNode[];
 }

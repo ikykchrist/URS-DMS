@@ -15,6 +15,9 @@ import type { ValidateRequirementUploadBody } from "@/modules/root/root.requirem
 import { BadRequestError, NotFoundError } from "@/utils/errors";
 import { logger } from "@/utils/logger";
 import type { Prisma } from "@prisma/client";
+import {
+  archiveAutomatedTasksForAreaTemplate,
+} from "@/modules/aaccup/tasks/aaccup.task-automation.service";
 
 export interface ResolvedRequirementAssignment {
   id: string;
@@ -22,6 +25,7 @@ export interface ResolvedRequirementAssignment {
   templateVersion: number;
   targetType: RequirementTargetType;
   targetId: string | null;
+  dueDate: Date | null;
 }
 
 interface AreaScope {
@@ -47,32 +51,24 @@ export async function resolveRequirementAssignmentForArea(
     where: { id: areaId, deletedAt: null },
     select: {
       id: true,
-      departmentId: true,
+      campusId: true,
+      collegeId: true,
+      programId: true,
       accreditationCycleId: true,
       accreditationCycle: { select: { deletedAt: true, status: true } },
-      department: { select: { collegeId: true } },
+      areaSet: true,
     },
   });
   if (!area) throw new NotFoundError("AACCUP area not found");
 
   const scopes: AreaScope[] = [
     { targetType: "AACCUP_AREA", targetId: area.id },
-    ...(area.accreditationCycleId &&
-    area.accreditationCycle?.deletedAt === null &&
-    area.accreditationCycle.status === "ACTIVE"
-      ? [{ targetType: "ACCREDITATION_CYCLE" as const, targetId: area.accreditationCycleId }]
-      : []),
-    { targetType: "DEPARTMENT", targetId: area.departmentId },
-    ...(area.department.collegeId
-      ? [{ targetType: "COLLEGE" as const, targetId: area.department.collegeId }]
-      : []),
-    { targetType: "UNIVERSITY", targetId: null },
   ];
 
   const assignments = await prisma.requirementAssignment.findMany({
     where: {
       deletedAt: null,
-      template: { deletedAt: null, status: "ACTIVE" },
+      template: { deletedAt: null, status: "ACTIVE", areaSet: area.areaSet },
       OR: scopes.map((scope) => ({ targetType: scope.targetType, targetId: scope.targetId })),
     },
     select: {
@@ -80,6 +76,7 @@ export async function resolveRequirementAssignmentForArea(
       templateId: true,
       targetType: true,
       targetId: true,
+      dueDate: true,
       template: { select: { version: true } },
     },
   });
@@ -97,6 +94,7 @@ export async function resolveRequirementAssignmentForArea(
         templateVersion: row.template.version,
         targetType: row.targetType,
         targetId: row.targetId,
+        dueDate: row.dueDate,
       };
       break;
     }
@@ -322,8 +320,11 @@ export async function refreshRequirementProjectionsForTemplate(
   const cycleIds = assignments
     .filter((assignment) => assignment.targetType === "ACCREDITATION_CYCLE" && assignment.targetId)
     .map((assignment) => assignment.targetId!);
-  const departmentIds = assignments
-    .filter((assignment) => assignment.targetType === "DEPARTMENT" && assignment.targetId)
+  const campusIds = assignments
+    .filter((assignment) => assignment.targetType === "CAMPUS" && assignment.targetId)
+    .map((assignment) => assignment.targetId!);
+  const programIds = assignments
+    .filter((assignment) => assignment.targetType === "PROGRAM" && assignment.targetId)
     .map((assignment) => assignment.targetId!);
   const collegeIds = assignments
     .filter((assignment) => assignment.targetType === "COLLEGE" && assignment.targetId)
@@ -334,11 +335,14 @@ export async function refreshRequirementProjectionsForTemplate(
   if (cycleIds.length > 0) {
     scopeFilters.push({ accreditationCycleId: { in: cycleIds } });
   }
-  if (departmentIds.length > 0) {
-    scopeFilters.push({ departmentId: { in: departmentIds } });
+  if (campusIds.length > 0) {
+    scopeFilters.push({ campusId: { in: campusIds } });
+  }
+  if (programIds.length > 0) {
+    scopeFilters.push({ programId: { in: programIds } });
   }
   if (collegeIds.length > 0) {
-    scopeFilters.push({ department: { collegeId: { in: collegeIds } } });
+    scopeFilters.push({ collegeId: { in: collegeIds } });
   }
 
   const scopedAreas = await prisma.aaccupArea.findMany({
@@ -348,13 +352,22 @@ export async function refreshRequirementProjectionsForTemplate(
     },
     select: { id: true },
   });
-  await refreshProjectionAreas(
-    [
+  const refreshedAreaIds = [
+    ...new Set([
       ...existingProjections.map((projection) => projection.areaId),
       ...scopedAreas.map((area) => area.id),
-    ],
-    actorId,
-  );
+    ]),
+  ];
+  await refreshProjectionAreas(refreshedAreaIds, actorId);
+
+  // Assignment changes are the single source of truth for automated tasks.
+  // Existing manual tasks have no sourceAssignmentId and are never touched.
+  for (const areaId of refreshedAreaIds) {
+    const resolved = await resolveRequirementAssignmentForArea(areaId);
+    if (resolved?.templateId !== templateId) {
+      await archiveAutomatedTasksForAreaTemplate(areaId, templateId, null, actorId);
+    }
+  }
 }
 
 export async function refreshRequirementProjectionsForTemplateBestEffort(
@@ -410,6 +423,8 @@ export async function validateRequirementUpload(
     select: {
       id: true,
       status: true,
+      areaId: true,
+      sourceAssignmentId: true,
       sourceNode: {
         select: {
           id: true,
@@ -429,6 +444,8 @@ export async function validateRequirementUpload(
     throw new BadRequestError("Requirement is inactive and cannot accept uploads");
   }
   if (!requirement.sourceNode) return { valid: true, errors: [], warnings: [] };
+  const assignment = await resolveRequirementAssignmentForArea(requirement.areaId);
+  if (!assignment || assignment.id !== requirement.sourceAssignmentId) throw new BadRequestError("Requirement template is not attached to this area");
   if (requirement.sourceNode.deletedAt || requirement.sourceNode.status !== "ACTIVE") {
     throw new BadRequestError("Requirement node is inactive and cannot accept uploads");
   }

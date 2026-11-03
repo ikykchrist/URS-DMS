@@ -158,7 +158,7 @@ export async function createRequest(
 }
 
 // -----------------------------------------------------------------------------
-// browseDepartmentArchive — list-only view of the caller's department bucket
+// browseProgramArchive — list-only view of the caller's program bucket
 // Used by the user portal "Browse Archive" screen: file name, type, owner,
 // date uploaded and size only. No presigned URLs are issued, so files cannot
 // be opened or downloaded from this surface.
@@ -170,32 +170,34 @@ export interface BrowseItem {
   mimeType: string | null;
   sizeBytes: string | null;
   ownerName: string;
-  departmentId: string | null;
-  departmentName: string | null;
+  campusId: string | null;
+  collegeId: string | null;
+  programId: string | null;
+  programName: string | null;
   uploadedAt: Date;
   folderName: string | null;
 }
 
-export async function browseDepartmentArchive(
+export async function browseProgramArchive(
   actor: Actor,
-): Promise<{ items: BrowseItem[]; departmentId: string | null; departmentName: string | null }> {
+): Promise<{ items: BrowseItem[]; campusId: string | null; collegeId: string | null; programId: string | null; programName: string | null }> {
   if (!actor.permissions.includes("request.create")) {
     throw new ForbiddenError("Missing permission: request.create");
   }
   const me = await prisma.user.findUnique({
     where: { id: actor.id },
-    select: { departmentId: true },
+    select: { campusId: true, collegeId: true, programId: true },
   });
-  const departmentId = me?.departmentId ?? null;
-  if (!departmentId) return { items: [], departmentId: null, departmentName: null };
+  const programId = me?.programId ?? null;
+  if (!programId) return { items: [], campusId: me?.campusId ?? null, collegeId: me?.collegeId ?? null, programId: null, programName: null };
 
-  const [department, docs] = await Promise.all([
-    prisma.department.findUnique({
-      where: { id: departmentId },
+  const [program, docs] = await Promise.all([
+    prisma.program.findUnique({
+      where: { id: programId },
       select: { name: true },
     }),
     prisma.document.findMany({
-      where: { departmentId, deletedAt: null },
+      where: { programId, deletedAt: null },
       select: {
         id: true,
         title: true,
@@ -216,13 +218,17 @@ export async function browseDepartmentArchive(
       mimeType: d.currentVersion?.mimeType ?? null,
       sizeBytes: d.currentVersion?.sizeBytes?.toString() ?? null,
       ownerName: d.owner ? `${d.owner.firstName} ${d.owner.lastName}`.trim() : "Unknown",
-      departmentId,
-      departmentName: department?.name ?? null,
+      campusId: me?.campusId ?? null,
+      collegeId: me?.collegeId ?? null,
+      programId,
+      programName: program?.name ?? null,
       uploadedAt: d.createdAt,
       folderName: d.folder?.name ?? null,
     })),
-    departmentId,
-    departmentName: department?.name ?? null,
+    campusId: me?.campusId ?? null,
+    collegeId: me?.collegeId ?? null,
+    programId,
+    programName: program?.name ?? null,
   };
 }
 
@@ -268,7 +274,9 @@ async function deliverRequestedDocument(
           delivered: true,
         },
         ownerId: existing.requesterId,
-        departmentId: null,
+        campusId: source.campusId,
+        collegeId: source.collegeId,
+        programId: source.programId,
         repositoryId,
       },
     });

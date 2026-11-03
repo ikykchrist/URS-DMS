@@ -35,7 +35,7 @@ const suggestions = {
     "How do I manage users?",
   ],
   root: [
-    "Where can I add a department?",
+    "Where can I add a program?",
     "Where is Roles & Permissions?",
     "How do I open System Audit?",
     "Where is Organization?",

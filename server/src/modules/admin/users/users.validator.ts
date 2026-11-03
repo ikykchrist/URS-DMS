@@ -42,7 +42,7 @@ export const adminListUsersQuerySchema = z.object({
   includeArchived: z.coerce.boolean().default(false),
   // Filters
   roleId: z.string().uuid().optional(),
-  departmentId: z.string().uuid().optional(),
+  campusId: z.string().uuid().optional(),
   collegeId: z.string().uuid().optional(),
   status: z.enum(["ACTIVE", "INACTIVE", "LOCKED", "SUSPENDED"]).optional(),
   // Date range filters (ISO date or full ISO datetime; we parse to a Date in
@@ -66,7 +66,9 @@ export const createAdminUserSchema = z.object({
   lastName: z.string().trim().min(1).max(100),
   suffix: z.string().trim().min(1).max(20).optional(),
   roleId: z.string().uuid(),
-  departmentId: z.string().uuid().nullable().optional(),
+  campusId: z.string().uuid(),
+  collegeId: z.string().uuid(),
+  programId: z.string().uuid(),
   mustChangePassword: z.boolean().optional(),
 });
 export type CreateAdminUserBody = z.infer<typeof createAdminUserSchema>;
@@ -82,7 +84,9 @@ export const updateAdminUserSchema = z
     lastName: z.string().trim().min(1).max(100).optional(),
     suffix: z.string().trim().min(1).max(20).nullable().optional(),
     roleId: z.string().uuid().optional(),
-    departmentId: z.string().uuid().nullable().optional(),
+    campusId: z.string().uuid().nullable().optional(),
+    collegeId: z.string().uuid().nullable().optional(),
+    programId: z.string().uuid().nullable().optional(),
   })
   .strict();
 export type UpdateAdminUserBody = z.infer<typeof updateAdminUserSchema>;

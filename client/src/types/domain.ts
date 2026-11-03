@@ -12,8 +12,12 @@ export interface User {
   name: string
   email: string
   role: UserRole
-  department: string
-  departmentId?: string
+  campus?: string
+  college?: string
+  campusId?: string
+  collegeId?: string
+  programId?: string
+  program: string
   avatarSeed?: string
   photoUrl?: string | null
   status: "Active" | "Inactive" | "Suspended"
@@ -35,21 +39,16 @@ export interface ServerUser {
   suffix: string | null
   status: string
   role: string
-  departmentId: string | null
-  departmentName: string | null
+  campusId: string | null
+  campusName: string | null
+  collegeId: string | null
+  collegeName: string | null
+  programId: string | null
+  programName: string | null
   createdAt: string
   lastLogin: string | null
   permissions: string[]
   profilePhotoKey?: string | null
-}
-
-export interface Department {
-  id: string
-  name: string
-  code: string
-  headUserId?: string
-  createdAt: string
-  updatedAt: string
 }
 
 export interface Role {
@@ -81,7 +80,7 @@ export interface RolePermissions {
 export type DocumentStatus =
   | "Draft"
   | "Pending"
-  | "Department Review"
+  | "Program Review"
   | "QA Review"
   | "In Review"
   | "Approved"
@@ -118,7 +117,7 @@ export interface Document {
   categoryId: string
   categoryName: string
   area: string
-  department: string
+  program: string
   ownerId: string
   ownerName: string
   size: number
@@ -163,7 +162,7 @@ export interface DocumentRequest {
   priority: "Normal" | "Urgent"
   submittedBy: string
   submittedByName: string
-  department: string
+  program: string
   documents: RequestDocumentRef[]
   status: RequestStatus
   dateSubmitted: string

@@ -472,6 +472,18 @@ export async function listTargetOptions(targetType: string): Promise<Array<{ id:
       });
       return rows.map((row) => ({ id: row.id, label: row.name }));
     }
+    case "CAMPUS": {
+      const rows = await prisma.campus.findMany({ where: { deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+      return rows.map((row) => ({ id: row.id, label: row.name }));
+    }
+    case "COLLEGE": {
+      const rows = await prisma.college.findMany({ where: { deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+      return rows.map((row) => ({ id: row.id, label: row.name }));
+    }
+    case "PROGRAM": {
+      const rows = await prisma.program.findMany({ where: { deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+      return rows.map((row) => ({ id: row.id, label: row.name }));
+    }
     default:
       return [];
   }
@@ -490,6 +502,12 @@ export async function assertTargetExists(
       return (await prisma.aaccupArea.count({ where: { id: targetId, deletedAt: null } })) > 0;
     case "FOLDER_TEMPLATE":
       return (await prisma.folderTemplate.count({ where: { id: targetId, deletedAt: null } })) > 0;
+    case "CAMPUS":
+      return (await prisma.campus.count({ where: { id: targetId, deletedAt: null } })) > 0;
+    case "COLLEGE":
+      return (await prisma.college.count({ where: { id: targetId, deletedAt: null } })) > 0;
+    case "PROGRAM":
+      return (await prisma.program.count({ where: { id: targetId, deletedAt: null } })) > 0;
     default:
       return false;
   }

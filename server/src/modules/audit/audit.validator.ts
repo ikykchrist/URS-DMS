@@ -18,7 +18,9 @@ export const listAuditQuerySchema = z.object({
 
   userId: z.string().uuid().optional(),
   roleId: z.string().uuid().optional(),
-  departmentId: z.string().uuid().optional(),
+  campusId: z.string().uuid().optional(),
+  collegeId: z.string().uuid().optional(),
+  programId: z.string().uuid().optional(),
 
   module: simpleString.optional(),
   entity: simpleString.optional(),

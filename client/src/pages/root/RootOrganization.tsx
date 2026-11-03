@@ -114,7 +114,6 @@ interface FormState {
   level: ProgramLevel
   campusId: string
   collegeId: string
-  departmentId: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -124,7 +123,6 @@ const EMPTY_FORM: FormState = {
   level: "UNDERGRADUATE",
   campusId: "",
   collegeId: "",
-  departmentId: "",
 }
 
 // Radix Select disallows an empty-string item value (it uses "" to mean "clear
@@ -246,7 +244,6 @@ export default function RootOrganization() {
       level: record.level ?? "UNDERGRADUATE",
       campusId: record.campusId ?? "",
       collegeId: record.collegeId ?? "",
-      departmentId: record.departmentId ?? "",
     })
     setFormOpen(true)
   }
@@ -350,7 +347,6 @@ export default function RootOrganization() {
   const renderTreeNode = (node: OrgTreeNode, depth: number) => {
     const hasChildren =
       node.colleges.length > 0 ||
-      node.departments.length > 0 ||
       node.offices.length > 0 ||
       node.programs.length > 0
     return (
@@ -370,7 +366,6 @@ export default function RootOrganization() {
           )}
         </div>
         {node.colleges.map((c) => renderTreeNode(c, depth + 1))}
-        {node.departments.map((d) => renderTreeNode(d, depth + 1))}
         {node.offices.map((o) => renderTreeNode(o, depth + 1))}
         {node.programs.map((p) => renderTreeNode(p, depth + 1))}
       </div>
@@ -653,7 +648,6 @@ export default function RootOrganization() {
                   Failed to load the organization tree.
                 </div>
               ) : tree.campuses.length === 0 && tree.unassigned.colleges.length === 0 &&
-                tree.unassigned.departments.length === 0 &&
                 tree.unassigned.offices.length === 0 && tree.unassigned.programs.length === 0 ? (
                 <div className="p-8 text-center text-[13px] text-gray-500">
                   No organization records yet — create a campus to get started.
@@ -665,7 +659,6 @@ export default function RootOrganization() {
                   </div>
                   {tree.campuses.map((c) => renderTreeNode(c, 0))}
                   {(tree.unassigned.colleges.length > 0 ||
-                    tree.unassigned.departments.length > 0 ||
                     tree.unassigned.offices.length > 0 ||
                     tree.unassigned.programs.length > 0) && (
                     <>
@@ -741,7 +734,7 @@ export default function RootOrganization() {
                   <Select
                     value={form.campusId}
                     onValueChange={(v) =>
-                      setForm((f) => ({ ...f, campusId: v === NONE_VALUE ? "" : v, collegeId: "", departmentId: "" }))
+                      setForm((f) => ({ ...f, campusId: v === NONE_VALUE ? "" : v, collegeId: "" }))
                     }
                   >
                     <SelectTrigger className="h-10">
@@ -769,7 +762,7 @@ export default function RootOrganization() {
                   <Select
                     value={form.collegeId}
                     onValueChange={(v) =>
-                      setForm((f) => ({ ...f, collegeId: v === NONE_VALUE ? "" : v, departmentId: "" }))
+                      setForm((f) => ({ ...f, collegeId: v === NONE_VALUE ? "" : v }))
                     }
                   >
                     <SelectTrigger className="h-10">

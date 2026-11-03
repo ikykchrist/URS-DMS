@@ -6,7 +6,6 @@ import { ORG_ENTITIES } from "@/modules/root/root.organization.types";
 import {
   createCampusSchema,
   createCollegeSchema,
-  createDepartmentSchema,
   createOfficeSchema,
   createProgramSchema,
   listOrganizationQuerySchema,
@@ -14,7 +13,6 @@ import {
   rollbackOrganizationSchema,
   updateCampusSchema,
   updateCollegeSchema,
-  updateDepartmentSchema,
   updateOfficeSchema,
   updateProgramSchema,
 } from "@/modules/root/root.organization.validator";
@@ -64,7 +62,6 @@ organizationRouter.get(
 const ENTITY_ROUTE_DEFS = [
   { cfg: ORG_ENTITIES.campus, createSchema: createCampusSchema, updateSchema: updateCampusSchema },
   { cfg: ORG_ENTITIES.college, createSchema: createCollegeSchema, updateSchema: updateCollegeSchema },
-  { cfg: ORG_ENTITIES.department, createSchema: createDepartmentSchema, updateSchema: updateDepartmentSchema },
   { cfg: ORG_ENTITIES.office, createSchema: createOfficeSchema, updateSchema: updateOfficeSchema },
   { cfg: ORG_ENTITIES.program, createSchema: createProgramSchema, updateSchema: updateProgramSchema },
 ] as const;
@@ -73,7 +70,7 @@ for (const { cfg, createSchema, updateSchema } of ENTITY_ROUTE_DEFS) {
   const entityRouter: Router = Router();
 
   // GET  /:collection            — paginated list (q / includeArchived /
-  //                                 collegeId / departmentId filters)
+  //                                 collegeId filters)
   entityRouter.get(
     "/",
     requirePermission("organization.read"),

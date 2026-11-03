@@ -34,8 +34,8 @@ import { assertFolderAccess, resolveFolderAccess } from "@/modules/folders/folde
 // URS-DMS — folders service
 // RBAC model:
 //   - "managers" = users holding folders.delete (admins + QAOs).
-//   - otherwise: owner OR department-coordinator within matching department.
-//   - read access: folders.read permission OR ownership/department match.
+//   - otherwise: owner OR program coordinator within the matching program.
+//   - read access: folders.read permission OR ownership/program match.
 // No `if (role === "admin")` anywhere — every check routes through permissions.
 // =============================================================================
 
@@ -52,7 +52,7 @@ export interface Actor {
 
 // Rule 1 / D-002: repository access is OWNERSHIP-BASED. Member roles hold
 // folders.delete for their own repository, so a permission-based "manager"
-// shortcut would let any account bypass ownership. Department-scoped folders
+// shortcut would let any account bypass ownership. Program-scoped folders
 // (organization master data / archive folders) remain visible to everyone;
 // personal folders are owner-only.
 async function assertCanManage(actor: Actor, folder: { id: string; ownerId: string | null }): Promise<void> {
@@ -79,7 +79,7 @@ export async function listFolders(query: ListFoldersQuery, actor: Actor): Promis
   const where: Prisma.FolderWhereInput = {};
   if (!query.includeDeleted) where.deletedAt = null;
   if (query.parentId !== undefined) where.parentId = query.parentId;
-  if (query.departmentId) where.departmentId = query.departmentId;
+  if (query.programId) where.programId = query.programId;
   if (query.q) {
     where.name = { contains: query.q, mode: "insensitive" };
   }
@@ -142,12 +142,10 @@ export async function createFolder(
     await assertDestinationDepth(input.parentId);
   }
 
-  // BUG-3 FIX: a folder may only be scoped to the creator's own department
-  // (or null). Tagging a folder to another department would bypass the
-  // same-department sharing restriction.
-  if (input.departmentId !== undefined && input.departmentId !== null) {
-    const me = await prisma.user.findUnique({ where: { id: actor.id }, select: { departmentId: true } });
-    if (!me?.departmentId || me.departmentId !== input.departmentId) {
+  // A folder may only be scoped to the creator's own program (or null).
+  if (input.programId !== undefined && input.programId !== null) {
+    const me = await prisma.user.findUnique({ where: { id: actor.id }, select: { programId: true } });
+    if (!me?.programId || me.programId !== input.programId) {
       await writeAudit({
         action: AUDIT_ACTIONS.ACCESS_DENIED,
         userId: actor.id,
@@ -158,16 +156,18 @@ export async function createFolder(
         category: "SECURITY",
         severity: "WARNING",
         result: "DENIED",
-        newValue: { reason: "cross_department_folder_tag", departmentId: input.departmentId },
+        newValue: { reason: "cross_program_folder_tag", programId: input.programId },
       });
-      throw new ForbiddenError("You may only scope a folder to your own department");
+      throw new ForbiddenError("You may only scope a folder to your own program");
     }
   }
 
   const folder = await repo.create({
     name: input.name,
     parentId: input.parentId ?? null,
-    departmentId: input.departmentId ?? null,
+    campusId: input.campusId ?? null,
+    collegeId: input.collegeId ?? null,
+    programId: input.programId ?? null,
     ownerId: actor.id,
   });
 
@@ -179,7 +179,6 @@ export async function createFolder(
     newValue: {
       name: folder.name,
       parentId: folder.parentId,
-      departmentId: folder.departmentId,
     },
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
@@ -200,12 +199,10 @@ export async function updateFolder(
   if (!existing) throw new NotFoundError("Folder not found");
   await assertCanManage(actor, existing);
 
-  // BUG-3 FIX: a folder may only be scoped to the creator's own department.
-  // UPDATE: prevent the owner from changing a folder's department to one they don't
-  // belong to (would bypass the same-department sharing restriction).
-  if (input.departmentId !== undefined && input.departmentId !== null) {
-    const me = await prisma.user.findUnique({ where: { id: actor.id }, select: { departmentId: true } });
-    if (!me?.departmentId || me.departmentId !== input.departmentId) {
+  // Prevent the owner from changing a folder to a program they do not belong to.
+  if (input.programId !== undefined && input.programId !== null) {
+    const me = await prisma.user.findUnique({ where: { id: actor.id }, select: { programId: true } });
+    if (!me?.programId || me.programId !== input.programId) {
       await writeAudit({
         action: AUDIT_ACTIONS.ACCESS_DENIED,
         userId: actor.id,
@@ -216,9 +213,9 @@ export async function updateFolder(
         category: "SECURITY",
         severity: "WARNING",
         result: "DENIED",
-        newValue: { reason: "cross_department_folder_tag", departmentId: input.departmentId },
+        newValue: { reason: "cross_program_folder_tag", programId: input.programId },
       });
-      throw new ForbiddenError("You may only scope a folder to your own department");
+      throw new ForbiddenError("You may only scope a folder to your own program");
     }
   }
 
@@ -262,7 +259,9 @@ export async function updateFolder(
     data: {
       name: input.name,
       parentId: input.parentId,
-      departmentId: input.departmentId,
+      campusId: input.campusId,
+      collegeId: input.collegeId,
+      programId: input.programId,
       color: input.color,
       icon: input.icon,
     },
@@ -276,12 +275,10 @@ export async function updateFolder(
     oldValue: {
       name: existing.name,
       parentId: existing.parentId,
-      departmentId: existing.departmentId,
     },
     newValue: {
       name: updated.name,
       parentId: updated.parentId,
-      departmentId: updated.departmentId,
       color: updated.color,
       icon: updated.icon,
     },
@@ -727,7 +724,9 @@ export async function listPinnedFolders(actor: Actor): Promise<{ items: FolderLi
       id: folder.id,
       name: folder.name,
       parentId: folder.parentId,
-      departmentId: folder.departmentId,
+      campusId: folder.campusId,
+      collegeId: folder.collegeId,
+      programId: folder.programId,
       ownerId: folder.ownerId,
       color: folder.color ?? null,
       icon: folder.icon ?? null,
@@ -744,7 +743,7 @@ export async function listPinnedFolders(actor: Actor): Promise<{ items: FolderLi
 // -----------------------------------------------------------------------------
 // The Document Repository's upload-destination structure is defined by the
 // Folder Builder (Sprint 7.4.3): the folder template ASSIGNED to the user's
-// org unit wins, falling back up the chain DEPARTMENT → COLLEGE → UNIVERSITY.
+// org unit wins, falling back up the chain PROGRAM → COLLEGE → CAMPUS → UNIVERSITY.
 // Only when NO template is assigned anywhere up the chain does the legacy
 // flat Folder structure apply (source: "legacy"), preserving pre-7.4.3
 // behavior. Read-only; no audit (project convention, AI_CONTEXT §8).
@@ -784,8 +783,9 @@ function buildResolvedTree(
 export async function resolveMyFolderStructure(actor: Actor): Promise<ResolvedFolderStructure> {
   const context = await repo.findUserOrgContext(actor.id);
   const targets: repo.AssignmentTargetScope[] = [];
-  if (context?.departmentId) targets.push({ type: "DEPARTMENT", id: context.departmentId });
+  if (context?.programId) targets.push({ type: "PROGRAM", id: context.programId });
   if (context?.collegeId) targets.push({ type: "COLLEGE", id: context.collegeId });
+  if (context?.campusId) targets.push({ type: "CAMPUS", id: context.campusId });
   targets.push({ type: "UNIVERSITY", id: null });
 
   const assignment = await repo.findFolderTemplateAssignment(targets);
@@ -805,7 +805,7 @@ export async function resolveMyFolderStructure(actor: Actor): Promise<ResolvedFo
 
   // No assignment anywhere up the chain — fall back to the legacy structure.
   const where: Prisma.FolderWhereInput = { deletedAt: null };
-  where.OR = [{ ownerId: actor.id }, { departmentId: { not: null } }];
+  where.OR = [{ ownerId: actor.id }, { programId: { not: null } }];
   const legacyFolders = await repo.list(where);
   if (legacyFolders.length === 0) {
     return { source: "none", template: null, assignment: null, tree: [], legacyFolders: [] };

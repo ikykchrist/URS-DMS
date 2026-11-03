@@ -21,6 +21,7 @@ import {
   GitBranch,
   Sliders,
   Wand2,
+  Bug,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
@@ -44,6 +45,7 @@ const sidebarItems: SidebarItem[] = [
   { id: "users", icon: Users, label: "User Management" },
   { id: "audit", icon: ClipboardList, label: "Audit Logs" },
   { id: "settings", icon: Settings, label: "Settings" },
+  { id: "bug-reports", icon: Bug, label: "Bug Reports" },
 ]
 
 const rootConsoleItems: SidebarItem[] = [

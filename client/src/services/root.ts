@@ -128,10 +128,12 @@ export interface RootSystemUser {
   status: string
   roleId: string
   roleName: string
-  departmentId: string | null
-  departmentName: string | null
+  campusId: string | null
+  campusName: string | null
   collegeId: string | null
   collegeName: string | null
+  programId: string | null
+  programName: string | null
   mustChangePassword: boolean
   lastLogin: string | null
   createdAt: string
@@ -366,7 +368,7 @@ export async function getAuditSummary(days = 1): Promise<{
 // back to any earlier snapshot. Routes live at /root/organization/<collection>
 // with /root/<collection> aliases.
 
-export type OrgEntity = "campus" | "college" | "department" | "office" | "program"
+export type OrgEntity = "campus" | "college" | "office" | "program"
 
 export type ProgramLevel =
   | "UNDERGRADUATE"
@@ -385,7 +387,6 @@ export type OrgChangeType =
 const ORG_COLLECTIONS: Record<OrgEntity, string> = {
   campus: "campuses",
   college: "colleges",
-  department: "departments",
   office: "offices",
   program: "programs",
 }
@@ -400,8 +401,6 @@ export interface OrgRecord {
   campusName: string | null
   collegeId: string | null
   collegeName: string | null
-  departmentId: string | null
-  departmentName: string | null
   headId: string | null
   headName: string | null
   level: ProgramLevel | null
@@ -430,7 +429,6 @@ export interface OrgTreeNode {
   description: string | null
   level: ProgramLevel | null
   colleges: OrgTreeNode[]
-  departments: OrgTreeNode[]
   offices: OrgTreeNode[]
   programs: OrgTreeNode[]
 }
@@ -447,7 +445,6 @@ export interface OrgWriteInput {
   displayOrder?: number
   campusId?: string | null
   collegeId?: string | null
-  departmentId?: string | null
   headId?: string | null
   level?: ProgramLevel | null
 }
@@ -461,7 +458,6 @@ export async function listOrgRecords(
     includeArchived?: boolean
     campusId?: string
     collegeId?: string
-    departmentId?: string
   },
 ): Promise<RootListResult<OrgRecord>> {
   const params = new URLSearchParams()
@@ -471,7 +467,6 @@ export async function listOrgRecords(
   if (query?.includeArchived) params.set("includeArchived", "true")
   if (query?.campusId) params.set("campusId", query.campusId)
   if (query?.collegeId) params.set("collegeId", query.collegeId)
-  if (query?.departmentId) params.set("departmentId", query.departmentId)
   const qs = params.toString() ? `?${params.toString()}` : ""
   return apiGetPage<OrgRecord>(
     `/root/organization/${ORG_COLLECTIONS[entity]}${qs}`
@@ -536,7 +531,6 @@ export type FolderNodeStatus = "ACTIVE" | "INACTIVE"
 export type FolderAssignmentTargetType =
   | "UNIVERSITY"
   | "COLLEGE"
-  | "DEPARTMENT"
   | "PROGRAM"
   | "OFFICE"
   | "AACCUP_AREA"
@@ -864,13 +858,7 @@ export async function listFolderAssignmentTargets(
     const result = await apiGetPage<AaccupAreaOption>("/aaccup/areas?pageSize=100")
     return result.items.map((area) => ({ id: area.id, name: area.name, code: area.code }))
   }
-  const entity: OrgEntity = targetType === "COLLEGE"
-    ? "college"
-    : targetType === "DEPARTMENT"
-      ? "department"
-      : targetType === "PROGRAM"
-        ? "program"
-        : "office"
+  const entity: OrgEntity = targetType === "COLLEGE" ? "college" : targetType === "PROGRAM" ? "program" : "office"
   const result = await listOrgRecords(entity, { pageSize: 200 })
   return result.items.map((record) => ({ id: record.id, name: record.name, code: record.code }))
 }
@@ -886,8 +874,8 @@ export type RequirementNodeType =
 export type RequirementNodeStatus = "ACTIVE" | "INACTIVE"
 export type RequirementAssignmentTargetType =
   | "UNIVERSITY"
+  | "CAMPUS"
   | "COLLEGE"
-  | "DEPARTMENT"
   | "PROGRAM"
   | "OFFICE"
   | "AACCUP_AREA"
@@ -914,6 +902,7 @@ export interface RequirementTemplate {
   code: string
   description: string | null
   category: string | null
+  areaSet: "AACCUP" | "ISO" | "CERT"
   metadata: FolderJsonValue
   status: RequirementTemplateStatus
   version: number
@@ -972,6 +961,7 @@ export interface RequirementAssignment {
   targetType: RequirementAssignmentTargetType
   targetId: string | null
   targetName: string | null
+  dueDate: string | null
   createdAt: string
 }
 
@@ -1046,6 +1036,7 @@ export interface RequirementTemplateInput {
   code: string
   description?: string | null
   category?: string | null
+  areaSet?: "AACCUP" | "ISO"
   metadata?: Record<string, unknown> | null
   status?: RequirementTemplateStatus
 }
@@ -1236,11 +1227,12 @@ export async function listRequirementAssignments(query?: {
 export async function assignRequirementTemplate(
   templateId: string,
   targetType: RequirementAssignmentTargetType,
+  dueDate: string | undefined,
   targetId?: string | null,
 ): Promise<RequirementTemplateDetail> {
   return apiPost<RequirementTemplateDetail>(
     `${REQUIREMENT_PATH}/${encodeURIComponent(templateId)}/assignments`,
-    { targetType, ...(targetType === "UNIVERSITY" ? {} : { targetId }) },
+    { targetType, ...(targetType === "UNIVERSITY" ? {} : { targetId }), dueDate },
   )
 }
 
@@ -1323,13 +1315,14 @@ export async function listRequirementTargetOptions(
     const result = await apiGetPage<AaccupAreaOption>("/aaccup/areas?pageSize=100")
     return result.items.map((area) => ({ id: area.id, name: area.name, code: area.code }))
   }
-  const entity: OrgEntity = targetType === "COLLEGE"
-    ? "college"
-    : targetType === "DEPARTMENT"
-      ? "department"
-      : targetType === "PROGRAM"
-        ? "program"
-        : "office"
+  const entity: OrgEntity =
+    targetType === "CAMPUS"
+      ? "campus"
+      : targetType === "COLLEGE"
+        ? "college"
+        : targetType === "PROGRAM"
+          ? "program"
+          : "office"
   const result = await listOrgRecords(entity, { pageSize: 200 })
   return result.items.map((record) => ({ id: record.id, name: record.name, code: record.code }))
 }
@@ -1355,7 +1348,6 @@ export type WorkflowStepInstanceStatus = "PENDING" | "ACTIVE" | "COMPLETED" | "S
 export type WorkflowAssignmentTargetType =
   | "UNIVERSITY"
   | "COLLEGE"
-  | "DEPARTMENT"
   | "PROGRAM"
   | "OFFICE"
   | "AACCUP_AREA"
@@ -1791,13 +1783,7 @@ export async function listWorkflowTargetOptions(
     const result = await apiGetPage<AaccupAreaOption>("/aaccup/areas?pageSize=100")
     return result.items.map((area) => ({ id: area.id, name: area.name, code: area.code }))
   }
-  const entity: OrgEntity = targetType === "COLLEGE"
-    ? "college"
-    : targetType === "DEPARTMENT"
-      ? "department"
-      : targetType === "PROGRAM"
-        ? "program"
-        : "office"
+  const entity: OrgEntity = targetType === "COLLEGE" ? "college" : targetType === "PROGRAM" ? "program" : "office"
   const result = await listOrgRecords(entity, { pageSize: 200 })
   return result.items.map((record) => ({ id: record.id, name: record.name, code: record.code }))
 }
@@ -2069,7 +2055,7 @@ const SETUP_PATH = "/root/setup"
 export type SetupStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"
 
 export interface SetupSummary {
-  organizations: { campuses: number; colleges: number; departments: number; offices: number; programs: number }
+  organizations: { campuses: number; colleges: number; offices: number; programs: number }
   folderTemplates: number
   requirementTemplates: number
   workflows: number

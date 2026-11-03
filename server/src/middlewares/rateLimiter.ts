@@ -3,7 +3,7 @@ import { env } from "@/config/env";
 
 // =============================================================================
 // URS-DMS — rate limiters
-// globalLimiter: 100 req / 15 min per IP
+// globalLimiter: public/unauthenticated API requests per IP
 // authLimiter:   5 req / 15 min per IP, doesn't count successful requests
 // =============================================================================
 
@@ -13,6 +13,12 @@ export const globalLimiter: RateLimitRequestHandler = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
+    // Authenticated traffic is already protected by the access-token/session
+    // checks and must not share a small public-IP bucket. Behind a campus NAT
+    // or presentation network, many legitimate API calls can otherwise
+    // exhaust the quota and make normal mutations fail with RATE_LIMITED.
+    // Public auth endpoints remain covered by authLimiter below.
+    if (req.header("authorization")?.startsWith("Bearer ") || req.cookies?.urs_access_token) return true;
     // Authentication endpoints have their own limiter. Keeping them in the
     // broad API bucket means ordinary authenticated polling can exhaust the
     // shared IP budget and prevent a valid session from refreshing or a user

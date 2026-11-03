@@ -32,7 +32,7 @@ export function UserTopNav({ onNavigate, onOpenCommandPalette, unreadNotificatio
     const labels: Record<string, string> = {
       super_admin: "System Administrator",
       qa_office: "QA Office",
-      department_head: "Department Head",
+      department_head: "Program Coordinator",
       faculty: "Faculty",
       staff: "Staff",
       student: "Student",
