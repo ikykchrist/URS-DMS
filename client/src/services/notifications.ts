@@ -111,20 +111,12 @@ class NotificationService {
   }
 
   async markRead(id: string): Promise<void> {
-    try {
-      await apiPatch<ServerNotification>(`/notifications/${id}/read`)
-    } catch {
-      // Ignore races; the server remains the source of truth.
-    }
+    await apiPatch<ServerNotification>(`/notifications/${id}/read`)
     this.notify()
   }
 
   async markAllReadForUser(): Promise<void> {
-    try {
-      await apiPatch<{ success: true }>("/notifications/read-all")
-    } catch {
-      // Ignore; unread state is refreshed from the server below.
-    }
+    await apiPatch<{ success: true }>("/notifications/read-all")
     this.notify()
   }
 

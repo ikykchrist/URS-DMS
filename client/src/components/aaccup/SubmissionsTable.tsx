@@ -1,3 +1,6 @@
+import { toast } from "@/lib/toast"
+import { runBulkAction } from "@/lib/actionFeedback"
+import { UnsubmitEvidenceButton } from "./UnsubmitEvidenceButton"
 import { useState, useEffect, useCallback, type ReactNode } from "react"
 import { useSearchParams } from "react-router-dom"
 import {
@@ -70,6 +73,7 @@ const toSubmissionDocument = (s: OnlineSubmissionListItem): Document => {
       : "Pending"
   return {
     id: s.documentId,
+    submissionId: s.id,
     name: s.documentTitle,
     type: "FILE",
     categoryId: s.requirementId,
@@ -132,7 +136,7 @@ interface SubmissionsTableProps {
 
 export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
   const { user } = useAuth()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [rawSubmissions, setRawSubmissions] = useState<OnlineSubmissionListItem[]>([])
   const [submissions, setSubmissions] = useState<Document[]>([])
   const [setFilter, setSetFilter] = useState<SetFilter>(areaSet ?? "ALL")
@@ -150,6 +154,23 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const highlightId = searchParams.get("highlight")
   const queryStatus = searchParams.get("status")
+
+  useEffect(() => {
+    const status = queryStatus?.toUpperCase() === "NEEDS_REVISION" ? "returned" : queryStatus?.toLowerCase()
+    setCurrentFilters((previous) => {
+      const next = { ...previous }
+      if (status && ["pending", "approved", "rejected", "returned"].includes(status)) next.status = status
+      else delete next.status
+      return next
+    })
+  }, [queryStatus])
+
+  const updateQueryStatus = (status?: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (status && status !== "all") next.set("status", status === "returned" ? "NEEDS_REVISION" : status.toUpperCase())
+    else next.delete("status")
+    setSearchParams(next, { replace: true })
+  }
 
   const isReview = mode === "review"
   const canReview = Boolean(user && (hasPermission(user.role, "canApprove") || hasPermission(user.role, "canReject")))
@@ -178,17 +199,31 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
   }, [areaSet])
 
   useEffect(() => {
+    setSelectedSubmission((current) => {
+      if (!current?.submissionId) return current
+      const latest = rawSubmissions.find((row) => row.id === current.submissionId)
+      if (!latest) return null
+      const status = toSubmissionDocument(latest).status
+      return current.status === status && current.submissionStatus === latest.status
+        ? current
+        : { ...current, status, submissionStatus: latest.status }
+    })
+  }, [rawSubmissions])
+
+  useEffect(() => {
     if (!highlightId) return
     const highlighted = rawSubmissions.find((submission) => submission.id === highlightId || submission.documentId === highlightId)
     if (highlighted) {
       const document = toSubmissionDocument(highlighted)
-      setSelectedId(document.id)
+      setSelectedId(highlighted.id)
       setSelectedSubmission(document)
       setPreviewOpen(true)
     }
   }, [highlightId, rawSubmissions])
 
-  const rawById = (id: string) => rawSubmissions.find((s) => s.documentId === id)
+  // A file can have multiple review attempts. Keys, selections and decisions
+  // identify the submission; preview/download still identify the document.
+  const rawById = (id?: string) => rawSubmissions.find((s) => s.id === id)
 
   const refresh = () => {
     load().catch(() => {})
@@ -197,18 +232,18 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
   const handleViewSubmission = (submission: Document) => {
     setSelectedSubmission(submission)
     setPreviewOpen(true)
-    const raw = rawById(submission.id)
+    const raw = rawById(submission.submissionId)
     if (!raw) return
     void getOnlineDocument(submission.id).then((document) => {
       if (document) {
-        setSelectedSubmission({ ...document, submissionStatus: raw.status })
+        setSelectedSubmission((current) => current?.submissionId === raw.id ? { ...document, submissionId: raw.id, status: submission.status, submissionStatus: raw.status } : current)
       }
     })
   }
 
   const handleOpenReturnModal = (doc?: Document) => {
     if (doc) {
-      const sid = rawById(doc.id)?.id
+      const sid = doc.submissionId
       setReturnSubmissionId(sid ?? null)
       setSelectedSubmission(null)
     }
@@ -222,24 +257,26 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
     refresh()
   }
 
-  const handleApprove = async (documentId: string) => {
-    const raw = rawById(documentId)
-    if (!raw) return
+  const handleApprove = async (document: Document) => {
+    const raw = rawById(document.submissionId)
+    if (!raw || raw.status !== "PENDING") return
     try {
       await reviewOnlineSubmission(raw.id, { decision: "APPROVED" })
       refresh()
+      toast.success("Submission approved")
     } catch {
       window.alert("Failed to approve submission.")
     }
   }
 
-  const handleReject = async (documentId: string) => {
+  const handleReject = async (document: Document) => {
     if (!window.confirm("Reject this submission? This closes the review and notifies the submitter.")) return
-    const raw = rawById(documentId)
-    if (!raw) return
+    const raw = rawById(document.submissionId)
+    if (!raw || raw.status !== "PENDING") return
     try {
       await reviewOnlineSubmission(raw.id, { decision: "REJECTED" })
       refresh()
+      toast.success("Submission rejected")
     } catch {
       window.alert("Failed to reject submission.")
     }
@@ -249,7 +286,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
     if (searchQuery && !s.name.toLowerCase().includes(searchQuery.toLowerCase()) && !s.id.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false
     }
-    const requestedStatus = currentFilters.status ?? queryStatus
+    const requestedStatus = currentFilters.status
     if (requestedStatus && requestedStatus !== "all") {
       const normalizedStatus = requestedStatus === "NEEDS_REVISION" || requestedStatus === "returned" ? "Returned" : requestedStatus === "REJECTED" ? "Rejected" : requestedStatus === "APPROVED" ? "Approved" : requestedStatus
       if (s.status.toLowerCase() !== normalizedStatus.toLowerCase()) return false
@@ -272,15 +309,17 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
     if (selectedIds.size === filteredSubmissions.length) {
       setSelectedIds(new Set())
     } else {
-      setSelectedIds(new Set(filteredSubmissions.map((s) => s.id)))
+      setSelectedIds(new Set(filteredSubmissions.map((s) => s.submissionId!)))
     }
   }
 
   const handleApplyFilter = (filter: SavedFilter) => {
+    updateQueryStatus(filter.filters.status)
     setCurrentFilters(filter.filters)
   }
 
   const handleFilterChange = (key: string, value: string) => {
+    if (key === "status") updateQueryStatus(value)
     setCurrentFilters((prev) => {
       const next = { ...prev }
       if (value === "all") delete next[key]
@@ -290,9 +329,10 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
   }
 
   const exportCsv = () => {
-    const rows = filteredSubmissions.length > 0 ? filteredSubmissions : submissions
+    const rows = filteredSubmissions
+    const csvCell = (value: string) => `"${value.replace(/"/g, '""')}"`
     const csv = "Title,Area,Submitted By,Program,Date,Status\n" +
-      rows.map((s) => `"${s.name}","${s.area}","${s.ownerName}","${s.program}","${s.dateModified.slice(0, 10)}","${s.status}"`).join("\n")
+      rows.map((s) => [s.name, s.area, s.ownerName, s.program, s.dateModified.slice(0, 10), s.status].map(csvCell).join(",")).join("\n")
     const blob = new Blob([csv], { type: "text/csv" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -302,6 +342,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+    toast.success(`Export prepared: ${rows.length} submission(s). Download started.`)
   }
 
   const pendingCount = submissions.filter((s) => s.status === "Pending").length
@@ -330,8 +371,8 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
 
       <Card className="border-border/70 shadow-soft mb-6">
         <CardContent className="p-0 md:p-0">
-          <div className="flex w-full flex-col gap-3 p-4 lg:flex-row lg:items-center">
-            <div className="flex-1">
+          <div className="flex w-full flex-col gap-3 p-4">
+            <div className="w-full">
               <div className="relative max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
@@ -402,6 +443,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
                 size="sm"
                 className="h-9"
                 onClick={() => {
+                  updateQueryStatus()
                   setCurrentFilters({})
                   setSearchQuery("")
                 }}
@@ -424,42 +466,43 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
             selectedCount={selectedIds.size}
             onClearSelection={() => setSelectedIds(new Set())}
             onBulkApprove={async () => {
-              for (const id of selectedIds) {
-                try {
-                  const raw = rawById(id)
-                  if (raw) await reviewOnlineSubmission(raw.id, { decision: "APPROVED" })
-                } catch { /* Continue processing the remaining selections. */ }
-              }
+              await runBulkAction(selectedIds, async (id) => {
+                const raw = rawById(id)
+                if (raw?.status !== "PENDING") return false
+                await reviewOnlineSubmission(raw.id, { decision: "APPROVED" })
+                return true
+              }, "submission(s) approved")
               setSelectedIds(new Set())
               refresh()
             }}
             onBulkReject={async () => {
-              for (const id of selectedIds) {
-                try {
-                  const raw = rawById(id)
-                  if (raw) await reviewOnlineSubmission(raw.id, { decision: "REJECTED" })
-                } catch { /* Continue processing the remaining selections. */ }
-              }
+              await runBulkAction(selectedIds, async (id) => {
+                const raw = rawById(id)
+                if (raw?.status !== "PENDING") return false
+                await reviewOnlineSubmission(raw.id, { decision: "REJECTED" })
+                return true
+              }, "submission(s) rejected")
               setSelectedIds(new Set())
               refresh()
             }}
             onBulkExport={exportCsv}
             onBulkArchive={async () => {
-              for (const id of selectedIds) {
-                try { await archiveOnlineSubmission(id) } catch { /* Continue processing the remaining selections. */ }
-              }
+              await runBulkAction(selectedIds, async (id) => {
+                await archiveOnlineSubmission(id)
+                return true
+              }, "submission(s) archived")
               setSelectedIds(new Set())
               refresh()
             }}
             onBulkDelete={async () => {
               if (!window.confirm(`Delete ${selectedIds.size} submission(s) and their documents?`)) return
-              for (const id of selectedIds) {
-                try {
-                  const raw = rawById(id)
-                  if (raw) await archiveOnlineSubmission(raw.id)
-                  await deleteOnlineDocument(id)
-                } catch { /* Continue processing the remaining selections. */ }
-              }
+              await runBulkAction(selectedIds, async (id) => {
+                const raw = rawById(id)
+                if (!raw) return false
+                await archiveOnlineSubmission(raw.id)
+                await deleteOnlineDocument(raw.documentId)
+                return true
+              }, "submission(s) and document(s) archived")
               setSelectedIds(new Set())
               refresh()
             }}
@@ -474,7 +517,7 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
           </p>
         </div>
         <CardContent className="p-0 md:p-0">
-          <Table>
+          <Table className={isReview ? "submission-review-table" : undefined}>
             <TableHeader>
               <TableRow>
                 {isReview && (
@@ -486,19 +529,17 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
                     />
                   </TableHead>
                 )}
-                <TableHead>Document Title</TableHead>
+                <TableHead>Document / Date</TableHead>
                 <TableHead>AACCUP Area</TableHead>
-                <TableHead>Submitted By</TableHead>
-                <TableHead>Program</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead>Submitted By / Program</TableHead>
                 <TableHead>Status</TableHead>
-                {isReview && <TableHead className="text-right">Actions</TableHead>}
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredSubmissions.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={isReview ? 8 : 6}>
+                  <TableCell colSpan={isReview ? 6 : 5}>
                     <EmptyState
                       variant="search"
                       title="No submissions found"
@@ -508,36 +549,34 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
                 </TableRow>
               )}
               {filteredSubmissions.map((submission) => {
-                const raw = rawById(submission.id)
                 const reviewable =
                   isReview &&
                   canReview &&
-                  raw &&
-                  (raw.status === "PENDING" || raw.status === "NEEDS_REVISION")
+                  submission.status === "Pending"
                 return (
                   <TableRow
-                    key={submission.id}
+                    key={submission.submissionId}
                     className={cn(
                       "hover:bg-gray-50/50 transition-colors cursor-pointer select-none",
-                      selectedId === submission.id && "bg-primary/5"
+                      selectedId === submission.submissionId && "bg-primary/5"
                     )}
-                    onClick={() => setSelectedId(submission.id)}
+                    onClick={() => setSelectedId(submission.submissionId ?? null)}
                     onDoubleClick={() => handleViewSubmission(submission)}
                   >
                     {isReview && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <RowCheckbox
-                          checked={selectedIds.has(submission.id)}
-                          onChange={() => toggleSelect(submission.id)}
+                          checked={selectedIds.has(submission.submissionId!)}
+                          onChange={() => toggleSelect(submission.submissionId!)}
                         />
                       </TableCell>
                     )}
                     <TableCell>
                       <div>
-                        <p className="text-[14px] font-medium text-gray-900 max-w-[240px] truncate">
+                        <p className="max-w-[180px] truncate text-[14px] font-medium text-gray-900" title={submission.name}>
                           {submission.name}
                         </p>
-                        <p className="text-[12px] text-gray-500">{submission.id}</p>
+                        <p className="mt-1 whitespace-nowrap text-[12px] text-gray-500">{submission.dateModified.slice(0, 10)}</p>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -552,71 +591,71 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
                             {(submission.ownerName || "U").split(" ").map((n) => n[0]).join("").slice(0, 2)}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-[13px] text-gray-700">{submission.ownerName}</span>
+                        <div className="min-w-0 max-w-[150px]">
+                          <p className="text-[13px] text-gray-700">{submission.ownerName}</p>
+                          <p className="mt-1 text-[12px] text-gray-500">{submission.program}</p>
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[13px] text-gray-600">{submission.program}</span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[13px] text-gray-500">{submission.dateModified.slice(0, 10)}</span>
                     </TableCell>
                     <TableCell>{getStatusBadge(submission.status)}</TableCell>
                     {isReview && (
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-0.5">
+                        {submission.status === "Pending" && <div className="record-actions record-actions-table w-[190px]">
                           {reviewable && (
                             <>
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
+                                variant="outline"
+                                size="action"
+                                className="text-emerald-600 hover:bg-emerald-50"
                                 title="Approve"
-                                onClick={() => void handleApprove(submission.id)}
+                                onClick={() => void handleApprove(submission)}
                               >
-                                <CheckCircle className="w-4 h-4" />
+                                <CheckCircle className="w-4 h-4" /> <span>Approve</span>
                               </Button>
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-amber-600 hover:bg-amber-50"
+                                variant="outline"
+                                size="action"
+                                className="text-amber-600 hover:bg-amber-50"
                                 title="Return for revision"
                                 onClick={() => handleOpenReturnModal(submission)}
                               >
-                                <RotateCcw className="w-4 h-4" />
+                                <RotateCcw className="w-4 h-4" /> <span>Return</span>
                               </Button>
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-red-600 hover:bg-red-50"
+                                variant="outline"
+                                size="action"
+                                className="text-red-600 hover:bg-red-50"
                                 title="Reject"
-                                onClick={() => void handleReject(submission.id)}
+                                onClick={() => void handleReject(submission)}
                               >
-                                <XCircle className="w-4 h-4" />
+                                <XCircle className="w-4 h-4" /> <span>Reject</span>
                               </Button>
                             </>
                           )}
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-gray-500 hover:text-gray-900"
+                            variant="outline"
+                            size="action"
+                            className="text-gray-600 hover:text-gray-900"
                             title="Preview"
                             onClick={() => handleViewSubmission(submission)}
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-4 h-4" /> <span>View</span>
                           </Button>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-gray-500 hover:text-gray-900"
+                            variant="outline"
+                            size="action"
+                            className="text-gray-600 hover:text-gray-900"
                             title="Download"
                             onClick={() => openOnlineDocument(submission)}
                           >
-                            <Download className="w-4 h-4" />
+                            <Download className="w-4 h-4" /> <span>Download</span>
                           </Button>
-                        </div>
+                        </div>}
                       </TableCell>
                     )}
+                    {!isReview && <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                      {(() => { const ownSubmission = rawById(submission.submissionId); return ownSubmission ? <UnsubmitEvidenceButton submission={ownSubmission} onSuccess={load} /> : null })()}
+                    </TableCell>}
                   </TableRow>
                 )
               })}
@@ -638,15 +677,15 @@ export function SubmissionsTable({ mode, areaSet }: SubmissionsTableProps) {
         <FilePreviewModal
           document={selectedSubmission}
           onClose={() => { setSelectedSubmission(null) }}
-          showAdminActions={isReview && canReview}
-          onApprove={(doc) => void handleApprove(doc.id)}
-          onReject={(doc) => void handleReject(doc.id)}
+          showAdminActions={isReview && canReview && selectedSubmission.status === "Pending"}
+          onApprove={(doc) => void handleApprove(doc)}
+          onReject={(doc) => void handleReject(doc)}
           onReturn={handleOpenReturnModal}
         />
       )}
 
       {isReview && (() => {
-        const sid = returnSubmissionId ?? (selectedSubmission ? rawById(selectedSubmission.id)?.id : null)
+        const sid = returnSubmissionId ?? selectedSubmission?.submissionId
         return sid ? (
         <ReturnSubmissionModal
           open={isReturnModalOpen}

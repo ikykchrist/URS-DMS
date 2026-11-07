@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState, useEffect } from "react"
 import { Upload, X, FileText, Image, File } from "lucide-react"
 import {
@@ -129,6 +130,7 @@ export function AddSubmissionModal({
       })
       onSuccess?.()
       handleClose(false)
+      toast.success("Evidence uploaded and submitted for review")
     } catch {
       setError("Failed to submit. Please check the file and try again.")
     } finally {

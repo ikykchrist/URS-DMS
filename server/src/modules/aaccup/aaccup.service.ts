@@ -1,3 +1,4 @@
+import { actorAreaScope } from "./aaccup.scope";
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS } from "@/config/constants";
 import { writeAudit } from "@/modules/audit/audit.service";
@@ -53,6 +54,15 @@ function assertCanRead(actor: Actor): void {
   }
 }
 
+export async function listAreaSetupOrganization(actor: Actor) {
+  assertCanManage(actor);
+  return (await repo.listSetupOrganization()).map((campus) => ({
+    ...campus, colleges: campus.colleges.map((college) => ({
+      ...college, programs: college.programs.filter((program) => program.campusId === campus.id),
+    })),
+  }));
+}
+
 export async function listAreaSetupPrograms(actor: Actor) {
   assertCanManage(actor);
   return (await repo.listSetupPrograms()).filter((program) => program.campusId && program.collegeId && program.college?.campusId === program.campusId)
@@ -74,13 +84,13 @@ export async function setAreaTemplate(areaId: string, templateId: string | null,
   return getAreaTemplateSetup(areaId, actor);
 }
 
-async function assertOrganizationScopeExists(input: { campusId: string; collegeId: string; programId: string }): Promise<void> {
+async function assertOrganizationScopeExists(input: { campusId: string; collegeId: string; programId: string | null }): Promise<void> {
   const [campus, college, program] = await Promise.all([
     prisma.campus.findFirst({ where: { id: input.campusId, deletedAt: null }, select: { id: true } }),
     prisma.college.findFirst({ where: { id: input.collegeId, deletedAt: null }, select: { id: true, campusId: true } }),
-    prisma.program.findFirst({ where: { id: input.programId, deletedAt: null }, select: { id: true, campusId: true, collegeId: true } }),
+    input.programId ? prisma.program.findFirst({ where: { id: input.programId, deletedAt: null }, select: { id: true, campusId: true, collegeId: true } }) : Promise.resolve(null),
   ]);
-  if (!campus || !college || !program || college.campusId !== input.campusId || program.campusId !== input.campusId || program.collegeId !== input.collegeId) {
+  if (!campus || !college || college.campusId !== input.campusId || (input.programId !== null && (!program || program.campusId !== input.campusId || program.collegeId !== input.collegeId))) {
     throw new BadRequestError("Campus, college, and program must belong to the same organization scope");
   }
 }
@@ -94,22 +104,10 @@ async function assertCycleExists(cycleId: string | null | undefined): Promise<vo
   if (!cycle) throw new BadRequestError("Referenced accreditation cycle not found");
 }
 
-async function actorProgramIds(actor: Actor): Promise<string[]> {
-  const user = await prisma.user.findUnique({
-    where: { id: actor.id },
-    select: { programId: true },
-  });
-  return [
-    ...new Set(
-      [user?.programId].filter((id): id is string => Boolean(id)),
-    ),
-  ];
-}
-
-async function assertAreaInScope(actor: Actor, programId: string | null): Promise<void> {
+async function assertAreaInScope(actor: Actor, areaId: string): Promise<void> {
   if (isManager(actor)) return;
-  if (!programId || !(await actorProgramIds(actor)).includes(programId)) {
-    throw new ForbiddenError("AACCUP area is outside your program scope");
+  if (!await prisma.aaccupArea.findFirst({ where: { id: areaId, deletedAt: null, AND: [await actorAreaScope(actor.id)] }, select: { id: true } })) {
+    throw new ForbiddenError("Accreditation area is outside your campus, college or program scope");
   }
 }
 
@@ -123,12 +121,9 @@ export async function listAreas(query: ListAreasQuery, actor: Actor): Promise<Li
   if (query.status) where.status = query.status;
   if (query.programId) where.programId = query.programId;
   if (query.accreditationCycleId) where.accreditationCycleId = query.accreditationCycleId;
-  if (!isManager(actor)) {
-    const allowed = await actorProgramIds(actor);
-    where.programId = query.programId && allowed.includes(query.programId)
-      ? query.programId
-      : { in: query.programId ? [] : allowed };
-  }
+  if (query.campusId) where.campusId = query.campusId;
+  if (query.collegeId) where.collegeId = query.collegeId;
+  if (!isManager(actor)) where.AND = [await actorAreaScope(actor.id)];
   if (query.q) {
     where.OR = [
       { code: { contains: query.q, mode: "insensitive" } },
@@ -160,7 +155,7 @@ export async function getArea(id: string, actor: Actor): Promise<AaccupAreaDetai
   assertCanRead(actor);
   const area = await repo.findById(id);
   if (!area) throw new NotFoundError("AACCUP area not found");
-  await assertAreaInScope(actor, area.programId);
+  await assertAreaInScope(actor, area.id);
   return area;
 }
 
@@ -228,11 +223,11 @@ export async function updateArea(
   const existing = await repo.findById(id);
   if (!existing) throw new NotFoundError("AACCUP area not found");
 
-  if (input.campusId || input.collegeId || input.programId) {
+  if (input.campusId !== undefined || input.collegeId !== undefined || input.programId !== undefined) {
     await assertOrganizationScopeExists({
       campusId: input.campusId ?? existing.campusId ?? "",
       collegeId: input.collegeId ?? existing.collegeId ?? "",
-      programId: input.programId ?? existing.programId ?? "",
+      programId: input.programId !== undefined ? input.programId : existing.programId,
     });
   }
   await assertCycleExists(input.accreditationCycleId);

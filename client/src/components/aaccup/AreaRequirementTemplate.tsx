@@ -33,7 +33,7 @@ export function AreaRequirementTemplate({ areaId, onApplied }: { areaId: string;
   }
   return <div className="mb-5 rounded-xl border border-primary-100 bg-primary-50/40 p-4">
     <Label htmlFor={`area-template-${areaId}`}>Requirement template</Label>
-    <p className="mb-3 mt-1 text-[12px] text-gray-500">Attach an active template to this area to make its requirements available to users in the area's program. Library templates do not appear for users automatically.</p>
+    <p className="mb-3 mt-1 text-[12px] text-gray-500">Attach an active template to make its requirements available to users in this area's college or program scope.</p>
     {loading ? <p className="text-sm text-gray-500">Loading templates…</p> : setup && <div className="flex flex-col gap-2 sm:flex-row">
       <Select value={selected} onValueChange={setSelected} disabled={saving || Boolean(setup.templateId)}>
         <SelectTrigger id={`area-template-${areaId}`} className="min-w-0 flex-1"><SelectValue placeholder="Choose a requirement template" /></SelectTrigger>

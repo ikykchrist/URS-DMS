@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState, useEffect } from "react"
 import { Plus, User, Building2 } from "lucide-react"
 import {
@@ -126,6 +127,7 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
       })
       onSuccess?.()
       handleClose(false)
+      toast.success("Task created and assigned")
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to create task. Please try again.")
     } finally {

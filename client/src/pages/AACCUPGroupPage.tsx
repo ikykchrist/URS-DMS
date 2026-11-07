@@ -32,6 +32,12 @@ export default function AACCUPGroupPage({ initialTab = "AACCUP" }: AACCUPGroupPa
   const [searchParams] = useSearchParams()
   const urlTab = searchParams.get("tab")
   const urlAreaSet = searchParams.get("areaSet")
+  const locationParams = new URLSearchParams()
+  for (const key of ["campus", "college", "scope", "program"]) {
+    const value = searchParams.get(key)
+    if (value) locationParams.set(key, value)
+  }
+  const locationQuery = locationParams.size ? `?${locationParams}` : ""
   const isSupportedTab = (value: string | null): value is string => Boolean(value && SUPPORTED_TAB_VALUES.has(value))
   const [tab, setTab] = useState<string>(isSupportedTab(urlTab) ? urlTab : initialTab)
 
@@ -45,8 +51,8 @@ export default function AACCUPGroupPage({ initialTab = "AACCUP" }: AACCUPGroupPa
         value={tab}
         tabs={ADMIN_TABS}
         onValueChange={(value) => {
-          if (value === "AACCUP") navigate("/aaccup")
-          else if (value === "ISO") navigate("/iso")
+          if (value === "AACCUP") navigate(`/aaccup${locationQuery}`)
+          else if (value === "ISO") navigate(`/iso${locationQuery}`)
           else if (value === "submissions") {
             const areaSet =
               urlAreaSet === "AACCUP" || urlAreaSet === "ISO"
@@ -61,7 +67,7 @@ export default function AACCUPGroupPage({ initialTab = "AACCUP" }: AACCUPGroupPa
         }}
       />
     ),
-    [initialTab, navigate, tab, urlAreaSet],
+    [initialTab, navigate, tab, urlAreaSet, locationQuery],
   )
 
   return (

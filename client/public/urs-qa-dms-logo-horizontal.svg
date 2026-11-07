@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 256" width="1100" height="256" role="img" aria-labelledby="title desc">
+  <title id="title">URS QA-DMS horizontal logo</title>
+  <desc id="desc">Verified Gate symbol with a custom geometric URS QA-DMS wordmark.</desc>
+  <g id="symbol">
+    <path d="M128 20 L222 74 L222 111" fill="none" stroke="#0B1F4D" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M222 145 L222 182 L128 236 L34 182 L34 74 L128 20" fill="none" stroke="#0B1F4D" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M128 45 L198 85 L128 125 L58 85 Z" fill="#1239B5"/>
+    <path d="M56 105 L116 140 L116 209 L56 174 Z" fill="#2B5CC8"/>
+    <path d="M140 140 L200 105 L200 119 L214 127 L200 135 L200 174 L140 209 Z" fill="#0B1F4D"/>
+  </g>
+  <g id="wordmark" fill="#0B1F4D">
+    <path d="M288 84 H304 V143 Q304 158 319 158 Q334 158 334 143 V84 H350 V143 Q350 174 319 174 Q288 174 288 143 Z"/>
+    <path fill-rule="evenodd" d="M366 174 V84 H402 Q430 84 430 110 Q430 128 414 135 L435 174 H416 L398 140 H382 V174 Z M382 100 V124 H401 Q414 124 414 112 Q414 100 401 100 Z"/>
+    <path d="M496 105 Q485 98 471 98 Q457 98 457 108 Q457 116 477 121 Q504 127 504 148 Q504 174 470 174 Q448 174 434 163 L444 149 Q456 158 471 158 Q488 158 488 148 Q488 140 467 135 Q441 129 441 108 Q441 83 472 83 Q492 83 506 93 Z"/>
+    <path fill-rule="evenodd" d="M536 129 Q536 83 579 83 Q622 83 622 129 Q622 158 601 170 L621 188 H598 L583 175 H579 Q536 175 536 129 Z M553 129 Q553 159 579 159 Q605 159 605 129 Q605 99 579 99 Q553 99 553 129 Z"/>
+    <path fill-rule="evenodd" d="M632 174 L666 84 H685 L719 174 H701 L694 154 H657 L650 174 Z M663 139 H688 L675.5 104 Z"/>
+    <path d="M731 121 H769 V137 H731 Z"/>
+    <path fill-rule="evenodd" d="M785 174 V84 H818 Q860 84 860 129 Q860 174 818 174 Z M801 100 V158 H817 Q843 158 843 129 Q843 100 817 100 Z"/>
+    <path d="M875 174 V84 H892 L920 127 L948 84 H965 V174 H949 V111 L925 148 H915 L891 111 V174 Z"/>
+    <path d="M1035 105 Q1024 98 1010 98 Q996 98 996 108 Q996 116 1016 121 Q1043 127 1043 148 Q1043 174 1009 174 Q987 174 973 163 L983 149 Q995 158 1010 158 Q1027 158 1027 148 Q1027 140 1006 135 Q980 129 980 108 Q980 83 1011 83 Q1031 83 1045 93 Z"/>
+  </g>
+</svg>

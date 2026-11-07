@@ -1,6 +1,6 @@
 {
   "name": "@urs-dms/server",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "URS-DMS backend — Express + Prisma + JWT",
   "main": "dist/server.js",

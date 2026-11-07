@@ -26,8 +26,6 @@ import {
 import { organizationRouter } from "@/modules/root/root.organization.routes";
 import { folderBuilderRouter } from "@/modules/root/root.folderBuilder.routes";
 import { requirementRouter } from "@/modules/root/root.requirement.routes";
-import { workflowRouter } from "@/modules/workflow/workflow.routes";
-import { formRouter } from "@/modules/root/root.form.routes";
 import { setupRouter } from "@/modules/root/root.setup.routes";
 import { maintenanceRouter } from "@/modules/maintenance/maintenance.routes";
 import { rootRolesPermissionsRouter } from "@/modules/root/root.rolesPermissions.routes";
@@ -149,17 +147,6 @@ rootRouter.use("/folder-builder", folderBuilderRouter);
 // Sprint 7.4.4 - Dynamic Requirement Builder. The parent router already
 // enforces authentication and the hard ROOT role gate.
 rootRouter.use("/requirements", requirementRouter);
-
-// Sprint 7.4.5 - Dynamic Workflow Builder. Management surface under
-// /root/workflows (ROOT-only by construction); the runtime instance surface
-// is mounted separately at /api/v1/workflows so reviewers can advance
-// live instances without ROOT access.
-rootRouter.use("/workflows", workflowRouter);
-
-// Sprint 7.4.6 - Dynamic Form Builder. ROOT-only authoring engine for
-// reusable, versioned form templates assignable to requirements, workflow
-// steps, AACCUP areas, folder templates and future scopes.
-rootRouter.use("/forms", formRouter);
 
 // Sprint 7.4.8 - Platform Setup Wizard. Orchestrates wizard lifecycle only;
 // every piece of business data it creates flows through the existing engines.

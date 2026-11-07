@@ -1,6 +1,21 @@
 import { prisma } from "@/lib/prisma";
+import { numberAreas, areaScopeKey } from "./aaccup.numbering";
 import type { Prisma } from "@prisma/client";
 import { type AaccupAreaDetail, type AaccupAreaListItem } from "@/modules/aaccup/aaccup.types";
+
+export function listSetupOrganization() {
+  return prisma.campus.findMany({
+    where: { deletedAt: null },
+    orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, colleges: {
+      where: { deletedAt: null }, orderBy: { name: "asc" },
+      select: { id: true, name: true, programs: {
+        where: { deletedAt: null }, orderBy: { name: "asc" },
+        select: { id: true, name: true, campusId: true },
+      } },
+    } },
+  });
+}
 
 export function listSetupPrograms() {
   return prisma.program.findMany({
@@ -42,9 +57,10 @@ function fullName(firstName: string, lastName: string): string {
   return `${firstName} ${lastName}`.trim();
 }
 
-function toListItem(row: AreaWithRelations): AaccupAreaListItem {
+function toListItem(row: AreaWithRelations, areaNumber: number): AaccupAreaListItem {
   return {
     id: row.id,
+    areaNumber,
     code: row.code,
     name: row.name,
     description: row.description,
@@ -63,9 +79,21 @@ function toListItem(row: AreaWithRelations): AaccupAreaListItem {
   };
 }
 
-function toDetail(row: AreaWithRelations): AaccupAreaDetail {
+async function numbersFor(rows: AreaWithRelations[]) {
+  if (!rows.length) return new Map<string, number>();
+  const scopes = [...new Map(rows.map((row) => [areaScopeKey(row), {
+    areaSet: row.areaSet, campusId: row.campusId, collegeId: row.collegeId, programId: row.programId,
+  }])).values()];
+  return numberAreas(await prisma.aaccupArea.findMany({
+    where: { OR: scopes },
+    select: { id: true, code: true, createdAt: true, areaSet: true, campusId: true, collegeId: true, programId: true },
+  }));
+}
+
+async function toDetail(row: AreaWithRelations): Promise<AaccupAreaDetail> {
+  const numbers = await numbersFor([row]);
   return {
-    ...toListItem(row),
+    ...toListItem(row, numbers.get(row.id) ?? 1),
     deletedAt: row.deletedAt,
     createdByName: row.createdByUser
       ? fullName(row.createdByUser.firstName, row.createdByUser.lastName)
@@ -93,8 +121,9 @@ export async function list(
     }),
     prisma.aaccupArea.count({ where }),
   ]);
+  const numbers = await numbersFor(rows);
   return {
-    items: rows.map(toListItem),
+    items: rows.map((row) => toListItem(row, numbers.get(row.id) ?? 1)),
     total,
     page,
     pageSize,
@@ -118,7 +147,7 @@ export interface CreateArgs {
   description: string | null;
   campusId: string;
   collegeId: string;
-  programId: string;
+  programId: string | null;
   accreditationCycleId: string | null;
   areaSet: "AACCUP" | "ISO" | "CERT";
   createdBy: string;
@@ -152,7 +181,7 @@ export interface UpdateArgs {
     description?: string | null;
     campusId?: string;
     collegeId?: string;
-    programId?: string;
+    programId?: string | null;
     accreditationCycleId?: string | null;
     areaSet?: "AACCUP" | "ISO" | "CERT";
     status?: "ACTIVE" | "INACTIVE";

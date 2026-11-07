@@ -3,10 +3,7 @@ import {
   Rocket,
   Building2,
   FolderTree,
-  FileCheck2,
-  Workflow,
-  ClipboardList,
-  Users,
+  FileCheck2,  Users,
   CheckCircle2,
   ArrowLeft,
   ArrowRight,
@@ -62,17 +59,9 @@ import {
   createFolderNode,
   listRequirementTemplates,
   createRequirementTemplate,
-  createRequirementNode,
-  listWorkflowDefinitions,
-  assignWorkflowDefinition,
-  listForms,
-  assignForm,
-  listFormAssignmentTargetOptions,
-  type SetupStateView,
+  createRequirementNode,  type SetupStateView,
   type OrgEntity,
-  type OrgRecord,
-  type FormAssignmentTargetType,
-  getOrganizationTree,
+  type OrgRecord,  getOrganizationTree,
 } from "@/services/root"
 import { createSystemUser, listSystemUsers, listSystemRoles } from "@/services/admin"
 import { cn } from "@/lib/utils"
@@ -82,8 +71,6 @@ const STEPS = [
   { id: 2, label: "Organization", icon: Building2 },
   { id: 3, label: "Folders", icon: FolderTree },
   { id: 4, label: "Requirements", icon: FileCheck2 },
-  { id: 5, label: "Workflows", icon: Workflow },
-  { id: 6, label: "Forms", icon: ClipboardList },
   { id: 7, label: "Administrators", icon: Users },
   { id: 8, label: "Summary", icon: CheckCircle2 },
 ]
@@ -115,7 +102,7 @@ export default function RootSetupWizard() {
     try {
       const s = await getSetupState()
       setState(s)
-      setStep(s.status === "COMPLETED" ? 8 : s.currentStep)
+      setStep(s.status === "COMPLETED" ? 8 : [5, 6].includes(s.currentStep) ? 7 : s.status === "IN_PROGRESS" && s.currentStep === 0 ? 1 : s.currentStep)
     } catch (err) {
       setError(errorMessage(err, "Failed to load setup state"))
     } finally {
@@ -135,25 +122,26 @@ export default function RootSetupWizard() {
   const persistProgress = async (nextStep: number) => {
     if (!state || state.status !== "IN_PROGRESS") return
     const completed = new Set(state.completedSteps)
-    if (nextStep > 0) completed.add(nextStep - 1 >= 1 ? nextStep - 1 : 1)
+    if (step > 0) completed.add(step)
     const next = [...completed].sort((a, b) => a - b)
     try {
       const updated = await saveSetupProgress(nextStep, next)
       setState(updated)
+      flash("Setup progress saved")
     } catch {
-      // non-fatal — progress saves on every navigation
+      window.alert("Unable to save setup progress. Please retry before leaving.")
     }
   }
 
   const goNext = async () => {
     if (step >= 8) return
-    await persistProgress(step + 1)
-    setStep(step + 1)
+    const next = STEPS[STEPS.findIndex((item) => item.id === step) + 1]?.id
+    if (next) { await persistProgress(next); setStep(next) }
   }
 
   const goBack = () => {
     if (step <= 1) return
-    setStep(step - 1)
+    setStep(STEPS[STEPS.findIndex((item) => item.id === step) - 1]?.id ?? 1)
   }
 
   const handleStart = async () => {
@@ -189,7 +177,7 @@ export default function RootSetupWizard() {
   if (loading) {
     return (
       <div className="content-padding">
-        <PageHeader title="Platform Setup Wizard" description="Configure a newly installed URS-DMS instance" />
+        <PageHeader title="Platform Setup Wizard" description="Configure a newly installed QA-DMS instance" />
         <div className="min-h-[320px] flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
         </div>
@@ -200,7 +188,7 @@ export default function RootSetupWizard() {
   if (error) {
     return (
       <div className="content-padding">
-        <PageHeader title="Platform Setup Wizard" description="Configure a newly installed URS-DMS instance" />
+        <PageHeader title="Platform Setup Wizard" description="Configure a newly installed QA-DMS instance" />
         <Card className="border-red-200 bg-red-50/50">
           <CardContent className="p-6 text-[13px] text-red-700">{error}</CardContent>
         </Card>
@@ -218,7 +206,7 @@ export default function RootSetupWizard() {
         description={
           completed
             ? "Platform setup completed — reopen the wizard to make changes"
-            : "Configure a newly installed URS-DMS instance"
+            : "Configure a newly installed QA-DMS instance"
         }
         actions={
           completed ? (
@@ -241,7 +229,7 @@ export default function RootSetupWizard() {
       />
 
       {toast && (
-        <div className="mb-4 px-4 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-700">
+        <div role="status" aria-live="polite" className="mb-4 px-4 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-700">
           {toast}
         </div>
       )}
@@ -252,10 +240,10 @@ export default function RootSetupWizard() {
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
               <Rocket className="w-8 h-8 text-primary" />
             </div>
-            <h2 className="text-[18px] font-semibold text-gray-900">Welcome to the URS-DMS Setup Wizard</h2>
+            <h2 className="text-[18px] font-semibold text-gray-900">Welcome to the QA-DMS Setup Wizard</h2>
             <p className="text-[14px] text-gray-500 max-w-lg">
               This guided wizard configures your new instance: university identity, organization structure,
-              folder and requirement templates, workflow and form assignments, and administrator accounts.
+              folder and requirement templates, and administrator accounts.
               Everything you create is stored permanently in the database — you can resume at any time.
             </p>
             <Button className="shadow-soft mt-2" onClick={() => void handleStart()}>
@@ -304,8 +292,6 @@ export default function RootSetupWizard() {
               {step === 2 && <StepOrganization flash={flash} />}
               {step === 3 && <StepFolders flash={flash} />}
               {step === 4 && <StepRequirements flash={flash} />}
-              {step === 5 && <StepWorkflows flash={flash} />}
-              {step === 6 && <StepForms flash={flash} />}
               {step === 7 && <StepAdministrators flash={flash} />}
               {step === 8 && <StepSummary state={state} />}
             </CardContent>
@@ -433,7 +419,7 @@ function StepPlatform({
     <div className="space-y-5">
       <div>
         <h3 className="text-[15px] font-semibold text-gray-900">Platform Information</h3>
-        <p className="text-[13px] text-gray-500 mt-0.5">Identity and defaults for this URS-DMS instance</p>
+        <p className="text-[13px] text-gray-500 mt-0.5">Identity and defaults for this QA-DMS instance</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -526,7 +512,7 @@ function StepPlatform({
           Save Platform Info
         </Button>
       </div>
-      <p className="text-[11px] text-gray-400">Stored in the Configuration Engine (versioned) · logo stored in MinIO. Wizard state: step {state?.currentStep ?? 0}/8</p>
+      <p className="text-[11px] text-gray-400">Platform information is saved with version history. Setup status: {state?.status === "COMPLETED" ? "Completed" : "In progress"}.</p>
     </div>
   )
 }
@@ -642,19 +628,19 @@ function StepOrganization({ flash }: { flash: (message: string) => void }) {
       <div className="rounded-lg border border-gray-100 divide-y divide-gray-100">
         {records.length === 0 && <p className="px-4 py-6 text-center text-[13px] text-gray-400">No {tab}s yet</p>}
         {records.map((record) => (
-          <div key={record.id} className="flex items-center justify-between px-4 py-3">
+          <div key={record.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">
               <p className="text-[14px] font-medium text-gray-900">{record.name}</p>
               <p className="text-[12px] text-gray-400 font-mono">{record.code}{record.campusName ? ` · ${record.campusName}` : ""}{record.collegeName ? ` · ${record.collegeName}` : ""}</p>
             </div>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-700"
+            <div className="record-actions">
+              <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-700"
                 onClick={() => openEdit(record)}>
-                <Pencil className="w-4 h-4" />
+                <Pencil className="w-4 h-4" /> <span>Edit</span>
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600"
+              <Button variant="outline" size="action" className="text-gray-600 hover:text-red-600"
                 onClick={() => void handleDelete(record)}>
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-4 h-4" /> <span>Remove</span>
               </Button>
             </div>
           </div>
@@ -791,8 +777,8 @@ function StepFolders({ flash }: { flash: (message: string) => void }) {
         <Input className="h-10 font-mono" placeholder="Code (e.g. institutional-folder)" value={code} onChange={(e) => setCode(e.target.value)} />
         <div className="flex gap-2">
           <Input className="h-10" placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} />
-          <Button className="h-10 shadow-soft" onClick={() => void handleCreate()} disabled={saving || !name.trim() || !code.trim()}>
-            <Plus className="w-4 h-4" />
+          <Button size="action" className="shadow-soft" onClick={() => void handleCreate()} disabled={saving || !name.trim() || !code.trim()}>
+            <Plus className="w-4 h-4" /> <span>Add</span>
           </Button>
         </div>
       </div>
@@ -889,221 +875,6 @@ function StepRequirements({ flash }: { flash: (message: string) => void }) {
     </div>
   )
 }
-
-function StepWorkflows({ flash }: { flash: (message: string) => void }) {
-  const [definitions, setDefinitions] = useState<Array<{ id: string; name: string; code: string; status: string }>>([])
-  const [selected, setSelected] = useState("")
-  const [targetType, setTargetType] = useState("AACCUP_AREA")
-  const [targetId, setTargetId] = useState("")
-  const [targetOptions, setTargetOptions] = useState<Array<{ id: string; name: string }>>([])
-  const [assigned, setAssigned] = useState<Record<string, string[]>>({})
-  const [saving, setSaving] = useState(false)
-
-  const load = useCallback(async () => {
-    try {
-      const result = await listWorkflowDefinitions({ pageSize: 100 })
-      setDefinitions(result.items)
-    } catch {
-      setDefinitions([])
-    }
-  }, [])
-
-  useEffect(() => { load() }, [load])
-
-  const handleAssign = async () => {
-    if (!selected) return
-    setSaving(true)
-    try {
-      const definition = definitions.find((d) => d.id === selected)
-      if (!definition) return
-      await assignWorkflowDefinition(
-        definition.id,
-        targetType as "AACCUP_AREA" | "UNIVERSITY",
-        targetType === "UNIVERSITY" ? null : targetId,
-      )
-      setAssigned((a) => ({ ...a, [selected]: [...(a[selected] ?? []), targetType === "UNIVERSITY" ? "University (global)" : targetId] }))
-      flash("Workflow assigned")
-    } catch (err) {
-      window.alert(errorMessage(err, "Failed to assign workflow"))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <h3 className="text-[15px] font-semibold text-gray-900">Workflow Assignment</h3>
-        <p className="text-[13px] text-gray-500 mt-0.5">Bind workflow templates to areas or the university scope</p>
-      </div>
-      {definitions.length === 0 && (
-        <p className="text-[13px] text-gray-500 bg-gray-50 rounded-lg p-4">
-          No workflow templates yet — create them in the Workflow Builder first, then return here to assign them.
-        </p>
-      )}
-      {definitions.map((definition) => (
-        <div key={definition.id} className="rounded-lg border border-gray-100 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[14px] font-medium text-gray-900">{definition.name}</p>
-              <p className="text-[12px] text-gray-400 font-mono">{definition.code} · {definition.status}</p>
-            </div>
-            <Badge variant="secondary" className="text-[10px]">
-              {(assigned[definition.id] ?? []).length} assignment(s)
-            </Badge>
-          </div>
-          <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <Select value={selected === definition.id ? targetType : ""} onValueChange={(v) => { setSelected(definition.id); setTargetType(v); setTargetId(""); setTargetOptions([]) }}>
-              <SelectTrigger className="h-9 w-[180px]">
-                <SelectValue placeholder="Scope" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="AACCUP_AREA">AACCUP Area</SelectItem>
-                <SelectItem value="UNIVERSITY">University (global)</SelectItem>
-              </SelectContent>
-            </Select>
-            {selected === definition.id && targetType === "AACCUP_AREA" && (
-              <Button variant="ghost" size="sm" className="h-9 text-[12px] text-primary"
-                onClick={() => {
-                  void (async () => {
-                    const areas = await (await import("@/services/aaccup")).listAllOnlineAaccupAreas({})
-                    setTargetOptions(areas.map((a) => ({ id: a.id, name: a.name })))
-                  })()
-                }}>
-                Load areas
-              </Button>
-            )}
-            {selected === definition.id && targetType === "AACCUP_AREA" && targetOptions.length > 0 && (
-              <Select value={targetId} onValueChange={setTargetId}>
-                <SelectTrigger className="h-9 w-[220px]">
-                  <SelectValue placeholder="Select area" />
-                </SelectTrigger>
-                <SelectContent>
-                  {targetOptions.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>{option.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Button size="sm" className="h-9 shadow-soft" onClick={() => void handleAssign()}
-              disabled={saving || selected !== definition.id || (targetType === "AACCUP_AREA" && !targetId)}>
-              <Plus className="w-4 h-4 mr-1.5" /> Assign
-            </Button>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function StepForms({ flash }: { flash: (message: string) => void }) {
-  const [forms, setForms] = useState<Array<{ id: string; name: string; code: string; status: string }>>([])
-  const [selected, setSelected] = useState("")
-  const [targetType, setTargetType] = useState<FormAssignmentTargetType>("REQUIREMENT_TEMPLATE")
-  const [targetId, setTargetId] = useState("")
-  const [targetOptions, setTargetOptions] = useState<Array<{ id: string; label: string }>>([])
-  const [assigned, setAssigned] = useState<Record<string, number>>({})
-  const [saving, setSaving] = useState(false)
-
-  const load = useCallback(async () => {
-    try {
-      const result = await listForms({ pageSize: 100 })
-      setForms(result.items)
-    } catch {
-      setForms([])
-    }
-  }, [])
-
-  useEffect(() => { load() }, [load])
-
-  const loadTargets = async (type: FormAssignmentTargetType) => {
-    setTargetId("")
-    if (type === "UNIVERSITY") {
-      setTargetOptions([])
-      return
-    }
-    try {
-      setTargetOptions(await listFormAssignmentTargetOptions(type))
-    } catch {
-      setTargetOptions([])
-    }
-  }
-
-  const handleAssign = async () => {
-    if (!selected) return
-    setSaving(true)
-    try {
-      await assignForm(selected, {
-        targetType,
-        targetId: targetType === "UNIVERSITY" ? null : targetId,
-      })
-      setAssigned((a) => ({ ...a, [selected]: (a[selected] ?? 0) + 1 }))
-      flash("Form assigned")
-    } catch (err) {
-      window.alert(errorMessage(err, "Failed to assign form"))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <h3 className="text-[15px] font-semibold text-gray-900">Form Assignment</h3>
-        <p className="text-[13px] text-gray-500 mt-0.5">Attach forms to requirements, workflow steps or areas</p>
-      </div>
-      {forms.length === 0 && (
-        <p className="text-[13px] text-gray-500 bg-gray-50 rounded-lg p-4">
-          No forms yet — create them in the Form Builder first, then return here to assign them.
-        </p>
-      )}
-      {forms.map((form) => (
-        <div key={form.id} className="rounded-lg border border-gray-100 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[14px] font-medium text-gray-900">{form.name}</p>
-              <p className="text-[12px] text-gray-400 font-mono">{form.code} · {form.status}</p>
-            </div>
-            <Badge variant="secondary" className="text-[10px]">{(assigned[form.id] ?? 0)} assignment(s)</Badge>
-          </div>
-          <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <Select value={selected === form.id ? targetType : ""}
-              onValueChange={(v) => { setSelected(form.id); const t = v as FormAssignmentTargetType; setTargetType(t); void loadTargets(t) }}>
-              <SelectTrigger className="h-9 w-[220px]">
-                <SelectValue placeholder="Target type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="REQUIREMENT_TEMPLATE">Requirement Template</SelectItem>
-                <SelectItem value="WORKFLOW_STEP">Workflow Step</SelectItem>
-                <SelectItem value="AACCUP_AREA">AACCUP Area</SelectItem>
-                <SelectItem value="FOLDER_TEMPLATE">Folder Template</SelectItem>
-                <SelectItem value="UNIVERSITY">University (global)</SelectItem>
-              </SelectContent>
-            </Select>
-            {selected === form.id && targetType !== "UNIVERSITY" && (
-              <Select value={targetId} onValueChange={setTargetId}>
-                <SelectTrigger className="h-9 w-[240px]">
-                  <SelectValue placeholder="Select target" />
-                </SelectTrigger>
-                <SelectContent>
-                  {targetOptions.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Button size="sm" className="h-9 shadow-soft" onClick={() => void handleAssign()}
-              disabled={saving || selected !== form.id || (targetType !== "UNIVERSITY" && !targetId)}>
-              <Plus className="w-4 h-4 mr-1.5" /> Assign
-            </Button>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ── Step 7 · Administrators ──────────────────────────────────────────────────
 
 function StepAdministrators({ flash }: { flash: (message: string) => void }) {
   const [admins, setAdmins] = useState<Array<{ id: string; name: string; email: string; programName: string | null }>>([])
@@ -1320,8 +1091,6 @@ function StepSummary({ state }: { state: SetupStateView | null }) {
     { label: "Offices", value: s?.organizations.offices ?? 0 },
     { label: "Folder templates", value: s?.folderTemplates ?? 0 },
     { label: "Requirement templates", value: s?.requirementTemplates ?? 0 },
-    { label: "Workflow definitions", value: s?.workflows ?? 0 },
-    { label: "Form templates", value: s?.forms ?? 0 },
     { label: "Administrators", value: s?.administrators ?? 0 },
     { label: "Config keys configured", value: s?.configKeysConfigured ?? 0 },
   ]

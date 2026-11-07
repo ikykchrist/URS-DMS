@@ -197,18 +197,18 @@ export default function UserRequests({ onBrowseArchive }: UserRequestsProps) {
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-auto">
                     {getStatusBadge(request.status)}
-                    <Button variant="ghost" size="icon" className="size-7 text-slate-400 hover:text-slate-700" title="View details" onClick={() => setSelected(request)}>
-                      <Eye className="size-3.5" />
+                    <Button variant="outline" size="action" className="text-slate-400 hover:text-slate-700" title="View details" onClick={() => setSelected(request)}>
+                      <Eye className="size-3.5" /> <span>View</span>
                     </Button>
                     {request.status === "Pending" && (
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7 text-red-500 hover:bg-red-50"
+                        variant="outline"
+                        size="action"
+                        className="text-red-500 hover:bg-red-50"
                         title="Cancel request"
                         onClick={() => void handleCancel(request)}
                       >
-                        <XCircle className="size-3.5" />
+                        <XCircle className="size-3.5" /> <span>Cancel request</span>
                       </Button>
                     )}
                   </div>

@@ -346,24 +346,24 @@ export default function RootConfigurations() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="record-actions record-actions-table">
                           <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
+                            variant="outline"
+                            size="action"
+                            className=""
                             title="Edit value"
                             onClick={() => openEdit(config)}
                           >
-                            <Edit3 className="w-4 h-4" />
+                            <Edit3 className="w-4 h-4" /> <span>Edit</span>
                           </Button>
                           <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
+                            variant="outline"
+                            size="action"
+                            className=""
                             title="Version history"
                             onClick={() => void openVersions(config)}
                           >
-                            <History className="w-4 h-4" />
+                            <History className="w-4 h-4" /> <span>History</span>
                           </Button>
                           {config.isSystem ? (
                             <span title="Seed-owned configuration cannot be deleted">
@@ -371,13 +371,13 @@ export default function RootConfigurations() {
                             </span>
                           ) : (
                             <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
+                              variant="outline"
+                              size="action"
+                              className="text-red-500 hover:text-red-600"
                               title="Delete (soft)"
                               onClick={() => void handleDelete(config)}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" /> <span>Archive</span>
                             </Button>
                           )}
                         </div>

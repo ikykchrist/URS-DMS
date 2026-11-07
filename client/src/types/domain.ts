@@ -137,6 +137,7 @@ export interface Document {
   checksum?: string | null
   /** Latest AACCUP submission status of this file (rule 17 badges). */
   submissionStatus?: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_REVISION" | null
+  submissionId?: string
   /** Soft-delete timestamp (recycle bin rows). */
   deletedAt?: string | null
 }

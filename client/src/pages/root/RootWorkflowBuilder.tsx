@@ -1167,8 +1167,8 @@ export default function RootWorkflowBuilder() {
                                   <TableCell className="text-right">
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="sm" disabled={Boolean(busy)}>
-                                          <MoreVertical />
+                                        <Button className="h-8 gap-1.5 px-2.5 text-xs whitespace-nowrap" variant="outline" size="sm" disabled={Boolean(busy)}>
+                                          <MoreVertical /> <span>Actions</span>
                                         </Button>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="end">
@@ -1267,8 +1267,8 @@ export default function RootWorkflowBuilder() {
                                     <TableCell className="text-right">
                                       <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" size="sm" disabled={Boolean(busy)}>
-                                            <MoreVertical />
+                                          <Button className="h-8 gap-1.5 px-2.5 text-xs whitespace-nowrap" variant="outline" size="sm" disabled={Boolean(busy)}>
+                                            <MoreVertical /> <span>Actions</span>
                                           </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
@@ -1378,8 +1378,8 @@ export default function RootWorkflowBuilder() {
                       </div>
                       <div className="flex flex-shrink-0 items-center gap-2">
                         <Badge variant="secondary">priority {assignment.priority}</Badge>
-                        <Button
-                          variant="ghost"
+                        <Button className="h-8 gap-1.5 px-2.5 text-xs whitespace-nowrap"
+                          variant="outline"
                           size="sm"
                           onClick={() =>
                             void run(
@@ -1390,7 +1390,7 @@ export default function RootWorkflowBuilder() {
                           }
                           disabled={Boolean(busy)}
                         >
-                          <Trash2 className="h-4 w-4 text-red-500" />
+                          <Trash2 className="h-4 w-4 text-red-500" /> <span>Unassign</span>
                         </Button>
                       </div>
                     </div>

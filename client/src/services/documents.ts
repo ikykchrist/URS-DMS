@@ -1,5 +1,6 @@
 import { API_BASE, apiGet, apiGetPage, apiPost, apiPatch, apiDelete, getAccessToken } from "@/lib/http"
 import { sha256 as sha256Buffer } from "@/lib/sha256"
+import { toast } from "@/lib/toast"
 import type { Document, DocumentStatus } from "@/types/domain"
 
 interface OnlineDocumentRow {
@@ -446,6 +447,7 @@ export async function getOnlineDocumentThumbnail(document: Document): Promise<st
 export async function openOnlineDocument(document: Document, preview = false): Promise<void> {
   const url = await getOnlineDocumentUrl(document, preview)
   window.open(url, "_blank", "noopener,noreferrer")
+  toast.success(preview ? "Preview link opened" : "Download link opened")
 }
 
 // ── Repository folders (server-backed; replaces the hardcoded UI tree) ──────
@@ -682,6 +684,7 @@ export async function downloadFolderZip(folderId: string, folderName: string): P
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
+  toast.success("Folder ZIP prepared. Download started.")
 }
 
 /** Permanently delete a folder subtree (irreversible). */

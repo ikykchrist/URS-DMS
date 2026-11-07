@@ -19,6 +19,7 @@ import {
   restoreSubmissionHandler,
   reviewSubmissionHandler,
   updateSubmissionHandler,
+  unsubmitSubmissionHandler,
 } from "@/modules/aaccup/submissions/aaccup.submissions.controller";
 
 // =============================================================================
@@ -86,6 +87,13 @@ aaccupSubmissionsRouter.post(
 );
 
 // DELETE /aaccup/submissions/:id  (soft delete = archive)
+aaccupSubmissionsRouter.post(
+  "/:id/unsubmit",
+  requirePermission("aaccup.submission.create"),
+  validateParams(submissionIdParamSchema),
+  asyncHandler(unsubmitSubmissionHandler),
+);
+
 aaccupSubmissionsRouter.delete(
   "/:id",
   requirePermission("aaccup.submission.archive"),

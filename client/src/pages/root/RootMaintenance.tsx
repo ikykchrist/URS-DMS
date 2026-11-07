@@ -202,11 +202,11 @@ export default function RootMaintenance() {
         <Card className="border-border/70 shadow-soft">
           <CardContent className="p-5 md:p-6">
             <p className="text-[12px] text-gray-500">MinIO</p>
-            <p className="text-[18px] font-semibold text-gray-900 mt-1">
+            <div className="text-[18px] font-semibold text-gray-900 mt-1">
               <Badge variant={stats?.minio.status === "up" ? "success" : "danger"}>
                 {stats?.minio.status === "up" ? "Connected" : "Down"}
               </Badge>
-            </p>
+            </div>
             <p className="text-[11px] text-gray-400 mt-1">Server capacity: not exposed (untrustworthy at this layer)</p>
           </CardContent>
         </Card>

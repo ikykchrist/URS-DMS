@@ -554,13 +554,13 @@ function RequirementBranch({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
+              variant="outline"
+              size="action"
+              className=""
               disabled={busy}
               aria-label={`Actions for ${node.name}`}
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreHorizontal className="h-4 w-4" /> <span>Actions</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
@@ -2199,23 +2199,23 @@ export default function RootRequirementBuilder() {
                       </p>
                     </div>
                     <div className="flex gap-1">
-                      <Button
+                      <Button className="h-8 gap-1.5 px-2.5 text-xs whitespace-nowrap"
                         size="sm"
-                        variant="ghost"
+                        variant="outline"
                         onClick={() => {
                           setEditingRule(rule);
                           setRuleForm(ruleFormFromValidation(rule));
                         }}
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-3.5 w-3.5" /> <span>Edit</span>
                       </Button>
                       <Button
-                        size="sm"
-                        variant="ghost"
+                        size="action"
+                        variant="outline"
                         className="text-red-600"
                         onClick={() => void archiveRule(rule.id)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3.5 w-3.5" /> <span>Remove</span>
                       </Button>
                     </div>
                   </div>

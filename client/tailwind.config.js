@@ -65,8 +65,10 @@ export default {
         'card': '18px',
       },
       boxShadow: {
-        'soft': '0 1px 2px rgba(11, 31, 77, 0.04), 0 4px 16px rgba(11, 31, 77, 0.06)',
-        'lift': '0 2px 4px rgba(11, 31, 77, 0.05), 0 12px 28px rgba(11, 31, 77, 0.10)',
+        'soft': 'var(--elevation-1)',
+        'lift': 'var(--elevation-2)',
+        'floating': 'var(--elevation-3)',
+        'overlay': 'var(--elevation-4)',
         'navy': '0 2px 12px rgba(11, 31, 77, 0.18)',
       },
     },

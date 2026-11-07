@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { Bell, Check, CheckCheck, Search, FileText, GraduationCap, Inbox, Upload, AlertTriangle, RotateCcw, type LucideIcon } from "lucide-react"
@@ -104,8 +105,9 @@ export default function UserNotifications() {
     try {
       await notificationService.markRead(id)
       setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n))
+      toast.success("Notification marked as read")
     } catch {
-      // The local list remains unchanged when the server update fails.
+      toast.error("Unable to mark notification as read")
     }
   }
 
@@ -114,8 +116,9 @@ export default function UserNotifications() {
     try {
       await notificationService.markAllReadForUser()
       setNotifs((prev) => prev.map((n) => ({ ...n, read: true })))
+      toast.success("All notifications marked as read")
     } catch {
-      // The local list remains unchanged when the server update fails.
+      toast.error("Unable to mark notifications as read")
     }
   }
 

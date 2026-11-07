@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/Label"
 import { Switch } from "@/components/ui/Switch"
 import { useAuth } from "@/context/AuthContext"
 import { isAdminRole } from "@/lib/permissions"
+import { toast } from "@/lib/toast"
 
 export function LoginForm() {
   const { login, isLoading, rememberMe, setRememberMe } = useAuth()
@@ -46,6 +47,7 @@ export function LoginForm() {
     const result = await login(email, password)
 
     if (result.success) {
+      toast.success("Signed in successfully")
       if (isAdminRole(result.role)) {
         navigate("/dashboard")
       } else {

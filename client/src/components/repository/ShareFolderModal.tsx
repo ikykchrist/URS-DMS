@@ -142,7 +142,7 @@ export function ShareFolderModal({ open, folderId, folderName, onOpenChange, onS
                   <div key={share.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5">
                     <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">{share.recipientType === "PROGRAM" ? `${share.program?.name || "Program"}` : share.user ? displayName(share.user) : "User"}</p><p className="text-xs text-gray-500">{share.recipientType === "PROGRAM" ? "Current program members" : "Direct access"}</p></div>
                     <Select value={share.permission === "WRITE" ? "EDITOR" : "VIEWER"} onValueChange={(value) => void changeShare(share, value as FolderSharePermission)}><SelectTrigger className="h-8 w-24 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="VIEWER">Viewer</SelectItem><SelectItem value="EDITOR">Editor</SelectItem></SelectContent></Select>
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" aria-label="Remove access" onClick={() => void removeShare(share)}><Trash2 className="h-4 w-4" /></Button>
+                    <Button type="button" variant="outline" size="action" className="text-gray-600 hover:text-red-600" aria-label="Remove access" onClick={() => void removeShare(share)}><Trash2 className="h-4 w-4" /> <span>Remove</span></Button>
                   </div>
                 ))}
               </div>

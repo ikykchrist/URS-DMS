@@ -12,7 +12,7 @@ Routes validate parameters/body/query with Zod middleware, apply `authenticate` 
 
 `/health`, `/files`, `/auth`, `/users`, `/documents`, `/folders`, `/requests`, `/aaccup`, `/dashboard`, `/analytics`, `/audit`, `/reports`, `/admin`, `/notifications`, `/workflows`, `/repositories`, `/root`, and `/assistant` are mounted under `/api/v1`.
 
-`admin` contains users, roles, permissions, colleges, departments, and settings. `root` contains overview/configuration, organization, folder builder, requirement builder, workflow definition work, form builder, roles/permissions, and setup. AACCUP has area, requirement, submission, task, analytics, and compliance services.
+`admin` contains users, roles, permissions, colleges, departments, and settings. `root` contains overview/configuration, organization, folder builder, requirement builder, roles/permissions, and setup. Root workflow/form authoring mounts are removed from the current build; existing workflow runtime adapters remain available internally. AACCUP has area, requirement, submission, task, analytics, and compliance services.
 
 ## Cross-cutting behavior
 

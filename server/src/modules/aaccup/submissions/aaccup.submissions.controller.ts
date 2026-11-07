@@ -68,6 +68,10 @@ export async function archiveSubmissionHandler(
   sendSuccess(res, submission);
 }
 
+export async function unsubmitSubmissionHandler(req: Request, res: Response): Promise<void> {
+  sendSuccess(res, await service.unsubmitSubmission(req.params.id!, toActor(req)));
+}
+
 export async function reviewSubmissionHandler(
   req: Request,
   res: Response,

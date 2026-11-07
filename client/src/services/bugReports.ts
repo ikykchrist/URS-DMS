@@ -1,4 +1,5 @@
 import { apiGet, apiGetPage, apiPost } from "@/lib/http"
+import { toast } from "@/lib/toast"
 
 export const BUG_REPORT_TABS = [
   "Dashboard",
@@ -49,6 +50,7 @@ export async function downloadBugReportAttachment(id: string) {
   link.href = result.url
   link.rel = "noopener"
   link.click()
+  toast.success("Attachment download link opened")
 }
 
 export function listBugReports(page = 1, pageSize = 25) {

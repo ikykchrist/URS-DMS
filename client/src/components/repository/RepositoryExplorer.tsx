@@ -56,6 +56,7 @@ import {
 } from "@/components/ui/Select"
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "@/lib/toast"
+import { runBulkAction } from "@/lib/actionFeedback"
 import {
   listOnlineDocuments,
   listRepositoryFolders,
@@ -881,6 +882,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           )
         }
         setStatus("Complete", 1)
+        toast.success(`"${file.name}" uploaded successfully`)
         await load()
       } catch (err) {
         if (err instanceof Error && err.message === "Upload canceled") {
@@ -1033,6 +1035,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
 
   const submitFileCopyDialog = async () => {
     if (!fileCopyDialog) return
+    if (fileCopyDialog.conflictMode === "cancel") { setFileCopyDialog(null); return }
     try {
       const targetFolderId = fileCopyDialog.targetFolderId === "root" ? null : fileCopyDialog.targetFolderId
       for (const doc of fileCopyDialog.docs) {
@@ -1051,8 +1054,10 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
     try {
       if (favorites.some((f) => f.id === doc.id)) {
         await unfavoriteOnlineDocument(doc.id)
+        toast.success("Removed from Favorites")
       } else {
         await favoriteOnlineDocument(doc.id)
+        toast.success("Added to Favorites")
       }
       await load()
     } catch (err) {
@@ -1096,6 +1101,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
 
   const submitRestoreDialog = async () => {
     if (!restoreDialog) return
+    if (restoreConflictMode === "cancel") { setRestoreDialog(null); return }
     const { type, id } = restoreDialog
     try {
       const targetFolderId = restoreTargetFolderId === "original" ? undefined
@@ -1118,15 +1124,13 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
   const emptyRecycleBin = async () => {
     setEmptyBinConfirm(false)
     try {
-      for (const folder of deletedFolders) await permanentDeleteRepositoryFolder(folder.id)
-      for (const doc of deletedDocs) {
-        try {
-          await permanentDeleteOnlineDocument(doc.id)
-        } catch {
-          // snapshot-guarded files stay
-        }
-      }
-      toast.success("Recycle Bin emptied")
+      const entries = [...deletedFolders.map((folder) => ({ ...folder, kind: "folder" })), ...deletedDocs.map((doc) => ({ ...doc, kind: "file" }))]
+      await runBulkAction(entries.map((entry) => entry.id), async (id) => {
+        const entry = entries.find((item) => item.id === id)!
+        if (entry.kind === "folder") await permanentDeleteRepositoryFolder(id)
+        else await permanentDeleteOnlineDocument(id)
+        return true
+      }, "item(s) permanently deleted")
       await load()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Empty failed")
@@ -1136,8 +1140,10 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
   const submitBulkDelete = async () => {
     if (selectedIds.size === 0) return
     try {
-      for (const id of selectedIds) await deleteOnlineDocument(id)
-      toast.success(`${selectedIds.size} file(s) moved to Recycle Bin`)
+      await runBulkAction(selectedIds, async (id) => {
+        await deleteOnlineDocument(id)
+        return true
+      }, "file(s) moved to Recycle Bin")
       setSelectedIds(new Set())
       await load()
     } catch (err) {
@@ -1164,16 +1170,23 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
 
   const submitBulkCopyDialog = async () => {
     if (!bulkCopyDialog) return
+    if (bulkCopyDialog.conflictMode === "cancel") { setBulkCopyDialog(null); return }
     try {
       const targetFolderId = bulkCopyDialog.targetFolderId === "root" ? null : bulkCopyDialog.targetFolderId
+      let queued = 0
+      let copied = 0
       for (const item of bulkCopyDialog.items) {
         if (item.type === "folder") {
-          await copyRepositoryFolder(item.id, { targetParentId: targetFolderId, conflictMode: bulkCopyDialog.conflictMode === "replace" ? "merge" : bulkCopyDialog.conflictMode })
+          const result = await copyRepositoryFolder(item.id, { targetParentId: targetFolderId, conflictMode: bulkCopyDialog.conflictMode === "replace" ? "merge" : bulkCopyDialog.conflictMode })
+          if (result.job) { queued++; setJobs((previous) => [result.job!, ...previous]) }
+          else if (result.folder) copied++
         } else {
           await copyOnlineDocument(item.id, { targetFolderId, conflictMode: bulkCopyDialog.conflictMode })
+          copied++
         }
       }
-      toast.success(`${bulkCopyDialog.items.length} item(s) copied`)
+      if (copied) toast.success(`${copied} item(s) copied`)
+      if (queued) toast.success(`${queued} folder copy job(s) started in the background`)
       setBulkCopyDialog(null)
       setSelectedIds(new Set())
       await load()
@@ -1396,8 +1409,8 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
   const ActionMenu = ({ children, label = "More actions" }: { children: React.ReactNode; label?: string }) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500" aria-label={label} title={label}>
-          <MoreHorizontal className="w-4 h-4" />
+        <Button variant="outline" size="action" className="text-gray-600" aria-label={label} title={label}>
+          <MoreHorizontal className="w-4 h-4" /> <span>Actions</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[180px]">
@@ -1571,13 +1584,13 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
 
   const recycleActions = (type: "folder" | "file", id: string, name: string) => (
     <>
-      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-emerald-600" title="Restore"
+      <Button variant="outline" size="action" className="text-gray-600 hover:text-emerald-600" title="Restore"
         onClick={() => void submitRestore(type, id)}>
-        <ArchiveRestore className="w-3.5 h-3.5" />
+        <ArchiveRestore className="w-3.5 h-3.5" /> <span>Restore</span>
       </Button>
-      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-600" title="Permanently delete"
+      <Button variant="outline" size="action" className="text-gray-600 hover:text-red-600" title="Permanently delete"
         onClick={() => setPermanentTarget({ type, id, name })}>
-        <Trash2 className="w-3.5 h-3.5" />
+        <Trash2 className="w-3.5 h-3.5" /> <span>Delete permanently</span>
       </Button>
     </>
   )
@@ -1603,9 +1616,9 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
         <CardContent className="p-3">
           <div className="flex items-center justify-between mb-2 px-1">
             <span className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide">Repository</span>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" title="New folder"
+            <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-700" title="New folder"
               onClick={openCreateFolder}>
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4" /> <span>New folder</span>
             </Button>
           </div>
           <div className="space-y-0.5 mb-3">
@@ -1886,9 +1899,9 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
                       </Button>
                     )}
                     {item.status === "Failed" && (
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-primary-600" title="Retry"
+                      <Button variant="outline" size="action" className="text-gray-600 hover:text-primary-600" title="Retry"
                         onClick={() => performUpload(item)}>
-                        <RefreshCw className="w-3.5 h-3.5" />
+                        <RefreshCw className="w-3.5 h-3.5" /> <span>Retry</span>
                       </Button>
                     )}
                   </div>
@@ -2081,7 +2094,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
       <FilePreviewModal
         document={preview}
         onClose={() => setPreview(null)}
-        onRename={async (doc, title) => { await renameOnlineDocument(doc.id, title); setPreview(null); await load() }}
+        onRename={async (doc, title) => { await renameOnlineDocument(doc.id, title); toast.success("File renamed"); setPreview(null); await load() }}
         onMove={(doc) => { setPreview(null); openMove("file", doc.id) }}
         onDelete={(doc) => { setPreview(null); setDeleteTarget({ type: "file", id: doc.id, name: doc.name }) }}
       />
@@ -2235,7 +2248,7 @@ export const RepositoryExplorer = forwardRef<RepositoryExplorerHandle>(function 
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setCustomizeTarget(null)} className="h-10 px-5">Cancel</Button>
-            <Button onClick={() => { if (customizeTarget) { void customizeFolder(customizeTarget.id, { color: customizeColor }).then(() => { setCustomizeTarget(null); void load() }).catch((e: Error) => toast.error(e.message)) } }} className="h-10 px-5">Save</Button>
+            <Button onClick={() => { if (customizeTarget) { void customizeFolder(customizeTarget.id, { color: customizeColor }).then(() => { toast.success("Folder appearance saved"); setCustomizeTarget(null); void load() }).catch((e: Error) => toast.error(e.message)) } }} className="h-10 px-5">Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

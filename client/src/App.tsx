@@ -97,8 +97,6 @@ const RootUsers = lazy(() => import("@/pages/root/RootUsers"))
 const RootOrganization = lazy(() => import("@/pages/root/RootOrganization"))
 const RootFolderBuilder = lazy(() => import("@/pages/root/RootFolderBuilder"))
 const RootRequirementBuilder = lazy(() => import("@/pages/root/RootRequirementBuilder"))
-const RootWorkflowBuilder = lazy(() => import("@/pages/root/RootWorkflowBuilder"))
-const RootFormBuilder = lazy(() => import("@/pages/root/RootFormBuilder"))
 const RootSetupWizard = lazy(() => import("@/pages/root/RootSetupWizard"))
 import { UserSidebar } from "@/components/user/UserSidebar"
 import { UserTopNav } from "@/components/user/UserTopNav"
@@ -609,17 +607,17 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
                     <TableCell className="text-gray-500 text-[13px] whitespace-nowrap hidden sm:table-cell">{formatDate(submission.dateSubmitted)}</TableCell>
                     <TableCell className="whitespace-nowrap">{getStatusBadge(submission.status)}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-0.5">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900" onClick={() => onNavigate('requests')}>
-                          <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                      <div className="record-actions record-actions-table">
+                        <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-900" onClick={() => onNavigate('requests')}>
+                          <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span>View</span>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900" onClick={() => handleDownload(submission)}>
-                          <Download className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                        <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-900" onClick={() => handleDownload(submission)}>
+                          <Download className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span>Download</span>
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900">
-                              <MoreHorizontal className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                            <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-900">
+                              <MoreHorizontal className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span>Actions</span>
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44">
@@ -687,8 +685,6 @@ const ADMIN_PAGE_TITLES: Record<string, string> = {
   "root-organization": "Organization",
   "root-folder-builder": "Folder Builder",
   "root-requirement-builder": "Requirement Builder",
-  "root-workflow-builder": "Workflow Builder",
-  "root-form-builder": "Form Builder",
   "root-setup-wizard": "Setup Wizard",
   "root-config": "Configuration Engine",
   "root-maintenance": "Storage Maintenance",
@@ -763,7 +759,7 @@ function AppContent() {
       "/notifications": "notifications", "/aaccup": "aaccup", "/aaccup-management": "aaccup", "/iso": "iso",
       "/root": "root", "/root-organization": "root-organization",
       "/root-folder-builder": "root-folder-builder", "/root-requirement-builder": "root-requirement-builder",
-      "/root-workflow-builder": "root-workflow-builder", "/root-form-builder": "root-form-builder",
+
       "/root-setup-wizard": "root-setup-wizard", "/root-config": "root-config",
       "/root-maintenance": "root-maintenance", "/root-roles-permissions": "root-roles-permissions", "/root-audit": "root-audit",
       "/root-users": "root-users",
@@ -781,8 +777,8 @@ function AppContent() {
 
   useEffect(() => {
     document.title = ADMIN_PAGE_TITLES[activePage]
-       ? `${ADMIN_PAGE_TITLES[activePage]} | URS-DMS`
-      : "URS-DMS"
+       ? `${ADMIN_PAGE_TITLES[activePage]} | QA-DMS`
+      : "QA-DMS"
   }, [activePage])
 
   const handleNavigate = (page: string, query?: Record<string, string>) => {
@@ -803,10 +799,7 @@ function AppContent() {
       root: "/root",
       "root-organization": "/root-organization",
       "root-folder-builder": "/root-folder-builder",
-      "root-requirement-builder": "/root-requirement-builder",
-      "root-workflow-builder": "/root-workflow-builder",
-      "root-form-builder": "/root-form-builder",
-      "root-setup-wizard": "/root-setup-wizard",
+      "root-requirement-builder": "/root-requirement-builder",      "root-setup-wizard": "/root-setup-wizard",
       "root-config": "/root-config",
       "root-maintenance": "/root-maintenance",
       "root-roles-permissions": "/root-roles-permissions",
@@ -887,10 +880,7 @@ function AppContent() {
           {page === "root" && <RootDashboard />}
           {page === "root-organization" && <RootOrganization />}
           {page === "root-folder-builder" && <RootFolderBuilder />}
-          {page === "root-requirement-builder" && <RootRequirementBuilder />}
-          {page === "root-workflow-builder" && <RootWorkflowBuilder />}
-          {page === "root-form-builder" && <RootFormBuilder />}
-          {page === "root-setup-wizard" && <RootSetupWizard />}
+          {page === "root-requirement-builder" && <RootRequirementBuilder />}          {page === "root-setup-wizard" && <RootSetupWizard />}
           {page === "root-config" && <RootConfigurations />}
           {page === "root-maintenance" && <RootMaintenance />}
           {page === "root-roles-permissions" && <RootRolesPermissions />}
@@ -930,6 +920,15 @@ function UserAppContent() {
     return saved ? JSON.parse(saved) : false
   })
   const [activePage, setActivePage] = useState("dashboard")
+  const [compactMode, setCompactMode] = useState(() => localStorage.getItem("userCompactMode") === "true")
+  useEffect(() => {
+    const syncDisplay = () => {
+      setSidebarCollapsed(localStorage.getItem("userSidebarCollapsed") === "true")
+      setCompactMode(localStorage.getItem("userCompactMode") === "true")
+    }
+    window.addEventListener("urs:display-preferences", syncDisplay)
+    return () => window.removeEventListener("urs:display-preferences", syncDisplay)
+  }, [])
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [attention, setAttention] = useState<UserAttention>({
@@ -998,8 +997,8 @@ function UserAppContent() {
 
   useEffect(() => {
     document.title = USER_PAGE_TITLES[activePage]
-       ? `${USER_PAGE_TITLES[activePage]} | URS-DMS`
-      : "URS-DMS"
+       ? `${USER_PAGE_TITLES[activePage]} | QA-DMS`
+      : "QA-DMS"
   }, [activePage])
 
   const handleToggleSidebar = () => {
@@ -1059,7 +1058,7 @@ function UserAppContent() {
           onNavigate={handleNavigate}
           isUser
         />
-        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
+        <main className={cn("flex-1 overflow-y-auto pb-16 lg:pb-0", compactMode && "user-compact-mode")}>
           {activePage === "dashboard" && <UserDashboard onNavigate={handleNavigate} />}
           {activePage === "documents" && <UserDocuments />}
           {activePage === "requests" && (
@@ -1219,11 +1218,11 @@ function AppRoutes() {
       />
       <Route
         path="/root-workflow-builder"
-        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={<Navigate to="/root" replace />}
       />
       <Route
         path="/root-form-builder"
-        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={<Navigate to="/root" replace />}
       />
       <Route
         path="/root-setup-wizard"

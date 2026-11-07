@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState, useEffect, useCallback } from "react"
 import { useSearchParams } from "react-router-dom"
 import {
@@ -153,6 +154,7 @@ export default function RequestsReview() {
       await handleRequest(target.id, decision, decision === "Rejected" ? note.trim() : (note.trim() || undefined))
       closeDecision()
       await load()
+      toast.success(decision === "Approved" ? "Request approved" : "Request rejected")
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to update the request")
     } finally {
@@ -302,24 +304,24 @@ export default function RequestsReview() {
                   <TableCell>{getStatusBadge(request.status)}</TableCell>
                   <TableCell className="text-right">
                     {request.status === "Pending" ? (
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="record-actions record-actions-table">
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
+                          variant="outline"
+                          size="action"
+                          className="text-emerald-600 hover:bg-emerald-50"
                           title="Approve"
                           onClick={() => openDecision(request, "Approved")}
                         >
-                          <CheckCircle className="w-4 h-4" />
+                          <CheckCircle className="w-4 h-4" /> <span>Approve</span>
                         </Button>
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:bg-red-50"
+                          variant="outline"
+                          size="action"
+                          className="text-red-600 hover:bg-red-50"
                           title="Reject"
                           onClick={() => openDecision(request, "Rejected")}
                         >
-                          <XCircle className="w-4 h-4" />
+                          <XCircle className="w-4 h-4" /> <span>Reject</span>
                         </Button>
                       </div>
                     ) : (

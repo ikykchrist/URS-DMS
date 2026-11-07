@@ -1,5 +1,9 @@
 # Project Status (URS-DMS)
 
+QA update (5 November 2026): success-feedback coverage and focused QA fixes implemented; ROOT/admin browser smoke checks and success/export feedback verified. Full browser acceptance remains pending faculty login and mutation workflow coverage. See [QA feedback pass](../QA_FEEDBACK_PASS.md) for checks and limits.
+
+UI polish (5 November 2026): shared SaaS button lighting, four theme-aware shadow levels, faster transitions, stable form/table motion, and reduced-motion delay removal. Browser checks covered light/dark dialogs, menus, enabled/disabled buttons, and 120/140/180ms control/menu/dialog timings; see [UI guidelines](../ui-guidelines.md).
+
 > Sprint completion history only. Current state → `AI_CONTEXT.md`. Future →
 > `PROJECT_ROADMAP.md`. Append every completed sprint here (newest first).
 

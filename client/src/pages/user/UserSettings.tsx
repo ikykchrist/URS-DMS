@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState } from "react"
+import { toast } from "@/lib/toast"
 import { Sun, Moon, Smartphone } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
@@ -7,60 +8,43 @@ import { Label } from "@/components/ui/Label"
 import { Switch } from "@/components/ui/Switch"
 import { useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
-import { getSystemSettings } from "@/services/admin"
 import type { AppSettings } from "@/types/domain"
 
 export default function UserSettings() {
   const { theme, setTheme } = useTheme()
-  const [settings, setSettings] = useState<AppSettings | null>(null)
-  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
-    const saved = localStorage.getItem("userViewMode")
-    return (saved as "grid" | "list") || "list"
+  const [notifications, setNotifications] = useState<AppSettings["notifications"]>(() => {
+    try { return { submissions: true, approvals: true, announcements: true, security: true, ...JSON.parse(localStorage.getItem("notificationPreferences") || "{}") } }
+    catch { return { submissions: true, approvals: true, announcements: true, security: true } }
   })
-  const [compactMode, setCompactMode] = useState(false)
-  const [collapsedSidebar, setCollapsedSidebar] = useState(false)
-  const fetchSettings = useCallback(async () => {
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => localStorage.getItem("userViewMode") === "grid" ? "grid" : "list")
+  const [compactMode, setCompactMode] = useState(() => localStorage.getItem("userCompactMode") === "true")
+  const [collapsedSidebar, setCollapsedSidebar] = useState(() => localStorage.getItem("userSidebarCollapsed") === "true")
+
+  const handleToggle = (field: "compactMode" | "collapsedSidebar", value: boolean) => {
     try {
-      const s = await getSystemSettings()
-      if (s) {
-        setSettings({
-          id: "system",
-          theme: "light",
-          uploadSizeLimit: Number(s.maxUploadSizeBytes ?? 0),
-          retentionDays: 0,
-          language: "en",
-          timezone: "",
-          dateFormat: "mdy",
-          defaultDashboardView: "overview",
-           notifications: { submissions: true, approvals: true, announcements: true, security: true },
-          compactMode: false,
-          collapsedSidebar: false,
-          storageQuotaGB: 10,
-        })
-        setCompactMode(false)
-        setCollapsedSidebar(false)
-      }
-    } catch {
-      // Settings are optional; retain the local defaults when unavailable.
-    }
-  }, [])
-
-  useEffect(() => { fetchSettings() }, [fetchSettings])
-
-  const handleToggle = (field: keyof AppSettings, value: boolean) => {
-    const patch = { [field]: value }
-    setSettings((prev) => prev ? { ...prev, ...patch } : prev)
+      localStorage.setItem(field === "compactMode" ? "userCompactMode" : "userSidebarCollapsed", String(value))
+      if (field === "compactMode") setCompactMode(value)
+      else setCollapsedSidebar(value)
+      window.dispatchEvent(new Event("urs:display-preferences"))
+      toast.success("Display preference saved on this device")
+    } catch { toast.error("Unable to save display preference") }
   }
 
   const handleNotificationToggle = (key: keyof AppSettings["notifications"], value: boolean) => {
-    if (!settings) return
-    const newNotifs = { ...settings.notifications, [key]: value }
-    setSettings((prev) => prev ? { ...prev, notifications: newNotifs } : prev)
+    try {
+      const next = { ...notifications, [key]: value }
+      localStorage.setItem("notificationPreferences", JSON.stringify(next))
+      setNotifications(next)
+      toast.success("Notification preference saved on this device")
+    } catch { toast.error("Unable to save notification preference") }
   }
 
   const handleViewModeChange = (mode: "grid" | "list") => {
-    setViewMode(mode)
-    localStorage.setItem("userViewMode", mode)
+    try {
+      localStorage.setItem("userViewMode", mode)
+      setViewMode(mode)
+      toast.success("Default document view saved on this device")
+    } catch { toast.error("Unable to save default view") }
   }
 
   return (
@@ -85,7 +69,7 @@ export default function UserSettings() {
                   <p className="text-[12px] text-gray-500">{desc}</p>
                 </div>
                 <Switch
-                  checked={settings?.notifications[key as keyof typeof settings.notifications] ?? true}
+                  checked={notifications[key as keyof typeof notifications]}
                   onCheckedChange={(v) => handleNotificationToggle(key as keyof AppSettings["notifications"], v)}
                 />
               </div>
@@ -140,7 +124,7 @@ export default function UserSettings() {
               ].map(({ mode, label, desc, icon: Icon, preview }) => (
                 <button
                   key={mode}
-                  onClick={() => setTheme(mode)}
+                  onClick={() => { setTheme(mode); toast.success("Theme updated") }}
                   className={cn(
                     "p-4 rounded-xl border-2 transition-all text-left",
                     theme === mode
@@ -164,7 +148,7 @@ export default function UserSettings() {
             <CardTitle className="text-[15px] font-semibold text-gray-900">About</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-[13px] text-gray-500">
-            <p><strong className="text-gray-900">URS-DMS</strong> v1.0.0</p>
+            <p><strong className="text-gray-900">QA-DMS</strong> v2.0.0</p>
             <p>University Research Services - Document Management System</p>
             <p>Developed for URS accreditation management</p>
           </CardContent>

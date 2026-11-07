@@ -22,7 +22,7 @@ export default function ResetPasswordPage() {
   const passwordValid = useMemo(() => passwordMeetsRequirements(password), [password])
   const formValid = Boolean(token && passwordValid && password === confirmPassword)
 
-  useEffect(() => { document.title = "Reset Password | URS-DMS" }, [])
+  useEffect(() => { document.title = "Reset Password | QA-DMS" }, [])
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -47,11 +47,11 @@ export default function ResetPasswordPage() {
       <AuthCard className="w-full max-w-md">
         <AuthCardHeader>
           <AuthCardTitle>Set a new password</AuthCardTitle>
-          <AuthCardDescription>Choose a strong password for your URS-DMS account.</AuthCardDescription>
+          <AuthCardDescription>Choose a strong password for your QA-DMS account.</AuthCardDescription>
         </AuthCardHeader>
         {error && <div className="mb-5 flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
         {success ? (
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-5 text-center text-sm text-emerald-700"><CheckCircle2 className="mx-auto mb-3 h-7 w-7" />Password reset successfully. Redirecting you to sign in...</div>
+          <div role="status" aria-live="polite" className="rounded-xl border border-emerald-100 bg-emerald-50 p-5 text-center text-sm text-emerald-700"><CheckCircle2 className="mx-auto mb-3 h-7 w-7" />Password reset successfully. Redirecting you to sign in...</div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2"><Label htmlFor="new-password">New password</Label><PasswordInput id="new-password" value={password} onChange={(event) => setPassword(event.target.value)} /></div>

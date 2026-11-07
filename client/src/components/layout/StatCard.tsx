@@ -12,16 +12,18 @@ interface StatCardProps {
   }
   className?: string
   onClick?: () => void
+  compact?: boolean
 }
 
-export function StatCard({ title, value, icon, trend, className, onClick }: StatCardProps) {
+export function StatCard({ title, value, icon, trend, className, onClick, compact = false }: StatCardProps) {
   return (
     <Card className={cn(
       "group min-h-[132px] border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200",
       onClick && "cursor-pointer",
+      compact && "min-h-0",
       className
     )}>
-      <CardContent className="flex min-h-[132px] flex-col p-5 md:p-6">
+      <CardContent className={cn("flex min-h-[132px] flex-col p-5 md:p-6", compact && "min-h-0 p-4 md:p-4")}>
         <div className="flex items-start justify-between gap-3">
           <p className="truncate text-[12px] font-medium text-gray-500 md:text-[13px]">{title}</p>
           <span className="text-primary-600">{icon}</span>

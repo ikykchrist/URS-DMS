@@ -1,3 +1,4 @@
+import { actorAreaScope } from "@/modules/aaccup/aaccup.scope";
 import { prisma } from "@/lib/prisma";
 import { areaRequirementVisibility } from "@/modules/requirements/requirement.visibility";
 import { AUDIT_ACTIONS } from "@/config/constants";
@@ -62,23 +63,12 @@ function assertCanRead(actor: Actor): void {
   }
 }
 
-async function actorProgramIds(actor: Actor): Promise<string[]> {
-  const user = await prisma.user.findUnique({
-    where: { id: actor.id },
-    select: { programId: true },
-  });
-  return user?.programId ? [user.programId] : [];
-}
-
 async function assertAreaScope(actor: Actor, areaId: string): Promise<{ programId: string | null }> {
-  const area = await prisma.aaccupArea.findFirst({
-    where: { id: areaId, deletedAt: null },
-    select: { programId: true },
-  });
+  const area = await prisma.aaccupArea.findFirst({ where: { id: areaId, deletedAt: null }, select: { programId: true } });
   if (!area) throw new BadRequestError("Referenced AACCUP area not found");
-  if (!isManager(actor) && (!area.programId || !(await actorProgramIds(actor)).includes(area.programId))) {
-    throw new ForbiddenError("AACCUP area is outside your program scope");
-  }
+  if (!isManager(actor) && !await prisma.aaccupArea.findFirst({
+    where: { id: areaId, deletedAt: null, AND: [await actorAreaScope(actor.id)] }, select: { id: true },
+  })) throw new ForbiddenError("Accreditation area is outside your campus, college or program scope");
   return area;
 }
 
@@ -119,7 +109,7 @@ export async function listRequirements(
   } else if (!isManager(actor)) {
     where.area = {
       deletedAt: null,
-      programId: { in: await actorProgramIds(actor) },
+      AND: [await actorAreaScope(actor.id)],
     };
     where.AND = [areaRequirementVisibility];
   }

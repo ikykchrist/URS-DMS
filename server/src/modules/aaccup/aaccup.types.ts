@@ -4,6 +4,7 @@
 
 export interface AaccupAreaListItem {
   id: string;
+  areaNumber: number;
   code: string;
   name: string;
   description: string | null;

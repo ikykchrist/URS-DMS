@@ -597,8 +597,8 @@ async function main(): Promise<void> {
     if (r.status !== 200 || !rootId) { check(s, "root identity", false, "login failed"); return; }
     const authRows = await rowsForActionUser("auth.login.success", rootId, kStart);
     const rootRows = await rowsForActionUser("root.login", rootId, kStart);
-    check(s, "one auth.login.success for root", authRows.length === 1, `count=${authRows.length}`);
-    check(s, "one root.login (distinct lifecycle event)", rootRows.length === 1, `count=${rootRows.length}`);
+    check(s, "no duplicate generic login for root", authRows.length === 0, `count=${authRows.length}`);
+    check(s, "one root.login", rootRows.length === 1, `count=${rootRows.length}`);
     check(s, "root.login result SUCCESS", rootRows[0]?.result === "SUCCESS", rootRows[0]?.result ?? "missing");
     check(s, "root.login category AUTHENTICATION", rootRows[0]?.category === "AUTHENTICATION", rootRows[0]?.category ?? "missing");
     check(s, "root.login correlationId == login request", rootRows[0]?.correlationId === r.requestId, `${rootRows[0]?.correlationId} vs ${r.requestId}`);
@@ -611,7 +611,7 @@ async function main(): Promise<void> {
     const after = await rowsForActionUser("root.login", rootId, kStart);
     check(s, "no additional root.login after /me + refresh", after.length === 1, `count=${after.length}`);
     const extraLogins = await rowsForActionUser("auth.login.success", rootId, kStart);
-    check(s, "no additional auth.login.success after /me + refresh", extraLogins.length === 1, `count=${extraLogins.length}`);
+    check(s, "no generic auth.login.success after /me + refresh", extraLogins.length === 0, `count=${extraLogins.length}`);
     const refreshRows = await rowsForActionUser("auth.refresh.success", rootId, kStart);
     check(s, "root refresh audited once", refreshRows.length === 1, `count=${refreshRows.length}`);
 
@@ -620,7 +620,7 @@ async function main(): Promise<void> {
     check(s, "root logout 200", logout.status === 200, `status=${logout.status}`);
     const logoutRows = await rowsForActionUser("auth.logout", rootId, kStart);
     const rootLogoutRows = await rowsForActionUser("root.logout", rootId, kStart);
-    check(s, "one auth.logout for root", logoutRows.length === 1, `count=${logoutRows.length}`);
+    check(s, "no duplicate generic logout for root", logoutRows.length === 0, `count=${logoutRows.length}`);
     check(s, "one root.logout", rootLogoutRows.length === 1, `count=${rootLogoutRows.length}`);
     check(s, "root.logout correlationId == logout request", rootLogoutRows[0]?.correlationId === logout.requestId,
       `${rootLogoutRows[0]?.correlationId} vs ${logout.requestId}`);

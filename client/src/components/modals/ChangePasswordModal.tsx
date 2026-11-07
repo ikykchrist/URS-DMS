@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState } from "react"
 import { Lock, Eye, EyeOff, CheckCircle, XCircle } from "lucide-react"
 import {
@@ -53,6 +54,7 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
       }
       onOpenChange(false)
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword("")
+      toast.success("Password changed")
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to change password")
     } finally {

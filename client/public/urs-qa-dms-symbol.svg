@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="title desc">
+  <title id="title">URS DMS Verified Gate symbol</title>
+  <desc id="desc">Three document workflow facets converge inside a hexagon and exit through one controlled gate.</desc>
+  <g id="symbol">
+    <path d="M128 20 L222 74 L222 111" fill="none" stroke="#0B1F4D" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M222 145 L222 182 L128 236 L34 182 L34 74 L128 20" fill="none" stroke="#0B1F4D" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M128 45 L198 85 L128 125 L58 85 Z" fill="#1239B5"/>
+    <path d="M56 105 L116 140 L116 209 L56 174 Z" fill="#2B5CC8"/>
+    <path d="M140 140 L200 105 L200 119 L214 127 L200 135 L200 174 L140 209 Z" fill="#0B1F4D"/>
+  </g>
+</svg>

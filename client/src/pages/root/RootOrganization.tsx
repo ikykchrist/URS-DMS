@@ -556,44 +556,44 @@ export default function RootOrganization() {
                               {new Date(record.updatedAt).toLocaleDateString()}
                             </TableCell>
                             <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-1">
+                              <div className="record-actions record-actions-table">
                                 <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
+                                  variant="outline"
+                                  size="action"
+                                  className=""
                                   title="Edit"
                                   onClick={() => openEdit(record)}
                                 >
-                                  <Edit3 className="w-4 h-4" />
+                                  <Edit3 className="w-4 h-4" /> <span>Edit</span>
                                 </Button>
                                 <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
+                                  variant="outline"
+                                  size="action"
+                                  className=""
                                   title="Version history"
                                   onClick={() => void openVersions(record)}
                                 >
-                                  <History className="w-4 h-4" />
+                                  <History className="w-4 h-4" /> <span>History</span>
                                 </Button>
                                 {record.deletedAt ? (
                                   <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700"
+                                    variant="outline"
+                                    size="action"
+                                    className="text-emerald-600 hover:text-emerald-700"
                                     title="Restore"
                                     onClick={() => void handleRestore(record)}
                                   >
-                                    <RotateCcw className="w-4 h-4" />
+                                    <RotateCcw className="w-4 h-4" /> <span>Restore</span>
                                   </Button>
                                 ) : (
                                   <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
+                                    variant="outline"
+                                    size="action"
+                                    className="text-red-500 hover:text-red-600"
                                     title="Archive (soft delete)"
                                     onClick={() => void handleArchive(record)}
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-4 h-4" /> <span>Archive</span>
                                   </Button>
                                 )}
                               </div>

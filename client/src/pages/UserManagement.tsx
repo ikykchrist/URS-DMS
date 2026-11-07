@@ -38,15 +38,6 @@ import {
   SelectValue,
 } from "@/components/ui/Select"
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/Pagination"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -224,8 +215,9 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
     try {
       await archiveSystemUser(id)
       refresh()
+      toast.success("User archived")
     } catch (err) {
-      console.error("Failed to delete user:", err)
+      toast.error(err instanceof Error ? err.message : "Failed to archive user")
     }
   }
 
@@ -337,6 +329,7 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                     a.download = `users-export-${new Date().toISOString().slice(0,10)}.csv`
                     document.body.appendChild(a)
                     a.click()
+                    toast.success("User export prepared. Download started.")
                     document.body.removeChild(a)
                     URL.revokeObjectURL(url)
                   }}>
@@ -414,23 +407,23 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                         <span className="text-[13px] text-gray-500">{user.dateCreated}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-0.5">
+                        <div className="record-actions record-actions-table">
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-gray-500 hover:text-gray-900"
+                            variant="outline"
+                            size="action"
+                            className="text-gray-600 hover:text-gray-900"
                             onClick={() => handleViewUser(user as User)}
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-4 h-4" /> <span>View</span>
                           </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-gray-500 hover:text-gray-900"
+                                variant="outline"
+                                size="action"
+                                className="text-gray-600 hover:text-gray-900"
                               >
-                                <MoreHorizontal className="w-4 h-4" />
+                                <MoreHorizontal className="w-4 h-4" /> <span>Actions</span>
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-[160px]">
@@ -470,27 +463,6 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                 <p className="text-[13px] text-gray-500">
                   Showing {displayUsers.length} of {users.length} users
                 </p>
-                <Pagination>
-                  <PaginationPrevious className="h-8" />
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationLink className="h-8 w-8">1</PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink isActive className="h-8 w-8">
-                        2
-                      </PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink className="h-8 w-8">3</PaginationLink>
-                    </PaginationItem>
-                    <PaginationEllipsis className="h-8 w-8" />
-                    <PaginationItem>
-                      <PaginationLink className="h-8 w-8">20</PaginationLink>
-                    </PaginationItem>
-                  </PaginationContent>
-                  <PaginationNext className="h-8" />
-                </Pagination>
               </div>
             </CardContent>
           </Card>

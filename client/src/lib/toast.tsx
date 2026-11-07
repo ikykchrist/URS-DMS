@@ -1,8 +1,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { CheckCircle, AlertTriangle, Info, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useAuth } from "@/context/AuthContext"
-import { isAdminRole } from "@/lib/permissions"
 
 export type ToastType = "success" | "error" | "info" | "warning"
 
@@ -31,7 +29,7 @@ class ToastStore {
 
   add(toast: Omit<ToastMessage, "id">): string {
     const id = `t_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-    const item: ToastMessage = { id, duration: toast.type === "success" ? 1000 : 4000, ...toast }
+    const item: ToastMessage = { id, ...toast, duration: toast.duration ?? 4000 }
     this.toasts = [...this.toasts, item]
     this.emit()
     if (item.duration && item.duration > 0) {
@@ -46,7 +44,7 @@ class ToastStore {
   }
 
   success(message: string, duration?: number) {
-    return this.add({ type: "success", message, duration: duration ?? 1000 })
+    return this.add({ type: "success", message, duration: duration ?? 4000 })
   }
   error(message: string, duration?: number) {
     return this.add({ type: "error", message, duration })
@@ -103,13 +101,11 @@ const palette: Record<ToastType, { bg: string; border: string; text: string; Ico
 
 export function ToastContainer() {
   const { toasts, dismiss } = useToasts()
-  const { user } = useAuth()
-  const adminToast = isAdminRole(user?.role)
 
   if (toasts.length === 0) return null
 
   return (
-    <div className={cn("fixed bottom-4 right-4 z-[100] flex max-w-sm flex-col gap-2", adminToast && "admin-toast-container")}>
+    <div className="fixed bottom-4 right-4 z-[100] flex max-w-sm flex-col gap-2 admin-toast-container">
       {toasts.map((t) => {
         const { bg, border, text, Icon } = palette[t.type]
         const iconColor =
@@ -123,9 +119,12 @@ export function ToastContainer() {
         return (
           <div
             key={t.id}
+            role={t.type === "error" ? "alert" : "status"}
+            aria-live={t.type === "error" ? "assertive" : "polite"}
+            aria-atomic="true"
             className={cn(
               "flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg animate-in slide-in-from-bottom-2",
-              adminToast && "admin-toast",
+              "admin-toast",
               bg,
               border,
               text
@@ -133,7 +132,7 @@ export function ToastContainer() {
           >
             <Icon className={cn("w-5 h-5 flex-shrink-0", iconColor)} />
             <span className="text-[14px] font-medium flex-1">{t.message}</span>
-            <button onClick={() => dismiss(t.id)} className="hover:opacity-70">
+            <button onClick={() => dismiss(t.id)} className="hover:opacity-70" aria-label="Dismiss notification">
               <X className="w-4 h-4" />
             </button>
           </div>

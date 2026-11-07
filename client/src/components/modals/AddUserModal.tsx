@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState, useEffect } from "react"
 import { UserPlus } from "lucide-react"
 import {
@@ -94,6 +95,7 @@ export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProp
       onSuccess?.({ name: fullName, email, role: roleName, program: programName })
       onOpenChange(false)
       setFullName(""); setEmail(""); setPassword(""); setConfirmPassword(""); setCampus(""); setCollege(""); setProgram(""); setRole(roles[0]?.id ?? ""); setIsActive(true)
+      toast.success("User created")
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to create user")
     } finally {

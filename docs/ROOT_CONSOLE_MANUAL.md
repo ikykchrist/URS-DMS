@@ -1,5 +1,7 @@
 # URS-DMS Root Console Manual
 
+> Historical reference. The current QA-DMS guide is [QA_DMS_USER_MANUAL.md](QA_DMS_USER_MANUAL.md), with its illustrated PDF at `output/pdf/QA-DMS_User_Manual.pdf`. Workflow Builder and Form Builder are no longer available in the current product.
+
 ## Purpose
 
 The Root Console is the system-administration workspace for configuring how

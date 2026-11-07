@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState, useEffect, useRef } from "react"
 import {
   ChevronLeft,
@@ -161,8 +162,11 @@ export function DocumentPreviewModal({
   }
   const handleDownload = async () => {
     if (!document?.id) return
-    const result = await apiGet<PreviewDownloadResult>(`/documents/${encodeURIComponent(document.id)}/download`)
-    window.open(result.url, "_blank", "noopener,noreferrer")
+    try {
+      const result = await apiGet<PreviewDownloadResult>(`/documents/${encodeURIComponent(document.id)}/download`)
+      window.open(result.url, "_blank", "noopener,noreferrer")
+      toast.success("Download link opened")
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Unable to open download link") }
   }
   const handleApprove = () => {
     if (!document) return
@@ -189,7 +193,7 @@ export function DocumentPreviewModal({
 
         <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
           <div className="flex-1 flex flex-col bg-gray-100 min-h-[300px] lg:min-h-0 overflow-hidden">
-            <div className="h-12 bg-white border-b border-border flex items-center justify-between px-4 flex-shrink-0">
+            <div className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-white px-4 py-2">
               <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
@@ -240,11 +244,11 @@ export function DocumentPreviewModal({
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600" onClick={handleRotate} disabled={!isPreviewable}>
                   <RotateCw className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600" onClick={handlePrint} disabled={!isPreviewable}>
-                  <Printer className="w-4 h-4" />
+                <Button variant="outline" size="action" className="text-gray-600" onClick={handlePrint} disabled={!isPreviewable}>
+                  <Printer className="w-4 h-4" /> <span>Print</span>
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600" onClick={handleDownload} disabled={!blobUrl}>
-                  <Download className="w-4 h-4" />
+                <Button variant="outline" size="action" className="text-gray-600" onClick={handleDownload} disabled={!blobUrl}>
+                  <Download className="w-4 h-4" /> <span>Download</span>
                 </Button>
               </div>
             </div>

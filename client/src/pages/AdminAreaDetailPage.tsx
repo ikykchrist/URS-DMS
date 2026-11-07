@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/Button"
 import { getOnlineArea, listAllOnlineSubmissions, type AreaSet, type OnlineAaccupArea, type OnlineSubmissionListItem } from "@/services/aaccup"
 
 function areaNumber(area: OnlineAaccupArea): number {
-  const match = area.code.match(/\d+/)
-  return match ? Number(match[0]) : 1
+  if (area.areaNumber) return area.areaNumber
+  const match = area.code.match(/^(?:AREA[-_.]?)?(\d+)(?:[-_.]|$)/i)
+  return match ? Number(match[1]) : 1
 }
 
 export default function AdminAreaDetailPage({ areaSet }: { areaSet: AreaSet }) {
@@ -59,7 +60,12 @@ export default function AdminAreaDetailPage({ areaSet }: { areaSet: AreaSet }) {
     return () => { active = false }
   }, [areaId, areaSet])
 
-  const backPath = areaSet === "ISO" ? "/iso" : "/aaccup"
+  const basePath = areaSet === "ISO" ? "/iso" : "/aaccup"
+  const locationParams = area?.campusId && area.collegeId ? new URLSearchParams({
+    campus: area.campusId, college: area.collegeId, scope: area.programId ? "program" : "college",
+    ...(area.programId ? { program: area.programId } : {}),
+  }) : null
+  const backPath = locationParams ? `${basePath}?${locationParams}` : basePath
   const setTitle = areaSet === "ISO" ? "ISO" : "AACCUP"
 
   if (loading) {
@@ -97,7 +103,7 @@ export default function AdminAreaDetailPage({ areaSet }: { areaSet: AreaSet }) {
       <nav className="mb-4 flex items-center gap-1.5 text-[13px] text-gray-500" aria-label="Breadcrumb">
         <button type="button" onClick={() => navigate(backPath)} className="font-medium text-primary hover:underline">{setTitle}</button>
         <ChevronRight className="h-3.5 w-3.5" />
-        <span className="truncate text-gray-700">Area {number}: {area.name}</span>
+        <span className="truncate text-gray-700">{area.name}</span>
       </nav>
 
       <AACCUPAreaDetailsModal

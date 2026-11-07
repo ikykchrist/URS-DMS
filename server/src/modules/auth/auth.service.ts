@@ -261,8 +261,14 @@ export async function login(
     userAgent,
   );
 
+  // A successful authentication is one business action and therefore gets
+  // one audit row. ROOT keeps its dedicated lifecycle action instead of also
+  // writing the generic login event (which made the audit and activity views
+  // show the same session twice).
   await writeAudit({
-    action: AUDIT_ACTIONS.LOGIN_SUCCESS,
+    action: user.role?.name === "ROOT"
+      ? AUDIT_ACTIONS.ROOT_LOGIN
+      : AUDIT_ACTIONS.LOGIN_SUCCESS,
     userId: user.id,
     entity: "session",
     entityId: sessionId,
@@ -273,24 +279,6 @@ export async function login(
     actorName: [user.firstName, user.lastName].filter(Boolean).join(" ") || undefined,
     actorRole: user.role?.name ?? undefined,
   });
-
-  // ROOT sessions get the dedicated root.login action. This is emitted here,
-  // where the role and session id are known, so it is written exactly once —
-  // the old polling watcher re-emitted root.login on every token refresh.
-  if (user.role?.name === "ROOT") {
-    await writeAudit({
-      action: AUDIT_ACTIONS.ROOT_LOGIN,
-      userId: user.id,
-      entity: "session",
-      entityId: sessionId,
-      ipAddress,
-      userAgent,
-      category: "AUTHENTICATION",
-      severity: "INFO",
-      actorName: [user.firstName, user.lastName].filter(Boolean).join(" ") || undefined,
-      actorRole: user.role.name,
-    });
-  }
 
   const userView = await buildUserView(user.id);
   return { accessToken, refreshToken, user: userView };
@@ -408,32 +396,20 @@ export async function logout(
   }
 
   if (resolvedUserId) {
+    const role = await prisma.user.findUnique({
+      where: { id: resolvedUserId },
+      select: { role: { select: { name: true } } },
+    });
     await writeAudit({
-      action: AUDIT_ACTIONS.LOGOUT,
+      action: role?.role.name === "ROOT"
+        ? AUDIT_ACTIONS.ROOT_LOGOUT
+        : AUDIT_ACTIONS.LOGOUT,
       userId: resolvedUserId,
       ipAddress,
       userAgent,
       category: "AUTHENTICATION",
       severity: "INFO",
     });
-
-    // ROOT sessions also get the dedicated root.logout action, written here
-    // exactly once (previously the polling watcher could never observe the
-    // logout because revoked session rows were never removed).
-    const role = await prisma.user.findUnique({
-      where: { id: resolvedUserId },
-      select: { role: { select: { name: true } } },
-    });
-    if (role?.role.name === "ROOT") {
-      await writeAudit({
-        action: AUDIT_ACTIONS.ROOT_LOGOUT,
-        userId: resolvedUserId,
-        ipAddress,
-        userAgent,
-        category: "AUTHENTICATION",
-        severity: "INFO",
-      });
-    }
   }
 }
 

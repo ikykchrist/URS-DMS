@@ -1,6 +1,7 @@
+import { actorAreaScope } from "@/modules/aaccup/aaccup.scope";
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS } from "@/config/constants";
-import { writeAudit } from "@/modules/audit/audit.service";
+import { writeAudit, writeAuditInTransaction } from "@/modules/audit/audit.service";
 import { notifyUser, notifyUsers } from "@/modules/notifications/notifications.service";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "@/utils/errors";
 import { streamZipArchive } from "@/lib/zipStream";
@@ -24,6 +25,7 @@ import {
   evaluateWorkflowAction,
   recordWorkflowAction,
   scopesForAaccupSubmission,
+  withdrawEntityWorkflow,
 } from "@/modules/workflow/workflow.engine";
 import { syncTaskProgressForRequirement } from "@/modules/aaccup/tasks/aaccup.tasks.service";
 
@@ -115,6 +117,8 @@ const SORT_FIELDS = new Set(["submittedAt", "createdAt", "updatedAt", "status"])
 interface RequirementContext {
   id: string;
   areaProgramId: string | null;
+  areaCampusId: string | null;
+  areaCollegeId: string | null;
   dynamic: boolean;
   area: { id: string; name: string; areaSet: string; programId: string | null };
 }
@@ -128,7 +132,7 @@ async function assertRequirementUsable(requirementId: string): Promise<Requireme
       sourceNodeId: true,
         sourceAssignmentId: true,
       area: {
-        select: { id: true, name: true, areaSet: true, deletedAt: true, programId: true, status: true },
+        select: { id: true, name: true, areaSet: true, deletedAt: true, programId: true, campusId: true, collegeId: true, status: true },
       },
     },
   });
@@ -151,6 +155,8 @@ async function assertRequirementUsable(requirementId: string): Promise<Requireme
     return {
     id: requirement.id,
     areaProgramId: requirement.area.programId,
+    areaCampusId: requirement.area.campusId,
+    areaCollegeId: requirement.area.collegeId,
     dynamic: requirement.sourceNodeId !== null,
     area: {
       id: requirement.area.id,
@@ -256,7 +262,10 @@ function assertDocumentBelongsToAreaProgram(
   doc: DocumentContext,
   requirement: RequirementContext,
 ): void {
-  if (doc.programId && doc.programId !== requirement.areaProgramId) {
+  if (!requirement.areaProgramId && ((doc.campusId && doc.campusId !== requirement.areaCampusId) || (doc.collegeId && doc.collegeId !== requirement.areaCollegeId))) {
+    throw new BadRequestError("Document does not belong to the requirement's college");
+  }
+  if (requirement.areaProgramId && doc.programId && doc.programId !== requirement.areaProgramId) {
     throw new BadRequestError("Document does not belong to the requirement's area program");
   }
 }
@@ -507,6 +516,9 @@ export async function createSubmission(
     assertRequirementUsable(input.requirementId),
     assertDocumentUsable(input.documentId, actor),
   ]);
+  if (!isManager(actor) && !await prisma.aaccupArea.findFirst({
+    where: { id: requirement.area.id, deletedAt: null, AND: [await actorAreaScope(actor.id)] }, select: { id: true },
+  })) throw new ForbiddenError("Accreditation area is outside your campus, college or program scope");
   assertDocumentBelongsToAreaProgram(document, requirement);
   await assertDynamicRules(requirement, document);
   await assertTaskUsable(input.taskId, input.requirementId, requirement.area.id);
@@ -682,6 +694,12 @@ export async function reviewSubmission(
   // PENDING or NEEDS_REVISION may proceed.
 
   const reviewed = await prisma.$transaction(async (tx) => {
+    // Serialize review against an owner withdrawal or another review.
+    const claim = await tx.aaccupSubmission.updateMany({
+      where: { id, deletedAt: null, status: { in: ["PENDING", "NEEDS_REVISION"] } },
+      data: { updatedAt: new Date() },
+    });
+    if (!claim.count) throw new ConflictError("Submission has changed or was unsubmitted. Refresh the review queue.");
     // Sprint 7.4.5 — workflow gate: if a published workflow controls this
     // submission, the review decision must be an allowed action from the
     // current step (legacy fallback when no instance is bound). The
@@ -791,6 +809,36 @@ async function safeNotifySubmitter(
 // -----------------------------------------------------------------------------
 // archiveSubmission (soft delete)
 // -----------------------------------------------------------------------------
+export async function unsubmitSubmission(id: string, actor: Actor): Promise<{ id: string; unsubmitted: true }> {
+  assertCanCreate(actor);
+  const existing = await repo.findById(id);
+  if (!existing) throw new NotFoundError("AACCUP submission not found");
+  if (existing.submittedById !== actor.id) throw new ForbiddenError("You can only unsubmit your own evidence");
+  if (existing.status !== "PENDING" && existing.status !== "NEEDS_REVISION") {
+    throw new ConflictError("Only pending or returned submissions can be unsubmitted. Approved evidence is locked.");
+  }
+  await prisma.$transaction(async (tx) => {
+    const claim = await tx.aaccupSubmission.updateMany({
+      where: { id, submittedBy: actor.id, deletedAt: null, status: { in: ["PENDING", "NEEDS_REVISION"] } },
+      data: { deletedAt: new Date(), isCurrent: false, updatedAt: new Date() },
+    });
+    if (!claim.count) throw new ConflictError("Submission was already reviewed or unsubmitted. Refresh and try again.");
+    // Submission filing moves evidence into an accreditation archive folder.
+    // Return the owner's file to their repository root when withdrawing it.
+    const document = await tx.document.findFirst({
+      where: { id: existing.documentId, ownerId: actor.id, deletedAt: null },
+      select: { id: true, folder: { select: { ownerId: true } } },
+    });
+    if (document?.folder && document.folder.ownerId !== actor.id) {
+      await tx.document.update({ where: { id: document.id }, data: { folderId: null } });
+    }
+    await withdrawEntityWorkflow(tx, "AACCUP_SUBMISSION", id, actor);
+    await writeAuditInTransaction(tx, { action: AUDIT_ACTIONS.AACCUP_SUBMISSION_UNSUBMITTED, userId: actor.id, entity: "aaccup_submission", entityId: id,
+      oldValue: { status: existing.status, isCurrent: existing.isCurrent }, newValue: { unsubmitted: true, isCurrent: false }, ipAddress: actor.ipAddress, userAgent: actor.userAgent });
+  });
+  return { id, unsubmitted: true };
+}
+
 export async function archiveSubmission(id: string, actor: Actor): Promise<AaccupSubmissionDetail> {
   assertCanArchive(actor);
 

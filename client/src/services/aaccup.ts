@@ -5,6 +5,7 @@ export type AreaSet = "AACCUP" | "ISO"
 
 export interface OnlineAaccupArea {
   id: string
+  areaNumber: number
   code: string
   name: string
   description: string | null
@@ -134,13 +135,19 @@ export interface CreateOnlineAreaInput {
   description?: string
   campusId: string
   collegeId: string
-  programId: string
+  programId: string | null
   accreditationCycleId?: string | null
   areaSet?: AreaSet
   status?: "ACTIVE" | "INACTIVE"
 }
 
 export interface AreaSetupProgram { id: string; name: string; campusId: string; collegeId: string; campusName: string; collegeName: string }
+export interface AccreditationCampus {
+  id: string
+  name: string
+  colleges: Array<{ id: string; name: string; programs: Array<{ id: string; name: string; campusId: string | null }> }>
+}
+export function listAreaSetupOrganization() { return apiGet<AccreditationCampus[]>("/aaccup/setup/organization") }
 export interface AreaTemplateSetup { templateId: string | null; templates: Array<{ id: string; name: string; code: string; version: number }> }
 export function listAreaSetupPrograms() { return apiGet<AreaSetupProgram[]>("/aaccup/setup/programs") }
 export function getAreaTemplateSetup(id: string) { return apiGet<AreaTemplateSetup>(`/aaccup/areas/${encodeURIComponent(id)}/requirement-template`) }
@@ -269,6 +276,10 @@ export async function reviewOnlineSubmission(
 export async function archiveOnlineSubmission(id: string): Promise<OnlineAaccupSubmission> {
   if (!id) throw new Error("Missing submission ID")
   return apiDelete<OnlineAaccupSubmission>(`/aaccup/submissions/${encodeURIComponent(id)}`)
+}
+
+export function unsubmitOnlineSubmission(id: string) {
+  return apiPost<{ id: string; unsubmitted: true }>(`/aaccup/submissions/${encodeURIComponent(id)}/unsubmit`)
 }
 
 export async function getOnlineArea(id: string): Promise<OnlineAaccupArea> {
@@ -549,7 +560,7 @@ export async function uploadOnlineRequirementDocument(
     classification: "INTERNAL",
     campusId: input.campusId,
     collegeId: input.collegeId,
-    programId: input.programId,
+    ...(input.programId ? { programId: input.programId } : {}),
     metadata,
   })
   const checksum = await sha256(input.file)

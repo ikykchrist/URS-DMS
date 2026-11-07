@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { notificationService } from "@/services/notifications"
 import { resolveNotificationRoute, buildNotificationUrl } from "@/lib/notificationNav"
 import type { Notification } from "@/types/domain"
+import { toast } from "@/lib/toast"
 
 // Notifications are background convenience data. Polling every three seconds
 // consumed the shared API rate-limit budget during normal use and could block
@@ -77,14 +78,20 @@ export function NotificationCenter() {
   const getNotificationsByGroup = (group: string) =>
     notifications.filter((n) => getMeta(n).label === group)
 
-  const markRead = (id: string) => {
-    notificationService.markRead(id)
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+  const markRead = async (id: string) => {
+    try {
+      await notificationService.markRead(id)
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+      toast.success("Notification marked as read")
+    } catch { toast.error("Unable to mark notification as read") }
   }
 
-  const markAllRead = () => {
-    notificationService.markAllReadForUser()
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+  const markAllRead = async () => {
+    try {
+      await notificationService.markAllReadForUser()
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+      toast.success("All notifications marked as read")
+    } catch { toast.error("Unable to mark notifications as read") }
   }
 
   const handleViewNotification = (notif: Notification) => {

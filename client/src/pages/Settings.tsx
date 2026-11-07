@@ -127,8 +127,12 @@ export default function Settings() {
   }
 
   const handleLogoutAll = async () => {
-    try { await authService.logout(); logout() } catch {
-      // The local session can still be cleared if the server is unavailable.
+    try {
+      const revoked = await authService.killAllOtherSessions()
+      toast.success(revoked > 0 ? `Signed out ${revoked} other session(s)` : "No other active sessions")
+      await logout()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to sign out all sessions")
     }
   }
 
@@ -348,7 +352,7 @@ export default function Settings() {
                   <CardContent>
                     <div className="grid grid-cols-3 gap-4">
                       <button
-                        onClick={() => setTheme("light")}
+                        onClick={() => { setTheme("light"); toast.success("Theme updated") }}
                         className={cn(
                           "p-4 rounded-xl border-2 transition-all",
                           theme === "light"
@@ -364,7 +368,7 @@ export default function Settings() {
                       </button>
 
                       <button
-                        onClick={() => setTheme("dark")}
+                        onClick={() => { setTheme("dark"); toast.success("Theme updated") }}
                         className={cn(
                           "p-4 rounded-xl border-2 transition-all",
                           theme === "dark"
@@ -380,7 +384,7 @@ export default function Settings() {
                       </button>
 
                       <button
-                        onClick={() => setTheme("system")}
+                        onClick={() => { setTheme("system"); toast.success("Theme updated") }}
                         className={cn(
                           "p-4 rounded-xl border-2 transition-all",
                           theme === "system"

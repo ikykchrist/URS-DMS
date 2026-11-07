@@ -35,7 +35,6 @@ AUTHORIZED ROOT / SYSTEM ADMINISTRATOR NAVIGATION
 - Root Console > Organization: manage colleges, departments, offices, and programs. To add a department, open Organization, select Departments, then use the create action.
 - Root Console > Folder Builder: manage folder templates and folder structures.
 - Root Console > Requirement Builder: manage builder-controlled requirement templates.
-- Root Console > Form Builder: manage system form templates.
 - Root Console > Storage Maintenance: inspect storage status and run available maintenance actions.
 - Root Console > Roles & Permissions: review and configure system role permissions.
 - Root Console > System Audit: review root-level system audit activity.

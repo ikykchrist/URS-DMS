@@ -154,6 +154,20 @@ function assertNotRootTarget(existing: { roleName: string }): void {
   }
 }
 
+function assertRootOrganizationUpdateAllowed(
+  existing: { roleName: string },
+  input: UpdateAdminUserBody,
+  actor: Actor,
+): void {
+  if (existing.roleName !== "ROOT") return;
+
+  const organizationFields = new Set(["campusId", "collegeId", "programId"]);
+  const isOrganizationOnly = Object.keys(input).every((field) => organizationFields.has(field));
+  if (!actor.permissions.includes("root.access") || !isOrganizationOnly) {
+    throw new ForbiddenError("Root accounts are protected; only ROOT may update their organization assignment");
+  }
+}
+
 // ---------------------------------------------------------------------------
 // listUsers
 // ---------------------------------------------------------------------------
@@ -285,7 +299,17 @@ export async function updateUser(
   if (existing.deletedAt) {
     throw new BadRequestError("User is archived; restore it before updating");
   }
-  assertNotRootTarget(existing);
+  assertRootOrganizationUpdateAllowed(existing, input, actor);
+
+  if (typeof input.campusId === "string"
+    && typeof input.collegeId === "string"
+    && typeof input.programId === "string") {
+    await assertOrganizationScopeExists({
+      campusId: input.campusId,
+      collegeId: input.collegeId,
+      programId: input.programId,
+    });
+  }
 
   if (input.email && input.email !== existing.email) {
     const conflict = await repo.findByEmail(input.email, id);

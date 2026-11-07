@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS } from "@/config/constants";
-import { writeAudit } from "@/modules/audit/audit.service";
+import { writeAudit, writeAuditInTransaction } from "@/modules/audit/audit.service";
 import { getRequestId } from "@/middlewares/requestContext";
 import {
   invalidateWorkflowCache,
@@ -551,6 +551,15 @@ export interface OverrideWorkflowInstanceInput {
   action: "COMPLETE" | "TERMINATE";
   actor: WorkflowActor;
   note?: string;
+}
+
+/** Called only after the owning service has claimed an authorized withdrawal. */
+export async function withdrawEntityWorkflow(tx: Prisma.TransactionClient, entityType: WorkflowEntityType, entityId: string, actor: WorkflowActor): Promise<void> {
+  const instance = await tx.workflowInstance.findUnique({ where: { entityType_entityId: { entityType, entityId } } });
+  if (!instance || instance.status !== "RUNNING") return;
+  await tx.workflowInstance.update({ where: { id: instance.id }, data: { status: "TERMINATED", currentStepCode: null, completedAt: new Date() } });
+  await tx.workflowStepInstance.updateMany({ where: { instanceId: instance.id, status: { in: ["PENDING", "ACTIVE"] } }, data: { status: "SKIPPED", completedAt: new Date(), note: "Submission withdrawn by its owner" } });
+  await writeAuditInTransaction(tx, { action: AUDIT_ACTIONS.WORKFLOW_INSTANCE_WITHDRAWN, userId: actor.id, entity: "WorkflowInstance", entityId: instance.id, newValue: { entityType, entityId, status: "TERMINATED" }, ipAddress: actor.ipAddress, userAgent: actor.userAgent });
 }
 
 export async function overrideWorkflowInstance(

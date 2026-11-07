@@ -1,5 +1,14 @@
 # URS-DMS — Changelog
 
+## v2.1 — Thesis Prep (2026-11-07)
+
+- Refined accreditation browsing, numbering, requirement attachment, evidence submission, and controlled unsubmission workflows.
+- Improved success feedback, notification actions, document previews, repository interactions, and administration forms.
+- Polished authentication branding, shared controls, theme-aware elevation, motion, accessibility, and responsive layouts.
+- Simplified Root Console setup and corrected workflow, audit, user-management, and configuration behavior.
+- Added updated QA-DMS documentation, branded application icons, and focused regression coverage for accreditation scope and evidence flows.
+- Includes source and documentation only; local backups, generated output, runtime logs, and uploaded data are excluded.
+
 ## v2.0 — Thesis Prep (2026-11-04)
 
 - Updated organization scoping across campus, college and program workflows.

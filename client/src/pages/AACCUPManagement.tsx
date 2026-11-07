@@ -1,4 +1,7 @@
-import { useState, useEffect, type ReactNode } from "react"
+import { toast } from "@/lib/toast"
+import { matchesAccreditationLocation } from "@/lib/accreditationLocation"
+import { AccreditationScopeBrowser } from "@/components/aaccup/AccreditationScopeBrowser"
+import { useState, useEffect, useMemo, type ReactNode } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import {
   Search,
@@ -45,6 +48,8 @@ import { AddSubmissionModal } from "@/components/modals/AddSubmissionModal"
 import { AddAreaModal } from "@/components/modals/AddAreaModal"
 import { useAuth } from "@/context/AuthContext"
 import {
+  listAreaSetupOrganization,
+  type AccreditationCampus,
   listAllOnlineAaccupAreas,
   listAllOnlineSubmissions,
   archiveOnlineArea,
@@ -105,6 +110,30 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
   const canExportPackage = user?.role === "root" || user?.role === "super_admin"
   const setMeta = SET_TITLES[areaSet]
   const [searchParams, setSearchParams] = useSearchParams()
+  const location = {
+    campus: searchParams.get("campus") ?? "", college: searchParams.get("college") ?? "",
+    scope: searchParams.get("scope") ?? (searchParams.get("college") ? "college" : ""), program: searchParams.get("program") ?? "",
+  }
+  const [campuses, setCampuses] = useState<AccreditationCampus[]>([])
+  const [setupLoading, setSetupLoading] = useState(true)
+  const [setupError, setSetupError] = useState("")
+  const [dataError, setDataError] = useState("")
+  const [setupRetry, setSetupRetry] = useState(0)
+  const campus = campuses.find((item) => item.id === location.campus)
+  const college = campus?.colleges.find((item) => item.id === location.college)
+  const program = college?.programs.find((item) => item.id === location.program)
+  const showAreas = location.scope === "unassigned" || Boolean(college && (location.scope === "college" || (location.scope === "program" && program)))
+  const scopeContext = useMemo(() => campus && college && showAreas && location.scope !== "unassigned" ? {
+    campusId: campus.id, collegeId: college.id, programId: location.scope === "college" ? null : program?.id ?? null,
+  } : undefined, [campus, college, showAreas, location.scope, program])
+  useEffect(() => {
+    let active = true
+    setSetupLoading(true)
+    listAreaSetupOrganization().then((items) => { if (active) { setCampuses(items); setSetupError("") } })
+      .catch((reason: unknown) => { if (active) setSetupError(reason instanceof Error ? reason.message : "Unable to load organization") })
+      .finally(() => { if (active) setSetupLoading(false) })
+    return () => { active = false }
+  }, [setupRetry])
   const [areas, setAreas] = useState<OnlineAaccupArea[]>([])
   const [submissions, setSubmissions] = useState<OnlineSubmissionListItem[]>([])
   const [selectedArea] = useState<AACCUPArea | null>(null)
@@ -132,19 +161,30 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
   const [submissionFilter, setSubmissionFilter] = useState("all")
 
   useEffect(() => {
-    fetchData()
+    setSelectedIds([])
+    setSearchQuery("")
+    setAreaFilter("all")
+    setStatusFilter("all")
+    setSubmissionFilter("all")
+  }, [location.campus, location.college, location.scope, location.program])
+
+  useEffect(() => {
+    void fetchData()
     const poll = setInterval(fetchData, 20000)
     return () => clearInterval(poll)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [areaSet])
 
   const fetchData = async () => {
+    try {
     const [areasData, submissionsData] = await Promise.all([
       listAllOnlineAaccupAreas({ areaSet }),
       listAllOnlineSubmissions({ areaSet })
     ])
     setAreas(areasData)
     setSubmissions(submissionsData)
+    setDataError("")
+    } catch (reason) { setDataError(reason instanceof Error ? reason.message : "Unable to load accreditation data") }
   }
 
   const handleCloseCreateTaskModal = (open: boolean) => {
@@ -161,6 +201,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
       await archiveOnlineArea(id)
       setSelectedIds((prev) => prev.filter((selected) => selected !== id))
       fetchData()
+      toast.success("Area archived")
     } catch {
       window.alert("Failed to remove area. Please try again.")
     }
@@ -173,6 +214,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
       await Promise.all(selectedIds.map((id) => archiveOnlineArea(id)))
       setSelectedIds([])
       fetchData()
+      toast.success("Selected areas archived")
     } catch {
       window.alert("Failed to remove one or more areas.")
     }
@@ -180,7 +222,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
 
   const handleExport = () => {
     const header = ["Area", "Status", "Completion %", "Submissions", "Approved", "Pending"]
-    const rows = localAreas.map((area) => {
+    const rows = filteredAreas.map((area) => {
       const areaSubs = submissions.filter((s) => s.areaId === area.serverId)
       return [
         `"${area.title}"`,
@@ -199,10 +241,11 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
     link.download = `${areaSet.toLowerCase()}-areas-${new Date().toISOString().slice(0, 10)}.csv`
     link.click()
     URL.revokeObjectURL(url)
+    toast.success(`Export prepared: ${filteredAreas.length} area(s). Download started.`)
   }
 
   const openExportModal = () => {
-    setExportAreaIds(areas.map((area) => area.id))
+    setExportAreaIds(scopedAreas.map((area) => area.id))
     setIsExportOpen(true)
   }
 
@@ -220,6 +263,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
       setIsExportOpen(false)
+      toast.success("Approved evidence export ready. Download started.")
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Export failed.")
     } finally {
@@ -231,7 +275,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
     const areaSubs = submissions.filter(s => s.areaId === area.id)
     const completed = areaSubs.filter(s => s.status === "APPROVED").length
     const completion = areaSubs.length > 0 ? Math.round((completed / areaSubs.length) * 100) : 0
-    const codeNumber = Number(area.code?.match(/\d+/)?.[0])
+    const codeNumber = Number(area.code?.match(/^(?:AREA[-_.]?)?(\d+)(?:[-_.]|$)/i)?.[1])
     const status: AACCUPArea["status"] =
       area.status === "INACTIVE" || areaSubs.length === 0
         ? "Pending"
@@ -239,7 +283,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
         ? "Completed"
         : "In Progress"
     return {
-      id: Number.isFinite(codeNumber) ? codeNumber : index + 1,
+      id: area.areaNumber ?? (Number.isFinite(codeNumber) ? codeNumber : index + 1),
       serverId: area.id,
       title: area.name,
       description: area.description ?? "",
@@ -253,7 +297,10 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
     }
   }
 
-  const localAreas = areas.map((area, index) => toLocalArea(area, index))
+  const scopedAreas = areas.filter((area) => matchesAccreditationLocation(area, location))
+  const scopedAreaIds = new Set(scopedAreas.map((area) => area.id))
+  const scopedSubmissions = submissions.filter((submission) => scopedAreaIds.has(submission.areaId))
+  const localAreas = scopedAreas.map((area, index) => toLocalArea(area, index))
 
   const filteredAreas = localAreas.filter((area) => {
     if (searchQuery) {
@@ -269,7 +316,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
         .toLowerCase()
       if (!haystack.includes(searchQuery.toLowerCase())) return false
     }
-    if (areaFilter !== "all" && area.id.toString() !== areaFilter) return false
+    if (areaFilter !== "all" && area.serverId !== areaFilter) return false
     if (statusFilter !== "all") {
       const normalized = statusFilter === "in-progress" ? "in progress" : statusFilter
       if (area.status.toLowerCase() !== normalized) return false
@@ -301,9 +348,9 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
     navigate(`${basePath}/areas/${encodeURIComponent(area.serverId)}`)
   }
 
-  const totalSubmissions = submissions.length
-  const completedSubmissions = submissions.filter(s => s.status === "APPROVED").length
-  const pendingSubmissions = submissions.filter(s => s.status === "PENDING").length
+  const totalSubmissions = scopedSubmissions.length
+  const completedSubmissions = scopedSubmissions.filter(s => s.status === "APPROVED").length
+  const pendingSubmissions = scopedSubmissions.filter(s => s.status === "PENDING").length
 
   const calculateOverallCompliance = () => {
     if (localAreas.length === 0) return 0
@@ -325,42 +372,55 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                   Export Approved ZIP
                 </Button>
               )}
-              <Button className="shadow-soft" onClick={() => setIsAddAreaModalOpen(true)}>
+              {scopeContext && <Button className="shadow-soft" onClick={() => setIsAddAreaModalOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Area
-              </Button>
+              </Button>}
             </>
           }
           />
 
-          {navigation && <div className="mb-6 lg:mb-8">{navigation}</div>}
+          {navigation && <div className="mb-4 lg:mb-5">{navigation}</div>}
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 responsive-gap mb-6 lg:mb-8">
+          <AccreditationScopeBrowser campuses={campuses} areas={areas} location={location} loading={setupLoading} error={setupError} onRetry={() => setSetupRetry((value) => value + 1)} onChange={(next) => {
+            const params = new URLSearchParams(searchParams)
+            for (const [key, value] of Object.entries(next)) { if (value) params.set(key, value); else params.delete(key) }
+            setSearchParams(params)
+            setSelectedIds([]); setSearchQuery(""); setAreaFilter("all"); setStatusFilter("all"); setSubmissionFilter("all")
+          }} />
+          {dataError && <div role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{dataError}<Button variant="ghost" size="sm" onClick={() => void fetchData()}>Retry</Button></div>}
+          {showAreas && !setupLoading && !setupError && <>
+          <h2 className="mb-3 text-base font-semibold text-navy-900">{location.scope === "unassigned" ? "Unassigned areas" : location.scope === "college" ? "College-wide areas" : `${program?.name ?? "Program"} areas`}</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 responsive-gap mb-4 lg:mb-5">
             <StatCard
+              compact
               title="Total Submissions"
               value={totalSubmissions.toString()}
               icon={<span className="inline-flex rounded-lg bg-blue-50 p-1.5 text-blue-600 dark:bg-blue-50/30 dark:text-blue-400"><Award className="w-4 h-4" /></span>}
             />
             <StatCard
+              compact
               title="Approved"
               value={completedSubmissions.toString()}
               icon={<span className="inline-flex rounded-lg bg-emerald-50 p-1.5 text-emerald-600 dark:bg-emerald-50/30 dark:text-emerald-400"><CheckCircle className="w-4 h-4" /></span>}
             />
             <StatCard
+              compact
               title="Pending Review"
               value={pendingSubmissions.toString()}
               icon={<span className="inline-flex rounded-lg bg-amber-50 p-1.5 text-amber-600 dark:bg-amber-50/30 dark:text-amber-400"><Clock className="w-4 h-4" /></span>}
             />
             <StatCard
+              compact
               title="Compliance Rate"
               value={`${calculateOverallCompliance()}%`}
               icon={<span className="inline-flex rounded-lg bg-indigo-50 p-1.5 text-indigo-600 dark:bg-indigo-50/30 dark:text-indigo-400"><TrendingUp className="w-4 h-4" /></span>}
             />
           </div>
 
-          <Card className="border-border/70 shadow-soft mb-6">
+          <Card className="border-border/70 shadow-soft mb-4">
             <CardContent className="p-0 md:p-0">
-              <div className="flex w-full flex-col gap-3 p-4 lg:flex-row lg:items-center">
+              <div className="flex w-full flex-col gap-3 p-3 lg:flex-row lg:items-center">
                 <div className="flex-1">
                   <div className="relative max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -381,7 +441,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                     <SelectContent>
                       <SelectItem value="all">All Areas</SelectItem>
                       {localAreas.map((area) => (
-                        <SelectItem key={area.id} value={area.id.toString()}>
+                        <SelectItem key={area.serverId} value={area.serverId}>
                           Area {area.id}: {area.title.substring(0, 20)}...
                         </SelectItem>
                       ))}
@@ -446,10 +506,10 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
             {filteredAreas.length === 0 && (
               <div className="col-span-full py-10 text-center">
-                <p className="text-[14px] text-gray-500">No areas match your filters.</p>
+                <p className="text-[14px] text-gray-500">No areas found in this workspace.</p>
               </div>
             )}
             {filteredAreas.map((area) => {
@@ -463,18 +523,25 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
 
               return (
                 <Card
-                  key={area.id}
+                  key={area.serverId}
+                  role="link"
+                  tabIndex={0}
+                  aria-label={`Open area ${area.title}`}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && event.target === event.currentTarget) handleViewArea(area)
+                  }}
                   className={cn(
-                    "border-border/70 shadow-soft hover:shadow-lift transition-shadow cursor-pointer flex flex-col h-full overflow-hidden",
+                    "border-border/70 shadow-soft hover:shadow-lift transition-shadow cursor-pointer flex flex-col",
                     selectedIds.includes(area.serverId) && "ring-2 ring-primary/40"
                   )}
                   onClick={() => handleViewArea(area)}
                 >
-                  <CardContent className="flex flex-1 flex-col p-5 text-center md:p-6">
-                    <div className="mb-6 flex items-start justify-between gap-4">
-                      <div className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
+                  <CardContent className="flex flex-1 flex-col p-4 text-center md:p-4">
+                    <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                      <div className="flex min-w-0 flex-1 basis-[130px] items-center gap-2.5 text-left">
                         <input
                           type="checkbox"
+                          aria-label={`Select ${area.title}`}
                           className="w-4 h-4 shrink-0 rounded border-gray-300 accent-primary cursor-pointer"
                           checked={selectedIds.includes(area.serverId)}
                           onClick={(e) => e.stopPropagation()}
@@ -494,40 +561,13 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                           {area.id}
                         </div>
                         <div className="min-w-0">
-                          <h3 className="text-[14px] font-semibold text-gray-900 truncate">Area {area.id}</h3>
-                          <p className="text-[12px] text-gray-500 line-clamp-1">{area.title}</p>
+                          <h3 className="text-[14px] font-semibold text-gray-900 line-clamp-2">{area.title}</h3>
+                          <p className="text-[12px] text-gray-500">{area.programId ? "Program area" : "College-wide area"}</p>
                         </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <Badge variant={statusBadge[area.status]} className="text-[10px]">
-                          {area.status}
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setEditingArea(toEditableArea(area))
-                            setIsAddAreaModalOpen(true)
-                          }}                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleRemoveArea(area.serverId, area.title)
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
                       </div>
                     </div>
 
-                    <div className="mb-6">
+                    <div className="mb-3">
                       <div className="mb-2 flex items-center justify-between gap-3">
                         <span className="text-[12px] text-gray-500">Progress</span>
                         <span className="text-[14px] font-semibold text-primary">{area.completion}%</span>
@@ -540,12 +580,12 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                       </div>
                     </div>
 
-                    <div className="mb-6 grid grid-cols-2 gap-3 rounded-lg bg-gray-50/60 px-3 py-2.5 text-[12px] text-gray-500">
+                    <div className="mb-3 flex flex-wrap justify-between gap-2 rounded-lg bg-gray-50/60 px-3 py-2.5 text-[12px] text-gray-500">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5" />
                         <span className="truncate">{stats.total} Submissions</span>
                       </div>
-                      <div className="flex items-center justify-end gap-3">
+                      <div className="flex items-center justify-end gap-2">
                         <span className="flex items-center gap-1.5">
                           <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
                           {stats.completed}
@@ -561,7 +601,10 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                       </div>
                     </div>
 
-                    <div className="mt-auto flex items-center justify-between gap-4 border-t border-gray-100 pt-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
+                      <Badge variant={statusBadge[area.status]} className="text-[10px]">
+                        {area.status}
+                      </Badge>
                       <div className="flex -space-x-2 min-w-0">
                         {[...new Set(areaSubs.map(s => s.submittedByName).filter((name): name is string => Boolean(name)))].slice(0, 3).map((name, i) => (
                           <Avatar key={i} className="h-7 w-7 border-2 border-white bg-primary/10">
@@ -581,11 +624,39 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                         <span>{area.dueDate}</span>
                       </div>
                     </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                        <Button
+                          variant="outline"
+                          size="action"
+                          aria-label={`Edit ${area.title}`}
+                          className="text-gray-600 hover:text-gray-700 hover:bg-gray-100"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingArea(toEditableArea(area))
+                            setIsAddAreaModalOpen(true)
+                          }}
+                        >
+                          <Pencil className="w-4 h-4" /> <span>Edit</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="action"
+                          aria-label={`Archive ${area.title}`}
+                          className="text-gray-600 hover:text-red-600 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRemoveArea(area.serverId, area.title)
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" /> <span>Archive</span>
+                        </Button>
+                    </div>
                   </CardContent>
                 </Card>
               )
             })}
           </div>
+          </>}
 </div>
 
       <AACCUPAreaDetailsModal
@@ -639,6 +710,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
         }}
         areaSet={areaSet.toLowerCase() as "aaccup" | "iso"}
         area={editingArea}
+        scopeContext={editingArea ? undefined : scopeContext}
           onSuccess={(createdArea) => {
             const isNew = !editingArea
           setEditingArea(null)
@@ -657,10 +729,10 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 max-h-72 space-y-2 overflow-y-auto pr-1">
-            {areas.length === 0 && (
+            {scopedAreas.length === 0 && (
               <p className="py-4 text-center text-[13px] text-gray-500">No areas found.</p>
             )}
-            {areas.map((area) => (
+            {scopedAreas.map((area) => (
               <label
                 key={area.id}
                 className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50"

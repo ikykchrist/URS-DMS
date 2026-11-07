@@ -190,13 +190,13 @@ export default function RootUsers() {
                     </TableCell>
                     <TableCell>
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-primary-600"
+                        variant="outline"
+                        size="action"
+                        className="text-gray-600 hover:text-primary-600"
                         title="Reset password"
                         onClick={() => { setResetTarget(user); setNewPassword(""); setMustChange(true) }}
                       >
-                        <KeyRound className="w-4 h-4" />
+                        <KeyRound className="w-4 h-4" /> <span>Reset password</span>
                       </Button>
                     </TableCell>
                   </TableRow>

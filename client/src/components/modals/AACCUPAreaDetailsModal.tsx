@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import React, { useCallback, useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import {
@@ -228,6 +229,7 @@ export function AACCUPAreaDetailsModal({
     try {
       await archiveOnlineRequirement(requirement.id)
       loadRequirements()
+      toast.success("Requirement archived")
     } catch {
       window.alert("Failed to archive the requirement. Please try again.")
     }
@@ -239,6 +241,7 @@ export function AACCUPAreaDetailsModal({
       await updateOnlineTask(task.id, { status })
       const next = await listOnlineAreaTasks(task.areaId)
       setTasks(next)
+      toast.success("Task started")
     } catch {
       window.alert("Failed to update the task status.")
     } finally {
@@ -260,6 +263,7 @@ export function AACCUPAreaDetailsModal({
     try {
       await reviewOnlineSubmission(submissionId, { decision })
       loadSubmissions()
+      toast.success(decision === "APPROVED" ? "Submission approved" : "Submission rejected")
     } catch {
       window.alert("Review action failed. Please try again.")
     }
@@ -285,6 +289,7 @@ export function AACCUPAreaDetailsModal({
     time: submission.dateSubmitted,
   }))
   const completion = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : area.completion
+  const currentStatus = stats.total > 0 ? (stats.completed === stats.total ? "Completed" : "In Progress") : area.status
 
   const content = (
     <>
@@ -300,9 +305,9 @@ export function AACCUPAreaDetailsModal({
               </div>
               <div className="min-w-0">
                 {page ? (
-                  <h1 className="text-lg font-semibold text-gray-900 truncate">Area {area.id}: {area.title}</h1>
+                  <h1 className="text-lg font-semibold text-gray-900 truncate">{area.title}</h1>
                 ) : (
-                  <DialogTitle className="text-lg truncate">Area {area.id}: {area.title}</DialogTitle>
+                  <DialogTitle className="text-lg truncate">{area.title}</DialogTitle>
                 )}
                 <div className="flex items-center gap-3 mt-1.5">
                   <div className="flex items-center gap-2">
@@ -314,8 +319,8 @@ export function AACCUPAreaDetailsModal({
                     </div>
                      <span className="text-[13px] font-medium text-primary">{completion}%</span>
                   </div>
-                  <Badge variant={areaStatusVariant[area.status]} className="text-[10px] flex-shrink-0">
-                    {area.status}
+                  <Badge variant={areaStatusVariant[currentStatus]} className="text-[10px] flex-shrink-0">
+                    {currentStatus}
                   </Badge>
                 </div>
               </div>
@@ -482,27 +487,27 @@ export function AACCUPAreaDetailsModal({
                               </TableCell>
                               <TableCell className="text-right">
                                 {canManageTasks && !requirement.sourceTemplateId && !requirement.sourceNodeId ? (
-                                  <div className="flex items-center justify-end gap-0.5">
+                                  <div className="record-actions record-actions-table">
                                     <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                                      variant="outline"
+                                      size="action"
+                                      className="text-gray-600 hover:text-gray-700 hover:bg-gray-100"
                                       title="Edit"
                                       onClick={() => {
                                         setEditingRequirement(requirement)
                                         setIsRequirementModalOpen(true)
                                       }}
                                     >
-                                      <Pencil className="w-4 h-4" />
+                                      <Pencil className="w-4 h-4" /> <span>Edit</span>
                                     </Button>
                                     <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                      variant="outline"
+                                      size="action"
+                                      className="text-gray-600 hover:text-red-600 hover:bg-red-50"
                                       title="Archive"
                                       onClick={() => void handleArchiveRequirement(requirement)}
                                     >
-                                      <Trash2 className="w-4 h-4" />
+                                      <Trash2 className="w-4 h-4" /> <span>Archive</span>
                                     </Button>
                                   </div>
                                 ) : (
@@ -595,7 +600,7 @@ export function AACCUPAreaDetailsModal({
                             </TableCell>
                             {canManageTasks && (
                               <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-1">
+                                <div className="record-actions record-actions-table">
                                   {actionable && task.status === "OPEN" && (
                                     <Button
                                       variant="outline"
@@ -731,7 +736,7 @@ export function AACCUPAreaDetailsModal({
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-0.5">
+                              <div className="record-actions record-actions-table">
                                 {(() => {
                                   const raw = rawSubmissions.find((s) => s.id === submission.id)
                                    const reviewable = canManageTasks && raw?.status === "PENDING"
@@ -740,42 +745,42 @@ export function AACCUPAreaDetailsModal({
                                       {reviewable && (
                                         <>
                                           <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
+                                            variant="outline"
+                                            size="action"
+                                            className="text-emerald-600 hover:bg-emerald-50"
                                             title="Approve"
                                             onClick={() => void handleReview(submission.id, "APPROVED")}
                                           >
-                                            <CheckCircle className="w-4 h-4" />
+                                            <CheckCircle className="w-4 h-4" /> <span>Approve</span>
                                           </Button>
                                           <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-amber-600 hover:bg-amber-50"
+                                            variant="outline"
+                                            size="action"
+                                            className="text-amber-600 hover:bg-amber-50"
                                             title="Return for revision"
                                             onClick={() => handleReturn(submission.id, submission.title)}
                                           >
-                                            <RotateCcw className="w-4 h-4" />
+                                            <RotateCcw className="w-4 h-4" /> <span>Return</span>
                                           </Button>
                                           <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-red-600 hover:bg-red-50"
+                                            variant="outline"
+                                            size="action"
+                                            className="text-red-600 hover:bg-red-50"
                                             title="Reject"
                                             onClick={() => void handleReview(submission.id, "REJECTED")}
                                           >
-                                            <XCircle className="w-4 h-4" />
+                                            <XCircle className="w-4 h-4" /> <span>Reject</span>
                                           </Button>
                                         </>
                                       )}
-                                      <Button
+                                      {raw?.status === "PENDING" && <Button
                                         variant="ghost"
                                         size="sm"
                                         className="h-8 text-[13px] text-primary hover:text-primary"
                                         onClick={() => setExpandedRow(expandedRow === submission.id ? null : submission.id)}
                                       >
                                         {expandedRow === submission.id ? "Hide" : "View"}
-                                      </Button>
+                                      </Button>}
                                     </>
                                   )
                                 })()}

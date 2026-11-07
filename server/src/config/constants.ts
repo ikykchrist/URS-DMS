@@ -134,6 +134,7 @@ export const AUDIT_ACTIONS = {
   AACCUP_SUBMISSION_UPDATED: "aaccup_submission.updated",
   AACCUP_SUBMISSION_REVIEWED: "aaccup_submission.reviewed",
   AACCUP_SUBMISSION_ARCHIVED: "aaccup_submission.archived",
+  AACCUP_SUBMISSION_UNSUBMITTED: "aaccup_submission.unsubmitted",
   AACCUP_SUBMISSION_RESTORED: "aaccup_submission.restored",
   AACCUP_SUBMISSIONS_EXPORTED: "aaccup_submissions.exported",
 
@@ -250,6 +251,7 @@ export const AUDIT_ACTIONS = {
   WORKFLOW_INSTANCE_TRANSITIONED: "workflow_instance.transitioned",
   WORKFLOW_INSTANCE_COMPLETED: "workflow_instance.completed",
   WORKFLOW_INSTANCE_OVERRIDDEN: "workflow_instance.overridden",
+  WORKFLOW_INSTANCE_WITHDRAWN: "workflow_instance.withdrawn",
 
   // Sprint 7.4.6 — Dynamic Form Builder. Template lifecycle + field actions
   // are written by the root form service on every mutation; version rows are

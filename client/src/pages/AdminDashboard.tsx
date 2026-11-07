@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Skeleton } from "@/components/ui/Skeleton"
 import { getDashboardOverview, type DashboardOverview } from "@/services/dashboard"
-import { listAllOnlineSubmissions, listOnlineTasks, type OnlineAaccupTask, type OnlineSubmissionListItem } from "@/services/aaccup"
+import { listAllOnlineSubmissions, listMyOnlineTasks, type OnlineAaccupTask, type OnlineSubmissionListItem } from "@/services/aaccup"
 import { listRequests } from "@/services/requests"
 import { listAuditEntries, type AuditEntry } from "@/services/admin"
 import type { DocumentRequest } from "@/types/domain"
@@ -75,7 +75,7 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       getDashboardOverview().then((data) => setOverview({ data, error: false })).catch(() => setOverview({ data: null, error: true })),
       listAllOnlineSubmissions().then((data) => setSubmissions({ data, error: false })).catch(() => setSubmissions({ data: null, error: true })),
       listRequests().then((data) => setRequests({ data, error: false })).catch(() => setRequests({ data: null, error: true })),
-      listOnlineTasks().then((data) => setTasks({ data, error: false })).catch(() => setTasks({ data: null, error: true })),
+      listMyOnlineTasks().then((data) => setTasks({ data, error: false })).catch(() => setTasks({ data: null, error: true })),
     ]
     if (canReadAudit) {
       pending.push(
@@ -148,7 +148,7 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               </div>
               {dueSoonTasks > 0 && <Badge variant="danger" className="text-[10px]">Due Soon</Badge>}
             </div>
-            <p className="text-[12px] md:text-[13px] text-gray-500 font-semibold mt-3 md:mt-4">Tasks</p>
+            <p className="text-[12px] md:text-[13px] text-gray-500 font-semibold mt-3 md:mt-4">My Tasks</p>
             <p className="text-[24px] md:text-[30px] font-extrabold text-navy-900 mt-0.5 tracking-tight">{tasks.data ? dueSoonTasks : "…"}</p>
           </CardContent>
         </Card>
@@ -180,9 +180,9 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     </div>
                   </button>
                   <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 px-2 text-xs">
-                    <button type="button" className="text-emerald-600 hover:underline font-semibold" onClick={() => nav("submissions", { status: "APPROVED" })}>Approved {overview.data!.aaccup.approved}</button>
-                    <button type="button" className="text-amber-600 hover:underline font-semibold" onClick={() => nav("submissions", { status: "PENDING" })}>Pending {overview.data!.aaccup.pending}</button>
-                    <button type="button" className="text-orange-600 hover:underline font-semibold" onClick={() => nav("submissions", { status: "NEEDS_REVISION" })}>Returned {overview.data!.aaccup.needsRevision}</button>
+                    <button type="button" className="text-emerald-600 hover:underline font-semibold" onClick={() => nav("submissions", { areaSet: key, status: "APPROVED" })}>Approved {stats?.approved ?? "—"}</button>
+                    <button type="button" className="text-amber-600 hover:underline font-semibold" onClick={() => nav("submissions", { areaSet: key, status: "PENDING" })}>Pending {stats?.pending ?? "—"}</button>
+                    <button type="button" className="text-orange-600 hover:underline font-semibold" onClick={() => nav("submissions", { areaSet: key, status: "NEEDS_REVISION" })}>Returned {stats?.needsRevision ?? "—"}</button>
                   </div>
                 </div>
               )
@@ -261,12 +261,14 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-[15px] font-semibold">Tasks</CardTitle>
+              <CardTitle className="text-[15px] font-semibold">My Tasks</CardTitle>
               <Button variant="ghost" size="sm" className="h-9 text-[12px] text-primary" onClick={() => nav("aaccup", { tab: "tasks" })}>View Tasks<ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
             </div>
           </CardHeader>
           <CardContent>
-            {tasks.data === null ? (
+            {tasks.error ? (
+              <p className="text-[13px] text-red-500">Tasks are unavailable.</p>
+            ) : tasks.data === null ? (
               <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-8" />)}</div>
             ) : (
               <div className="space-y-1">

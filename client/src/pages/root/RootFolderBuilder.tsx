@@ -391,13 +391,13 @@ function FolderNodeBranch({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 shrink-0 p-0"
+              variant="outline"
+              size="action"
+              className="shrink-0"
               aria-label={`Actions for ${node.name}`}
               disabled={disabled}
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreHorizontal className="h-4 w-4" /> <span>Actions</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">

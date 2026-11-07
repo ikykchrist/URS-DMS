@@ -35,7 +35,7 @@ export default function RegisterPage() {
   const [form, setForm] = useState({ firstName: "", middleName: "", lastName: "", suffix: "", employeeId: "", campusId: "", collegeId: "", programId: "", officeId: "", password: "", confirmPassword: "" })
 
   useEffect(() => {
-    document.title = "Register | URS-DMS"
+    document.title = "Register | QA-DMS"
     if (!token) {
       setLoading(false)
       return
@@ -172,16 +172,16 @@ export default function RegisterPage() {
       <AuthCard className="w-full p-5 sm:p-8">
         <AuthCardHeader>
           <AuthCardTitle>Create your account</AuthCardTitle>
-          <AuthCardDescription>Complete your profile to activate your URS-DMS account.</AuthCardDescription>
+          <AuthCardDescription>Complete your profile to activate your QA-DMS account.</AuthCardDescription>
         </AuthCardHeader>
         {error && <div className="mb-5 flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600"><AlertCircle className="h-4 w-4 shrink-0" /><span>{error}</span></div>}
         {success ? (
-          <div className="rounded-xl bg-emerald-50 p-5 text-center text-sm text-emerald-700">Account created successfully. Redirecting you to sign in...</div>
+          <div role="status" aria-live="polite" className="rounded-xl bg-emerald-50 p-5 text-center text-sm text-emerald-700">Account created successfully. Redirecting you to sign in...</div>
         ) : loading ? (
           <div className="py-10 text-center text-sm text-slate-500"><Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin" />Validating invitation...</div>
         ) : !token ? (
           requestSent ? (
-            <div className="rounded-xl bg-emerald-50 p-5 text-center text-sm text-emerald-700">If the email is eligible, a registration link will arrive shortly. Check your inbox and spam folder.</div>
+            <div role="status" aria-live="polite" className="rounded-xl bg-emerald-50 p-5 text-center text-sm text-emerald-700">If the email is eligible, a registration link will arrive shortly. Check your inbox and spam folder.</div>
           ) : (
             <form onSubmit={handleRequestInvitation} className="space-y-5">
               <div className="rounded-xl border border-blue-100 bg-primary-50 p-4 text-sm text-blue-800">Enter your email address and we will send you a secure registration link.</div>

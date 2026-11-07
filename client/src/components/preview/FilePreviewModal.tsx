@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/Skeleton"
 import { openOnlineDocument, getOnlineDocumentUrl, getDocumentActivity, type DocumentActivity } from "@/services/documents"
 import type { Document } from "@/types/domain"
 import { cn } from "@/lib/utils"
+import { toast } from "@/lib/toast"
 
 interface FilePreviewModalProps {
   document: Document | null
@@ -111,7 +112,9 @@ export function FilePreviewModal({ document, onClose, onRename, onMove, onDelete
   const submitRename = async () => {
     if (!title.trim() || !document) return
     setSaving(true)
-    try { await onRename?.(document, title.trim()); setEditing(false) } finally { setSaving(false) }
+    try { await onRename?.(document, title.trim()); setEditing(false) }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Unable to rename file") }
+    finally { setSaving(false) }
   }
 
   const printPreview = () => {

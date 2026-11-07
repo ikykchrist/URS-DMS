@@ -23,6 +23,9 @@ function toActor(req: Request): service.Actor {
 export async function areaSetupProgramsHandler(req: Request, res: Response): Promise<void> {
   sendSuccess(res, await service.listAreaSetupPrograms(toActor(req)));
 }
+export async function areaSetupOrganizationHandler(req: Request, res: Response): Promise<void> {
+  sendSuccess(res, await service.listAreaSetupOrganization(toActor(req)));
+}
 export async function areaTemplateSetupHandler(req: Request, res: Response): Promise<void> {
   sendSuccess(res, await service.getAreaTemplateSetup(req.params.id!, toActor(req)));
 }

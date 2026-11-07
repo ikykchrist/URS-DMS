@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState, useEffect } from "react"
 import {
   FileText,
@@ -30,8 +31,9 @@ async function downloadFile(file: DocumentFile) {
       `/documents/${encodeURIComponent(file.id)}/download`,
     )
     window.open(result.url, "_blank", "noopener,noreferrer")
+      toast.success("Download link opened")
   } catch {
-    // Download failures are surfaced by the surrounding preview state.
+    toast.error("Unable to open download link")
   }
 }
 
@@ -158,13 +160,13 @@ function PdfPreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string | n
           </Button>
           <div className="w-px h-4 bg-gray-300 mx-1" />
           <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-gray-600"
+            variant="outline"
+            size="action"
+            className="text-gray-600"
             aria-label="Download"
             onClick={handleDownload}
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5" /> <span>Download</span>
           </Button>
         </div>
       </div>
@@ -224,13 +226,13 @@ function ImagePreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string |
           </Button>
           <div className="w-px h-4 bg-gray-300 mx-1" />
           <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-gray-600"
+            variant="outline"
+            size="action"
+            className="text-gray-600"
             aria-label="Download"
             onClick={handleDownload}
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5" /> <span>Download</span>
           </Button>
         </div>
       </div>

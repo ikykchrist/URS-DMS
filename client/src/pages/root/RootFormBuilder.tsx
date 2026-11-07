@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   Plus,
@@ -176,7 +177,9 @@ export default function RootFormBuilder() {
   const openBuilder = async (template: FormTemplateListItem) => {
     setBuilderLoading(true)
     try {
-      setBuilder(await getForm(template.id))
+      const loaded = await getForm(template.id)
+      setBuilder(loaded)
+      return loaded
     } catch (err) {
       setError(errorMessage(err, "Failed to load form template"))
     } finally {
@@ -193,6 +196,7 @@ export default function RootFormBuilder() {
       setCreateOpen(false)
       setCreateFormState({ code: "", name: "", description: "" })
       await load()
+      toast.success("Form created")
     } catch (err) {
       window.alert(errorMessage(err, "Failed to create form"))
     } finally {
@@ -207,6 +211,7 @@ export default function RootFormBuilder() {
     try {
       const result = await saveFormDraft(builder.id, "Manual save")
       await openBuilder({ ...builder, version: result.version } as FormTemplateListItem)
+      toast.success("Form draft saved")
     } catch (err) {
       window.alert(errorMessage(err, "Failed to save draft"))
     }
@@ -219,6 +224,7 @@ export default function RootFormBuilder() {
       await publishForm(builder.id, "Published")
       await load()
       await openBuilder(builder)
+      toast.success("Form published")
     } catch (err) {
       window.alert(errorMessage(err, "Failed to publish form"))
     }
@@ -228,6 +234,7 @@ export default function RootFormBuilder() {
     try {
       await duplicateForm(template.id)
       await load()
+      toast.success("Form duplicated")
     } catch (err) {
       window.alert(errorMessage(err, "Failed to duplicate form"))
     }
@@ -238,6 +245,7 @@ export default function RootFormBuilder() {
     try {
       await archiveForm(template.id)
       await load()
+      toast.success("Form archived")
     } catch (err) {
       window.alert(errorMessage(err, "Failed to archive form"))
     }
@@ -247,6 +255,7 @@ export default function RootFormBuilder() {
     try {
       await restoreForm(template.id)
       await load()
+      toast.success("Form restored")
     } catch (err) {
       window.alert(errorMessage(err, "Failed to restore form"))
     }
@@ -258,6 +267,7 @@ export default function RootFormBuilder() {
     try {
       const updated = await removeFormField(builder.id, field.id)
       setBuilder(updated)
+      toast.success("Field removed")
     } catch (err) {
       window.alert(errorMessage(err, "Failed to remove field"))
     }
@@ -275,6 +285,7 @@ export default function RootFormBuilder() {
     try {
       const updated = await reorderFormFields(builder.id, next)
       setBuilder(updated)
+      toast.success("Field order updated")
     } catch (err) {
       window.alert(errorMessage(err, "Failed to reorder fields"))
     }
@@ -350,6 +361,7 @@ export default function RootFormBuilder() {
         : await createFormField(builder.id, input)
       setBuilder(updated)
       setFieldDialog({ open: false })
+      toast.success("Field saved")
     } catch (err) {
       window.alert(errorMessage(err, "Failed to save field"))
     } finally {
@@ -399,6 +411,7 @@ export default function RootFormBuilder() {
         priority: Number(assignPriority) || 0,
       })
       setAssignDialog(updated)
+      toast.success("Form assigned")
     } catch (err) {
       window.alert(errorMessage(err, "Failed to assign form"))
     }
@@ -408,6 +421,7 @@ export default function RootFormBuilder() {
     if (!assignDialog) return
     try {
       setAssignDialog(await unassignForm(assignDialog.id, assignmentId))
+      toast.success("Form assignment removed")
     } catch (err) {
       window.alert(errorMessage(err, "Failed to remove assignment"))
     }
@@ -437,6 +451,7 @@ export default function RootFormBuilder() {
       await rollbackForm(versionsFor.id, version)
       setVersionsFor(null)
       await load()
+      toast.success("Form restored to the selected version")
     } catch (err) {
       window.alert(errorMessage(err, "Failed to roll back form"))
     }
@@ -562,39 +577,39 @@ export default function RootFormBuilder() {
                       {new Date(template.updatedAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="record-actions record-actions-table">
                         {template.status !== "ARCHIVED" && (
-                          <Button variant="ghost" size="sm" className="h-8 text-[12px] text-primary"
+                          <Button variant="outline" size="action" className="text-primary"
                             onClick={() => void openBuilder(template)}>
                             <Pencil className="w-3.5 h-3.5 mr-1" />
                             Edit
                           </Button>
                         )}
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-700"
+                        <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-700"
                           title="Preview" onClick={() => void openPreview(template)}>
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-4 h-4" /> <span>View</span>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-700"
+                        <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-700"
                           title="Versions & history" onClick={() => void openVersions(template)}>
-                          <History className="w-4 h-4" />
+                          <History className="w-4 h-4" /> <span>History</span>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-700"
-                          title="Assignments" onClick={() => void openBuilder(template).then(() => openAssignments(builder!))}>
-                          <Link2 className="w-4 h-4" />
+                        <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-700"
+                          title="Assignments" onClick={() => void openBuilder(template).then((loaded) => { if (loaded) openAssignments(loaded) })}>
+                          <Link2 className="w-4 h-4" /> <span>Assignments</span>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-700"
+                        <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-700"
                           title="Duplicate" onClick={() => void handleDuplicate(template)}>
-                          <Copy className="w-4 h-4" />
+                          <Copy className="w-4 h-4" /> <span>Duplicate</span>
                         </Button>
                         {template.status === "ARCHIVED" ? (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-emerald-600"
+                          <Button variant="outline" size="action" className="text-gray-600 hover:text-emerald-600"
                             title="Restore" onClick={() => void handleRestore(template)}>
-                            <ArchiveRestore className="w-4 h-4" />
+                            <ArchiveRestore className="w-4 h-4" /> <span>Restore</span>
                           </Button>
                         ) : (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600"
+                          <Button variant="outline" size="action" className="text-gray-600 hover:text-red-600"
                             title="Archive" onClick={() => void handleArchive(template)}>
-                            <Archive className="w-4 h-4" />
+                            <Archive className="w-4 h-4" /> <span>Archive</span>
                           </Button>
                         )}
                       </div>
@@ -705,18 +720,18 @@ export default function RootFormBuilder() {
                 ) : (
                   <div className="space-y-2">
                     {builder.fields.map((field, index) => (
-                      <div key={field.id} className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white hover:border-border transition-colors">
-                        <div className="flex flex-col gap-0.5">
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-gray-700" disabled={index === 0}
+                      <div key={field.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 bg-white p-3.5 transition-colors hover:border-border">
+                        <div className="flex shrink-0 flex-col gap-2">
+                          <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-700" disabled={index === 0}
                             onClick={() => void handleMoveField(index, -1)}>
-                            <ArrowUp className="w-3.5 h-3.5" />
+                            <ArrowUp className="w-3.5 h-3.5" /> <span>Move up</span>
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-gray-700" disabled={index === builder.fields.length - 1}
+                          <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-700" disabled={index === builder.fields.length - 1}
                             onClick={() => void handleMoveField(index, 1)}>
-                            <ArrowDown className="w-3.5 h-3.5" />
+                            <ArrowDown className="w-3.5 h-3.5" /> <span>Move down</span>
                           </Button>
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="min-w-[140px] flex-1">
                           <div className="flex items-center gap-2">
                             <p className="text-[14px] font-medium text-gray-900">{field.label}</p>
                             {field.required && <span className="text-red-500 text-[12px]">*</span>}
@@ -726,14 +741,14 @@ export default function RootFormBuilder() {
                           <p className="text-[11px] text-gray-400 mt-0.5 font-mono">{field.key}</p>
                         </div>
                         {builder.status === "DRAFT" && (
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-700"
+                          <div className="record-actions">
+                            <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-700"
                               onClick={() => setFieldDialog({ open: true, field })}>
-                              <Pencil className="w-4 h-4" />
+                              <Pencil className="w-4 h-4" /> <span>Edit</span>
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600"
+                            <Button variant="outline" size="action" className="text-gray-600 hover:text-red-600"
                               onClick={() => void handleRemoveField(field)}>
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" /> <span>Remove</span>
                             </Button>
                           </div>
                         )}
@@ -839,9 +854,9 @@ export default function RootFormBuilder() {
                           next[index] = { ...next[index], value: e.target.value }
                           setFieldState((s) => ({ ...s, options: next }))
                         }} />
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600"
+                      <Button variant="outline" size="action" className="text-gray-600 hover:text-red-600"
                         onClick={() => setFieldState((s) => ({ ...s, options: s.options.filter((_, i) => i !== index) }))}>
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" /> <span>Remove</span>
                       </Button>
                     </div>
                   ))}
@@ -1021,9 +1036,9 @@ export default function RootFormBuilder() {
                     <p className="text-[13px] text-gray-900 font-medium">{assignment.targetType}</p>
                     <p className="text-[11px] text-gray-400">priority {assignment.priority} · {new Date(assignment.createdAt).toLocaleDateString()}</p>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600"
+                  <Button variant="outline" size="action" className="text-gray-600 hover:text-red-600"
                     onClick={() => void handleUnassign(assignment.id)}>
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" /> <span>Unassign</span>
                   </Button>
                 </div>
               ))}
