@@ -189,15 +189,32 @@ export async function browseProgramArchive(
     select: { campusId: true, collegeId: true, programId: true },
   });
   const programId = me?.programId ?? null;
-  if (!programId) return { items: [], campusId: me?.campusId ?? null, collegeId: me?.collegeId ?? null, programId: null, programName: null };
+  const collegeId = me?.collegeId ?? null;
+  const campusId = me?.campusId ?? null;
+
+  // Documents are not reliably program-assigned: uploads and AACCUP submissions
+  // only carry the uploader's college/campus, so filtering on programId alone
+  // hid every archived file (the accreditation tab lists by requirement, which
+  // is why approved files showed there but nothing here). Match the strict
+  // program bucket first, then fall back to the caller's college/campus for
+  // documents that were never program-scoped.
+  const scope: Prisma.DocumentWhereInput[] = [];
+  if (programId) scope.push({ programId });
+  if (collegeId) scope.push({ programId: null, collegeId });
+  if (campusId) scope.push({ programId: null, collegeId: null, campusId });
+  if (scope.length === 0) {
+    return { items: [], campusId, collegeId, programId, programName: null };
+  }
 
   const [program, docs] = await Promise.all([
-    prisma.program.findUnique({
-      where: { id: programId },
-      select: { name: true },
-    }),
+    programId
+      ? prisma.program.findUnique({
+          where: { id: programId },
+          select: { name: true },
+        })
+      : Promise.resolve(null),
     prisma.document.findMany({
-      where: { programId, deletedAt: null },
+      where: { deletedAt: null, OR: scope },
       select: {
         id: true,
         title: true,
