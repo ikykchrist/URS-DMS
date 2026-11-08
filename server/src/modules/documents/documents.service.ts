@@ -820,12 +820,21 @@ export async function listRequestedDocuments(actor: Actor): Promise<DocumentList
     where: {
       ownerId: actor.id,
       deletedAt: null,
-      metadata: { path: ["delivered"], equals: true },
     },
     select: documentSelect,
     orderBy: { updatedAt: "desc" },
   });
-  return rows.map((row) => repo.toListItemPublic(row));
+  // JSON path filtering is provider/version-sensitive in Prisma and older
+  // delivered copies may only carry requestId. Filter the already owner-scoped
+  // result in application code so every approved delivery remains visible.
+  return rows
+    .filter((row) => {
+      const metadata = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+        ? row.metadata as Record<string, unknown>
+        : {};
+      return metadata.delivered === true || typeof metadata.requestId === "string";
+    })
+    .map((row) => repo.toListItemPublic(row));
 }
 
 /**
