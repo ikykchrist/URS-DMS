@@ -32,6 +32,7 @@ import {
   listVersionsHandler,
   permanentDeleteDocumentHandler,
   previewDocumentHandler,
+  previewDocumentContentHandler,
   thumbnailDocumentHandler,
   restoreDocumentHandler,
   shareDocumentHandler,
@@ -178,6 +179,13 @@ documentsRouter.get(
   requirePermission("documents.read"),
   validateParams(documentIdParamSchema),
   asyncHandler(previewDocumentHandler),
+);
+
+documentsRouter.get(
+  "/:id/preview/content",
+  requirePermission("documents.read"),
+  validateParams(documentIdParamSchema),
+  asyncHandler(previewDocumentContentHandler),
 );
 
 documentsRouter.get(
