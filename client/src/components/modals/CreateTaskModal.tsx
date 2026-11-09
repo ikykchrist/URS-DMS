@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState, useEffect } from "react"
 import { Plus, User, Building2 } from "lucide-react"
 import {
@@ -30,7 +31,7 @@ interface CreateTaskModalProps {
   onSuccess?: () => void
 }
 
-type AssigneeKind = "USER" | "DEPARTMENT"
+type AssigneeKind = "USER" | "PROGRAM"
 
 export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSuccess }: CreateTaskModalProps) {
   const [taskName, setTaskName] = useState("")
@@ -43,7 +44,7 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
   const [dueDate, setDueDate] = useState("")
   const [category, setCategory] = useState("documentation")
   const [activeUsers, setActiveUsers] = useState<Array<{ id: string; label: string }>>([])
-  const [departments, setDepartments] = useState<Array<{ id: string; label: string }>>([])
+  const [programs, setPrograms] = useState<Array<{ id: string; label: string }>>([])
   const [areas, setAreas] = useState<OnlineAaccupArea[]>([])
   const [pickedAreaId, setPickedAreaId] = useState("")
   const [saving, setSaving] = useState(false)
@@ -61,7 +62,7 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
     Promise.all([
       listTaskAssignees().then((result) => ({
         users: result.users.map((user) => ({ id: user.id, label: user.fullName })),
-        departments: result.departments.map((department) => ({ id: department.id, label: department.name })),
+        programs: result.programs.map((program) => ({ id: program.id, label: program.name })),
       })),
       areaId
         ? Promise.resolve([])
@@ -71,12 +72,12 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
     ])
       .then(([assignees, areaItems]) => {
         setActiveUsers(assignees.users)
-        setDepartments(assignees.departments)
+        setPrograms(assignees.programs)
         setAreas(areaItems)
       })
       .catch(() => {
         setActiveUsers([])
-        setDepartments([])
+        setPrograms([])
         setAreas([])
       })
   }, [open, areaId])
@@ -108,7 +109,7 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
     setError("")
     if (!taskName.trim()) { setError("Task name is required"); return }
     if (!effectiveAreaId) { setError("No area selected"); return }
-    if (!requirementTemplateId) { setError("Please assign an active requirement template to this area first"); return }
+    if (!requirementTemplateId) { setError("Open this area's Requirements tab and attach a requirement template first"); return }
     if (!assigneeId) { setError("Please select an assignee"); return }
 
     setSaving(true)
@@ -126,6 +127,7 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
       })
       onSuccess?.()
       handleClose(false)
+      toast.success("Task created and assigned")
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to create task. Please try again.")
     } finally {
@@ -248,27 +250,27 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setAssigneeKind("DEPARTMENT"); setAssigneeId("") }}
+                  onClick={() => { setAssigneeKind("PROGRAM"); setAssigneeId("") }}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-                    assigneeKind === "DEPARTMENT" ? "bg-white text-gray-900 shadow-soft" : "text-gray-500 hover:text-gray-700"
+                  assigneeKind === "PROGRAM" ? "bg-white text-gray-900 shadow-soft" : "text-gray-500 hover:text-gray-700"
                   )}
                 >
                   <Building2 className="w-3.5 h-3.5" />
-                  Department
+                  Program
                 </button>
               </div>
               <Select
                 value={assigneeId}
                 onValueChange={setAssigneeId}
-                disabled={(assigneeKind === "USER" ? activeUsers : departments).length === 0}
+                disabled={(assigneeKind === "USER" ? activeUsers : programs).length === 0}
               >
                 <SelectTrigger className="h-10 flex-1">
                   <SelectValue
                     placeholder={
                       assigneeKind === "USER"
                         ? "Select active user"
-                        : "Select department"
+                        : "Select program"
                     }
                   />
                 </SelectTrigger>
@@ -279,9 +281,9 @@ export function CreateTaskModal({ open, onOpenChange, areaId, areaTitle, onSucce
                           {user.label}
                         </SelectItem>
                       ))
-                    : departments.map((department) => (
-                        <SelectItem key={department.id} value={department.id}>
-                          {department.label}
+                    : programs.map((program) => (
+                        <SelectItem key={program.id} value={program.id}>
+                          {program.label}
                         </SelectItem>
                       ))}
                 </SelectContent>

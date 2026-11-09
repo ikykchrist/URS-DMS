@@ -4,11 +4,11 @@ import { AuthLayout } from "@/components/auth"
 
 export default function LoginPage() {
   useEffect(() => {
-    document.title = "Sign In | URS-DMS"
+    document.title = "Sign In | QA-DMS"
   }, [])
 
   return (
-    <AuthLayout>
+    <AuthLayout className="login-page">
       <LoginForm />
     </AuthLayout>
   )

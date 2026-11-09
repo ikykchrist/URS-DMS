@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react"
+import { accreditationAreaLabel } from "@/lib/accreditationLocation"
+import { UnsubmitEvidenceButton } from "@/components/aaccup/UnsubmitEvidenceButton"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   FileCheck2,
   FileText,
@@ -47,11 +51,13 @@ import {
 } from "@/services/aaccup"
 import { RepositoryDocumentPicker } from "@/components/aaccup/RepositoryDocumentPicker"
 import type { Document } from "@/types/domain"
+import { requirementUploadHints } from "@/lib/requirementUploadHints"
+import { AreaDeadlineBadge, AreaDeadlineList } from "@/components/aaccup/AreaDeadlineBadge"
 
 // =============================================================================
 // UserAccreditationView — shared accreditation surface for the user portal
 // -----------------------------------------------------------------------------
-// Renders one accreditation set (AACCUP / ISO / Certification) with its own
+// Renders one accreditation set (AACCUP / ISO) with its own
 // record set — areas, requirements and the user's own submissions are scoped
 // by `areaSet`, matching the admin-side tab separation exactly.
 // =============================================================================
@@ -62,12 +68,8 @@ const SET_META: Record<AreaSet, { title: string; description: string }> = {
     description: "Manage accreditation areas, submissions, and compliance tracking.",
   },
   ISO: {
-    title: "ISO 21001 Management",
+    title: "ISO 21001:2025",
     description: "Manage ISO accreditation areas, submissions, and compliance tracking.",
-  },
-  CERT: {
-    title: "Certification Management",
-    description: "Manage certification areas, submissions, and compliance tracking.",
   },
 }
 
@@ -109,10 +111,12 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
   const canUpload = Boolean(user && hasPermission(user.role, "canUpload"))
   const [areas, setAreas] = useState<OnlineAaccupArea[]>([])
   const [activeAreaId, setActiveAreaId] = useState("")
+  const [areaScope, setAreaScope] = useState<"college" | "program">("program")
   const [requirements, setRequirements] = useState<OnlineAaccupRequirement[]>([])
   const [submissions, setSubmissions] = useState<OnlineAaccupSubmission[]>([])
   const [areaSubmissionCounts, setAreaSubmissionCounts] = useState<Record<string, number>>({})
   const [areasLoading, setAreasLoading] = useState(true)
+  const areaLoadRequest = useRef(0)
   const [requirementsLoading, setRequirementsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -127,9 +131,35 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
   const [metadata, setMetadata] = useState<Record<string, string>>({})
   const [uploading, setUploading] = useState(false)
   const [validationMessages, setValidationMessages] = useState<string[]>([])
+  const areaTabsRef = useRef<HTMLDivElement>(null)
+  const [areaTabsScroll, setAreaTabsScroll] = useState({ overflow: false, left: false, right: false })
 
-  const activeArea = areas.find((area) => area.id === activeAreaId) ?? null
+  const collegeAreas = areas.filter((area) => !area.programId)
+  const programAreas = areas.filter((area) => Boolean(area.programId))
+  const visibleAreas = areaScope === "college" ? collegeAreas : programAreas
+  const activeArea = visibleAreas.find((area) => area.id === activeAreaId) ?? null
   const meta = SET_META[areaSet]
+
+  const syncAreaTabsScroll = useCallback(() => {
+    const el = areaTabsRef.current
+    if (!el) return
+    const overflow = el.scrollWidth > el.clientWidth + 4
+    const left = el.scrollLeft > 4
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 4
+    setAreaTabsScroll((prev) => (prev.overflow === overflow && prev.left === left && prev.right === right ? prev : { overflow, left, right }))
+  }, [])
+
+  const scrollAreaTabs = (direction: -1 | 1) => {
+    const el = areaTabsRef.current
+    if (!el) return
+    el.scrollBy({ left: direction * Math.max(220, el.clientWidth * 0.7), behavior: "smooth" })
+  }
+
+  useEffect(() => {
+    syncAreaTabsScroll()
+    window.addEventListener("resize", syncAreaTabsScroll)
+    return () => window.removeEventListener("resize", syncAreaTabsScroll)
+  }, [syncAreaTabsScroll, areaScope, areasLoading, visibleAreas.length])
 
   const loadAreas = useCallback(async () => {
     setAreasLoading(true)
@@ -137,7 +167,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
     try {
       const nextAreas = await listOnlineAaccupAreas(areaSet)
       setAreas(nextAreas)
-      setActiveAreaId((current) => current || nextAreas[0]?.id || "")
+
       const ownSubmissions = await listAllOnlineSubmissions({ areaSet })
       setAreaSubmissionCounts(
         ownSubmissions.reduce<Record<string, number>>((acc, submission) => {
@@ -145,6 +175,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
           return acc
         }, {}),
       )
+      return nextAreas
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : `Unable to load dynamic ${meta.title} areas`)
     } finally {
@@ -153,6 +184,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
   }, [areaSet, meta.title])
 
   const loadAreaData = useCallback(async (areaId: string) => {
+    const request = ++areaLoadRequest.current
     setRequirementsLoading(true)
     setError(null)
     try {
@@ -160,19 +192,36 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
         listOnlineRequirements(areaId),
         listMyAaccupSubmissions(areaId),
       ])
+      if (request !== areaLoadRequest.current) return
       setRequirements(nextRequirements)
       setSubmissions(nextSubmissions)
     } catch (loadError) {
+      if (request !== areaLoadRequest.current) return
       setError(loadError instanceof Error ? loadError.message : "Unable to load dynamic requirements")
       setRequirements([])
       setSubmissions([])
     } finally {
-      setRequirementsLoading(false)
+      if (request === areaLoadRequest.current) setRequirementsLoading(false)
     }
   }, [])
 
+  useEffect(() => {
+    if (areasLoading) return
+    const matching = areas.filter((area) => areaScope === "college" ? !area.programId : Boolean(area.programId))
+    if (!matching.length && areas.length) { setAreaScope(areaScope === "college" ? "program" : "college"); return }
+    setActiveAreaId((current) => matching.some((area) => area.id === current) ? current : matching[0]?.id ?? "")
+  }, [areas, areasLoading, areaScope])
   useEffect(() => { void loadAreas() }, [loadAreas])
   useEffect(() => { if (activeAreaId) void loadAreaData(activeAreaId) }, [activeAreaId, loadAreaData])
+
+  async function refreshArea() {
+    const nextAreas = await loadAreas()
+    if (!nextAreas) return
+    const matching = nextAreas.filter((area) => areaScope === "college" ? !area.programId : Boolean(area.programId))
+    const next = matching.find((area) => area.id === activeAreaId) ?? matching[0]
+    if (next) await loadAreaData(next.id)
+    else { setRequirements([]); setSubmissions([]) }
+  }
 
   const submissionByRequirement = new Map(
     submissions
@@ -220,7 +269,9 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
       if (!file) return
       const input = {
         requirementId: uploadRequirement.id,
-        departmentId: activeArea.departmentId,
+        campusId: activeArea.campusId ?? "",
+        collegeId: activeArea.collegeId ?? "",
+        programId: activeArea.programId ?? "",
         title: title.trim(),
         areaName: activeArea.name,
         requirementCode: uploadRequirement.documentCode,
@@ -252,18 +303,18 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
         title={meta.title}
         description={meta.description}
-        actions={<Button variant="outline" onClick={() => void loadAreas()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>}
+        actions={<Button variant="outline" onClick={() => void refreshArea()} disabled={areasLoading || requirementsLoading}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>}
       />
       {navigation && <div className="mb-6 lg:mb-8">{navigation}</div>}
 
       {error && (
         <div className="mb-5 flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" /><div><p className="text-[13px] font-semibold text-red-900">Dynamic requirements unavailable</p><p className="mt-1 text-[12px] text-red-700">{error}</p></div></div>
-          <Button size="sm" variant="outline" onClick={() => void loadAreas()}>Retry</Button>
+          <Button size="sm" variant="outline" onClick={() => void refreshArea()}>Retry</Button>
         </div>
       )}
 
@@ -274,15 +325,24 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
         <Card className="border-border/70"><CardContent className="p-5 pt-7 md:p-6 md:pt-7"><div className="flex items-center justify-between"><span className="text-[12px] font-medium text-slate-500">Needs Attention</span><AlertCircle className="h-4 w-4 text-rose-500" /></div><p className="mt-2 text-2xl font-semibold text-navy-900">{needsRevision}</p><p className="mt-3 text-[11px] text-slate-500">Rejected or revision-requested submissions</p></CardContent></Card>
       </div>
 
+      {!areasLoading && areas.length > 0 && <div className="mt-5 space-y-3">
+        <p className="text-sm font-medium text-navy-900">{[areas[0]?.campusName, areas[0]?.collegeName].filter(Boolean).join(" / ")}</p>
+        <Tabs value={areaScope} onValueChange={(value) => { areaLoadRequest.current += 1; setAreaScope(value as "college" | "program"); setRequirements([]); setSubmissions([]) }}>
+          <TabsList aria-label="Area scope" className="h-10">
+            <TabsTrigger value="college" disabled={!collegeAreas.length}>College-wide ({collegeAreas.length})</TabsTrigger>
+            <TabsTrigger value="program" disabled={!programAreas.length}>Program areas ({programAreas.length})</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>}
       <Card className="mt-5 overflow-hidden border-border/70">
         <CardContent className="p-2 pt-2 pb-2 md:p-2 md:pt-2 md:pb-2">
           {areasLoading ? <Skeleton variant="rectangular" className="h-11" />
             : areas.length === 0 ? <p className="py-3 text-center text-[12px] text-slate-500">No active {meta.title} areas are assigned to your account.</p>
-              : <Tabs value={activeAreaId} onValueChange={setActiveAreaId}><TabsList className="flex h-9 w-full justify-start gap-1 overflow-x-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{areas.map((area) => {
+              : <Tabs value={activeAreaId} onValueChange={setActiveAreaId}><div className="relative"><TabsList ref={areaTabsRef} onScroll={syncAreaTabsScroll} className={`flex h-9 w-full justify-start gap-1 overflow-x-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${areaTabsScroll.overflow ? "pl-11 pr-11" : ""}`}>{visibleAreas.map((area) => {
                 const count = areaSubmissionCounts[area.id] ?? 0
                 return (
                   <TabsTrigger key={area.id} value={area.id} className="min-w-max px-4 py-1.5 text-[12px]">
-                    {area.code}
+                    {accreditationAreaLabel(area)}
                     {count > 0 && (
                       <span className="ml-2 inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-primary-100 px-1 text-[10px] font-semibold text-primary-600">
                         {count}
@@ -290,21 +350,37 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
                     )}
                   </TabsTrigger>
                 )
-              })}</TabsList></Tabs>}
+              })}</TabsList>{areaTabsScroll.overflow && (<div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-1"><Button type="button" variant="outline" size="icon-sm" aria-label="Scroll areas left" disabled={!areaTabsScroll.left} onClick={() => scrollAreaTabs(-1)} className="pointer-events-auto h-8 w-8 shadow-soft"><ChevronLeft className="h-4 w-4" /></Button></div>)}{areaTabsScroll.overflow && (<div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center pr-1"><Button type="button" variant="outline" size="icon-sm" aria-label="Scroll areas right" disabled={!areaTabsScroll.right} onClick={() => scrollAreaTabs(1)} className="pointer-events-auto h-8 w-8 shadow-soft"><ChevronRight className="h-4 w-4" /></Button></div>)}</div></Tabs>}
         </CardContent>
       </Card>
+
+      {!areasLoading && visibleAreas.some((area) => area.dueDate) && (
+        <div className="mt-3 rounded-xl border border-border/70 bg-white p-3">
+          <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Area deadlines</p>
+          <AreaDeadlineList areas={visibleAreas.filter((area) => area.dueDate).map((area) => ({ id: area.id, name: accreditationAreaLabel(area), dueDate: area.dueDate }))} />
+        </div>
+      )}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="overflow-hidden border-border/70">
           <CardHeader className="border-b border-border/70 bg-primary-50/40 p-4 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0"><CardTitle className="text-[15px] truncate">{activeArea?.name ?? "Select an area"}</CardTitle><p className="mt-1 text-[12px] text-gray-500 truncate">{activeArea?.description ?? "Requirements load from active ROOT assignments."}</p></div>
+              <div className="min-w-0">
+                <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">{areaSet} area</p>
+                <CardTitle className="text-[17px] break-words">{activeArea ? accreditationAreaLabel(activeArea) : "Select an area"}</CardTitle>
+                {activeArea?.dueDate && <div className="mt-3"><AreaDeadlineBadge area={{ id: activeArea.id, name: accreditationAreaLabel(activeArea), dueDate: activeArea.dueDate }} prominent /></div>}
+                {activeArea && <>
+                  <p className="mt-1 text-xs text-gray-500">{[activeArea.campusName, activeArea.collegeName].filter(Boolean).join(" / ")}</p>
+                  <p className="mt-1 text-xs font-medium text-primary">Applies to: {activeArea.programName ?? "Entire college"}</p>
+                </>}
+                {activeArea?.description && <p className="mt-2 text-[12px] text-gray-500">{activeArea.description}</p>}
+              </div>
               {activeArea?.accreditationCycleName && <Badge variant="outline"><ShieldCheck className="mr-1 h-3 w-3" />{activeArea.accreditationCycleName}</Badge>}
             </div>
           </CardHeader>
           <CardContent className="p-0">
             {requirementsLoading ? <div className="space-y-3 p-5">{Array.from({ length: 4 }, (_, index) => <Skeleton key={index} variant="rectangular" className="h-16" />)}</div>
-              : requirements.length === 0 ? <EmptyState variant="tasks" title="No active requirements" description="A ROOT administrator must assign an active Requirement Builder template to this area or its organization scope." />
+              : requirements.length === 0 ? <EmptyState variant="tasks" title="No requirements assigned to this area yet" description="An accreditation administrator will attach a requirement template inside this AACCUP or ISO area before evidence is requested." />
                 : groups(requirements).map(([category, rows]) => (
                   <section key={category}>
                     <div className="border-b border-t border-border/70 bg-slate-50 px-4 py-2.5 first:border-t-0 sm:px-5"><h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{category}</h3></div>
@@ -318,7 +394,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
                               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-navy-50">{statusIcon(status)}</span>
                               <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-[13px] font-semibold text-navy-900">{requirement.title}</p>{requirement.isRequired && <Badge variant="warning">Required</Badge>}</div><p className="mt-1 font-mono text-[10px] text-slate-400">{requirement.documentCode}</p>{requirement.description && <p className="mt-1 text-[11px] text-slate-500">{requirement.description}</p>}<div className="mt-2 flex flex-wrap gap-1">{requirement.validations.map((rule) => <Badge key={rule.id} variant="outline">{rule.type.replace(/_/g, " ")}</Badge>)}</div></div>
                             </div>
-                            <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">{statusBadge(status)}<Button size="sm" disabled={!canUpload || status === "APPROVED"} onClick={() => openUpload(requirement)}><Upload className="mr-1.5 h-3.5 w-3.5" />{submission ? "Replace" : "Submit"}</Button></div>
+                            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 sm:justify-end">{statusBadge(status)}{submission && <UnsubmitEvidenceButton submission={submission} onSuccess={refreshArea} />}<Button size="sm" disabled={!canUpload || status === "APPROVED"} onClick={() => openUpload(requirement)}><Upload className="mr-1.5 h-3.5 w-3.5" />{submission ? "Replace" : "Submit"}</Button></div>
                           </div>
                         )
                       })}
@@ -333,7 +409,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
           <CardContent className="space-y-2">
             {submissions.length === 0 ? <p className="py-6 text-center text-[12px] text-slate-500">No submissions for this area.</p>
               : submissions.slice(0, 8).map((submission) => <div key={submission.id} className="rounded-lg border border-border/70 p-3"><div className="flex items-start gap-2"><FileText className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" /><div className="min-w-0 flex-1"><p className="truncate text-[12px] font-medium text-navy-900">{submission.documentTitle}</p><p className="mt-1 truncate text-[10px] text-slate-500">{submission.requirementTitle}</p><div className="mt-2 flex items-center justify-between">{statusBadge(submission.status)}<span className="text-[10px] text-slate-400">{new Date(submission.submittedAt).toLocaleDateString()}</span></div></div></div></div>)}
-            {areaSet !== "CERT" && <Button type="button" variant="outline" className="mt-2 w-full" onClick={() => navigate(`/user/submissions?areaSet=${areaSet}`)}>My Submissions</Button>}
+            <Button type="button" variant="outline" className="mt-2 w-full" onClick={() => navigate(`/user/submissions?areaSet=${areaSet}`)}>My Submissions</Button>
           </CardContent>
         </Card>
       </div>
@@ -341,12 +417,17 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
       <Dialog open={Boolean(uploadRequirement)} onOpenChange={(open) => !open && setUploadRequirement(null)}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader><DialogTitle>Submit Evidence</DialogTitle><DialogDescription>{uploadRequirement?.title} ({uploadRequirement?.documentCode})</DialogDescription></DialogHeader>
+          <div className="rounded-xl border border-primary/10 bg-primary-50/40 p-3 text-sm">
+            <p className="font-medium text-navy-900">{activeArea ? accreditationAreaLabel(activeArea) : ""}</p>
+            <p className="mt-1 text-xs text-gray-500">{[activeArea?.campusName, activeArea?.collegeName].filter(Boolean).join(" / ")}</p>
+            <p className="mt-1 text-xs text-primary">{activeArea?.programName ?? "College-wide"}</p>
+          </div>
           <div className="max-h-[68vh] space-y-4 overflow-y-auto py-3">
             <div className="space-y-2"><Label>Document Title</Label><Input value={title} onChange={(event) => setTitle(event.target.value)} /></div>
             <div className="space-y-2"><Label>Evidence source</Label>
               {repositoryDocument ? (
                 <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-primary-50 p-3"><FileText className="h-5 w-5 shrink-0 text-primary-600" /><div className="min-w-0 flex-1"><p className="truncate text-[12px] font-medium text-blue-900">{repositoryDocument.name}</p><p className="text-[11px] text-blue-700">Selected from My Documents</p></div><Button type="button" size="sm" variant="outline" onClick={() => setRepositoryDocument(null)}>Change</Button></div>
-              ) : (<><Dropzone accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.csv,.txt,.mp4,.webm,.mov,.avi,.mkv" onChange={(files) => { setFile(files[0] ?? null); setRepositoryDocument(null) }} /><div className="flex items-center gap-2"><span className="h-px flex-1 bg-slate-200" /><span className="text-[10px] uppercase tracking-wider text-slate-400">or</span><span className="h-px flex-1 bg-slate-200" /></div><Button type="button" variant="outline" className="w-full" onClick={() => setRepositoryPickerOpen(true)}><FileText className="mr-2 h-4 w-4" />Choose from My Documents</Button></>)}
+              ) : (<><Dropzone {...requirementUploadHints(uploadRequirement?.validations ?? [])} onChange={(files) => { setFile(files[0] ?? null); setRepositoryDocument(null); setValidationMessages([]) }} /><div className="flex items-center gap-2"><span className="h-px flex-1 bg-slate-200" /><span className="text-[10px] uppercase tracking-wider text-slate-400">or</span><span className="h-px flex-1 bg-slate-200" /></div><Button type="button" variant="outline" className="w-full" onClick={() => setRepositoryPickerOpen(true)}><FileText className="mr-2 h-4 w-4" />Choose from My Documents</Button></>)}
             </div>
             {uploadRequirement?.validations.some((rule) => rule.type === "PAGE_COUNT") && <div className="space-y-2"><Label>Page Count</Label><Input type="number" min="1" value={pageCount} onChange={(event) => setPageCount(event.target.value)} /></div>}
             {uploadRequirement?.validations.some((rule) => rule.type === "EXPIRATION_DATE") && <div className="space-y-2"><Label>Expiration Date</Label><Input type="date" value={expirationDate} onChange={(event) => setExpirationDate(event.target.value)} /></div>}
@@ -357,7 +438,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
           <DialogFooter><Button variant="outline" onClick={() => setUploadRequirement(null)}>Cancel</Button><Button onClick={() => void handleUpload()} disabled={uploading || (!file && !repositoryDocument) || !title.trim()}>{uploading ? "Submitting..." : repositoryDocument ? "Submit Selected Document" : "Upload and Submit"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-      <RepositoryDocumentPicker open={repositoryPickerOpen} onOpenChange={setRepositoryPickerOpen} onSelect={(document) => { setRepositoryDocument(document); setFile(null) }} />
+      <RepositoryDocumentPicker open={repositoryPickerOpen} onOpenChange={setRepositoryPickerOpen} onSelect={(document) => { setRepositoryDocument(document); setFile(null); setValidationMessages([]) }} />
     </div>
   )
 }

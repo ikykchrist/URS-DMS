@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState, useEffect } from "react"
 import {
   FileText,
@@ -30,7 +31,10 @@ async function downloadFile(file: DocumentFile) {
       `/documents/${encodeURIComponent(file.id)}/download`,
     )
     window.open(result.url, "_blank", "noopener,noreferrer")
-  } catch {}
+      toast.success("Download link opened")
+  } catch {
+    toast.error("Unable to open download link")
+  }
 }
 
 const getFileTypeIcon = (type: DocumentFile["type"]) => {
@@ -156,13 +160,13 @@ function PdfPreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string | n
           </Button>
           <div className="w-px h-4 bg-gray-300 mx-1" />
           <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-gray-600"
+            variant="outline"
+            size="action"
+            className="text-gray-600"
             aria-label="Download"
             onClick={handleDownload}
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5" /> <span>Download</span>
           </Button>
         </div>
       </div>
@@ -222,13 +226,13 @@ function ImagePreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string |
           </Button>
           <div className="w-px h-4 bg-gray-300 mx-1" />
           <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-gray-600"
+            variant="outline"
+            size="action"
+            className="text-gray-600"
             aria-label="Download"
             onClick={handleDownload}
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5" /> <span>Download</span>
           </Button>
         </div>
       </div>
@@ -353,19 +357,23 @@ function NoPreviewAvailable({ file }: { file: DocumentFile }) {
 
 export function FilePreviewRenderer({ file, className }: FilePreviewRendererProps) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [previewMimeType, setPreviewMimeType] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
 
   useEffect(() => {
     if (!file.id) {
       setBlobUrl(null)
+      setPreviewMimeType(null)
       return
     }
     setLoading(true)
     setError(false)
+    setPreviewMimeType(null)
     apiGet<PreviewDownloadResult>(`/documents/${encodeURIComponent(file.id)}/preview`)
       .then((result) => {
         setBlobUrl(result.url)
+        setPreviewMimeType(result.mimeType ?? null)
         setLoading(false)
       })
       .catch(() => {
@@ -407,7 +415,7 @@ export function FilePreviewRenderer({ file, className }: FilePreviewRendererProp
         </div>
       )
     }
-    if (isPdf) return <PdfPreview file={file} blobUrl={blobUrl} />
+    if (isPdf || previewMimeType === "application/pdf") return <PdfPreview file={file} blobUrl={blobUrl} />
     if (isImage) return <ImagePreview file={file} blobUrl={blobUrl} />
     if (["DOCX", "DOC", "XLSX", "XLS", "PPTX", "PPT"].includes(file.type?.toUpperCase())) {
       return <OfficePreview file={file} />

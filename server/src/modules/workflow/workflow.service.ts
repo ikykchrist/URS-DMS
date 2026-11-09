@@ -160,7 +160,7 @@ async function resolveTargetNames(
 ): Promise<Map<string, string>> {
   const ids = {
     COLLEGE: [] as string[],
-    DEPARTMENT: [] as string[],
+    CAMPUS: [] as string[],
     PROGRAM: [] as string[],
     OFFICE: [] as string[],
     AACCUP_AREA: [] as string[],
@@ -169,9 +169,9 @@ async function resolveTargetNames(
   for (const row of rows) {
     if (row.targetId && row.targetType !== "UNIVERSITY") ids[row.targetType].push(row.targetId);
   }
-  const [colleges, departments, programs, offices, areas, cycles] = await Promise.all([
+  const [campuses, colleges, programs, offices, areas, cycles] = await Promise.all([
+    prisma.campus.findMany({ where: { id: { in: ids.CAMPUS } }, select: { id: true, name: true } }),
     prisma.college.findMany({ where: { id: { in: ids.COLLEGE } }, select: { id: true, name: true } }),
-    prisma.department.findMany({ where: { id: { in: ids.DEPARTMENT } }, select: { id: true, name: true } }),
     prisma.program.findMany({ where: { id: { in: ids.PROGRAM } }, select: { id: true, name: true } }),
     prisma.office.findMany({ where: { id: { in: ids.OFFICE } }, select: { id: true, name: true } }),
     prisma.aaccupArea.findMany({ where: { id: { in: ids.AACCUP_AREA } }, select: { id: true, name: true } }),
@@ -181,7 +181,7 @@ async function resolveTargetNames(
     }),
   ]);
   return new Map(
-    [...colleges, ...departments, ...programs, ...offices, ...areas, ...cycles].map((row) => [
+    [...campuses, ...colleges, ...programs, ...offices, ...areas, ...cycles].map((row) => [
       row.id,
       row.name,
     ]),
@@ -830,8 +830,8 @@ async function assertTargetExists(
   let exists = false;
   if (targetType === "COLLEGE") {
     exists = (await prisma.college.findFirst({ where: { id: targetId, deletedAt: null }, select: { id: true } })) !== null;
-  } else if (targetType === "DEPARTMENT") {
-    exists = (await prisma.department.findFirst({ where: { id: targetId, deletedAt: null }, select: { id: true } })) !== null;
+  } else if (targetType === "CAMPUS") {
+    exists = (await prisma.campus.findFirst({ where: { id: targetId, deletedAt: null }, select: { id: true } })) !== null;
   } else if (targetType === "PROGRAM") {
     exists = (await prisma.program.findFirst({ where: { id: targetId, deletedAt: null }, select: { id: true } })) !== null;
   } else if (targetType === "OFFICE") {

@@ -158,7 +158,7 @@ export async function completeSetup(actor: Actor): Promise<SetupStateView> {
   await repo.updateState({
     status: "COMPLETED",
     currentStep: 8,
-    completedSteps: [1, 2, 3, 4, 5, 6, 7, 8],
+    completedSteps: [1, 2, 3, 4, 7, 8],
     completedAt: new Date(),
     updatedBy: actor.id,
   });

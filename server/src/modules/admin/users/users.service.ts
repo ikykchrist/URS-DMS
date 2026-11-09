@@ -122,13 +122,20 @@ async function assertRoleExists(roleId: string): Promise<void> {
   if (!role) throw new NotFoundError("Role not found");
 }
 
-async function assertDepartmentExists(departmentId: string | null | undefined): Promise<void> {
-  if (departmentId === undefined || departmentId === null) return;
-  const dept = await prisma.department.findFirst({
-    where: { id: departmentId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!dept) throw new BadRequestError("Referenced department not found");
+async function assertOrganizationScopeExists(input: {
+  campusId: string;
+  collegeId: string;
+  programId: string;
+}): Promise<void> {
+  const [campus, college, program] = await Promise.all([
+    prisma.campus.findFirst({ where: { id: input.campusId, deletedAt: null }, select: { id: true } }),
+    prisma.college.findFirst({ where: { id: input.collegeId, deletedAt: null }, select: { id: true, campusId: true } }),
+    prisma.program.findFirst({ where: { id: input.programId, deletedAt: null }, select: { id: true, collegeId: true, campusId: true } }),
+  ]);
+  if (!campus || !college || !program) throw new BadRequestError("Referenced campus, college, or program not found");
+  if (college.campusId !== input.campusId || program.collegeId !== input.collegeId || program.campusId !== input.campusId) {
+    throw new BadRequestError("Campus, college, and program must belong to the same organization scope");
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -144,6 +151,20 @@ async function assertDepartmentExists(departmentId: string | null | undefined): 
 function assertNotRootTarget(existing: { roleName: string }): void {
   if (existing.roleName === "ROOT") {
     throw new ForbiddenError("Root accounts are protected; manage them from the Root Console");
+  }
+}
+
+function assertRootOrganizationUpdateAllowed(
+  existing: { roleName: string },
+  input: UpdateAdminUserBody,
+  actor: Actor,
+): void {
+  if (existing.roleName !== "ROOT") return;
+
+  const organizationFields = new Set(["campusId", "collegeId", "programId"]);
+  const isOrganizationOnly = Object.keys(input).every((field) => organizationFields.has(field));
+  if (!actor.permissions.includes("root.access") || !isOrganizationOnly) {
+    throw new ForbiddenError("Root accounts are protected; only ROOT may update their organization assignment");
   }
 }
 
@@ -171,7 +192,7 @@ export async function listUsers(query: AdminListUsersQuery, actor: Actor): Promi
     pageSize: query.pageSize,
     includeArchived: query.includeArchived,
     roleId: query.roleId,
-    departmentId: query.departmentId,
+    campusId: query.campusId,
     collegeId: query.collegeId,
     status: query.status,
     createdFrom: query.createdFrom ? new Date(query.createdFrom) : undefined,
@@ -219,7 +240,7 @@ export async function createUser(
   const roleCodes = await repo.loadRolePermissionCodes(input.roleId);
   assertCanAssignRole(actor, roleCodes);
 
-  await assertDepartmentExists(input.departmentId);
+  await assertOrganizationScopeExists(input);
 
   // Email / employeeId uniqueness — pre-check for a clean 409 message. The
   // DB UNIQUE constraints remain the ultimate guard (handles any race).
@@ -236,7 +257,9 @@ export async function createUser(
     lastName: input.lastName,
     suffix: input.suffix ?? null,
     roleId: input.roleId,
-    departmentId: input.departmentId ?? null,
+    campusId: input.campusId ?? null,
+    collegeId: input.collegeId ?? null,
+    programId: input.programId ?? null,
     mustChangePassword: input.mustChangePassword ?? false,
   });
 
@@ -249,7 +272,9 @@ export async function createUser(
       email: created.email,
       employeeId: created.employeeId,
       roleId: created.roleId,
-      departmentId: created.departmentId,
+      campusId: created.campusId,
+      collegeId: created.collegeId,
+      programId: created.programId,
       mustChangePassword: created.mustChangePassword,
     },
     ipAddress: actor.ipAddress,
@@ -274,7 +299,17 @@ export async function updateUser(
   if (existing.deletedAt) {
     throw new BadRequestError("User is archived; restore it before updating");
   }
-  assertNotRootTarget(existing);
+  assertRootOrganizationUpdateAllowed(existing, input, actor);
+
+  if (typeof input.campusId === "string"
+    && typeof input.collegeId === "string"
+    && typeof input.programId === "string") {
+    await assertOrganizationScopeExists({
+      campusId: input.campusId,
+      collegeId: input.collegeId,
+      programId: input.programId,
+    });
+  }
 
   if (input.email && input.email !== existing.email) {
     const conflict = await repo.findByEmail(input.email, id);
@@ -287,10 +322,6 @@ export async function updateUser(
     assertCanAssignRole(actor, roleCodes);
   }
 
-  if (input.departmentId !== undefined) {
-    await assertDepartmentExists(input.departmentId);
-  }
-
   const updated = await repo.update({
     id,
     data: {
@@ -300,12 +331,16 @@ export async function updateUser(
       ...(input.lastName !== undefined ? { lastName: input.lastName } : {}),
       ...(input.suffix !== undefined ? { suffix: input.suffix } : {}),
       ...(input.roleId !== undefined ? { roleId: input.roleId } : {}),
-      ...(input.departmentId !== undefined ? { departmentId: input.departmentId } : {}),
+      ...(input.campusId !== undefined ? { campusId: input.campusId } : {}),
+      ...(input.collegeId !== undefined ? { collegeId: input.collegeId } : {}),
+      ...(input.programId !== undefined ? { programId: input.programId } : {}),
     },
   });
 
+  const roleChanged = !!input.roleId && input.roleId !== existing.roleId;
+
   await writeAudit({
-    action: AUDIT_ACTIONS.USER_UPDATED,
+    action: roleChanged ? AUDIT_ACTIONS.USER_ROLE_CHANGED : AUDIT_ACTIONS.USER_UPDATED,
     userId: actor.id,
     entity: "user",
     entityId: id,
@@ -314,14 +349,12 @@ export async function updateUser(
       firstName: existing.firstName,
       lastName: existing.lastName,
       roleId: existing.roleId,
-      departmentId: existing.departmentId,
     },
     newValue: {
       email: updated.email,
       firstName: updated.firstName,
       lastName: updated.lastName,
       roleId: updated.roleId,
-      departmentId: updated.departmentId,
     },
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,

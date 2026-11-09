@@ -8,7 +8,9 @@ export interface FolderListItem {
   id: string;
   name: string;
   parentId: string | null;
-  departmentId: string | null;
+  campusId: string | null;
+  collegeId: string | null;
+  programId: string | null;
   ownerId: string | null;
   color: string | null;
   icon: string | null;
@@ -71,7 +73,9 @@ export const folderSelect = {
   color: true,
   icon: true,
   parentId: true,
-  departmentId: true,
+  campusId: true,
+  collegeId: true,
+  programId: true,
   ownerId: true,
   createdAt: true,
   updatedAt: true,

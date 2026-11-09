@@ -35,9 +35,9 @@ const ROOT_ONLY_CODES = new Set<string>([
   "root.configuration.read",
   "root.configuration.update",
   "root.configuration.rollback",
-  // Sprint 7.4.2 — Organization Management Engine. Colleges/departments may
+  // Sprint 7.4.2 — Organization Management Engine.
   // still be managed by ADMINISTRATOR through the Sprint 7.1 admin surface
-  // (college.* / department.* codes); the ROOT-only organization.* codes gate
+  // the ROOT-only organization.* codes gate
   // the versioned /root/organization surface.
   "organization.read",
   "organization.create",
@@ -122,8 +122,6 @@ export const DEFAULT_ROLE_MATRIX: RolePermissionMatrix[] = [
       "folders.read",
       "folders.update",
       "folders.delete",
-      "departments.read",
-      "departments.update",
       "request.manage",
       "audit.read",
       "dashboard.read",
@@ -153,9 +151,8 @@ export const DEFAULT_ROLE_MATRIX: RolePermissionMatrix[] = [
       "workflow.action.perform",
       "workflow.review",
       // Sprint 7.1 — read-only access to the admin organisational surface
-      // (departments + colleges) so the QAO dashboard's existing scope keeps
+      // (campuses + colleges) so the QAO dashboard's existing scope keeps
       // working. Mutations stay ADMINISTRATOR-only.
-      "department.read",
       "college.read",
       "admin.settings.read",
       // Sprint 7.2 — every authenticated user reads their own inbox.
@@ -164,7 +161,7 @@ export const DEFAULT_ROLE_MATRIX: RolePermissionMatrix[] = [
   },
   {
     name: "DEPARTMENT_COORDINATOR",
-    description: "Department-level submission coordinator",
+    description: "Program-level submission coordinator",
     permissions: [
       "users.read",
       "users.self.update",
@@ -188,7 +185,7 @@ export const DEFAULT_ROLE_MATRIX: RolePermissionMatrix[] = [
       "analytics.read",
       "reports.read",
       "notification.read",
-      // Sprint 7.4.5 — workflow runtime: department coordinators advance live
+      // Sprint 7.4.5 — workflow runtime: coordinators advance live
       // document-request workflow instances (step-level review + transitions).
       "workflow.instance.read",
       "workflow.action.perform",
@@ -247,7 +244,6 @@ export const DEFAULT_ROLE_MATRIX: RolePermissionMatrix[] = [
       "users.self.update",
       "documents.read",
       "folders.read",
-      "departments.read",
       "notification.read",
     ],
   },

@@ -28,11 +28,22 @@ export const NOTIFICATION_TYPE_VALUES = [
   "AACCUP_SUBMISSION_RETURNED",
   "AACCUP_SUBMISSION_PENDING_REVIEW",
   "AACCUP_TASK_ASSIGNED",
+  "AACCUP_TASK_DUE_SOON",
+  "AACCUP_TASK_DUE_IN_3_DAYS",
+  "AACCUP_TASK_DUE_TOMORROW",
+  "AACCUP_TASK_DUE_TODAY",
+  "AACCUP_TASK_OVERDUE",
+  "AACCUP_AREA_DUE_IN_3_MONTHS",
+  "AACCUP_AREA_DUE_IN_1_MONTH",
+  "AACCUP_AREA_DUE_IN_7_DAYS",
+  "AACCUP_AREA_DUE_IN_3_DAYS",
+  "AACCUP_AREA_DEADLINE_SET",
   "RECYCLE_BIN_CLEANUP",
   "STORAGE_WARNING",
   "PASSWORD_RESET",
   "ROLE_CHANGED",
   "SYSTEM_ANNOUNCEMENT",
+  "FOLDER_SHARED_ACCESS",
 ] as const;
 
 export interface NotificationEmailDefaults {
@@ -128,18 +139,30 @@ export const NOTIFICATION_EVENTS: Record<NotificationType, NotificationEventSpec
     defaultTitle: "Submission approved",
     defaultMessage: "Your AACCUP document submission has been approved.",
     defaultPriority: "MEDIUM",
+    email: {
+      subject: "URS-DMS — Submission approved",
+      body: "<p>Your accreditation document submission has been approved. Open URS-DMS to view the reviewed submission.</p>",
+    },
   },
   AACCUP_SUBMISSION_RETURNED: {
     type: "AACCUP_SUBMISSION_RETURNED",
     defaultTitle: "Submission returned",
     defaultMessage: "Your AACCUP document submission was returned for revision.",
     defaultPriority: "HIGH",
+    email: {
+      subject: "URS-DMS — Submission returned for revision",
+      body: "<p>Your accreditation document submission was returned for revision. Open URS-DMS to review the remarks and resubmit.</p>",
+    },
   },
   AACCUP_SUBMISSION_REJECTED: {
     type: "AACCUP_SUBMISSION_REJECTED",
     defaultTitle: "Submission rejected",
     defaultMessage: "Your AACCUP document submission has been rejected.",
     defaultPriority: "HIGH",
+    email: {
+      subject: "URS-DMS — Submission rejected",
+      body: "<p>Your accreditation document submission has been rejected. Open URS-DMS to review the remarks.</p>",
+    },
   },
   AACCUP_SUBMISSION_PENDING_REVIEW: {
     type: "AACCUP_SUBMISSION_PENDING_REVIEW",
@@ -152,6 +175,75 @@ export const NOTIFICATION_EVENTS: Record<NotificationType, NotificationEventSpec
     defaultTitle: "New task assigned",
     defaultMessage: "You have been assigned a new AACCUP task.",
     defaultPriority: "MEDIUM",
+    email: {
+      subject: "URS-DMS — New accreditation task assigned",
+      body: "<p>A new accreditation task has been assigned to you. Open URS-DMS to review the requirements and deadline.</p>",
+    },
+  },
+  AACCUP_TASK_DUE_SOON: {
+    type: "AACCUP_TASK_DUE_SOON",
+    defaultTitle: "Task due in 7 days",
+    defaultMessage: "An accreditation task assigned to you is due in 7 days.",
+    defaultPriority: "MEDIUM",
+    email: { subject: "URS-DMS — Task due in 7 days", body: "<p>An accreditation task assigned to you is due in 7 days. Please complete and submit the required evidence.</p>" },
+  },
+  AACCUP_TASK_DUE_IN_3_DAYS: {
+    type: "AACCUP_TASK_DUE_IN_3_DAYS",
+    defaultTitle: "Task due in 3 days",
+    defaultMessage: "An accreditation task assigned to you is due in 3 days.",
+    defaultPriority: "HIGH",
+    email: { subject: "URS-DMS — Task due in 3 days", body: "<p>An accreditation task assigned to you is due in 3 days. Please complete and submit the required evidence.</p>" },
+  },
+  AACCUP_TASK_DUE_TOMORROW: {
+    type: "AACCUP_TASK_DUE_TOMORROW",
+    defaultTitle: "Task due tomorrow",
+    defaultMessage: "An accreditation task assigned to you is due tomorrow.",
+    defaultPriority: "HIGH",
+    email: { subject: "URS-DMS — Task due tomorrow", body: "<p>An accreditation task assigned to you is due tomorrow. Please complete and submit the required evidence.</p>" },
+  },
+  AACCUP_TASK_DUE_TODAY: {
+    type: "AACCUP_TASK_DUE_TODAY",
+    defaultTitle: "Task due today",
+    defaultMessage: "An accreditation task assigned to you is due today.",
+    defaultPriority: "HIGH",
+    email: { subject: "URS-DMS — Task due today", body: "<p>An accreditation task assigned to you is due today. Please complete and submit the required evidence now.</p>" },
+  },
+  AACCUP_TASK_OVERDUE: {
+    type: "AACCUP_TASK_OVERDUE",
+    defaultTitle: "Accreditation task overdue",
+    defaultMessage: "An accreditation task assigned to you is overdue.",
+    defaultPriority: "HIGH",
+    email: { subject: "URS-DMS — Accreditation task overdue", body: "<p>An accreditation task assigned to you is overdue. Open URS-DMS to complete the outstanding requirements.</p>" },
+  },
+  AACCUP_AREA_DUE_IN_3_MONTHS: {
+    type: "AACCUP_AREA_DUE_IN_3_MONTHS", defaultTitle: "Area deadline in 3 months",
+    defaultMessage: "An accreditation area and its required files are due in 3 months.", defaultPriority: "MEDIUM",
+    email: { subject: "URS-DMS — Area deadline in 3 months", body: "<p>An accreditation area and its required files are due in 3 months.</p>" },
+  },
+  AACCUP_AREA_DUE_IN_1_MONTH: {
+    type: "AACCUP_AREA_DUE_IN_1_MONTH", defaultTitle: "Area deadline in 1 month",
+    defaultMessage: "An accreditation area and its required files are due in 1 month.", defaultPriority: "MEDIUM",
+    email: { subject: "URS-DMS — Area deadline in 1 month", body: "<p>An accreditation area and its required files are due in 1 month.</p>" },
+  },
+  AACCUP_AREA_DUE_IN_7_DAYS: {
+    type: "AACCUP_AREA_DUE_IN_7_DAYS", defaultTitle: "Area deadline in 7 days",
+    defaultMessage: "An accreditation area and its required files are due in 7 days.", defaultPriority: "HIGH",
+    email: { subject: "URS-DMS — Area deadline in 7 days", body: "<p>An accreditation area and its required files are due in 7 days.</p>" },
+  },
+  AACCUP_AREA_DUE_IN_3_DAYS: {
+    type: "AACCUP_AREA_DUE_IN_3_DAYS", defaultTitle: "Area deadline in 3 days",
+    defaultMessage: "An accreditation area and its required files are due in 3 days.", defaultPriority: "HIGH",
+    email: { subject: "URS-DMS — Area deadline in 3 days", body: "<p>An accreditation area and its required files are due in 3 days.</p>" },
+  },
+  AACCUP_AREA_DEADLINE_SET: {
+    type: "AACCUP_AREA_DEADLINE_SET",
+    defaultTitle: "Accreditation area deadline set",
+    defaultMessage: "A deadline was set for an accreditation area and its required files.",
+    defaultPriority: "HIGH",
+    email: {
+      subject: "URS-DMS — Accreditation area deadline",
+      body: "<p>A deadline was set for an accreditation area and its required files. Open URS-DMS to review the requirements.</p>",
+    },
   },
   RECYCLE_BIN_CLEANUP: {
     type: "RECYCLE_BIN_CLEANUP",
@@ -164,6 +256,10 @@ export const NOTIFICATION_EVENTS: Record<NotificationType, NotificationEventSpec
     defaultTitle: "Storage warning",
     defaultMessage: "Platform storage usage exceeds the configured warning threshold.",
     defaultPriority: "HIGH",
+    email: {
+      subject: "URS-DMS — Storage warning",
+      body: "<p>Platform storage usage exceeds the configured warning threshold. Open URS-DMS to review storage usage and take the appropriate action.</p>",
+    },
   },
   PASSWORD_RESET: {
     type: "PASSWORD_RESET",
@@ -186,5 +282,15 @@ export const NOTIFICATION_EVENTS: Record<NotificationType, NotificationEventSpec
     defaultTitle: "System announcement",
     defaultMessage: "An announcement from the system administrator.",
     defaultPriority: "HIGH",
+  },
+  FOLDER_SHARED_ACCESS: {
+    type: "FOLDER_SHARED_ACCESS",
+    defaultTitle: "Folder shared with you",
+    defaultMessage: "A folder has been shared with you in the document repository.",
+    defaultPriority: "MEDIUM",
+    email: {
+      subject: "URS-DMS — Folder shared with you",
+      body: "<p>A folder has been shared with you in the URS-DMS document repository. Open URS-DMS to view the folder and your granted access.</p>",
+    },
   },
 };

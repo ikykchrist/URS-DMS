@@ -318,7 +318,7 @@ async function resolveAssignmentTargetNames(
 ): Promise<Map<string, string | null>> {
   const nameById = new Map<string, string | null>();
   const collegeIds: string[] = [];
-  const departmentIds: string[] = [];
+  const campusIds: string[] = [];
   const programIds: string[] = [];
   const officeIds: string[] = [];
   const areaIds: string[] = [];
@@ -326,22 +326,22 @@ async function resolveAssignmentTargetNames(
     if (!row.targetId) continue;
     switch (row.targetType) {
       case "COLLEGE": collegeIds.push(row.targetId); break;
-      case "DEPARTMENT": departmentIds.push(row.targetId); break;
+      case "CAMPUS": campusIds.push(row.targetId); break;
       case "PROGRAM": programIds.push(row.targetId); break;
       case "OFFICE": officeIds.push(row.targetId); break;
       case "AACCUP_AREA": areaIds.push(row.targetId); break;
       default: break;
     }
   }
-  const [colleges, departments, programs, offices, areas] = await Promise.all([
+  const [campuses, colleges, programs, offices, areas] = await Promise.all([
+    campusIds.length ? prisma.campus.findMany({ where: { id: { in: campusIds } }, select: { id: true, name: true } }) : [],
     collegeIds.length ? prisma.college.findMany({ where: { id: { in: collegeIds } }, select: { id: true, name: true } }) : [],
-    departmentIds.length ? prisma.department.findMany({ where: { id: { in: departmentIds } }, select: { id: true, name: true } }) : [],
     programIds.length ? prisma.program.findMany({ where: { id: { in: programIds } }, select: { id: true, name: true } }) : [],
     officeIds.length ? prisma.office.findMany({ where: { id: { in: officeIds } }, select: { id: true, name: true } }) : [],
     areaIds.length ? prisma.aaccupArea.findMany({ where: { id: { in: areaIds } }, select: { id: true, name: true } }) : [],
   ]);
+  for (const c of campuses) nameById.set(c.id, c.name);
   for (const c of colleges) nameById.set(c.id, c.name);
-  for (const d of departments) nameById.set(d.id, d.name);
   for (const p of programs) nameById.set(p.id, p.name);
   for (const o of offices) nameById.set(o.id, o.name);
   for (const a of areas) nameById.set(a.id, a.name);
@@ -1284,10 +1284,10 @@ export async function rollbackTemplate(
 // -----------------------------------------------------------------------------
 const TARGET_MODEL: Record<
   Exclude<FolderAssignmentView["targetType"], "UNIVERSITY">,
-  "college" | "department" | "program" | "office" | "aaccupArea"
+  "campus" | "college" | "program" | "office" | "aaccupArea"
 > = {
+  CAMPUS: "campus",
   COLLEGE: "college",
-  DEPARTMENT: "department",
   PROGRAM: "program",
   OFFICE: "office",
   AACCUP_AREA: "aaccupArea",

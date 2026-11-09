@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/Button"
 import { getOnlineArea, listAllOnlineSubmissions, type AreaSet, type OnlineAaccupArea, type OnlineSubmissionListItem } from "@/services/aaccup"
 
 function areaNumber(area: OnlineAaccupArea): number {
-  const match = area.code.match(/\d+/)
-  return match ? Number(match[0]) : 1
+  if (area.areaNumber) return area.areaNumber
+  const match = area.code.match(/^(?:AREA[-_.]?)?(\d+)(?:[-_.]|$)/i)
+  return match ? Number(match[1]) : 1
 }
 
-export default function AdminAreaDetailPage({ areaSet }: { areaSet: Exclude<AreaSet, "CERT"> }) {
+export default function AdminAreaDetailPage({ areaSet }: { areaSet: AreaSet }) {
   const navigate = useNavigate()
   const { areaId } = useParams<{ areaId: string }>()
   const [area, setArea] = useState<OnlineAaccupArea | null>(null)
@@ -59,7 +60,12 @@ export default function AdminAreaDetailPage({ areaSet }: { areaSet: Exclude<Area
     return () => { active = false }
   }, [areaId, areaSet])
 
-  const backPath = areaSet === "ISO" ? "/iso" : "/aaccup"
+  const basePath = areaSet === "ISO" ? "/iso" : "/aaccup"
+  const locationParams = area?.campusId && area.collegeId ? new URLSearchParams({
+    campus: area.campusId, college: area.collegeId, scope: area.programId ? "program" : "college",
+    ...(area.programId ? { program: area.programId } : {}),
+  }) : null
+  const backPath = locationParams ? `${basePath}?${locationParams}` : basePath
   const setTitle = areaSet === "ISO" ? "ISO" : "AACCUP"
 
   if (loading) {
@@ -68,7 +74,7 @@ export default function AdminAreaDetailPage({ areaSet }: { areaSet: Exclude<Area
 
   if (error || !area) {
     return (
-      <div className="p-6 lg:p-8">
+      <div className="content-padding">
         <div className="mx-auto flex max-w-lg flex-col items-center rounded-xl border border-border bg-white p-10 text-center shadow-soft">
           <AlertTriangle className="mb-3 h-8 w-8 text-amber-500" />
           <h1 className="text-lg font-semibold text-gray-900">{error === "forbidden" ? "You do not have access to this Area" : "Area not found"}</h1>
@@ -89,15 +95,15 @@ export default function AdminAreaDetailPage({ areaSet }: { areaSet: Exclude<Area
     description: area.description ?? "",
     status: completion === 100 && submissions.length > 0 ? "Completed" as const : submissions.length > 0 ? "In Progress" as const : "Pending" as const,
     completion,
-    dueDate: area.accreditationCycleName ?? area.updatedAt.slice(0, 10),
+    dueDate: area.dueDate,
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <nav className="mb-4 flex items-center gap-1.5 text-[13px] text-gray-500" aria-label="Breadcrumb">
         <button type="button" onClick={() => navigate(backPath)} className="font-medium text-primary hover:underline">{setTitle}</button>
         <ChevronRight className="h-3.5 w-3.5" />
-        <span className="truncate text-gray-700">Area {number}: {area.name}</span>
+        <span className="truncate text-gray-700">{area.name}</span>
       </nav>
 
       <AACCUPAreaDetailsModal
@@ -118,7 +124,9 @@ export default function AdminAreaDetailPage({ areaSet }: { areaSet: Exclude<Area
         areaId={area.id}
         areaTitle={area.name}
         areaSet={areaSet}
-        departmentId={area.departmentId}
+        campusId={area.campusId ?? undefined}
+        collegeId={area.collegeId ?? undefined}
+        programId={area.programId ?? undefined}
         onSuccess={() => {
           setAddSubmissionOpen(false)
           setReloadKey((key) => key + 1)
@@ -138,7 +146,7 @@ export default function AdminAreaDetailPage({ areaSet }: { areaSet: Exclude<Area
         open={editOpen}
         onOpenChange={setEditOpen}
         areaSet={areaSet.toLowerCase() as "aaccup" | "iso"}
-        area={{ id: area.id, name: area.name, description: area.description ?? "", departmentId: area.departmentId, isActive: area.status === "ACTIVE" }}
+        area={{ id: area.id, name: area.name, description: area.description ?? "", campusId: area.campusId ?? "", collegeId: area.collegeId ?? "", programId: area.programId ?? "", isActive: area.status === "ACTIVE", dueDate: area.dueDate }}
         onSuccess={() => {
           setEditOpen(false)
           setReloadKey((key) => key + 1)

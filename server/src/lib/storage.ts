@@ -42,7 +42,7 @@ function getClient(): MinioClient {
 }
 
 // Origin of the request that triggered the URL mint (localhost in dev, the
-// ngrok domain remotely). Falls back to the local server origin when called
+// through a remote tunnel). Falls back to the local server origin when called
 // outside a request context (e.g. background workers).
 function backendOrigin(): string {
   const origin = getRequestOrigin();
@@ -193,6 +193,22 @@ export async function getObjectStream(objectKey: string): Promise<Readable> {
   }
 }
 
+/**
+ * Read only `length` bytes starting at `offset` so HTTP Range requests stream
+ * a slice straight from MinIO instead of buffering the whole object.
+ */
+export async function getObjectRange(objectKey: string, offset: number, length: number): Promise<Readable> {
+  const c = getClient();
+  try {
+    const stream = await c.getPartialObject(env.MINIO_BUCKET, objectKey, offset, length);
+    return stream as unknown as Readable;
+  } catch (err) {
+    throw new ServiceUnavailableError("Storage range fetch failed", {
+      reason: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 function buildProfilePhotoKey(userId: string): string {
   return `profile-photos/${userId}/photo`;
 }
@@ -223,6 +239,10 @@ export async function putObject(
 
 export function thumbnailObjectKey(objectKey: string): string {
   return `${objectKey}.thumbnail.webp`;
+}
+
+export function previewObjectKey(objectKey: string): string {
+  return `${objectKey}.preview.pdf`;
 }
 
 export function objectKeyFor(documentId: string, versionId: string, filename: string): string {

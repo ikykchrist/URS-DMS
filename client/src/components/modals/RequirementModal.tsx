@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState, useEffect } from "react"
 import { FileCheck2, Pencil } from "lucide-react"
 import {
@@ -111,6 +112,7 @@ export function RequirementModal({
       }
       onSuccess?.()
       handleClose(false)
+      toast.success(isEditing ? "Requirement updated" : "Requirement created")
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : isEditing ? "Failed to update the requirement" : "Failed to create the requirement")
     } finally {

@@ -20,7 +20,7 @@ import {
 //   granularity: "daily" | "weekly" | "monthly" | "yearly"  (default monthly)
 //   from:        ISO date string (optional)
 //   to:          ISO date string (optional)
-//   departmentId: uuid (optional)
+//   campusId / collegeId / programId: uuid (optional)
 //   areaId:       uuid (optional; AACCUP-relevant endpoints only)
 // =============================================================================
 

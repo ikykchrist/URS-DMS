@@ -54,7 +54,7 @@ export function getUserPermissions(user: User | null | undefined): string[] {
 export const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: "Super Admin",
   qa_office: "QA Office",
-  department_head: "Department Head",
+  department_head: "Program Coordinator",
   faculty: "Faculty",
   staff: "Staff",
   student: "Student",
@@ -64,7 +64,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   super_admin: "Full access to all system features",
   qa_office: "Manages accreditation review and quality assurance",
-  department_head: "Reviews and approves departmental submissions",
+  department_head: "Reviews and approves program submissions",
   faculty: "Uploads and manages own documents",
   staff: "Supports document handling operations",
   student: "Limited browsing and request access",

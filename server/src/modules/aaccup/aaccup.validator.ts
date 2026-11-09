@@ -7,11 +7,14 @@ import { z } from "zod";
 const idParam = z.object({ id: z.string().uuid() });
 
 export const areaIdParamSchema = idParam;
+export const areaTemplateSchema = z.object({ templateId: z.string().uuid().nullable() }).strict();
 
 export const listAreasQuerySchema = z.object({
   areaSet: z.enum(["AACCUP", "ISO", "CERT"]).optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
-  departmentId: z.string().uuid().optional(),
+  campusId: z.string().uuid().optional(),
+  collegeId: z.string().uuid().optional(),
+  programId: z.string().uuid().optional(),
   accreditationCycleId: z.string().uuid().optional(),
   q: z.string().trim().max(200).optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -33,10 +36,13 @@ export const createAreaSchema = z.object({
     ),
   name: z.string().trim().min(1).max(255),
   description: z.string().trim().max(2000).optional(),
-  departmentId: z.string().uuid(),
+  campusId: z.string().uuid(),
+  collegeId: z.string().uuid(),
+  programId: z.string().uuid().nullable(),
   accreditationCycleId: z.string().uuid().nullable().optional(),
   areaSet: z.enum(["AACCUP", "ISO", "CERT"]).default("AACCUP"),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+  dueDate: z.coerce.date().nullable().optional(),
 });
 export type CreateAreaInput = z.infer<typeof createAreaSchema>;
 
@@ -54,10 +60,13 @@ export const updateAreaSchema = z
       .optional(),
     name: z.string().trim().min(1).max(255).optional(),
     description: z.string().trim().max(2000).optional(),
-    departmentId: z.string().uuid().optional(),
+    campusId: z.string().uuid().optional(),
+    collegeId: z.string().uuid().optional(),
+    programId: z.string().uuid().nullable().optional(),
     accreditationCycleId: z.string().uuid().nullable().optional(),
     areaSet: z.enum(["AACCUP", "ISO", "CERT"]).optional(),
     status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+    dueDate: z.coerce.date().nullable().optional(),
   })
   .strict();
 export type UpdateAreaInput = z.infer<typeof updateAreaSchema>;

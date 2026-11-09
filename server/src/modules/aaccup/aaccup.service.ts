@@ -1,9 +1,11 @@
+import { actorAreaScope } from "./aaccup.scope";
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS } from "@/config/constants";
 import { writeAudit } from "@/modules/audit/audit.service";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "@/utils/errors";
 import * as repo from "@/modules/aaccup/aaccup.repository";
 import type { Prisma } from "@prisma/client";
+import { attachTemplateToArea, detachTemplateFromArea } from "@/modules/root/root.requirement.service";
 import type {
   CreateAreaInput,
   ListAreasQuery,
@@ -14,6 +16,8 @@ import {
   invalidateRequirementResolutionCache,
   syncAreaRequirementProjection,
 } from "@/modules/requirements/requirement.runtime";
+import { announceAreaDeadline } from "@/modules/aaccup/aaccup.area-deadline-reminder.service";
+import { logger } from "@/utils/logger";
 
 // =============================================================================
 // URS-DMS — AACCUP service
@@ -52,16 +56,44 @@ function assertCanRead(actor: Actor): void {
   }
 }
 
-// Validate department existence before relying on FK constraint. Archived
-// departments (soft-deleted) are rejected so callers get a clear 400 instead
-// of a P2003 FK violation surfacing as an opaque 500.
-async function assertDepartmentExists(departmentId: string): Promise<void> {
-  const dept = await prisma.department.findFirst({
-    where: { id: departmentId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!dept) {
-    throw new BadRequestError("Referenced department not found");
+export async function listAreaSetupOrganization(actor: Actor) {
+  assertCanManage(actor);
+  return (await repo.listSetupOrganization()).map((campus) => ({
+    ...campus, colleges: campus.colleges.map((college) => ({
+      ...college, programs: college.programs.filter((program) => program.campusId === campus.id),
+    })),
+  }));
+}
+
+export async function listAreaSetupPrograms(actor: Actor) {
+  assertCanManage(actor);
+  return (await repo.listSetupPrograms()).filter((program) => program.campusId && program.collegeId && program.college?.campusId === program.campusId)
+    .map((program) => ({ id: program.id, name: program.name, campusId: program.campusId!, collegeId: program.collegeId!, campusName: program.campus!.name, collegeName: program.college!.name }));
+}
+
+export async function getAreaTemplateSetup(areaId: string, actor: Actor) {
+  assertCanManage(actor);
+  const area = await repo.findById(areaId);
+  if (!area) throw new NotFoundError("Accreditation area not found");
+  return repo.areaTemplateSetup(areaId, area.areaSet as "AACCUP" | "ISO" | "CERT");
+}
+
+export async function setAreaTemplate(areaId: string, templateId: string | null, actor: Actor) {
+  assertCanManage(actor);
+  if (templateId) await attachTemplateToArea(areaId, templateId, actor);
+  else await detachTemplateFromArea(areaId, actor);
+  await syncAreaRequirementProjection(areaId, actor.id);
+  return getAreaTemplateSetup(areaId, actor);
+}
+
+async function assertOrganizationScopeExists(input: { campusId: string; collegeId: string; programId: string | null }): Promise<void> {
+  const [campus, college, program] = await Promise.all([
+    prisma.campus.findFirst({ where: { id: input.campusId, deletedAt: null }, select: { id: true } }),
+    prisma.college.findFirst({ where: { id: input.collegeId, deletedAt: null }, select: { id: true, campusId: true } }),
+    input.programId ? prisma.program.findFirst({ where: { id: input.programId, deletedAt: null }, select: { id: true, campusId: true, collegeId: true } }) : Promise.resolve(null),
+  ]);
+  if (!campus || !college || college.campusId !== input.campusId || (input.programId !== null && (!program || program.campusId !== input.campusId || program.collegeId !== input.collegeId))) {
+    throw new BadRequestError("Campus, college, and program must belong to the same organization scope");
   }
 }
 
@@ -74,24 +106,10 @@ async function assertCycleExists(cycleId: string | null | undefined): Promise<vo
   if (!cycle) throw new BadRequestError("Referenced accreditation cycle not found");
 }
 
-async function actorDepartmentIds(actor: Actor): Promise<string[]> {
-  const user = await prisma.user.findUnique({
-    where: { id: actor.id },
-    select: { departmentId: true, departments: { select: { id: true } } },
-  });
-  return [
-    ...new Set(
-      [user?.departmentId, ...(user?.departments.map((department) => department.id) ?? [])].filter(
-        (id): id is string => Boolean(id),
-      ),
-    ),
-  ];
-}
-
-async function assertAreaInScope(actor: Actor, departmentId: string): Promise<void> {
+async function assertAreaInScope(actor: Actor, areaId: string): Promise<void> {
   if (isManager(actor)) return;
-  if (!(await actorDepartmentIds(actor)).includes(departmentId)) {
-    throw new ForbiddenError("AACCUP area is outside your department scope");
+  if (!await prisma.aaccupArea.findFirst({ where: { id: areaId, deletedAt: null, AND: [await actorAreaScope(actor.id)] }, select: { id: true } })) {
+    throw new ForbiddenError("Accreditation area is outside your campus, college or program scope");
   }
 }
 
@@ -103,15 +121,11 @@ export async function listAreas(query: ListAreasQuery, actor: Actor): Promise<Li
   const where: Prisma.AaccupAreaWhereInput = { deletedAt: null };
   if (query.areaSet) where.areaSet = query.areaSet;
   if (query.status) where.status = query.status;
-  if (query.departmentId) where.departmentId = query.departmentId;
+  if (query.programId) where.programId = query.programId;
   if (query.accreditationCycleId) where.accreditationCycleId = query.accreditationCycleId;
-  if (!isManager(actor)) {
-    const allowed = await actorDepartmentIds(actor);
-    where.departmentId =
-      query.departmentId && allowed.includes(query.departmentId)
-        ? query.departmentId
-        : { in: query.departmentId ? [] : allowed };
-  }
+  if (query.campusId) where.campusId = query.campusId;
+  if (query.collegeId) where.collegeId = query.collegeId;
+  if (!isManager(actor)) where.AND = [await actorAreaScope(actor.id)];
   if (query.q) {
     where.OR = [
       { code: { contains: query.q, mode: "insensitive" } },
@@ -143,7 +157,7 @@ export async function getArea(id: string, actor: Actor): Promise<AaccupAreaDetai
   assertCanRead(actor);
   const area = await repo.findById(id);
   if (!area) throw new NotFoundError("AACCUP area not found");
-  await assertAreaInScope(actor, area.departmentId);
+  await assertAreaInScope(actor, area.id);
   return area;
 }
 
@@ -152,7 +166,7 @@ export async function getArea(id: string, actor: Actor): Promise<AaccupAreaDetai
 // -----------------------------------------------------------------------------
 export async function createArea(input: CreateAreaInput, actor: Actor): Promise<AaccupAreaDetail> {
   assertCanManage(actor);
-  await assertDepartmentExists(input.departmentId);
+  await assertOrganizationScopeExists(input);
   await assertCycleExists(input.accreditationCycleId);
 
   // Check code uniqueness (before insert to avoid relying solely on DB exception)
@@ -168,11 +182,14 @@ export async function createArea(input: CreateAreaInput, actor: Actor): Promise<
     code: input.code,
     name: input.name,
     description: input.description ?? null,
-    departmentId: input.departmentId,
+    campusId: input.campusId,
+    collegeId: input.collegeId,
+    programId: input.programId,
     accreditationCycleId: input.accreditationCycleId ?? null,
     areaSet: input.areaSet ?? "AACCUP",
     createdBy: actor.id,
     status: input.status ?? "ACTIVE",
+    dueDate: input.dueDate ?? null,
   });
 
   invalidateRequirementResolutionCache();
@@ -186,11 +203,18 @@ export async function createArea(input: CreateAreaInput, actor: Actor): Promise<
     newValue: {
       code: area.code,
       name: area.name,
-      departmentId: area.departmentId,
+      campusId: area.campusId,
+      collegeId: area.collegeId,
+      programId: area.programId,
     },
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
   });
+
+  if (area.dueDate) {
+    try { await announceAreaDeadline({ ...area, dueDate: area.dueDate }); }
+    catch (error) { logger.warn("Area deadline announcement failed", { areaId: area.id, error: error instanceof Error ? error.message : String(error) }); }
+  }
 
   return area;
 }
@@ -207,8 +231,12 @@ export async function updateArea(
   const existing = await repo.findById(id);
   if (!existing) throw new NotFoundError("AACCUP area not found");
 
-  if (input.departmentId && input.departmentId !== existing.departmentId) {
-    await assertDepartmentExists(input.departmentId);
+  if (input.campusId !== undefined || input.collegeId !== undefined || input.programId !== undefined) {
+    await assertOrganizationScopeExists({
+      campusId: input.campusId ?? existing.campusId ?? "",
+      collegeId: input.collegeId ?? existing.collegeId ?? "",
+      programId: input.programId !== undefined ? input.programId : existing.programId,
+    });
   }
   await assertCycleExists(input.accreditationCycleId);
 
@@ -226,10 +254,13 @@ export async function updateArea(
       code: input.code,
       name: input.name,
       description: input.description,
-      departmentId: input.departmentId,
+      campusId: input.campusId,
+      collegeId: input.collegeId,
+      programId: input.programId,
       accreditationCycleId: input.accreditationCycleId,
       areaSet: input.areaSet,
       status: input.status,
+      dueDate: input.dueDate,
       updatedBy: actor.id,
     },
   });
@@ -246,15 +277,23 @@ export async function updateArea(
       code: existing.code,
       name: existing.name,
       status: existing.status,
+      dueDate: existing.dueDate,
     },
     newValue: {
       code: updated.code,
       name: updated.name,
       status: updated.status,
+      dueDate: updated.dueDate,
     },
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
   });
+
+  const deadlineChanged = input.dueDate !== undefined && (existing.dueDate?.getTime() ?? null) !== (updated.dueDate?.getTime() ?? null);
+  if (deadlineChanged && updated.dueDate) {
+    try { await announceAreaDeadline({ ...updated, dueDate: updated.dueDate }); }
+    catch (error) { logger.warn("Area deadline announcement failed", { areaId: updated.id, error: error instanceof Error ? error.message : String(error) }); }
+  }
 
   return updated;
 }

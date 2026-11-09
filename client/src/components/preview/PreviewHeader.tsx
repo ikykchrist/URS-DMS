@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { X, Download, Share2, Maximize2, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
@@ -39,11 +40,14 @@ export function PreviewHeader({ file, onClose }: PreviewHeaderProps) {
         `/documents/${encodeURIComponent(file.id)}/download`,
       )
       window.open(result.url, "_blank", "noopener,noreferrer")
-    } catch {}
+      toast.success("Download link opened")
+    } catch {
+      toast.error("Unable to open download link")
+    }
   }
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-white flex-shrink-0">
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-white px-4 py-3">
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           <h2 className="text-[15px] font-semibold text-gray-900 truncate" title={file.name}>
@@ -60,25 +64,25 @@ export function PreviewHeader({ file, onClose }: PreviewHeaderProps) {
         ) : null}
       </div>
 
-      <div className="flex items-center gap-1 flex-shrink-0 ml-4">
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
         <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          variant="outline"
+          size="action"
+          className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
           onClick={handleDownload}
           title="Download"
         >
-          <Download className="w-4 h-4" />
+          <Download className="w-4 h-4" /> <span>Download</span>
         </Button>
         
         <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-gray-400 cursor-not-allowed"
+          variant="outline"
+          size="action"
+          className="text-gray-600 cursor-not-allowed"
           title="Share (not implemented)"
           disabled
         >
-          <Share2 className="w-4 h-4" />
+          <Share2 className="w-4 h-4" /> <span>Share</span>
         </Button>
         
         <Button

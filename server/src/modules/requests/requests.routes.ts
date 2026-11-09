@@ -39,7 +39,7 @@ requestsRouter.get(
   asyncHandler(listRequestsHandler),
 );
 
-// GET /requests/browse — list-only department archive bucket for requesters
+// GET /requests/browse — list-only program archive bucket for requesters
 requestsRouter.get(
   "/browse",
   requirePermission("request.create"),

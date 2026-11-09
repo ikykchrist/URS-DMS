@@ -49,7 +49,7 @@ export type ListWorkflowDefinitionsQuery = z.infer<typeof listWorkflowDefinition
 export const listWorkflowAssignmentsQuerySchema = z.object({
   definitionId: z.string().uuid().optional(),
   targetType: z
-    .enum(["UNIVERSITY", "COLLEGE", "DEPARTMENT", "PROGRAM", "OFFICE", "AACCUP_AREA", "ACCREDITATION_CYCLE"])
+    .enum(["UNIVERSITY", "CAMPUS", "COLLEGE", "PROGRAM", "OFFICE", "AACCUP_AREA", "ACCREDITATION_CYCLE"])
     .optional(),
 });
 export type ListWorkflowAssignmentsQuery = z.infer<typeof listWorkflowAssignmentsQuerySchema>;
@@ -152,7 +152,7 @@ export type UpdateWorkflowTransitionBody = z.infer<typeof updateWorkflowTransiti
 
 export const assignWorkflowDefinitionSchema = z
   .object({
-    targetType: z.enum(["UNIVERSITY", "COLLEGE", "DEPARTMENT", "PROGRAM", "OFFICE", "AACCUP_AREA", "ACCREDITATION_CYCLE"]),
+    targetType: z.enum(["UNIVERSITY", "CAMPUS", "COLLEGE", "PROGRAM", "OFFICE", "AACCUP_AREA", "ACCREDITATION_CYCLE"]),
     targetId: nullableUuid,
     priority: z.number().int().min(-1000).max(1000).optional(),
   })

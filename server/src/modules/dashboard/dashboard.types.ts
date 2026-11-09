@@ -17,7 +17,7 @@ export interface UserStats {
   totalUsers: number;
   activeUsers: number;
   administrators: number;
-  departmentUsers: number;
+  programUsers: number;
 }
 
 export interface RequestStats {

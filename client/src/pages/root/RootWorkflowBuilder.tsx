@@ -191,7 +191,6 @@ const STEP_TYPES: Array<{ value: WorkflowStepType; label: string }> = [
 const TARGET_TYPES: Array<{ value: WorkflowAssignmentTargetType; label: string }> = [
   { value: "UNIVERSITY", label: "University" },
   { value: "COLLEGE", label: "College" },
-  { value: "DEPARTMENT", label: "Department" },
   { value: "PROGRAM", label: "Program" },
   { value: "OFFICE", label: "Office" },
   { value: "AACCUP_AREA", label: "AACCUP Area" },
@@ -768,7 +767,7 @@ export default function RootWorkflowBuilder() {
     detail?.transitions.filter((transition) => transition.deletedAt === null) ?? [];
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
         title="Workflow Builder"
         description="Author versioned, publishable approval flows and assign them to scopes. Published workflows control submissions, requests, and documents."
@@ -1168,8 +1167,8 @@ export default function RootWorkflowBuilder() {
                                   <TableCell className="text-right">
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="sm" disabled={Boolean(busy)}>
-                                          <MoreVertical />
+                                        <Button className="h-8 gap-1.5 px-2.5 text-xs whitespace-nowrap" variant="outline" size="sm" disabled={Boolean(busy)}>
+                                          <MoreVertical /> <span>Actions</span>
                                         </Button>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="end">
@@ -1268,8 +1267,8 @@ export default function RootWorkflowBuilder() {
                                     <TableCell className="text-right">
                                       <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" size="sm" disabled={Boolean(busy)}>
-                                            <MoreVertical />
+                                          <Button className="h-8 gap-1.5 px-2.5 text-xs whitespace-nowrap" variant="outline" size="sm" disabled={Boolean(busy)}>
+                                            <MoreVertical /> <span>Actions</span>
                                           </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
@@ -1379,8 +1378,8 @@ export default function RootWorkflowBuilder() {
                       </div>
                       <div className="flex flex-shrink-0 items-center gap-2">
                         <Badge variant="secondary">priority {assignment.priority}</Badge>
-                        <Button
-                          variant="ghost"
+                        <Button className="h-8 gap-1.5 px-2.5 text-xs whitespace-nowrap"
+                          variant="outline"
                           size="sm"
                           onClick={() =>
                             void run(
@@ -1391,7 +1390,7 @@ export default function RootWorkflowBuilder() {
                           }
                           disabled={Boolean(busy)}
                         >
-                          <Trash2 className="h-4 w-4 text-red-500" />
+                          <Trash2 className="h-4 w-4 text-red-500" /> <span>Unassign</span>
                         </Button>
                       </div>
                     </div>

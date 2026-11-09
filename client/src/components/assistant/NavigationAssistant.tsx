@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Bot, Loader2, MessageCircle, Send, Sparkles, X } from "lucide-react"
+import { Bot, Loader2, MessageCircle, RotateCcw, Send, Sparkles, X } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { apiPost, ApiRequestError } from "@/lib/http"
 import { cn } from "@/lib/utils"
@@ -13,20 +13,30 @@ type AssistantMessage = {
   content: string
   pending?: boolean
   actions?: AssistantAction[]
+  notice?: string
+}
+
+type AssistantReply = {
+  message: string
+  actions: AssistantAction[]
+  mode?: "ai" | "guide"
+  notice?: { code: string; text: string }
 }
 
 type AssistantActionTarget = "DASHBOARD" | "MY_DOCUMENTS" | "MY_REQUESTS" | "REQUESTS" | "AACCUP" | "ISO" | "NOTIFICATIONS" | "MY_ACTIVITY" | "PROFILE" | "SETTINGS" | "USER_MANAGEMENT" | "AUDIT_LOGS" | "ORGANIZATION" | "ROOT_CONSOLE" | "ROLES_PERMISSIONS"
 type AssistantAction = { label: string; target: AssistantActionTarget }
 
-const WELCOME = "Hi! I can help you navigate URS-DMS. Ask me where to find a feature or how to use a page."
+const WELCOME = "Hi! I'm the QA-DMS Assistant. I can help with QA-DMS only — finding a page, explaining what a button does, or walking you through a workflow. I remember this conversation, so you can ask follow-up questions."
 const MAX_MESSAGE_LENGTH = 1000
+const MAX_HISTORY_TURNS = 8
+const MAX_STORED_MESSAGES = 40
 
 const suggestions = {
   user: [
     "How do I upload a document?",
     "Where are my requests?",
     "How do I submit to AACCUP?",
-    "Where can I find ISO?",
+    "Where can I see my area deadlines?",
   ],
   admin: [
     "Where can I review submissions?",
@@ -35,7 +45,7 @@ const suggestions = {
     "How do I manage users?",
   ],
   root: [
-    "Where can I add a department?",
+    "Where can I add a program?",
     "Where is Roles & Permissions?",
     "How do I open System Audit?",
     "Where is Organization?",
@@ -49,9 +59,29 @@ function assistantAudience(role?: string): keyof typeof suggestions {
 }
 
 function welcomeFor(audience: keyof typeof suggestions): string {
-  if (audience === "root") return "I can help you navigate URS-DMS and Root Console features."
-  if (audience === "admin") return "I can help you navigate submissions, accreditation areas, requests, users, and audit tools."
-  return "I can help you with My Documents, My Requests, AACCUP/ISO, Notifications, and other User Portal features."
+  if (audience === "root") return "Ask me about Root Console tools — organization, builders, roles, audit, or configuration."
+  if (audience === "admin") return "Ask me about submissions, area deadlines, requests, user management, and audit tools."
+  return "Ask me about My Documents, My Requests, Accreditation (AACCUP/ISO), Notifications, or your account."
+}
+
+function storageKeyFor(userId?: string): string {
+  return `qa-dms-assistant:${userId ?? "guest"}`
+}
+
+function readStoredMessages(userId: string | undefined, welcome: string): AssistantMessage[] {
+  try {
+    const raw = window.sessionStorage.getItem(storageKeyFor(userId))
+    if (!raw) return [{ id: "welcome", role: "assistant", content: welcome }]
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return [{ id: "welcome", role: "assistant", content: welcome }]
+    const restored = parsed
+      .filter((item): item is AssistantMessage => Boolean(item) && typeof item === "object" && typeof (item as AssistantMessage).content === "string" && ((item as AssistantMessage).role === "user" || (item as AssistantMessage).role === "assistant") && !(item as AssistantMessage).pending)
+      .slice(-MAX_STORED_MESSAGES)
+      .map((item) => ({ ...item, actions: undefined }))
+    return restored.length > 0 ? restored : [{ id: "welcome", role: "assistant", content: welcome }]
+  } catch {
+    return [{ id: "welcome", role: "assistant", content: welcome }]
+  }
 }
 
 function renderAssistantContent(content: string) {
@@ -70,17 +100,35 @@ export function NavigationAssistant() {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
-  const [messages, setMessages] = useState<AssistantMessage[]>([
-    { id: "welcome", role: "assistant", content: `${WELCOME}\n\n${welcomeFor(audience)}` },
-  ])
+  const welcomeMessage = `${WELCOME}\n\n${welcomeFor(audience)}`
+  const [messages, setMessages] = useState<AssistantMessage[]>(() => readStoredMessages(user?.id, welcomeMessage))
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setMessages([{ id: `welcome-${user?.id ?? "guest"}`, role: "assistant", content: `${WELCOME}\n\n${welcomeFor(audience)}` }])
+    setMessages(readStoredMessages(user?.id, welcomeMessage))
     setInput("")
     setSending(false)
     setOpen(false)
-  }, [user?.id, audience])
+    // Re-hydrate only when the signed-in account or role changes.
+  }, [user?.id, audience, welcomeMessage])
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(storageKeyFor(user?.id), JSON.stringify(messages.filter((message) => !message.pending).slice(-MAX_STORED_MESSAGES)))
+    } catch {
+      // Storage can be unavailable (private mode/quota); conversation still works in memory.
+    }
+  }, [messages, user?.id])
+
+  const resetConversation = () => {
+    try {
+      window.sessionStorage.removeItem(storageKeyFor(user?.id))
+    } catch {
+      // Ignore storage failures.
+    }
+    setMessages([{ id: "welcome", role: "assistant", content: welcomeMessage }])
+    setInput("")
+  }
 
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -98,13 +146,18 @@ export function NavigationAssistant() {
       { id: pendingId, role: "assistant", content: "Thinking", pending: true },
     ])
     setSending(true)
+    const history = messages
+      .filter((item) => item.id !== "welcome" && !item.pending)
+      .slice(-MAX_HISTORY_TURNS)
+      .map((item) => ({ role: item.role, content: item.content }))
     try {
-      const response = await apiPost<{ message: string; actions: AssistantAction[] }>("/assistant/navigation", { message: content })
-      setMessages((current) => current.map((item) => item.id === pendingId ? { id: pendingId, role: "assistant", content: response.message, actions: response.actions } : item))
+      const response = await apiPost<AssistantReply>("/assistant/navigation", { message: content, history })
+      const notice = response.mode === "guide" ? response.notice?.text ?? "Answers come from the built-in guide." : undefined
+      setMessages((current) => current.map((item) => item.id === pendingId ? { id: pendingId, role: "assistant", content: response.message, actions: response.actions, notice } : item))
     } catch (error) {
       const errorMessage = error instanceof ApiRequestError && error.status === 429
         ? "You've sent several requests quickly. Please wait a moment and try again."
-        : "The URS-DMS Assistant is temporarily unavailable. Please try again."
+        : "The QA-DMS Assistant is temporarily unavailable. Please try again."
       setMessages((current) => current.map((item) => item.id === pendingId ? { id: pendingId, role: "assistant", content: errorMessage } : item))
     } finally {
       setSending(false)
@@ -122,7 +175,7 @@ export function NavigationAssistant() {
     <>
       {open && (
         <section
-          aria-label="URS-DMS Assistant"
+          aria-label="QA-DMS Assistant"
           className="fixed inset-x-4 bottom-20 z-[80] flex h-[min(600px,calc(100dvh-6rem))] flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-[0_20px_60px_rgba(15,23,42,0.2)] dark:bg-gray-900 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:h-[560px] lg:w-[380px]"
         >
           <header className="flex shrink-0 items-center justify-between bg-navy-900 px-4 py-3.5 text-white">
@@ -131,13 +184,18 @@ export function NavigationAssistant() {
                 <Bot className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <h2 className="truncate text-[14px] font-bold">URS-DMS Assistant</h2>
-                <p className="text-[11px] text-blue-200">Navigation Guide</p>
+                <h2 className="truncate text-[14px] font-bold">QA-DMS Assistant</h2>
+                <p className="text-[11px] text-blue-200">QA-DMS help only</p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" aria-label="Close URS-DMS Assistant" onClick={() => setOpen(false)} className="h-9 w-9 text-blue-100 hover:bg-white/10 hover:text-white">
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" aria-label="Start a new conversation" title="New conversation" onClick={resetConversation} className="h-9 w-9 text-blue-100 hover:bg-white/10 hover:text-white">
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" aria-label="Close QA-DMS Assistant" onClick={() => setOpen(false)} className="h-9 w-9 text-blue-100 hover:bg-white/10 hover:text-white">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </header>
 
           <div className="flex-1 space-y-3 overflow-y-auto bg-gray-50/70 p-4 dark:bg-gray-950">
@@ -150,6 +208,9 @@ export function NavigationAssistant() {
                     : "rounded-bl-md border border-border/70 bg-white text-gray-700 shadow-soft dark:bg-gray-900 dark:text-gray-200",
                 )}>
                   {message.pending ? <span className="inline-flex items-center gap-1.5 text-gray-500"><Loader2 className="h-3.5 w-3.5 animate-spin" />Thinking...</span> : renderAssistantContent(message.content)}
+                  {!message.pending && message.notice && (
+                    <p className="mt-2 border-t border-border/60 pt-2 text-[10px] leading-4 text-amber-700 dark:text-amber-400">{message.notice}</p>
+                  )}
                   {!message.pending && message.actions && message.actions.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2 border-t border-border/60 pt-2.5">
                       {message.actions.map((action) => (
@@ -186,15 +247,15 @@ export function NavigationAssistant() {
           </div>
 
           <form onSubmit={(event) => { event.preventDefault(); void sendMessage() }} className="flex shrink-0 items-end gap-2 border-t border-border bg-white p-3 dark:bg-gray-900">
-            <label htmlFor="assistant-message" className="sr-only">Ask about URS-DMS</label>
-            <Textarea id="assistant-message" value={input} maxLength={MAX_MESSAGE_LENGTH} onChange={(event) => setInput(event.target.value)} onKeyDown={handleKeyDown} placeholder="Ask about URS-DMS..." rows={2} disabled={sending} className="min-h-[44px] resize-none py-2.5 text-[13px]" />
+            <label htmlFor="assistant-message" className="sr-only">Ask about QA-DMS</label>
+            <Textarea id="assistant-message" value={input} maxLength={MAX_MESSAGE_LENGTH} onChange={(event) => setInput(event.target.value)} onKeyDown={handleKeyDown} placeholder="Ask about QA-DMS..." rows={2} disabled={sending} className="min-h-[44px] resize-none py-2.5 text-[13px]" />
             <Button type="submit" size="icon" aria-label="Send message" disabled={sending || !input.trim()} className="h-10 w-10 shrink-0">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </form>
         </section>
       )}
-      <Button type="button" size="icon" aria-label={open ? "Close URS-DMS Assistant" : "Open URS-DMS Assistant"} onClick={() => setOpen((current) => !current)} className="fixed bottom-20 right-4 z-[80] h-12 w-12 rounded-2xl shadow-lift shadow-primary/25 lg:bottom-6 lg:right-6">
+      <Button type="button" size="icon" aria-label={open ? "Close QA-DMS Assistant" : "Open QA-DMS Assistant"} onClick={() => setOpen((current) => !current)} className="fixed bottom-20 right-4 z-[80] h-12 w-12 rounded-2xl shadow-lift shadow-primary/25 lg:bottom-6 lg:right-6">
         {open ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
       </Button>
     </>

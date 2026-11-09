@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState, useEffect } from "react"
 import { Upload, X, FileText, Image, File } from "lucide-react"
 import {
@@ -26,8 +27,10 @@ interface AddSubmissionModalProps {
   onOpenChange: (open: boolean) => void
   areaId?: string
   areaTitle?: string
-  areaSet?: "AACCUP" | "ISO" | "CERT"
-  departmentId?: string
+  areaSet?: "AACCUP" | "ISO"
+  campusId?: string
+  collegeId?: string
+  programId?: string
   onSuccess?: () => void
 }
 
@@ -37,7 +40,9 @@ export function AddSubmissionModal({
   areaId,
   areaTitle,
   areaSet = "AACCUP",
-  departmentId,
+  campusId,
+  collegeId,
+  programId,
   onSuccess,
 }: AddSubmissionModalProps) {
   const [requirementId, setRequirementId] = useState("")
@@ -114,7 +119,9 @@ export function AddSubmissionModal({
     try {
       await uploadOnlineRequirementDocument({
         requirementId,
-        departmentId: departmentId ?? "",
+        campusId: campusId ?? "",
+        collegeId: collegeId ?? "",
+        programId: programId ?? "",
         title: requirement ? `${requirement.documentCode} - ${requirement.title}` : files[0].name,
         areaName: areaTitle,
         requirementCode: requirement?.documentCode,
@@ -123,6 +130,7 @@ export function AddSubmissionModal({
       })
       onSuccess?.()
       handleClose(false)
+      toast.success("Evidence uploaded and submitted for review")
     } catch {
       setError("Failed to submit. Please check the file and try again.")
     } finally {

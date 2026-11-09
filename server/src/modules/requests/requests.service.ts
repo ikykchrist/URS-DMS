@@ -1,5 +1,5 @@
 import { AUDIT_ACTIONS } from "@/config/constants";
-import { writeAudit } from "@/modules/audit/audit.service";
+import { writeAudit, writeAuditInTransaction } from "@/modules/audit/audit.service";
 import { notifyUser } from "@/modules/notifications/notifications.service";
 import { prisma } from "@/lib/prisma";
 import {
@@ -158,7 +158,7 @@ export async function createRequest(
 }
 
 // -----------------------------------------------------------------------------
-// browseDepartmentArchive — list-only view of the caller's department bucket
+// browseProgramArchive — list-only view of the caller's program bucket
 // Used by the user portal "Browse Archive" screen: file name, type, owner,
 // date uploaded and size only. No presigned URLs are issued, so files cannot
 // be opened or downloaded from this surface.
@@ -170,32 +170,51 @@ export interface BrowseItem {
   mimeType: string | null;
   sizeBytes: string | null;
   ownerName: string;
-  departmentId: string | null;
-  departmentName: string | null;
+  campusId: string | null;
+  collegeId: string | null;
+  programId: string | null;
+  programName: string | null;
   uploadedAt: Date;
   folderName: string | null;
 }
 
-export async function browseDepartmentArchive(
+export async function browseProgramArchive(
   actor: Actor,
-): Promise<{ items: BrowseItem[]; departmentId: string | null; departmentName: string | null }> {
+): Promise<{ items: BrowseItem[]; campusId: string | null; collegeId: string | null; programId: string | null; programName: string | null }> {
   if (!actor.permissions.includes("request.create")) {
     throw new ForbiddenError("Missing permission: request.create");
   }
   const me = await prisma.user.findUnique({
     where: { id: actor.id },
-    select: { departmentId: true },
+    select: { campusId: true, collegeId: true, programId: true },
   });
-  const departmentId = me?.departmentId ?? null;
-  if (!departmentId) return { items: [], departmentId: null, departmentName: null };
+  const programId = me?.programId ?? null;
+  const collegeId = me?.collegeId ?? null;
+  const campusId = me?.campusId ?? null;
 
-  const [department, docs] = await Promise.all([
-    prisma.department.findUnique({
-      where: { id: departmentId },
-      select: { name: true },
-    }),
+  // Documents are not reliably program-assigned: uploads and AACCUP submissions
+  // only carry the uploader's college/campus, so filtering on programId alone
+  // hid every archived file (the accreditation tab lists by requirement, which
+  // is why approved files showed there but nothing here). Match the strict
+  // program bucket first, then fall back to the caller's college/campus for
+  // documents that were never program-scoped.
+  const scope: Prisma.DocumentWhereInput[] = [];
+  if (programId) scope.push({ programId });
+  if (collegeId) scope.push({ programId: null, collegeId });
+  if (campusId) scope.push({ programId: null, collegeId: null, campusId });
+  if (scope.length === 0) {
+    return { items: [], campusId, collegeId, programId, programName: null };
+  }
+
+  const [program, docs] = await Promise.all([
+    programId
+      ? prisma.program.findUnique({
+          where: { id: programId },
+          select: { name: true },
+        })
+      : Promise.resolve(null),
     prisma.document.findMany({
-      where: { departmentId, deletedAt: null },
+      where: { deletedAt: null, OR: scope },
       select: {
         id: true,
         title: true,
@@ -216,13 +235,17 @@ export async function browseDepartmentArchive(
       mimeType: d.currentVersion?.mimeType ?? null,
       sizeBytes: d.currentVersion?.sizeBytes?.toString() ?? null,
       ownerName: d.owner ? `${d.owner.firstName} ${d.owner.lastName}`.trim() : "Unknown",
-      departmentId,
-      departmentName: department?.name ?? null,
+      campusId: me?.campusId ?? null,
+      collegeId: me?.collegeId ?? null,
+      programId,
+      programName: program?.name ?? null,
       uploadedAt: d.createdAt,
       folderName: d.folder?.name ?? null,
     })),
-    departmentId,
-    departmentName: department?.name ?? null,
+    campusId: me?.campusId ?? null,
+    collegeId: me?.collegeId ?? null,
+    programId,
+    programName: program?.name ?? null,
   };
 }
 
@@ -268,7 +291,9 @@ async function deliverRequestedDocument(
           delivered: true,
         },
         ownerId: existing.requesterId,
-        departmentId: null,
+        campusId: source.campusId,
+        collegeId: source.collegeId,
+        programId: source.programId,
         repositoryId,
       },
     });
@@ -291,7 +316,11 @@ async function deliverRequestedDocument(
     });
   }
 
-  await writeAudit({
+  // Transactional audit: written through `tx` so the delivered event commits
+  // with the delivery and rolls back with the approval transaction. Using the
+  // global client here previously left a false SUCCESS row if the transaction
+  // later aborted.
+  await writeAuditInTransaction(tx, {
     action: AUDIT_ACTIONS.REQUEST_FULFILLED_DELIVERED,
     userId: actor.id,
     entity: "request",

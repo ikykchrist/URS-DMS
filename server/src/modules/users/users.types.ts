@@ -15,7 +15,9 @@ export interface UserListItem {
   status: UserStatus;
   roleId: string;
   role: string;
-  departmentId: string | null;
+  campusId: string | null;
+  collegeId: string | null;
+  programId: string | null;
   lastLogin: Date | null;
   createdAt: Date;
 }

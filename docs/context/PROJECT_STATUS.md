@@ -1,5 +1,9 @@
 # Project Status (URS-DMS)
 
+QA update (5 November 2026): success-feedback coverage and focused QA fixes implemented; ROOT/admin browser smoke checks and success/export feedback verified. Full browser acceptance remains pending faculty login and mutation workflow coverage. See [QA feedback pass](../QA_FEEDBACK_PASS.md) for checks and limits.
+
+UI polish (5 November 2026): shared SaaS button lighting, four theme-aware shadow levels, faster transitions, stable form/table motion, and reduced-motion delay removal. Browser checks covered light/dark dialogs, menus, enabled/disabled buttons, and 120/140/180ms control/menu/dialog timings; see [UI guidelines](../ui-guidelines.md).
+
 > Sprint completion history only. Current state → `AI_CONTEXT.md`. Future →
 > `PROJECT_ROADMAP.md`. Append every completed sprint here (newest first).
 
@@ -44,6 +48,7 @@
 | 8.6 | **Automated Testing & Engineering Cleanup** — Vitest 2.1 config with v8 coverage; 46 automated tests across 3 suites: RBAC (role hierarchy + permissions + escalation guard + DB population, 24 tests), Repository (ownership isolation + depth limits + soft-delete/restore + metadata, 12 tests), Audit/Notifications/Background Jobs (10 tests); test helpers/factories (`createTestUser`, `createTestDocument`, `createTestFolder`, `cleanupTestUser`); client ESLint 9 flat config (`eslint.config.mjs`); test commands (`test`, `test:watch`, `test:coverage`); `docs/testing/TESTING.md` created; build excludes test files | ✅ done |
 | 8.7 | **Final Repository UX & File Behavior (Rules 31-40)** — Rule 31: Folder customization (color + icon columns, hex-validated PATCH API, color-picker + presets in RepositoryExplorer with save/reset); Rule 33: ZIP extraction service with ZIP Slip guard, depth enforcement, max entries/bomb protection; Rule 37: Recycle Bin shows days remaining per deleted item + improved metadata display; Rule 38: Bulk delete + Empty Recycle Bin use proper Dialog confirmations instead of `window.confirm`; Rule 40: `ServiceUnavailable` component (customizable service name, message, retry); migration `20260808000000_sprint8_7_folder_customization`; 4 new audit event codes (`folder.customized`, `document.zip_extracted`, `document.replaced`, `document.upload_resumed`); DECISIONS D-035..D-044 | ✅ done |
 | 8.8 | **Full System Integration & End-to-End Regression** — Full cross-module integration verified: server typecheck + build green, client typecheck + build green, 46 automated tests green; 7 of 9 smoke suites fully green (Repository 49/49, Rules 40/40, Roles 28/28, Maintenance 31/31, Account 35/35, Requests 32/32, Background Jobs 12/12); all navigation items verified (no dead routes, no orphaned pages); all core modules function together (Root config, Admin dashboard, User repository, Requests, AACCUP, Workflows, Forms, Notifications, Audit); no critical integration-breaking defects found; cleanup of leftover SMK test records | ✅ done |
+| 8.9 | **Area deadlines and Requirement Builder simplification** — removed the Requirement Builder Assignment tab; active set templates resolve universally to matching areas; deadlines now belong to accreditation Areas and cover all required files; persisted email/in-app reminders at 3 months, 1 month, 7 days, and 3 days with per-area/user/interval deduplication; task deadline reminder worker retired; concurrent email claims remain row-locked to prevent duplicate sends; migration `20261109010000_add_area_deadlines`; focused regression 12/12, server/client builds and client lint green | ✅ done |
 
 ## Key verification milestones
 

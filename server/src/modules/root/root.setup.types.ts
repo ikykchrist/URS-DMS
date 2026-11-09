@@ -4,8 +4,8 @@
 
 export interface SetupSummary {
   organizations: {
+    campuses: number;
     colleges: number;
-    departments: number;
     offices: number;
     programs: number;
   };

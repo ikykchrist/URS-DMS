@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import React, { useCallback, useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import {
@@ -58,14 +59,14 @@ interface AACCUPArea {
   description: string
   status: "Completed" | "In Progress" | "Pending" | "Overdue"
   completion: number
-  dueDate: string
+  dueDate: string | null
 }
 
 interface AACCUPAreaDetailsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   area: AACCUPArea | null
-  areaSet?: "AACCUP" | "ISO" | "CERT"
+  areaSet?: "AACCUP" | "ISO"
   onAddSubmission: () => void
   onCreateTask: () => void
   onEditArea?: () => void
@@ -78,7 +79,7 @@ interface AreaSubmission {
   fileName: string
   fileSize: string
   submittedBy: string
-  department: string
+  program: string
   dateSubmitted: string
   status: "Approved" | "Pending" | "Returned" | "Rejected"
 }
@@ -129,7 +130,6 @@ export function AACCUPAreaDetailsModal({
   area,
   areaSet = "AACCUP",
   onAddSubmission,
-  onCreateTask,
   onEditArea,
   page = false,
 }: AACCUPAreaDetailsModalProps) {
@@ -181,7 +181,7 @@ export function AACCUPAreaDetailsModal({
           fileName: submission.documentTitle,
           fileSize: "",
           submittedBy: submission.submittedByName ?? "Unknown",
-          department: submission.departmentName ?? "—",
+          program: submission.programName ?? "—",
           dateSubmitted: formatDate(submission.submittedAt),
           status: statusLabel[submission.status],
         }))
@@ -227,17 +227,19 @@ export function AACCUPAreaDetailsModal({
     try {
       await archiveOnlineRequirement(requirement.id)
       loadRequirements()
+      toast.success("Requirement archived")
     } catch {
       window.alert("Failed to archive the requirement. Please try again.")
     }
   }
 
-  const handleTaskStatusChange = async (task: OnlineAaccupTask, status: "IN_PROGRESS" | "COMPLETED") => {
+  const handleTaskStatusChange = async (task: OnlineAaccupTask, status: "IN_PROGRESS") => {
     setUpdatingTaskId(task.id)
     try {
       await updateOnlineTask(task.id, { status })
       const next = await listOnlineAreaTasks(task.areaId)
       setTasks(next)
+      toast.success("Task started")
     } catch {
       window.alert("Failed to update the task status.")
     } finally {
@@ -248,6 +250,7 @@ export function AACCUPAreaDetailsModal({
   const taskStatusLabel: Record<OnlineAaccupTask["status"], string> = {
     OPEN: "Open",
     IN_PROGRESS: "In Progress",
+    NEEDS_REVISION: "Needs Revision",
     COMPLETED: "Completed",
     CANCELLED: "Cancelled",
   }
@@ -258,6 +261,7 @@ export function AACCUPAreaDetailsModal({
     try {
       await reviewOnlineSubmission(submissionId, { decision })
       loadSubmissions()
+      toast.success(decision === "APPROVED" ? "Submission approved" : "Submission rejected")
     } catch {
       window.alert("Review action failed. Please try again.")
     }
@@ -283,6 +287,7 @@ export function AACCUPAreaDetailsModal({
     time: submission.dateSubmitted,
   }))
   const completion = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : area.completion
+  const currentStatus = stats.total > 0 ? (stats.completed === stats.total ? "Completed" : "In Progress") : area.status
 
   const content = (
     <>
@@ -298,9 +303,9 @@ export function AACCUPAreaDetailsModal({
               </div>
               <div className="min-w-0">
                 {page ? (
-                  <h1 className="text-lg font-semibold text-gray-900 truncate">Area {area.id}: {area.title}</h1>
+                  <h1 className="text-lg font-semibold text-gray-900 truncate">{area.title}</h1>
                 ) : (
-                  <DialogTitle className="text-lg truncate">Area {area.id}: {area.title}</DialogTitle>
+                  <DialogTitle className="text-lg truncate">{area.title}</DialogTitle>
                 )}
                 <div className="flex items-center gap-3 mt-1.5">
                   <div className="flex items-center gap-2">
@@ -312,9 +317,10 @@ export function AACCUPAreaDetailsModal({
                     </div>
                      <span className="text-[13px] font-medium text-primary">{completion}%</span>
                   </div>
-                  <Badge variant={areaStatusVariant[area.status]} className="text-[10px] flex-shrink-0">
-                    {area.status}
+                  <Badge variant={areaStatusVariant[currentStatus]} className="text-[10px] flex-shrink-0">
+                    {currentStatus}
                   </Badge>
+                  <span className="text-[12px] text-gray-500">Deadline: {area.dueDate ? formatDate(area.dueDate) : "Not set"}</span>
                 </div>
               </div>
             </div>
@@ -323,12 +329,6 @@ export function AACCUPAreaDetailsModal({
                 <Button variant="outline" size="sm" className="h-9" onClick={onEditArea}>
                   <Pencil className="w-4 h-4 mr-2" />
                   Edit
-                </Button>
-              )}
-              {canManageTasks && (
-                <Button variant="outline" size="sm" className="h-9" onClick={onCreateTask}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Task
                 </Button>
               )}
               <Button size="sm" className="h-9 shadow-soft" onClick={onAddSubmission}>
@@ -366,17 +366,6 @@ export function AACCUPAreaDetailsModal({
                   </button>
                   <button
                     type="button"
-                     onClick={() => changeView("tasks")}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-                      view === "tasks" ? "bg-white text-gray-900 shadow-soft" : "text-gray-500 hover:text-gray-700"
-                    )}
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    Tasks ({tasks.length})
-                  </button>
-                  <button
-                    type="button"
                      onClick={() => changeView("requirements")}
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
@@ -409,7 +398,7 @@ export function AACCUPAreaDetailsModal({
                       <h3 className="text-[14px] font-semibold text-gray-900">Submission Requirements</h3>
                       <p className="text-[12px] text-gray-500">
                         {requirements.some((r) => r.sourceTemplateId || r.sourceNodeId)
-                          ? "This area is managed by the Root Requirement Builder — manage requirements there."
+                          ? "Requirements come from the template attached to this area. Edit the reusable template in Requirement Builder."
                           : "Users submit evidence against these requirements."}
                       </p>
                     </div>
@@ -479,27 +468,27 @@ export function AACCUPAreaDetailsModal({
                               </TableCell>
                               <TableCell className="text-right">
                                 {canManageTasks && !requirement.sourceTemplateId && !requirement.sourceNodeId ? (
-                                  <div className="flex items-center justify-end gap-0.5">
+                                  <div className="record-actions record-actions-table">
                                     <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                                      variant="outline"
+                                      size="action"
+                                      className="text-gray-600 hover:text-gray-700 hover:bg-gray-100"
                                       title="Edit"
                                       onClick={() => {
                                         setEditingRequirement(requirement)
                                         setIsRequirementModalOpen(true)
                                       }}
                                     >
-                                      <Pencil className="w-4 h-4" />
+                                      <Pencil className="w-4 h-4" /> <span>Edit</span>
                                     </Button>
                                     <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                      variant="outline"
+                                      size="action"
+                                      className="text-gray-600 hover:text-red-600 hover:bg-red-50"
                                       title="Archive"
                                       onClick={() => void handleArchiveRequirement(requirement)}
                                     >
-                                      <Trash2 className="w-4 h-4" />
+                                      <Trash2 className="w-4 h-4" /> <span>Archive</span>
                                     </Button>
                                   </div>
                                 ) : (
@@ -538,7 +527,7 @@ export function AACCUPAreaDetailsModal({
                         </TableRow>
                       ) : (
                         tasks.map((task) => {
-                          const actionable = task.status === "OPEN" || task.status === "IN_PROGRESS"
+                          const actionable = task.status === "OPEN" || task.status === "IN_PROGRESS" || task.status === "NEEDS_REVISION"
                           return (
                           <TableRow key={task.id} className="border-b border-gray-100">
                             <TableCell>
@@ -566,7 +555,7 @@ export function AACCUPAreaDetailsModal({
                                 </Avatar>
                                 <div>
                                   <p className="text-[13px] text-gray-700">{task.assigneeLabel ?? "Unassigned"}</p>
-                                  <p className="text-[11px] text-gray-500">{task.assigneeType === "DEPARTMENT" ? "Department" : "User"}</p>
+                                  <p className="text-[11px] text-gray-500">{task.assigneeType === "PROGRAM" ? "Program" : "User"}</p>
                                 </div>
                               </div>
                             </TableCell>
@@ -592,7 +581,7 @@ export function AACCUPAreaDetailsModal({
                             </TableCell>
                             {canManageTasks && (
                               <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-1">
+                                <div className="record-actions record-actions-table">
                                   {actionable && task.status === "OPEN" && (
                                     <Button
                                       variant="outline"
@@ -602,17 +591,6 @@ export function AACCUPAreaDetailsModal({
                                       onClick={() => void handleTaskStatusChange(task, "IN_PROGRESS")}
                                     >
                                       Start
-                                    </Button>
-                                  )}
-                                  {actionable && task.status === "IN_PROGRESS" && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-8 text-[12px] border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                                      disabled={updatingTaskId === task.id}
-                                      onClick={() => void handleTaskStatusChange(task, "COMPLETED")}
-                                    >
-                                      Mark Complete
                                     </Button>
                                   )}
                                   {actionable && task.requirementId && (
@@ -668,7 +646,7 @@ export function AACCUPAreaDetailsModal({
                     categoryId: raw.requirementId,
                     categoryName: raw.requirementCode,
                     area: raw.areaName,
-                    department: raw.departmentName ?? "Unassigned",
+                    program: raw.programName ?? "Unassigned",
                     ownerId: raw.submittedById ?? "",
                     ownerName: raw.submittedByName ?? "Unknown",
                     size: 0,
@@ -723,7 +701,7 @@ export function AACCUPAreaDetailsModal({
                                 </Avatar>
                                 <div>
                                   <p className="text-[13px] text-gray-700">{submission.submittedBy}</p>
-                                  <p className="text-[11px] text-gray-500">{submission.department}</p>
+                                  <p className="text-[11px] text-gray-500">{submission.program}</p>
                                 </div>
                               </div>
                             </TableCell>
@@ -739,7 +717,7 @@ export function AACCUPAreaDetailsModal({
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-0.5">
+                              <div className="record-actions record-actions-table">
                                 {(() => {
                                   const raw = rawSubmissions.find((s) => s.id === submission.id)
                                    const reviewable = canManageTasks && raw?.status === "PENDING"
@@ -748,42 +726,42 @@ export function AACCUPAreaDetailsModal({
                                       {reviewable && (
                                         <>
                                           <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
+                                            variant="outline"
+                                            size="action"
+                                            className="text-emerald-600 hover:bg-emerald-50"
                                             title="Approve"
                                             onClick={() => void handleReview(submission.id, "APPROVED")}
                                           >
-                                            <CheckCircle className="w-4 h-4" />
+                                            <CheckCircle className="w-4 h-4" /> <span>Approve</span>
                                           </Button>
                                           <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-amber-600 hover:bg-amber-50"
+                                            variant="outline"
+                                            size="action"
+                                            className="text-amber-600 hover:bg-amber-50"
                                             title="Return for revision"
                                             onClick={() => handleReturn(submission.id, submission.title)}
                                           >
-                                            <RotateCcw className="w-4 h-4" />
+                                            <RotateCcw className="w-4 h-4" /> <span>Return</span>
                                           </Button>
                                           <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-red-600 hover:bg-red-50"
+                                            variant="outline"
+                                            size="action"
+                                            className="text-red-600 hover:bg-red-50"
                                             title="Reject"
                                             onClick={() => void handleReview(submission.id, "REJECTED")}
                                           >
-                                            <XCircle className="w-4 h-4" />
+                                            <XCircle className="w-4 h-4" /> <span>Reject</span>
                                           </Button>
                                         </>
                                       )}
-                                      <Button
+                                      {raw?.status === "PENDING" && <Button
                                         variant="ghost"
                                         size="sm"
                                         className="h-8 text-[13px] text-primary hover:text-primary"
                                         onClick={() => setExpandedRow(expandedRow === submission.id ? null : submission.id)}
                                       >
                                         {expandedRow === submission.id ? "Hide" : "View"}
-                                      </Button>
+                                      </Button>}
                                     </>
                                   )
                                 })()}
@@ -818,8 +796,8 @@ export function AACCUPAreaDetailsModal({
                                       </div>
                                     </div>
 
-                                    <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mt-4 mb-2">Department</p>
-                                    <p className="text-[13px] text-gray-700">{submission.department}</p>
+                                    <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mt-4 mb-2">Program</p>
+                                    <p className="text-[13px] text-gray-700">{submission.program}</p>
                                   </div>
 
                                   <div>
@@ -838,7 +816,7 @@ export function AACCUPAreaDetailsModal({
                                         <div className="w-1.5 h-1.5 rounded-full bg-gray-300 mt-1.5" />
                                         <div>
                                           <p className="text-[13px] text-gray-700">
-                                            Document under review by {submission.department}
+                                            Document under review by {submission.program}
                                           </p>
                                           <p className="text-[11px] text-gray-400">Awaiting review</p>
                                         </div>

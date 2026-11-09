@@ -7,7 +7,6 @@ import { reportFilterSchema } from "@/modules/reports/reports.validator";
 import {
   aaccupListHandler,
   auditListHandler,
-  departmentsListHandler,
   documentsListHandler,
   reportExportHandler,
   requestsListHandler,
@@ -74,13 +73,6 @@ reportsRouter.get(
   asyncHandler(aaccupListHandler),
 );
 
-// GET /reports/departments
-reportsRouter.get(
-  "/departments",
-  requirePermission("reports.read"),
-  validateQuery(reportFilterSchema),
-  asyncHandler(departmentsListHandler),
-);
 
 // GET /reports/users
 reportsRouter.get(

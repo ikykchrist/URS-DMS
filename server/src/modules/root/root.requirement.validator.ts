@@ -60,7 +60,7 @@ export const listRequirementAssignmentsQuerySchema = z.object({
     .enum([
       "UNIVERSITY",
       "COLLEGE",
-      "DEPARTMENT",
+      "CAMPUS",
       "PROGRAM",
       "OFFICE",
       "AACCUP_AREA",
@@ -88,8 +88,9 @@ export const createRequirementTemplateSchema = z
     code: codeSchema,
     description: nullableDescription,
     category: nullableShortText,
+    areaSet: z.enum(["AACCUP", "ISO"]).default("AACCUP"),
     metadata: jsonRecord.nullable().optional(),
-    status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+    status: z.enum(["ACTIVE", "INACTIVE"]).default("INACTIVE"),
   })
   .strict();
 export type CreateRequirementTemplateBody = z.infer<typeof createRequirementTemplateSchema>;
@@ -100,6 +101,7 @@ export const updateRequirementTemplateSchema = z
     code: codeSchema.optional(),
     description: nullableDescription,
     category: nullableShortText,
+    areaSet: z.enum(["AACCUP", "ISO"]).optional(),
     metadata: jsonRecord.nullable().optional(),
     status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
   })
@@ -147,13 +149,15 @@ export const assignRequirementTemplateSchema = z
     targetType: z.enum([
       "UNIVERSITY",
       "COLLEGE",
-      "DEPARTMENT",
+      "CAMPUS",
       "PROGRAM",
       "OFFICE",
       "AACCUP_AREA",
       "ACCREDITATION_CYCLE",
     ]),
     targetId: nullableId,
+    // Keep this optional for older clients; the current UI still supplies it.
+    dueDate: z.coerce.date().nullable().optional(),
   })
   .strict()
   .superRefine((value, ctx) => {

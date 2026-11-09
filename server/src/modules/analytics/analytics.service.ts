@@ -42,7 +42,7 @@ import type { Granularity } from "@/modules/analytics/analytics.types";
 // AACCUP compliance is delegated to the compliance service's
 // calculateOverallCompliance() for the area / requirement rollups (single
 // source of truth). The compliance *trend* samples per-bucket compliance from
-// AaccupSubmission rows joined to their requirement's department, so the trend
+// AaccupSubmission rows joined to their requirement's program, so the trend
 // never reimplements the COMPLETED/PENDING/... mapping rule.
 // =============================================================================
 
@@ -225,7 +225,9 @@ export async function getUploadsAnalytics(filter: AnalyticsFilter): Promise<Uplo
   const where = {
     deletedAt: null,
     createdAt: { gte: from, lte: to },
-    ...(filter.departmentId ? { departmentId: filter.departmentId } : {}),
+    ...(filter.campusId ? { campusId: filter.campusId } : {}),
+    ...(filter.collegeId ? { collegeId: filter.collegeId } : {}),
+    ...(filter.programId ? { programId: filter.programId } : {}),
     ...(filter.ownerId ? { ownerId: filter.ownerId } : {}),
   };
 
@@ -235,10 +237,10 @@ export async function getUploadsAnalytics(filter: AnalyticsFilter): Promise<Uplo
       select: { createdAt: true },
     }),
     prisma.document.groupBy({
-      by: ["departmentId"],
+      by: ["programId"],
       _count: { _all: true },
       where: { deletedAt: null, ...(filter.ownerId ? { ownerId: filter.ownerId } : {}) },
-      orderBy: { _count: { departmentId: "desc" } },
+      orderBy: { _count: { programId: "desc" } },
     }),
   ]);
 
@@ -249,21 +251,21 @@ export async function getUploadsAnalytics(filter: AnalyticsFilter): Promise<Uplo
     filter.granularity,
   );
 
-  // Resolve departmentId → name in one extra query (avoids N+1 inside the
-  // groupBy itself; department starts may be soft-deleted but their name is
+  // Resolve programId → name in one extra query (avoids N+1 inside the
+  // groupBy itself; program starts may be soft-deleted but their name is
   // still meaningful for historical charts).
-  const deptIds = deptRows.map((r) => r.departmentId).filter((id): id is string => id !== null);
-  const departments = deptIds.length
-    ? await prisma.department.findMany({
-        where: { id: { in: deptIds } },
+  const programIds = deptRows.map((r) => r.programId).filter((id): id is string => id !== null);
+  const programs = programIds.length
+    ? await prisma.program.findMany({
+        where: { id: { in: programIds } },
         select: { id: true, name: true },
       })
     : [];
-  const nameById = new Map(departments.map((d) => [d.id, d.name]));
+  const nameById = new Map(programs.map((p) => [p.id, p.name]));
 
-  const perDepartment: CategoryBucket[] = deptRows
+  const perProgram: CategoryBucket[] = deptRows
     .map((r) => {
-      const id = r.departmentId;
+      const id = r.programId;
       const c = (r as { _count?: Record<string, number> })._count?._all;
       return {
         label: (id && nameById.get(id)) ?? "Unassigned",
@@ -272,7 +274,7 @@ export async function getUploadsAnalytics(filter: AnalyticsFilter): Promise<Uplo
     })
     .sort((a, b) => b.value - a.value);
 
-  return { overTime, perDepartment };
+  return { overTime, perProgram };
 }
 
 // -----------------------------------------------------------------------------
@@ -362,8 +364,8 @@ export async function getAaccupAnalytics(filter: AnalyticsFilter): Promise<Aaccu
   const submissionWhere = {
     deletedAt: null,
     submittedAt: { gte: from, lte: to },
-    ...(filter.departmentId
-      ? { requirement: { area: { departmentId: filter.departmentId } } }
+    ...(filter.campusId || filter.collegeId || filter.programId
+      ? { requirement: { area: { ...(filter.campusId ? { campusId: filter.campusId } : {}), ...(filter.collegeId ? { collegeId: filter.collegeId } : {}), ...(filter.programId ? { programId: filter.programId } : {}) } } }
       : {}),
     ...(filter.areaId ? { requirement: { areaId: filter.areaId } } : {}),
   };
@@ -374,7 +376,9 @@ export async function getAaccupAnalytics(filter: AnalyticsFilter): Promise<Aaccu
     }),
     // Reuse the single source of truth for the area/requirement rollups.
     calculateOverallCompliance({
-      departmentId: filter.departmentId,
+      campusId: filter.campusId,
+      collegeId: filter.collegeId,
+      programId: filter.programId,
       areaId: filter.areaId,
     }),
   ]);

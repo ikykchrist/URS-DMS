@@ -32,19 +32,17 @@
 | Organization Builder | Colleges, departments, offices, programs — CRUD, archive/restore, reorder (`displayOrder`), version history, rollback |
 | Folder Builder | Reusable folder template trees assigned to scopes (DEPARTMENT → COLLEGE → UNIVERSITY resolution); legacy fallback |
 | Requirement Builder | Recursive requirement templates (SECTION/REQUIREMENT nodes), validation rules, accreditation cycles, scoped assignment; runtime projection into `AaccupRequirement` rows |
-| Workflow Builder | Workflow definitions, steps, transitions, validation, immutable publish, versions + rollback, assignment, instance administration |
-| Form Builder | Dynamic form templates (12 field types), versioning, publish/rollback/duplicate, assignments to requirements/workflow steps/AACCUP areas/folder templates/global scope |
 | Platform Control Center | Platform health, configuration and monitoring overview |
-| Setup Wizard | Guided 8-step first-run configuration (identity + logo, organization, folder templates, requirement templates, workflow assignment, form assignment, administrators, summary); progress persists; locks on completion; reopenable |
+| Setup Wizard | Six visible setup stages: identity + logo, organization, folder templates, requirement templates, administrators, summary. Progress persists; locks on completion; reopenable. Legacy persisted step IDs are retained. |
 
 ## Behavior rules
 
-- Published templates are immutable; editing requires rollback to a draft
-  first (409 on published mutation).
+- Workflow Builder and Form Builder have been removed from the current product navigation and Root authoring API mounts. Their former client URLs redirect to `/root`. Existing schema/history contracts and internal workflow runtime adapters remain intact; the presentation dataset has no active workflow or form assignments.
+
+- Published workflow definitions are immutable. Requirement templates use ACTIVE/INACTIVE states and remain versioned and editable; activating them requires an active document requirement. Edits affect areas explicitly attached to that template.
 - Every mutation is versioned and audited; rollback replays an older snapshot
   as a new version.
-- Assignments resolve by specificity (area → cycle → department → college →
-  university) and can be re-prioritized.
+- Requirement templates resolve only through an explicit area attachment. Template-library and organization-wide assignments do not automatically expose requirements to users. See `specification/aaccup.md` for the administrator area setup flow.
 
 ## Related documents
 

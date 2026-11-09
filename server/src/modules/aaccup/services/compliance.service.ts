@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import { areaRequirementVisibility } from "@/modules/requirements/requirement.visibility";
 import { NotFoundError } from "@/utils/errors";
 import type {
   AaccupArea,
-  Department,
+  Program,
   Prisma,
 } from "@prisma/client";
 
@@ -45,20 +46,22 @@ export interface AreaCompliance {
   areaId: string;
   areaCode: string;
   areaName: string;
-  departmentId: string;
+  campusId: string | null;
+  collegeId: string | null;
+  programId: string | null;
   requirementCounts: Record<RequirementStatus, number>;
   totalRequirements: number;
   completedRequirements: number;
   compliancePercentage: number;
 }
 
-export interface DepartmentCompliance {
-  departmentId: string;
-  departmentName: string;
+export interface ProgramCompliance {
+  programId: string;
+  programName: string;
   totalAreas: number;
   completedAreas: number;
   incompleteAreas: number;
-  // Sum of requirement-level bars across the whole department.
+  // Sum of requirement-level bars across the whole program.
   requirementStatusCounts: Record<RequirementStatus, number>;
   missingDocuments: number;
   pendingReviews: number;
@@ -66,7 +69,7 @@ export interface DepartmentCompliance {
 }
 
 export interface OverallCompliance {
-  totalDepartments: number;
+  totalPrograms: number;
   totalAreas: number;
   totalRequirements: number;
   requirementStatusCounts: Record<RequirementStatus, number>;
@@ -81,7 +84,7 @@ export interface OverallCompliance {
 // Shape pulled in one nested-include query (no N+1).
 const COMPLIANCE_GRAPH = {
   requirements: {
-    where: { deletedAt: null },
+    where: { deletedAt: null, ...areaRequirementVisibility },
     select: {
       id: true,
       title: true,
@@ -109,12 +112,12 @@ const COMPLIANCE_GRAPH = {
   },
 } satisfies Prisma.AaccupAreaInclude;
 
-const DEPARTMENT_GRAPH = {
+const PROGRAM_GRAPH = {
   aaccupAreas: {
     where: { deletedAt: null },
     include: COMPLIANCE_GRAPH,
   },
-} satisfies Prisma.DepartmentInclude;
+} satisfies Prisma.ProgramInclude;
 
 interface RawSubmission {
   id: string;
@@ -138,7 +141,7 @@ interface RawRequirement {
   submissions: RawSubmission[];
 }
 interface RawArea extends AaccupArea { requirements: RawRequirement[] }
-interface RawDepartment extends Department { aaccupAreas: RawArea[] }
+interface RawProgram extends Program { aaccupAreas: RawArea[] }
 
 const EMPTY_COUNTS = (): Record<RequirementStatus, number> => ({
   COMPLETED: 0,
@@ -247,7 +250,9 @@ function rollupArea(area: RawArea): AreaCompliance {
     areaId: area.id,
     areaCode: area.code,
     areaName: area.name,
-    departmentId: area.departmentId,
+    campusId: area.campusId,
+    collegeId: area.collegeId,
+    programId: area.programId,
     requirementCounts: counts,
     totalRequirements: total,
     completedRequirements: completed,
@@ -267,17 +272,17 @@ export async function calculateAreaCompliance(
   return rollupArea(area);
 }
 
-export async function calculateDepartmentCompliance(
-  departmentId: string,
-): Promise<DepartmentCompliance> {
-  const departments = await prisma.department.findMany({
-    where: { id: departmentId, deletedAt: null },
-    include: DEPARTMENT_GRAPH,
+export async function calculateProgramCompliance(
+  programId: string,
+): Promise<ProgramCompliance> {
+  const programs = await prisma.program.findMany({
+    where: { id: programId, deletedAt: null },
+    include: PROGRAM_GRAPH,
   });
-  const dept = departments[0] as RawDepartment | undefined;
-  if (!dept) throw new NotFoundError("Department not found");
+  const program = programs[0] as RawProgram | undefined;
+  if (!program) throw new NotFoundError("Program not found");
 
-  const areas = dept.aaccupAreas;
+  const areas = program.aaccupAreas;
   const statusCounts = EMPTY_COUNTS();
   let completedAreas = 0;
   let totalReqs = 0;
@@ -301,8 +306,8 @@ export async function calculateDepartmentCompliance(
     totalReqs === 0 ? 0 : Math.round((completed / totalReqs) * 1000) / 10;
 
   return {
-    departmentId: dept.id,
-    departmentName: dept.name,
+    programId: program.id,
+    programName: program.name,
     totalAreas,
     completedAreas,
     incompleteAreas,
@@ -316,41 +321,40 @@ export async function calculateDepartmentCompliance(
 export async function calculateOverallCompliance(
   filter?: AnalyticsFilter,
 ): Promise<OverallCompliance> {
-  // Single nested query: departments → areas → requirements → submissions.
+  // Single nested query: programs → areas → requirements → submissions.
   // Totals (totalAreas / totalRequirements / requirementStatusCounts /
   // compliancePercentage) intentionally reflect the FULL set — filtered out
   // by `areaId` / `areaStatus` only, not by the compliance-range filter.
   // `areaBreakdown`, in contrast, is the FILTERED view (incl. the
   // compliance-range filter), so it may have fewer entries than totalAreas.
   // This is by design: totals == global metrics, breakdown == visible rows.
-  // Departments are included even when archived IF they still own live areas
-  // (Sprint 7.5 integration fix): a live area must never disappear from
-  // compliance just because its parent department was archived. Only
-  // departments with no live areas at all are excluded.
-  const departments = (await prisma.department.findMany({
+  // Programs are included even when archived IF they still own live areas.
+  const programs = (await prisma.program.findMany({
     where: {
       OR: [
         { deletedAt: null },
         { aaccupAreas: { some: { deletedAt: null } } },
       ],
     },
-    include: DEPARTMENT_GRAPH,
-  })) as RawDepartment[];
+    include: PROGRAM_GRAPH,
+  })) as RawProgram[];
 
-  // Optional department filter (#1 specialty — handled at the DB layer above).
-  const contact = filter?.departmentId
-    ? departments.filter((d) => d.id === filter.departmentId)
-    : departments;
+  const contact = filter?.programId
+    ? programs.filter((p) => p.id === filter.programId)
+    : programs;
 
   const statusCounts = EMPTY_COUNTS();
   let totalAreas = 0;
   let totalReqs = 0;
   const areaBreakdown: AreaCompliance[] = [];
 
-  for (const dept of contact) {
-    for (const area of dept.aaccupAreas) {
+  for (const program of contact) {
+    for (const area of program.aaccupAreas) {
       // Optional area filter.
       if (filter?.areaId && area.id !== filter.areaId) continue;
+      if (filter?.campusId && area.campusId !== filter.campusId) continue;
+      if (filter?.collegeId && area.collegeId !== filter.collegeId) continue;
+      if (filter?.programId && area.programId !== filter.programId) continue;
       // Optional status filter (area-level derived status).
       if (filter?.areaStatus && area.status !== filter.areaStatus) continue;
       // Optional accreditation set filter (AACCUP / ISO / Certification).
@@ -380,7 +384,7 @@ export async function calculateOverallCompliance(
   const pct = totalReqs === 0 ? 0 : Math.round((totalApproved / totalReqs) * 1000) / 10;
 
   return {
-    totalDepartments: contact.length,
+    totalPrograms: contact.length,
     totalAreas,
     totalRequirements: totalReqs,
     requirementStatusCounts: statusCounts,
@@ -395,7 +399,9 @@ export async function calculateOverallCompliance(
 
 // Shared filter type for the analytics query validators.
 export interface AnalyticsFilter {
-  departmentId?: string;
+  campusId?: string;
+  collegeId?: string;
+  programId?: string;
   areaId?: string;
   areaSet?: "AACCUP" | "ISO" | "CERT";
   areaStatus?: "ACTIVE" | "INACTIVE";

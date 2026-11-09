@@ -180,7 +180,6 @@ const ASSIGNMENT_TARGETS: ReadonlyArray<{
 }> = [
   { value: "UNIVERSITY", label: "University" },
   { value: "COLLEGE", label: "College" },
-  { value: "DEPARTMENT", label: "Department" },
   { value: "PROGRAM", label: "Program" },
   { value: "OFFICE", label: "Office" },
   { value: "AACCUP_AREA", label: "AACCUP Area" },
@@ -392,13 +391,13 @@ function FolderNodeBranch({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 shrink-0 p-0"
+              variant="outline"
+              size="action"
+              className="shrink-0"
               aria-label={`Actions for ${node.name}`}
               disabled={disabled}
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreHorizontal className="h-4 w-4" /> <span>Actions</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
@@ -1147,10 +1146,10 @@ export default function RootFolderBuilder() {
   const isMutating = mutationKey !== null
 
   return (
-    <div className="min-w-0 p-4 sm:p-6 lg:p-8">
+    <div className="min-w-0 content-padding">
       <PageHeader
         title="Dynamic Folder Builder"
-        description="Design, version, and assign the folder structures used across the platform"
+        description="Design versioned folder templates for campus, college, and program repositories"
         actions={
           <>
             <Button
@@ -1179,14 +1178,10 @@ export default function RootFolderBuilder() {
       />
 
       <Tabs value={mainTab} onValueChange={handleMainTabChange}>
-        <TabsList className="mb-4 grid h-auto w-full grid-cols-3 sm:inline-grid sm:w-auto overflow-x-auto">
+        <TabsList className="mb-4 grid h-auto w-full grid-cols-2 sm:inline-grid sm:w-auto overflow-x-auto">
           <TabsTrigger value="templates" className="gap-1.5 px-2 sm:px-4">
             <GitBranch className="h-4 w-4" />
             Templates
-          </TabsTrigger>
-          <TabsTrigger value="assignments" className="gap-1.5 px-2 sm:px-4">
-            <Users className="h-4 w-4" />
-            Assignments
           </TabsTrigger>
           <TabsTrigger value="history" className="gap-1.5 px-2 sm:px-4">
             <History className="h-4 w-4" />
@@ -1196,7 +1191,7 @@ export default function RootFolderBuilder() {
 
         <TabsContent value="templates" className="mt-0">
           <Card className="mb-4">
-            <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
+            <CardContent className="toolbar-padding flex flex-col gap-3 lg:flex-row lg:items-center">
               <div className="relative min-w-0 flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <Input

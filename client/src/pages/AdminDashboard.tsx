@@ -6,11 +6,14 @@ import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Skeleton } from "@/components/ui/Skeleton"
 import { getDashboardOverview, type DashboardOverview } from "@/services/dashboard"
-import { listAllOnlineSubmissions, listOnlineTasks, type OnlineAaccupTask, type OnlineSubmissionListItem } from "@/services/aaccup"
+import { listAllOnlineSubmissions, listOnlineAaccupAreas, type OnlineAaccupArea, type OnlineSubmissionListItem } from "@/services/aaccup"
 import { listRequests } from "@/services/requests"
 import { listAuditEntries, type AuditEntry } from "@/services/admin"
 import type { DocumentRequest } from "@/types/domain"
+import { useAuth } from "@/context/AuthContext"
+import { hasServerPermission } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
+import { AreaDeadlineList } from "@/components/aaccup/AreaDeadlineBadge"
 
 interface AdminDashboardProps {
   onNavigate: (page: string, query?: Record<string, string>) => void
@@ -45,40 +48,37 @@ function formatAuditTime(value: string): string {
     : date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" })
 }
 
-function isDueSoon(task: OnlineAaccupTask, now = Date.now()): boolean {
-  if (!task.dueDate || task.status === "COMPLETED" || task.status === "CANCELLED") return false
-  const due = new Date(task.dueDate).getTime()
-  return due >= now && due <= now + 7 * 24 * 60 * 60 * 1000
-}
-
-function isOverdue(task: OnlineAaccupTask, now = Date.now()): boolean {
-  if (!task.dueDate || task.status === "COMPLETED" || task.status === "CANCELLED") return false
-  return new Date(task.dueDate).getTime() < now
-}
-
 export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
+  const { user } = useAuth()
+  // Department Coordinators have admin-portal access but no `audit.read`; firing
+  // the request anyway would 403 and write a PERMISSION_DENIED audit event on
+  // every dashboard load.
+  const canReadAudit = hasServerPermission(user, "audit.read")
   const [overview, setOverview] = useState<SectionState<DashboardOverview>>({ data: null, error: false })
   const [submissions, setSubmissions] = useState<SectionState<OnlineSubmissionListItem[]>>({ data: null, error: false })
   const [requests, setRequests] = useState<SectionState<DocumentRequest[]>>({ data: null, error: false })
-  const [tasks, setTasks] = useState<SectionState<OnlineAaccupTask[]>>({ data: null, error: false })
+  const [areas, setAreas] = useState<SectionState<OnlineAaccupArea[]>>({ data: null, error: false })
   const [activity, setActivity] = useState<SectionState<AuditEntry[]>>({ data: null, error: false })
 
   useEffect(() => {
-    void Promise.all([
+    const pending: Promise<unknown>[] = [
       getDashboardOverview().then((data) => setOverview({ data, error: false })).catch(() => setOverview({ data: null, error: true })),
       listAllOnlineSubmissions().then((data) => setSubmissions({ data, error: false })).catch(() => setSubmissions({ data: null, error: true })),
       listRequests().then((data) => setRequests({ data, error: false })).catch(() => setRequests({ data: null, error: true })),
-      listOnlineTasks().then((data) => setTasks({ data, error: false })).catch(() => setTasks({ data: null, error: true })),
-      listAuditEntries({ page: 1, pageSize: 8 }).then((page) => setActivity({ data: page.items, error: false })).catch(() => setActivity({ data: null, error: true })),
-    ])
-  }, [])
+      Promise.all([listOnlineAaccupAreas("AACCUP"), listOnlineAaccupAreas("ISO")]).then((data) => setAreas({ data: data.flat(), error: false })).catch(() => setAreas({ data: null, error: true })),
+    ]
+    if (canReadAudit) {
+      pending.push(
+        listAuditEntries({ page: 1, pageSize: 8 }).then((page) => setActivity({ data: page.items, error: false })).catch(() => setActivity({ data: null, error: true })),
+      )
+    } else {
+      setActivity({ data: [], error: false })
+    }
+    void Promise.all(pending)
+  }, [canReadAudit])
 
   const pendingSubmissions = submissions.data?.filter((s) => s.status === "PENDING").length ?? 0
   const pendingRequests = requests.data?.filter((r) => r.status === "Pending").length ?? 0
-  const now = Date.now()
-  const overdueTasks = tasks.data?.filter((t) => isOverdue(t, now)).length ?? 0
-  const dueSoonTasks = tasks.data?.filter((t) => isDueSoon(t, now)).length ?? 0
-  const completedTasks = tasks.data?.filter((t) => t.status === "COMPLETED").length ?? 0
 
   const recentSubmissions = useMemo(
     () => [...(submissions.data ?? [])].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)).slice(0, 5),
@@ -98,12 +98,12 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const nav = (page: string, query?: Record<string, string>) => onNavigate(page, query)
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader title="Good morning, Admin" description="Review what needs attention and monitor accreditation progress." />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-5 mb-6 lg:mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 responsive-gap mb-6 lg:mb-8">
         <Card className="border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200 cursor-pointer" onClick={() => nav("submissions", { tab: "submissions", status: "PENDING" })}>
-          <CardContent className="p-4 md:p-5">
+          <CardContent className="p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600">
                 <FileCheck2 className="w-5 h-5" />
@@ -115,7 +115,7 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           </CardContent>
         </Card>
         <Card className="border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200 cursor-pointer" onClick={() => nav("requests", { status: "PENDING" })}>
-          <CardContent className="p-4 md:p-5">
+          <CardContent className="p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
                 <Send className="w-5 h-5" />
@@ -126,16 +126,16 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             <p className="text-[24px] md:text-[30px] font-extrabold text-navy-900 mt-0.5 tracking-tight">{requests.data ? pendingRequests : "…"}</p>
           </CardContent>
         </Card>
-        <Card className="border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200 cursor-pointer" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "due-soon" })}>
-          <CardContent className="p-4 md:p-5">
+        <Card className="border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200 cursor-pointer" onClick={() => nav("aaccup")}>
+          <CardContent className="p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-red-50 flex items-center justify-center text-red-600">
                 <Clock3 className="w-5 h-5" />
               </div>
-              {dueSoonTasks > 0 && <Badge variant="danger" className="text-[10px]">Due Soon</Badge>}
+              {(areas.data?.filter((area) => area.dueDate).length ?? 0) > 0 && <Badge variant="default" className="text-[10px]">Active</Badge>}
             </div>
-            <p className="text-[12px] md:text-[13px] text-gray-500 font-semibold mt-3 md:mt-4">Tasks</p>
-            <p className="text-[24px] md:text-[30px] font-extrabold text-navy-900 mt-0.5 tracking-tight">{tasks.data ? dueSoonTasks : "…"}</p>
+            <p className="text-[12px] md:text-[13px] text-gray-500 font-semibold mt-3 md:mt-4">Area Deadlines</p>
+            <p className="text-[24px] md:text-[30px] font-extrabold text-navy-900 mt-0.5 tracking-tight">{areas.data ? areas.data.filter((area) => area.dueDate).length : "…"}</p>
           </CardContent>
         </Card>
       </div>
@@ -150,10 +150,10 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           ) : overview.data === null ? (
             <div className="space-y-4">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-12" />)}</div>
           ) : (
-            (["AACCUP", "ISO", "CERT"] as const).map((key) => {
+            (["AACCUP", "ISO"] as const).map((key) => {
               const stats = overview.data!.aaccup.byAreaSet[key]
-              const label = key === "AACCUP" ? "AACCUP" : key === "ISO" ? "ISO" : "Certification"
-              const page = key === "AACCUP" ? "aaccup" : key === "ISO" ? "iso" : "certification"
+              const label = key === "AACCUP" ? "AACCUP" : "ISO 21001:2025"
+              const page = key === "AACCUP" ? "aaccup" : "iso"
               return (
                 <div key={key}>
                   <button type="button" className="block w-full rounded-xl p-2 text-left transition hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary" onClick={() => nav(page)}>
@@ -166,10 +166,11 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     </div>
                   </button>
                   <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 px-2 text-xs">
-                    <button type="button" className="text-emerald-600 hover:underline font-semibold" onClick={() => nav("submissions", { status: "APPROVED" })}>Approved {overview.data!.aaccup.approved}</button>
-                    <button type="button" className="text-amber-600 hover:underline font-semibold" onClick={() => nav("submissions", { status: "PENDING" })}>Pending {overview.data!.aaccup.pending}</button>
-                    <button type="button" className="text-orange-600 hover:underline font-semibold" onClick={() => nav("submissions", { status: "NEEDS_REVISION" })}>Returned {overview.data!.aaccup.needsRevision}</button>
+                    <button type="button" className="text-emerald-600 hover:underline font-semibold" onClick={() => nav("submissions", { areaSet: key, status: "APPROVED" })}>Approved {stats?.approved ?? "—"}</button>
+                    <button type="button" className="text-amber-600 hover:underline font-semibold" onClick={() => nav("submissions", { areaSet: key, status: "PENDING" })}>Pending {stats?.pending ?? "—"}</button>
+                    <button type="button" className="text-orange-600 hover:underline font-semibold" onClick={() => nav("submissions", { areaSet: key, status: "NEEDS_REVISION" })}>Returned {stats?.needsRevision ?? "—"}</button>
                   </div>
+                  <AreaDeadlineList areas={(areas.data ?? []).filter((area) => area.areaSet === key).map(({ id, name, dueDate }) => ({ id, name, dueDate }))} />
                 </div>
               )
             })
@@ -212,7 +213,7 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 mb-6 lg:mb-8">
+      <div className="mb-6 lg:mb-8">
         <Card className="border-border/70 shadow-soft">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
@@ -244,34 +245,6 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 shadow-soft">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-[15px] font-semibold">Tasks</CardTitle>
-              <Button variant="ghost" size="sm" className="h-9 text-[12px] text-primary" onClick={() => nav("aaccup", { tab: "tasks" })}>View Tasks<ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {tasks.data === null ? (
-              <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-8" />)}</div>
-            ) : (
-              <div className="space-y-1">
-                <button type="button" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "overdue" })} className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-[13px] hover:bg-primary-50/40 transition-colors">
-                  <span className="text-gray-600 font-medium">Overdue</span>
-                  <span className={cn("font-bold", overdueTasks > 0 ? "text-red-600" : "text-gray-400")}>{overdueTasks}</span>
-                </button>
-                <button type="button" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "due-soon" })} className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-[13px] hover:bg-primary-50/40 transition-colors">
-                  <span className="text-gray-600 font-medium">Due Soon</span>
-                  <span className={cn("font-bold", dueSoonTasks > 0 ? "text-amber-600" : "text-gray-400")}>{dueSoonTasks}</span>
-                </button>
-                <button type="button" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "completed" })} className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-[13px] hover:bg-primary-50/40 transition-colors">
-                  <span className="text-gray-600 font-medium">Completed</span>
-                  <span className={cn("font-bold", completedTasks > 0 ? "text-emerald-600" : "text-gray-400")}>{completedTasks}</span>
-                </button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       <Card className="border-border/70 shadow-soft">
@@ -295,7 +268,7 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               let dest: { page: string; query?: Record<string, string> } | null = null
               if ((entity === "submission" || entity === "aaccup_submission") && id) dest = { page: "submissions", query: { tab: "submissions", highlight: id } }
               else if ((entity === "request" || entity === "document_request") && id) dest = { page: "requests", query: { highlight: id } }
-              else if ((entity === "task" || entity === "aaccup_task") && id) dest = { page: "aaccup", query: { tab: "tasks", highlight: id } }
+              else if (entity === "task" || entity === "aaccup_task") dest = { page: "aaccup" }
               else if (entity === "user" && id) dest = { page: "users", query: { highlight: id } }
               return (
                 <button

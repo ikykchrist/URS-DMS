@@ -13,7 +13,9 @@ export const listFoldersQuerySchema = z.object({
     (value) => (value === "null" ? null : value),
     z.string().uuid().nullable().optional(),
   ),
-  departmentId: z.string().uuid().optional(),
+  campusId: z.string().uuid().optional(),
+  collegeId: z.string().uuid().optional(),
+  programId: z.string().uuid().optional(),
   ownerId: z.string().uuid().optional(),
   q: z.string().trim().max(200).optional(),
   includeDeleted: z.coerce.boolean().default(false),
@@ -23,7 +25,9 @@ export type ListFoldersQuery = z.infer<typeof listFoldersQuerySchema>;
 export const createFolderSchema = z.object({
   name: z.string().trim().min(1).max(255),
   parentId: z.string().uuid().nullable().optional(),
-  departmentId: z.string().uuid().nullable().optional(),
+  campusId: z.string().uuid().nullable().optional(),
+  collegeId: z.string().uuid().nullable().optional(),
+  programId: z.string().uuid().nullable().optional(),
 });
 export type CreateFolderInput = z.infer<typeof createFolderSchema>;
 
@@ -31,7 +35,9 @@ export const updateFolderSchema = z
   .object({
     name: z.string().trim().min(1).max(255).optional(),
     parentId: z.string().uuid().nullable().optional(),
-    departmentId: z.string().uuid().nullable().optional(),
+    campusId: z.string().uuid().nullable().optional(),
+    collegeId: z.string().uuid().nullable().optional(),
+    programId: z.string().uuid().nullable().optional(),
     color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color").nullable().optional(),
     icon: z.string().max(50).nullable().optional(),
   })

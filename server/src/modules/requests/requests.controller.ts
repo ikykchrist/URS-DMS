@@ -66,6 +66,6 @@ export async function cancelRequestHandler(req: Request, res: Response): Promise
 }
 
 export async function browseRequestHandler(req: Request, res: Response): Promise<void> {
-  const result = await service.browseDepartmentArchive(toActor(req));
+  const result = await service.browseProgramArchive(toActor(req));
   sendSuccess(res, result);
 }

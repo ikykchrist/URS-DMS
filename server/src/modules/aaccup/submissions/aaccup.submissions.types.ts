@@ -11,8 +11,12 @@ export interface AaccupSubmissionListItem {
   areaCode: string;
   areaName: string;
   areaSet: string;
-  departmentId: string | null;
-  departmentName: string | null;
+  campusId: string | null;
+  collegeId: string | null;
+  programId: string | null;
+  campusName: string | null;
+  collegeName: string | null;
+  programName: string | null;
   taskId: string | null;
   taskTitle: string | null;
   taskStatus: string | null;

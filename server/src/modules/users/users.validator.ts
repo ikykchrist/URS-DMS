@@ -28,7 +28,9 @@ export const createUserSchema = z.object({
   lastName: z.string().trim().min(1).max(100),
   suffix: z.string().trim().min(1).max(20).optional(),
   roleId: z.string().uuid(),
-  departmentId: z.string().uuid().optional(),
+  campusId: z.string().uuid().optional(),
+  collegeId: z.string().uuid().optional(),
+  programId: z.string().uuid().optional(),
 });
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
@@ -40,7 +42,9 @@ export const updateUserSchema = z
     lastName: z.string().trim().min(1).max(100).optional(),
     suffix: z.string().trim().min(1).max(20).nullable().optional(),
     roleId: z.string().uuid().optional(),
-    departmentId: z.string().uuid().nullable().optional(),
+    campusId: z.string().uuid().nullable().optional(),
+    collegeId: z.string().uuid().nullable().optional(),
+    programId: z.string().uuid().nullable().optional(),
   })
   .strict();
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
@@ -61,7 +65,7 @@ export type UpdateSelfInput = z.infer<typeof updateSelfSchema>;
 
 export const profilePhotoPresignSchema = z.object({
   mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
-  sizeBytes: z.number().int().positive().max(2 * 1024 * 1024),
+  sizeBytes: z.number().int().positive().max(10 * 1024 * 1024),
 });
 export type ProfilePhotoPresignInput = z.infer<typeof profilePhotoPresignSchema>;
 

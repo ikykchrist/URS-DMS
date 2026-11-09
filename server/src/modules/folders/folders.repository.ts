@@ -16,7 +16,9 @@ function toListItem(f: FolderWithRelations): FolderListItem {
     id: f.id,
     name: f.name,
     parentId: f.parentId,
-    departmentId: f.departmentId,
+    campusId: f.campusId,
+    collegeId: f.collegeId,
+    programId: f.programId,
     ownerId: f.ownerId,
     color: f.color,
     icon: f.icon,
@@ -57,7 +59,9 @@ export async function findById(id: string, includeDeleted = false): Promise<Fold
 export interface CreateArgs {
   name: string;
   parentId: string | null;
-  departmentId: string | null;
+  campusId?: string | null;
+  collegeId?: string | null;
+  programId?: string | null;
   ownerId: string;
 }
 
@@ -66,7 +70,9 @@ export async function create(args: CreateArgs): Promise<FolderDetail> {
     data: {
       name: args.name,
       parentId: args.parentId,
-      departmentId: args.departmentId,
+      campusId: args.campusId ?? null,
+      collegeId: args.collegeId ?? null,
+      programId: args.programId ?? null,
       ownerId: args.ownerId,
     },
     select: folderSelect,
@@ -134,14 +140,16 @@ export async function copySubtree(
     visited.add(folderId);
     const source = await prisma.folder.findUnique({
       where: { id: folderId },
-      select: { id: true, name: true, departmentId: true, ownerId: true },
+      select: { id: true, name: true, campusId: true, collegeId: true, programId: true, ownerId: true },
     });
     if (!source) return;
     const copied = await prisma.folder.create({
       data: {
         name: source.name,
         parentId: targetParentId,
-        departmentId: source.departmentId,
+        campusId: source.campusId,
+        collegeId: source.collegeId,
+        programId: source.programId,
         ownerId: args.ownerId,
         repositoryId: args.repositoryId,
       },
@@ -439,7 +447,9 @@ export interface UpdateArgs {
   data: {
     name?: string;
     parentId?: string | null;
-    departmentId?: string | null;
+    campusId?: string | null;
+    collegeId?: string | null;
+    programId?: string | null;
     color?: string | null;
     icon?: string | null;
   };
@@ -451,7 +461,9 @@ export async function update(args: UpdateArgs): Promise<FolderDetail> {
     data: {
       ...(args.data.name !== undefined ? { name: args.data.name } : {}),
       ...(args.data.parentId !== undefined ? { parentId: args.data.parentId } : {}),
-      ...(args.data.departmentId !== undefined ? { departmentId: args.data.departmentId } : {}),
+      ...(args.data.campusId !== undefined ? { campusId: args.data.campusId } : {}),
+      ...(args.data.collegeId !== undefined ? { collegeId: args.data.collegeId } : {}),
+      ...(args.data.programId !== undefined ? { programId: args.data.programId } : {}),
       ...(args.data.color !== undefined ? { color: args.data.color } : {}),
       ...(args.data.icon !== undefined ? { icon: args.data.icon } : {}),
     },
@@ -562,8 +574,9 @@ export async function isDescendantOf(
 // tables directly (root.folderBuilder.repository stays root-internal).
 
 export interface UserOrgContext {
-  departmentId: string | null;
+  campusId: string | null;
   collegeId: string | null;
+  programId: string | null;
 }
 
 export async function findUserOrgContext(
@@ -572,21 +585,23 @@ export async function findUserOrgContext(
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
-      departmentId: true,
-      departments: { select: { id: true, collegeId: true } },
+      campusId: true,
+      collegeId: true,
+      programId: true,
     },
   });
   if (!user) return null;
-  const department = user.departments[0] ?? null;
   return {
-    departmentId: department?.id ?? user.departmentId ?? null,
-    collegeId: department?.collegeId ?? null,
+    campusId: user.campusId ?? null,
+    collegeId: user.collegeId ?? null,
+    programId: user.programId ?? null,
   };
 }
 
 export type AssignmentTargetScope =
-  | { type: "DEPARTMENT"; id: string | null }
+  | { type: "CAMPUS"; id: string | null }
   | { type: "COLLEGE"; id: string | null }
+  | { type: "PROGRAM"; id: string | null }
   | { type: "UNIVERSITY"; id: null };
 
 export async function findFolderTemplateAssignment(
@@ -605,6 +620,21 @@ export async function findFolderTemplateAssignment(
     if (assignment) return assignment;
   }
   return null;
+}
+
+/** Universal fallback used when no organization-specific assignment exists. */
+export async function findActiveFolderTemplate(): Promise<{
+  id: string; templateId: string; targetType: string; targetId: string | null
+} | null> {
+  const template = await prisma.folderTemplate.findFirst({
+    where: { deletedAt: null, status: "ACTIVE" },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+    select: { id: true, assignments: { where: { deletedAt: null }, orderBy: { createdAt: "asc" }, take: 1, select: { id: true, targetType: true, targetId: true } } },
+  });
+  const assignment = template?.assignments[0];
+  return template && assignment
+    ? { id: assignment.id, templateId: template.id, targetType: assignment.targetType, targetId: assignment.targetId }
+    : null;
 }
 
 export async function findTemplateBrief(templateId: string): Promise<{

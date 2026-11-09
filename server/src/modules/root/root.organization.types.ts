@@ -15,14 +15,14 @@ import { AUDIT_ACTIONS, type AuditAction } from "@/config/constants";
 // is the Prisma model key, and `audit` carries the per-action audit constants.
 // =============================================================================
 
-export type OrgEntityName = "college" | "department" | "office" | "program";
+export type OrgEntityName = "campus" | "college" | "office" | "program";
 
 export interface OrgEntityConfig {
   entity: OrganizationEntity;
   name: OrgEntityName;
   path: string;
   label: string;
-  model: "college" | "department" | "office" | "program";
+  model: "campus" | "college" | "office" | "program";
   audit: {
     created: AuditAction;
     updated: AuditAction;
@@ -33,6 +33,20 @@ export interface OrgEntityConfig {
 }
 
 export const ORG_ENTITIES: Record<OrgEntityName, OrgEntityConfig> = {
+  campus: {
+    entity: "CAMPUS",
+    name: "campus",
+    path: "campuses",
+    label: "Campus",
+    model: "campus",
+    audit: {
+      created: AUDIT_ACTIONS.CAMPUS_CREATED,
+      updated: AUDIT_ACTIONS.CAMPUS_UPDATED,
+      archived: AUDIT_ACTIONS.CAMPUS_ARCHIVED,
+      restored: AUDIT_ACTIONS.CAMPUS_RESTORED,
+      rolledBack: AUDIT_ACTIONS.ORGANIZATION_CAMPUS_ROLLED_BACK,
+    },
+  },
   college: {
     entity: "COLLEGE",
     name: "college",
@@ -45,20 +59,6 @@ export const ORG_ENTITIES: Record<OrgEntityName, OrgEntityConfig> = {
       archived: AUDIT_ACTIONS.COLLEGE_ARCHIVED,
       restored: AUDIT_ACTIONS.COLLEGE_RESTORED,
       rolledBack: AUDIT_ACTIONS.ORGANIZATION_COLLEGE_ROLLED_BACK,
-    },
-  },
-  department: {
-    entity: "DEPARTMENT",
-    name: "department",
-    path: "departments",
-    label: "Department",
-    model: "department",
-    audit: {
-      created: AUDIT_ACTIONS.DEPARTMENT_CREATED,
-      updated: AUDIT_ACTIONS.DEPARTMENT_UPDATED,
-      archived: AUDIT_ACTIONS.DEPARTMENT_ARCHIVED,
-      restored: AUDIT_ACTIONS.DEPARTMENT_RESTORED,
-      rolledBack: AUDIT_ACTIONS.ORGANIZATION_DEPARTMENT_ROLLED_BACK,
     },
   },
   office: {
@@ -103,10 +103,10 @@ export interface OrganizationRecordRow {
   code: string;
   description: string | null;
   displayOrder: number;
+  campusId: string | null;
+  campusName: string | null;
   collegeId: string | null;
   collegeName: string | null;
-  departmentId: string | null;
-  departmentName: string | null;
   headId: string | null;
   headName: string | null;
   level: ProgramLevel | null;
@@ -122,8 +122,8 @@ export interface OrgSnapshotData {
   code: string;
   description: string | null;
   displayOrder: number;
+  campusId: string | null;
   collegeId: string | null;
-  departmentId: string | null;
   headId: string | null;
   level: ProgramLevel | null;
 }
@@ -152,12 +152,12 @@ export interface OrgTreeNode {
   code: string;
   description: string | null;
   level: ProgramLevel | null;
-  departments: OrgTreeNode[];
+  colleges: OrgTreeNode[];
   offices: OrgTreeNode[];
   programs: OrgTreeNode[];
 }
 
 export interface OrganizationTree {
-  colleges: OrgTreeNode[];
+  campuses: OrgTreeNode[];
   unassigned: OrgTreeNode;
 }

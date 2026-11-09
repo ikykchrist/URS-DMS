@@ -9,10 +9,10 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Clock,
+  Activity,
   ChevronDown,
   ShieldCheck,
-  ClipboardList,
+  Bug,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
@@ -20,6 +20,7 @@ import { confirmLeaveIfUploading } from "@/lib/uploadBus"
 import { Button } from "@/components/ui/Button"
 import { Logo } from "@/components/layout/Logo"
 import { useAuth } from "@/context/AuthContext"
+import { hasServerPermission } from "@/lib/permissions"
 
 interface SidebarItem {
   id: string
@@ -31,11 +32,12 @@ const sidebarItems: SidebarItem[] = [
   { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { id: "documents", icon: FolderOpen, label: "My Documents" },
   { id: "requests", icon: FileText, label: "My Requests" },
-  { id: "aaccup", icon: GraduationCap, label: "AACCUP" },
+  { id: "aaccup", icon: GraduationCap, label: "Accreditation" },
   { id: "notifications", icon: Bell, label: "Notifications" },
-  { id: "activity", icon: Clock, label: "My Activity" },
+  { id: "activity", icon: Activity, label: "My Activity" },
   { id: "profile", icon: User, label: "Profile" },
   { id: "settings", icon: Settings, label: "Settings" },
+  { id: "bug-report", icon: Bug, label: "Bug Report" },
 ]
 
 interface UserSidebarProps {
@@ -45,7 +47,7 @@ interface UserSidebarProps {
   onNavigate?: (page: string) => void
   onLogout?: () => void
   unreadNotifications?: number
-  attention?: { returned: number; tasks: number; requests: number; documents: number }
+  attention?: { returned: number; requests: number; documents: number }
   className?: string
 }
 
@@ -59,8 +61,18 @@ export function UserSidebar({
   attention,
   className,
 }: UserSidebarProps) {
-  const { logout } = useAuth()
-  const accreditationActive = ["aaccup", "iso", "certification", "submissions", "tasks"].includes(activePage)
+  const { logout, user } = useAuth()
+  // READ_ONLY accounts hold neither aaccup.* nor request.* permissions; showing
+  // those items would only lead to 403s and PERMISSION_DENIED audit noise.
+  const canViewAccreditation = hasServerPermission(user, "aaccup.read")
+  const canUseRequests =
+    hasServerPermission(user, "request.create") || hasServerPermission(user, "request.manage")
+  const visibleItems = sidebarItems.filter((item) => {
+    if (item.id === "aaccup") return canViewAccreditation
+    if (item.id === "requests") return canUseRequests
+    return true
+  })
+  const accreditationActive = ["aaccup", "iso", "submissions"].includes(activePage)
   const [aaccupOpen, setAaccupOpen] = useState(accreditationActive)
   const activeNavPage = accreditationActive
     ? "aaccup"
@@ -105,16 +117,16 @@ export function UserSidebar({
 
         <nav className="flex-1 px-3 py-4 overflow-y-auto">
           <div className="space-y-1">
-            {sidebarItems.map((item) => {
+            {visibleItems.map((item) => {
               const Icon = item.icon
               const isActive = activeNavPage === item.id
               if (item.id === "aaccup") {
-                const badgeCount = attention ? attention.returned + attention.tasks : 0
+                const badgeCount = attention ? attention.returned : 0
                 return (
                   <div key={item.id}>
                     <button
                       type="button"
-                      onClick={() => handleNavigate("tasks")}
+                      onClick={() => setAaccupOpen((open) => !open)}
                       aria-expanded={!collapsed && aaccupOpen}
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-150 relative",
@@ -123,16 +135,16 @@ export function UserSidebar({
                       )}
                     >
                       <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", accreditationActive ? "text-white" : "text-slate-400")} />
-                      {!collapsed && <span className="flex-1 text-left">AACCUP</span>}
+                       {!collapsed && <span className="flex-1 text-left">Accreditation</span>}
                       {badgeCount > 0 && !collapsed && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{badgeCount > 99 ? "99+" : badgeCount}</span>}
                       {!collapsed && <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", !aaccupOpen && "-rotate-90")} />}
                     </button>
                     {!collapsed && aaccupOpen && (
                       <div className="mt-1 ml-5 space-y-1 border-l border-white/10 pl-3">
                         {[
-                          { id: "tasks", label: "My Tasks", icon: ClipboardList },
+                          { id: "submissions", label: "My Submissions", icon: FileText },
                           { id: "aaccup", label: "AACCUP", icon: GraduationCap },
-                          { id: "iso", label: "ISO", icon: ShieldCheck },
+                          { id: "iso", label: "ISO 21001:2025", icon: ShieldCheck },
                         ].map((child) => {
                           const ChildIcon = child.icon
                           return (
@@ -157,7 +169,7 @@ export function UserSidebar({
               }
               let badgeCount = 0
               if (item.id === "notifications") badgeCount = unreadNotifications
-              else if (item.id === "aaccup" && attention) badgeCount = attention.returned + attention.tasks
+              else if (item.id === "aaccup" && attention) badgeCount = attention.returned
               else if (item.id === "requests" && attention) badgeCount = attention.requests
               else if (item.id === "documents" && attention) badgeCount = attention.documents
               const showBadge = badgeCount > 0

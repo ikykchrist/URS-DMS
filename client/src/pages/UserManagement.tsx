@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import {
   Search,
@@ -38,15 +38,6 @@ import {
   SelectValue,
 } from "@/components/ui/Select"
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/Pagination"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -59,7 +50,6 @@ import { UserDetailsModal } from "@/components/modals/UserDetailsModal"
 import { ResetPasswordModal } from "@/components/modals/ResetPasswordModal"
 import {
   listSystemUsers,
-  listSystemDepartments,
   archiveSystemUser,
   updateUserStatus,
   updateSystemUser,
@@ -101,7 +91,7 @@ function roleKeyLabel(role: string): string {
     case "root": return "Root"
     case "super_admin": return "Administrator"
     case "qa_office": return "Quality Assurance Officer"
-    case "department_head": return "Department Coordinator"
+    case "department_head": return "Program Coordinator"
     case "faculty": return "Faculty"
     case "staff": return "Staff"
     case "student": return "Read Only"
@@ -124,8 +114,12 @@ function toDomainUser(u: SystemUser): User {
     name: [u.firstName, u.middleName, u.lastName].filter(Boolean).join(" ") + (u.suffix ? ` ${u.suffix}` : ""),
     email: u.email,
     role: roleKey(u.roleName),
-    department: u.departmentName ?? "Unassigned",
-    departmentId: u.departmentId ?? undefined,
+    campus: u.campusName ?? "Unassigned",
+    college: u.collegeName ?? "Unassigned",
+    campusId: u.campusId ?? undefined,
+    collegeId: u.collegeId ?? undefined,
+    programId: u.programId ?? undefined,
+    program: u.programName ?? "Unassigned",
     avatarSeed: u.avatarSeed ?? undefined,
     photoUrl: u.photoUrl ?? null,
     status: userStatus(u.status),
@@ -157,22 +151,17 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
   const [users, setUsers] = useState<User[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
-  const [deptFilter, setDeptFilter] = useState("all")
-  const [systemDepartments, setSystemDepartments] = useState<Array<{ id: string; name: string }>>([])
   const [statusFilter, setStatusFilter] = useState("all")
 
   useEffect(() => {
     listSystemUsers({ pageSize: 100 })
       .then((page) => setUsers(page.items.map(toDomainUser)))
       .catch((err) => console.error("Failed to load users:", err))
-    listSystemDepartments({ pageSize: 100 })
-      .then((page) => setSystemDepartments(page.items.map((d) => ({ id: d.id, name: d.name }))))
-      .catch(() => setSystemDepartments([]))
   }, [])
 
-  const refresh = () => listSystemUsers({ pageSize: 100 })
+  const refresh = useCallback(() => listSystemUsers({ pageSize: 100 })
     .then((page) => setUsers(page.items.map(toDomainUser)))
-    .catch((err) => console.error("Failed to refresh user list:", err))
+    .catch((err) => console.error("Failed to refresh user list:", err)), [])
 
   // Realtime: re-sync the list (fresh presigned photo URLs + profile updates)
   // whenever the tab regains focus or becomes visible again.
@@ -186,8 +175,7 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
       window.removeEventListener("focus", refresh)
       document.removeEventListener("visibilitychange", onVisible)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [refresh])
 
   const handleCloseAddUserModal = (open: boolean) => {
     setIsAddUserModalOpen(open)
@@ -227,8 +215,9 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
     try {
       await archiveSystemUser(id)
       refresh()
+      toast.success("User archived")
     } catch (err) {
-      console.error("Failed to delete user:", err)
+      toast.error(err instanceof Error ? err.message : "Failed to archive user")
     }
   }
 
@@ -239,7 +228,6 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
         if (!u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false
       }
       if (roleFilter !== "all" && u.role !== roleFilter) return false
-      if (deptFilter !== "all" && u.department !== deptFilter) return false
       if (statusFilter !== "all" && (statusFilter === "active" ? u.status !== "Active" : u.status !== "Inactive")) return false
       return true
     })
@@ -251,7 +239,7 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
 
   return (
     <div>
-      <div className="p-4 sm:p-6 lg:p-8">
+      <div className="content-padding">
           <PageHeader
             title="User Management"
             description="Manage user accounts, roles, and access permissions."
@@ -273,36 +261,28 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
             <StatCard
               title="Total Users"
               value={String(users.length)}
-              icon={<Users className="w-5 h-5" />}
+              icon={<span className="inline-flex rounded-lg bg-blue-50 p-1.5 text-blue-600 dark:bg-blue-50/30 dark:text-blue-400"><Users className="w-4 h-4" /></span>}
             />
             <StatCard
               title="Active Users"
               value={String(activeCount)}
-              icon={<UserCheck className="w-5 h-5" />}
-              trend={{
-                value: users.length > 0 ? Math.round((activeCount / users.length) * 100) : 0,
-                positive: activeCount > 0,
-              }}
+              icon={<span className="inline-flex rounded-lg bg-emerald-50 p-1.5 text-emerald-600 dark:bg-emerald-50/30 dark:text-emerald-400"><UserCheck className="w-4 h-4" /></span>}
             />
             <StatCard
               title="Inactive Users"
               value={String(inactiveCount)}
-              icon={<UserX className="w-5 h-5" />}
-              trend={{
-                value: users.length > 0 ? Math.round((inactiveCount / users.length) * 100) : 0,
-                positive: false,
-              }}
+              icon={<span className="inline-flex rounded-lg bg-red-50 p-1.5 text-red-600 dark:bg-red-50/30 dark:text-red-400"><UserX className="w-4 h-4" /></span>}
             />
             <StatCard
               title="User Roles"
               value={String(uniqueRoles)}
-              icon={<Shield className="w-5 h-5" />}
+              icon={<span className="inline-flex rounded-lg bg-indigo-50 p-1.5 text-indigo-600 dark:bg-indigo-50/30 dark:text-indigo-400"><Shield className="w-4 h-4" /></span>}
             />
           </div>
 
           <Card className="border-border/70 shadow-soft mb-6">
-            <CardContent className="p-5">
-              <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+            <CardContent className="p-0 md:p-0">
+              <div className="toolbar-padding flex flex-col gap-3 lg:flex-row lg:items-center">
                 <div className="flex-1">
                   <div className="relative max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -310,7 +290,7 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                       placeholder="Search users..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 h-10 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white focus:ring-1.5 focus:ring-gray-200"
+                      className="pl-10 h-9 bg-gray-50/50 border-0 hover:bg-gray-100 focus:bg-white focus:ring-1.5 focus:ring-gray-200"
                     />
                   </div>
                 </div>
@@ -329,19 +309,6 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                       ))}
                     </SelectContent>
                   </Select>
-                  <Select value={deptFilter} onValueChange={setDeptFilter}>
-                    <SelectTrigger className="w-[220px] h-9">
-                      <SelectValue placeholder="Department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Departments</SelectItem>
-                      {systemDepartments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.name}>
-                          {dept.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-[130px] h-9">
                       <SelectValue placeholder="Status" />
@@ -353,8 +320,8 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                     </SelectContent>
                   </Select>
                   <Button variant="outline" size="sm" className="h-9" onClick={async () => {
-                    const csv = "Name,Email,Role,Department,Status,Last Login\n" +
-                      displayUsers.map(u => `"${u.name}","${u.email}","${u.role}","${u.department}","${u.status}","${u.lastLogin}"`).join("\n")
+                    const csv = "Name,Email,Role,Campus,College,Status,Last Login\n" +
+                      displayUsers.map(u => `"${u.name}","${u.email}","${u.role}","${u.campus}","${u.college}","${u.status}","${u.lastLogin}"`).join("\n")
                     const blob = new Blob([csv], { type: "text/csv" })
                     const url = URL.createObjectURL(blob)
                     const a = document.createElement("a")
@@ -362,6 +329,7 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                     a.download = `users-export-${new Date().toISOString().slice(0,10)}.csv`
                     document.body.appendChild(a)
                     a.click()
+                    toast.success("User export prepared. Download started.")
                     document.body.removeChild(a)
                     URL.revokeObjectURL(url)
                   }}>
@@ -373,14 +341,15 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
             </CardContent>
           </Card>
 
-          <Card className="border-border/70 shadow-soft">
-            <CardContent className="p-0">
+          <Card className="border-border/70 shadow-soft overflow-hidden">
+            <CardContent className="p-0 md:p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>User</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Department</TableHead>
+                    <TableHead>Campus</TableHead>
+                    <TableHead>College</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Last Login</TableHead>
                     <TableHead>Date Created</TableHead>
@@ -418,7 +387,10 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <span className="text-[13px] text-gray-600">{user.department}</span>
+                        <span className="text-[13px] text-gray-600">{user.campus}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[13px] text-gray-600">{user.college}</span>
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -435,23 +407,23 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                         <span className="text-[13px] text-gray-500">{user.dateCreated}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-0.5">
+                        <div className="record-actions record-actions-table">
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-gray-500 hover:text-gray-900"
+                            variant="outline"
+                            size="action"
+                            className="text-gray-600 hover:text-gray-900"
                             onClick={() => handleViewUser(user as User)}
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-4 h-4" /> <span>View</span>
                           </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-gray-500 hover:text-gray-900"
+                                variant="outline"
+                                size="action"
+                                className="text-gray-600 hover:text-gray-900"
                               >
-                                <MoreHorizontal className="w-4 h-4" />
+                                <MoreHorizontal className="w-4 h-4" /> <span>Actions</span>
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-[160px]">
@@ -487,31 +459,10 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
                   ))}
                 </TableBody>
               </Table>
-              <div className="mt-4 px-5 pb-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="table-footer">
                 <p className="text-[13px] text-gray-500">
                   Showing {displayUsers.length} of {users.length} users
                 </p>
-                <Pagination>
-                  <PaginationPrevious className="h-8" />
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationLink className="h-8 w-8">1</PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink isActive className="h-8 w-8">
-                        2
-                      </PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink className="h-8 w-8">3</PaginationLink>
-                    </PaginationItem>
-                    <PaginationEllipsis className="h-8 w-8" />
-                    <PaginationItem>
-                      <PaginationLink className="h-8 w-8">20</PaginationLink>
-                    </PaginationItem>
-                  </PaginationContent>
-                  <PaginationNext className="h-8" />
-                </Pagination>
               </div>
             </CardContent>
           </Card>
@@ -549,21 +500,26 @@ export default function UserManagement({ sidebarCollapsed: _sidebarCollapsed = f
         onSave={async (id, data) => {
           if (!id) return
           try {
-            if (data.departmentId || data.roleId) {
-              await updateSystemUser(id, {
-                status: data.status === "Active" ? "ACTIVE" : data.status === "Suspended" ? "SUSPENDED" : "INACTIVE",
-                ...(data.departmentId !== undefined ? { departmentId: data.departmentId || null } : {}),
-                ...(data.roleId ? { roleId: data.roleId } : {}),
-              } as Parameters<typeof updateSystemUser>[1])
-            } else {
-              await updateUserStatus(
-                id,
-                data.status === "Active" ? "ACTIVE" : data.status === "Suspended" ? "SUSPENDED" : "INACTIVE",
-              )
-            }
-            refresh()
+            await updateSystemUser(id, {
+              email: data.email,
+              firstName: data.firstName,
+              middleName: data.middleName ?? null,
+              lastName: data.lastName,
+              ...(data.campusId !== undefined ? { campusId: data.campusId } : {}),
+              ...(data.collegeId !== undefined ? { collegeId: data.collegeId } : {}),
+              ...(data.programId !== undefined ? { programId: data.programId } : {}),
+              ...(data.roleId ? { roleId: data.roleId } : {}),
+            })
+            await updateUserStatus(
+              id,
+              data.status === "Active" ? "ACTIVE" : data.status === "Suspended" ? "SUSPENDED" : "INACTIVE",
+            )
+            await refresh()
+            toast.success("User details updated")
           } catch (err) {
             console.error("Failed to save user:", err)
+            toast.error(err instanceof Error ? err.message : "Unable to update user details")
+            throw err
           }
         }}
       />

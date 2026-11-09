@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { areaRequirementVisibility } from "@/modules/requirements/requirement.visibility";
 import { calculateOverallCompliance } from "@/modules/aaccup/services/compliance.service";
 import type {
   AaccupStats,
@@ -125,7 +126,7 @@ export async function getDocumentStats(actor: Actor): Promise<DocumentStats> {
 // getUserStats
 // -----------------------------------------------------------------------------
 export async function getUserStats(): Promise<UserStats> {
-  const [totalUsers, activeUsers, administrators, departmentUsers] =
+  const [totalUsers, activeUsers, administrators, programUsers] =
     await Promise.all([
       prisma.user.count({ where: { deletedAt: null } }),
       prisma.user.count({
@@ -140,12 +141,11 @@ export async function getUserStats(): Promise<UserStats> {
           role: { name: "ADMINISTRATOR" },
         },
       }),
-      // "Department users" = users assigned to a department (departmentId set)
-      // and not soft-deleted.
+      // Users assigned to a program and not soft-deleted.
       prisma.user.count({
         where: {
           deletedAt: null,
-          NOT: { departmentId: null },
+          NOT: { programId: null },
         },
       }),
     ]);
@@ -154,7 +154,7 @@ export async function getUserStats(): Promise<UserStats> {
     totalUsers,
     activeUsers,
     administrators,
-    departmentUsers,
+    programUsers,
   };
 }
 
@@ -195,7 +195,7 @@ async function getAaccupSetStats(areaSet: (typeof AACCUP_SETS)[number]) {
       calculateOverallCompliance({ areaSet }),
       prisma.aaccupArea.count({ where: { deletedAt: null, areaSet } }),
       prisma.aaccupRequirement.count({
-        where: { deletedAt: null, area: { areaSet } },
+        where: { deletedAt: null, area: { areaSet }, ...areaRequirementVisibility },
       }),
       prisma.aaccupSubmission.groupBy({
         by: ["status"],
@@ -240,7 +240,7 @@ export async function getAaccupStats(): Promise<AaccupStats> {
       // Single source of truth for compliance numbers — never reimplemented.
       calculateOverallCompliance(),
       prisma.aaccupArea.count({ where: { deletedAt: null } }),
-      prisma.aaccupRequirement.count({ where: { deletedAt: null } }),
+      prisma.aaccupRequirement.count({ where: { deletedAt: null, ...areaRequirementVisibility } }),
       prisma.aaccupSubmission.groupBy({
         by: ["status"],
         _count: { _all: true },

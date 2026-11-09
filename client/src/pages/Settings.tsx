@@ -31,7 +31,7 @@ import { SessionManagementModal } from "@/components/modals/SessionManagementMod
 import { useAuth } from "@/context/AuthContext"
 import { useTheme } from "@/lib/theme"
 import { toast } from "@/lib/toast"
-import { ROLE_LABELS } from "@/lib/permissions"
+import { ROLE_LABELS, hasServerPermission } from "@/lib/permissions"
 import { getSystemSettings, updateSystemSettings, type SystemSettingsView } from "@/services/admin"
 import { getDashboardStorage, type StorageStats } from "@/services/dashboard"
 import { authService } from "@/services/auth"
@@ -63,17 +63,32 @@ export default function Settings() {
   const [dateFormat, setDateFormat] = useState<"mdy" | "dmy" | "ymd">("mdy")
   const [dashboardView, setDashboardView] = useState<"overview" | "submissions" | "documents">("overview")
 
-  const [notifications, setNotifications] = useState({
-    submissions: true,
-    approvals: true,
-    announcements: false,
-    security: true,
+  const [notifications, setNotifications] = useState<{
+    submissions: boolean
+    approvals: boolean
+    announcements: boolean
+    security: boolean
+  }>(() => {
+    const stored = localStorage.getItem("notificationPreferences")
+    if (stored) {
+      try {
+        return { submissions: true, approvals: true, announcements: false, security: true, ...JSON.parse(stored) }
+      } catch {
+        /* ignore malformed stored preferences */
+      }
+    }
+    return { submissions: true, approvals: true, announcements: false, security: true }
   })
 
   useEffect(() => {
-    getSystemSettings().then(setSettings).catch((err) => console.error("Failed to load settings:", err))
+    // Department Coordinators reach the admin portal without admin.settings.read;
+    // requesting the singleton anyway would 403 and write a PERMISSION_DENIED
+    // audit event on every Settings visit.
+    if (hasServerPermission(user, "admin.settings.read")) {
+      getSystemSettings().then(setSettings).catch((err) => console.error("Failed to load settings:", err))
+    }
     getDashboardStorage().then(setStorageStats).catch((err) => console.error("Failed to load storage stats:", err))
-  }, [])
+  }, [user])
 
   const handleSaveSettings = async (patch: Partial<Omit<SystemSettingsView, "updatedAt" | "updatedById">>) => {
     const updated = settings ? { ...settings, ...patch } : null
@@ -107,12 +122,17 @@ export default function Settings() {
   }
 
   const handleSaveNotifications = async () => {
-    // Notification preferences are currently local-only.
+    localStorage.setItem("notificationPreferences", JSON.stringify(notifications))
+    toast.success("Notification preferences saved")
   }
 
   const handleLogoutAll = async () => {
-    try { await authService.logout(); logout() } catch {
-      // The local session can still be cleared if the server is unavailable.
+    try {
+      const revoked = await authService.killAllOtherSessions()
+      toast.success(revoked > 0 ? `Signed out ${revoked} other session(s)` : "No other active sessions")
+      await logout()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to sign out all sessions")
     }
   }
 
@@ -135,13 +155,13 @@ export default function Settings() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
             title="Settings"
             description="Manage your account settings and preferences"
           />
 
-          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+          <div className="flex flex-col lg:flex-row responsive-gap">
             <div className="w-full lg:w-64 flex-shrink-0">
               <Card className="border-border/70 shadow-soft">
                 <CardContent className="p-2">
@@ -254,7 +274,7 @@ export default function Settings() {
                       </div>
                     ))}
                   </CardContent>
-                  <div className="flex justify-end px-4 pb-4">
+                  <div className="flex justify-end px-5 pb-5 md:px-6 md:pb-6">
                     <Button className="h-10 px-5 shadow-soft" onClick={handleSaveNotifications}>Save Preferences</Button>
                   </div>
                 </Card>
@@ -332,7 +352,7 @@ export default function Settings() {
                   <CardContent>
                     <div className="grid grid-cols-3 gap-4">
                       <button
-                        onClick={() => setTheme("light")}
+                        onClick={() => { setTheme("light"); toast.success("Theme updated") }}
                         className={cn(
                           "p-4 rounded-xl border-2 transition-all",
                           theme === "light"
@@ -348,7 +368,7 @@ export default function Settings() {
                       </button>
 
                       <button
-                        onClick={() => setTheme("dark")}
+                        onClick={() => { setTheme("dark"); toast.success("Theme updated") }}
                         className={cn(
                           "p-4 rounded-xl border-2 transition-all",
                           theme === "dark"
@@ -364,7 +384,7 @@ export default function Settings() {
                       </button>
 
                       <button
-                        onClick={() => setTheme("system")}
+                        onClick={() => { setTheme("system"); toast.success("Theme updated") }}
                         className={cn(
                           "p-4 rounded-xl border-2 transition-all",
                           theme === "system"

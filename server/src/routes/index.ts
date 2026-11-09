@@ -18,6 +18,7 @@ import { rootRouter } from "@/modules/root/root.routes";
 import { workflowRuntimeRouter } from "@/modules/workflow/workflow.routes";
 import { repositoryRouter } from "@/modules/repositories/repository.routes";
 import { navigationAssistantRouter } from "@/modules/navigationAssistant/navigationAssistant.routes";
+import { bugReportsRouter } from "@/modules/bugReports/bugReports.routes";
 
 // =============================================================================
 // URS-DMS â€” route registry. Mounted under /api/v1 in app.ts.
@@ -44,3 +45,4 @@ apiRouter.use("/workflows", workflowRuntimeRouter);
 apiRouter.use("/repositories", repositoryRouter);
 apiRouter.use("/root", rootRouter);
 apiRouter.use("/assistant", navigationAssistantRouter);
+apiRouter.use("/bug-reports", bugReportsRouter);

@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState } from "react"
 import { RotateCcw, Upload } from "lucide-react"
 import {
@@ -85,6 +86,7 @@ export function ReturnSubmissionModal({
       setReturnReason("")
       setFiles([])
       onOpenChange(false)
+      toast.success("Submission returned for revision")
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to return the submission. Please try again.")
     } finally {

@@ -9,7 +9,7 @@ export type AuditCategory =
 
 export type AuditSeverity = "INFO" | "WARNING" | "CRITICAL";
 export type AuditResult = "SUCCESS" | "FAILED" | "DENIED";
-export type AuditStatus = "SUCCESS" | "FAILED";
+export type AuditStatus = "SUCCESS" | "FAILED" | "DENIED";
 export type AuditModule = string;
 
 export interface AuditActor {
@@ -17,7 +17,9 @@ export interface AuditActor {
   name: string | null;
   email: string | null;
   role: string | null;
-  departmentId: string | null;
+  campusId: string | null;
+  collegeId: string | null;
+  programId: string | null;
 }
 
 export interface AuditEntityRef {

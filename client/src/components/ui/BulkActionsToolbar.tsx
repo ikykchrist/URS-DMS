@@ -1,4 +1,4 @@
-import { CheckSquare, Square, X, CheckCircle, XCircle, Download, Users, Archive, Trash2 } from "lucide-react"
+import { CheckSquare, Square, X, CheckCircle, XCircle, Download, Archive, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
 
@@ -8,7 +8,6 @@ interface BulkActionsToolbarProps {
   onBulkApprove?: () => void
   onBulkReject?: () => void
   onBulkExport?: () => void
-  onBulkAssign?: () => void
   onBulkArchive?: () => void
   onBulkDelete?: () => void
   className?: string
@@ -18,7 +17,6 @@ const bulkActions = [
   { label: "Approve", icon: CheckCircle, variant: "success" as const, onClick: () => {} },
   { label: "Reject", icon: XCircle, variant: "danger" as const, onClick: () => {} },
   { label: "Export", icon: Download, variant: "secondary" as const, onClick: () => {} },
-  { label: "Assign", icon: Users, variant: "secondary" as const, onClick: () => {} },
   { label: "Archive", icon: Archive, variant: "secondary" as const, onClick: () => {} },
   { label: "Delete", icon: Trash2, variant: "danger" as const, onClick: () => {} },
 ]
@@ -29,7 +27,6 @@ export function BulkActionsToolbar({
   onBulkApprove,
   onBulkReject,
   onBulkExport,
-  onBulkAssign,
   onBulkArchive,
   onBulkDelete,
   className,
@@ -40,7 +37,6 @@ export function BulkActionsToolbar({
     Approve: onBulkApprove,
     Reject: onBulkReject,
     Export: onBulkExport,
-    Assign: onBulkAssign,
     Archive: onBulkArchive,
     Delete: onBulkDelete,
   }

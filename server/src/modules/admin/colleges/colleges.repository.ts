@@ -20,7 +20,7 @@ function toItem(c: CollegeWithRelations): CollegeListItem {
     name: c.name,
     code: c.code,
     description: c.description,
-    departmentCount: c._count.departments,
+    departmentCount: 0,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     deletedAt: c.deletedAt,

@@ -235,7 +235,7 @@ export default function RootConfigurations() {
   const typeLabel = (t: ConfigValueType) => t.toLowerCase()
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
         title="Configuration Engine"
         description="Versioned platform settings managed by the system administrator"
@@ -248,7 +248,7 @@ export default function RootConfigurations() {
       />
 
       <Card className="border-border/70 shadow-soft mb-4">
-        <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
+        <CardContent className="toolbar-padding flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <Input
@@ -346,24 +346,24 @@ export default function RootConfigurations() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="record-actions record-actions-table">
                           <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
+                            variant="outline"
+                            size="action"
+                            className=""
                             title="Edit value"
                             onClick={() => openEdit(config)}
                           >
-                            <Edit3 className="w-4 h-4" />
+                            <Edit3 className="w-4 h-4" /> <span>Edit</span>
                           </Button>
                           <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
+                            variant="outline"
+                            size="action"
+                            className=""
                             title="Version history"
                             onClick={() => void openVersions(config)}
                           >
-                            <History className="w-4 h-4" />
+                            <History className="w-4 h-4" /> <span>History</span>
                           </Button>
                           {config.isSystem ? (
                             <span title="Seed-owned configuration cannot be deleted">
@@ -371,13 +371,13 @@ export default function RootConfigurations() {
                             </span>
                           ) : (
                             <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
+                              variant="outline"
+                              size="action"
+                              className="text-red-500 hover:text-red-600"
                               title="Delete (soft)"
                               onClick={() => void handleDelete(config)}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" /> <span>Archive</span>
                             </Button>
                           )}
                         </div>
@@ -388,7 +388,7 @@ export default function RootConfigurations() {
               </Table>
             )}
           </CardContent>
-          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+          <div className="table-footer">
             <span className="text-[12px] text-gray-500">{total} configurations</span>
             <Pagination>
               <PaginationContent>

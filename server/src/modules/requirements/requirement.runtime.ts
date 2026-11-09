@@ -14,7 +14,6 @@ import type {
 import type { ValidateRequirementUploadBody } from "@/modules/root/root.requirement.validator";
 import { BadRequestError, NotFoundError } from "@/utils/errors";
 import { logger } from "@/utils/logger";
-import type { Prisma } from "@prisma/client";
 
 export interface ResolvedRequirementAssignment {
   id: string;
@@ -22,6 +21,7 @@ export interface ResolvedRequirementAssignment {
   templateVersion: number;
   targetType: RequirementTargetType;
   targetId: string | null;
+  dueDate: Date | null;
 }
 
 interface AreaScope {
@@ -47,32 +47,24 @@ export async function resolveRequirementAssignmentForArea(
     where: { id: areaId, deletedAt: null },
     select: {
       id: true,
-      departmentId: true,
+      campusId: true,
+      collegeId: true,
+      programId: true,
       accreditationCycleId: true,
       accreditationCycle: { select: { deletedAt: true, status: true } },
-      department: { select: { collegeId: true } },
+      areaSet: true,
     },
   });
   if (!area) throw new NotFoundError("AACCUP area not found");
 
   const scopes: AreaScope[] = [
     { targetType: "AACCUP_AREA", targetId: area.id },
-    ...(area.accreditationCycleId &&
-    area.accreditationCycle?.deletedAt === null &&
-    area.accreditationCycle.status === "ACTIVE"
-      ? [{ targetType: "ACCREDITATION_CYCLE" as const, targetId: area.accreditationCycleId }]
-      : []),
-    { targetType: "DEPARTMENT", targetId: area.departmentId },
-    ...(area.department.collegeId
-      ? [{ targetType: "COLLEGE" as const, targetId: area.department.collegeId }]
-      : []),
-    { targetType: "UNIVERSITY", targetId: null },
   ];
 
   const assignments = await prisma.requirementAssignment.findMany({
     where: {
       deletedAt: null,
-      template: { deletedAt: null, status: "ACTIVE" },
+      template: { deletedAt: null, status: "ACTIVE", areaSet: area.areaSet },
       OR: scopes.map((scope) => ({ targetType: scope.targetType, targetId: scope.targetId })),
     },
     select: {
@@ -80,11 +72,44 @@ export async function resolveRequirementAssignmentForArea(
       templateId: true,
       targetType: true,
       targetId: true,
+      dueDate: true,
       template: { select: { version: true } },
     },
   });
 
-  let resolved: ResolvedRequirementAssignment | null = null;
+  // Requirement templates are universal libraries. Area is the only runtime
+  // scope, so an area-specific assignment is preferred for compatibility, but
+  // an active template for the same area set is a valid universal fallback.
+  let universalResolved: ResolvedRequirementAssignment | null = null;
+  if (assignments.length === 0) {
+    const universal = await prisma.requirementTemplate.findFirst({
+      where: { deletedAt: null, status: "ACTIVE", areaSet: area.areaSet },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        version: true,
+        assignments: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: { id: true, targetType: true, targetId: true, dueDate: true },
+        },
+      },
+    });
+    const assignment = universal?.assignments[0];
+    if (universal && assignment) {
+      universalResolved = {
+        id: assignment.id,
+        templateId: universal.id,
+        templateVersion: universal.version,
+        targetType: assignment.targetType,
+        targetId: assignment.targetId,
+        dueDate: assignment.dueDate,
+      };
+    }
+  }
+
+  let resolved: ResolvedRequirementAssignment | null = universalResolved;
   for (const scope of scopes) {
     const row = assignments.find(
       (assignment) =>
@@ -97,6 +122,7 @@ export async function resolveRequirementAssignmentForArea(
         templateVersion: row.template.version,
         targetType: row.targetType,
         targetId: row.targetId,
+        dueDate: row.dueDate,
       };
       break;
     }
@@ -301,11 +327,8 @@ export async function refreshRequirementProjectionsForTemplate(
   actorId: string,
 ): Promise<void> {
   invalidateRequirementResolutionCache();
-  const [assignments, existingProjections] = await Promise.all([
-    prisma.requirementAssignment.findMany({
-      where: { templateId, deletedAt: null },
-      select: { targetType: true, targetId: true },
-    }),
+  const [template, existingProjections] = await Promise.all([
+    prisma.requirementTemplate.findFirst({ where: { id: templateId }, select: { areaSet: true } }),
     prisma.aaccupRequirement.findMany({
       where: {
         area: { deletedAt: null },
@@ -316,45 +339,21 @@ export async function refreshRequirementProjectionsForTemplate(
     }),
   ]);
 
-  const areaIds = assignments
-    .filter((assignment) => assignment.targetType === "AACCUP_AREA" && assignment.targetId)
-    .map((assignment) => assignment.targetId!);
-  const cycleIds = assignments
-    .filter((assignment) => assignment.targetType === "ACCREDITATION_CYCLE" && assignment.targetId)
-    .map((assignment) => assignment.targetId!);
-  const departmentIds = assignments
-    .filter((assignment) => assignment.targetType === "DEPARTMENT" && assignment.targetId)
-    .map((assignment) => assignment.targetId!);
-  const collegeIds = assignments
-    .filter((assignment) => assignment.targetType === "COLLEGE" && assignment.targetId)
-    .map((assignment) => assignment.targetId!);
-  const university = assignments.some((assignment) => assignment.targetType === "UNIVERSITY");
-  const scopeFilters: Prisma.AaccupAreaWhereInput[] = [];
-  if (areaIds.length > 0) scopeFilters.push({ id: { in: areaIds } });
-  if (cycleIds.length > 0) {
-    scopeFilters.push({ accreditationCycleId: { in: cycleIds } });
-  }
-  if (departmentIds.length > 0) {
-    scopeFilters.push({ departmentId: { in: departmentIds } });
-  }
-  if (collegeIds.length > 0) {
-    scopeFilters.push({ department: { collegeId: { in: collegeIds } } });
-  }
-
   const scopedAreas = await prisma.aaccupArea.findMany({
     where: {
       deletedAt: null,
-      ...(university ? {} : { OR: scopeFilters }),
+      ...(template ? { areaSet: template.areaSet } : {}),
     },
     select: { id: true },
   });
-  await refreshProjectionAreas(
-    [
+  const refreshedAreaIds = [
+    ...new Set([
       ...existingProjections.map((projection) => projection.areaId),
       ...scopedAreas.map((area) => area.id),
-    ],
-    actorId,
-  );
+    ]),
+  ];
+  await refreshProjectionAreas(refreshedAreaIds, actorId);
+
 }
 
 export async function refreshRequirementProjectionsForTemplateBestEffort(
@@ -410,6 +409,8 @@ export async function validateRequirementUpload(
     select: {
       id: true,
       status: true,
+      areaId: true,
+      sourceAssignmentId: true,
       sourceNode: {
         select: {
           id: true,
@@ -429,6 +430,8 @@ export async function validateRequirementUpload(
     throw new BadRequestError("Requirement is inactive and cannot accept uploads");
   }
   if (!requirement.sourceNode) return { valid: true, errors: [], warnings: [] };
+  const assignment = await resolveRequirementAssignmentForArea(requirement.areaId);
+  if (!assignment || assignment.id !== requirement.sourceAssignmentId) throw new BadRequestError("Requirement template is not attached to this area");
   if (requirement.sourceNode.deletedAt || requirement.sourceNode.status !== "ACTIVE") {
     throw new BadRequestError("Requirement node is inactive and cannot accept uploads");
   }

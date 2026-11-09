@@ -35,15 +35,18 @@ const defaultFilters: SavedFilter[] = [
 ]
 
 export function SavedFilterViews({ onApplyFilter, onSaveFilter, currentFilters, className }: SavedFilterViewsProps) {
-  const [activeFilter, setActiveFilter] = useState<string>("all")
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [saveLabel, setSaveLabel] = useState("")
   const [customFilters, setCustomFilters] = useState<SavedFilter[]>([])
 
   const allFilters = [...defaultFilters, ...customFilters]
+  const activeFilter = allFilters.find((filter) => {
+    const current = currentFilters ?? {}
+    return Object.keys(current).length === Object.keys(filter.filters).length &&
+      Object.entries(filter.filters).every(([key, value]) => current[key] === value)
+  })?.id
 
   const handleApply = (filter: SavedFilter) => {
-    setActiveFilter(filter.id)
     onApplyFilter(filter)
   }
 
@@ -75,7 +78,7 @@ export function SavedFilterViews({ onApplyFilter, onSaveFilter, currentFilters, 
           >
             <Bookmark className="w-3.5 h-3.5" />
             <span className="hidden sm:inline text-[13px]">
-              {allFilters.find((f) => f.id === activeFilter)?.label || "Views"}
+              {allFilters.find((f) => f.id === activeFilter)?.label || "Custom filters"}
             </span>
             <ChevronDown className="w-3.5 h-3.5" />
           </Button>

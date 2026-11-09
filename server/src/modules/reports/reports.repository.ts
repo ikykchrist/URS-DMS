@@ -6,6 +6,7 @@ import type {
   RequestStatus,
   UserStatus,
 } from "@prisma/client";
+import { isFailedAuditAction } from "@/config/constants";
 import type { ReportFilters } from "@/modules/reports/reports.types";
 
 // =============================================================================
@@ -57,11 +58,10 @@ export const DOCUMENT_REPORT_SELECT = {
   status: true,
   classification: true,
   ownerId: true,
-  departmentId: true,
+  programId: true,
   createdAt: true,
   updatedAt: true,
   owner: { select: { firstName: true, lastName: true } },
-  department: { select: { name: true } },
   _count: { select: { versions: true } },
 } satisfies Prisma.DocumentSelect;
 
@@ -75,7 +75,7 @@ export async function listDocuments(
   pageSize: number,
 ): Promise<{ rows: DocumentListRow[]; total: number }> {
   const where: Prisma.DocumentWhereInput = { deletedAt: null, ...createdAtRange(filters) };
-  if (filters.departmentId) where.departmentId = filters.departmentId;
+  if (filters.programId) where.programId = filters.programId;
   if (filters.userId) where.ownerId = filters.userId;
   if (filters.status) where.status = filters.status as DocumentStatus;
   if (filters.documentType) where.classification = filters.documentType as DocumentClassification;
@@ -102,20 +102,20 @@ export async function listDocuments(
 export async function documentAggregates(filters: ReportFilters): Promise<{
   byStatus: { status: string; _count: number }[];
   byClassification: { classification: string; _count: number }[];
-  byDepartment: { departmentId: string | null; _count: number }[];
+  byProgram: { programId: string | null; _count: number }[];
   totalVersions: number;
   totalSize: bigint;
 }> {
   const where: Prisma.DocumentWhereInput = { deletedAt: null, ...createdAtRange(filters) };
-  if (filters.departmentId) where.departmentId = filters.departmentId;
+  if (filters.programId) where.programId = filters.programId;
   if (filters.userId) where.ownerId = filters.userId;
   if (filters.status) where.status = filters.status as DocumentStatus;
   if (filters.documentType) where.classification = filters.documentType as DocumentClassification;
 
-  const [byStatus, byClassification, byDepartment, totalVersions, sizeAgg] = await Promise.all([
+  const [byStatus, byClassification, byProgram, totalVersions, sizeAgg] = await Promise.all([
     prisma.document.groupBy({ by: ["status"], _count: { _all: true }, where }),
     prisma.document.groupBy({ by: ["classification"], _count: { _all: true }, where }),
-    prisma.document.groupBy({ by: ["departmentId"], _count: { _all: true }, where }),
+    prisma.document.groupBy({ by: ["programId"], _count: { _all: true }, where }),
     prisma.documentVersion.count({
       where: { document: where },
     }),
@@ -131,8 +131,8 @@ export async function documentAggregates(filters: ReportFilters): Promise<{
       classification: r.classification,
       _count: countOf(r),
     })),
-    byDepartment: byDepartment.map((r) => ({
-      departmentId: r.departmentId,
+    byProgram: byProgram.map((r) => ({
+      programId: r.programId,
       _count: countOf(r),
     })),
     totalVersions,
@@ -179,7 +179,7 @@ export async function listRequests(
   if (filters.userId) where.requesterId = filters.userId;
   if (filters.status) where.status = filters.status as RequestStatus;
   if (filters.requestType) where.title = { contains: filters.requestType, mode: "insensitive" };
-  if (filters.departmentId) where.requester = { departmentId: filters.departmentId };
+  if (filters.programId) where.requester = { programId: filters.programId };
 
   const [rows, total] = await Promise.all([
     prisma.documentRequest.findMany({
@@ -207,7 +207,7 @@ export async function requestAggregates(filters: ReportFilters): Promise<{
   }
   if (filters.userId) where.requesterId = filters.userId;
   if (filters.status) where.status = filters.status as RequestStatus;
-  if (filters.departmentId) where.requester = { departmentId: filters.departmentId };
+  if (filters.programId) where.requester = { programId: filters.programId };
 
   const [byStatus, decided] = await Promise.all([
     prisma.documentRequest.groupBy({ by: ["status"], _count: { _all: true }, where }),
@@ -227,70 +227,6 @@ export async function requestAggregates(filters: ReportFilters): Promise<{
 // compliance service at the service layer).
 // -----------------------------------------------------------------------------
 
-export async function departmentsWithCounts(filters: ReportFilters): Promise<{
-  id: string;
-  name: string;
-  code: string;
-  headId: string | null;
-  head: { firstName: string; lastName: string } | null;
-  createdAt: Date;
-  _count: { users: number; documents: number; aaccupAreas: number };
-}[]> {
-  const where: Prisma.DepartmentWhereInput = { deletedAt: null };
-  // Date range applies to department.createdAt (departments created in window).
-  if (filters.from || filters.to) {
-    const r: Prisma.DateTimeFilter = {};
-    if (filters.from) r.gte = filters.from;
-    if (filters.to) r.lte = filters.to;
-    where.createdAt = r;
-  }
-
-  // Single findMany with relation counts — no N+1.
-  return prisma.department.findMany({
-    where,
-    select: {
-      id: true,
-      name: true,
-      code: true,
-      headId: true,
-      createdAt: true,
-      head: { select: { firstName: true, lastName: true } },
-      _count: {
-        select: {
-          users: { where: { deletedAt: null } },
-          documents: { where: { deletedAt: null } },
-          aaccupAreas: { where: { deletedAt: null } },
-        },
-      },
-    },
-    orderBy: { name: "asc" },
-  });
-}
-
-export async function departmentRequirementCounts(): Promise<
-  Map<string, number>
-> {
-  // Group requirements by area → roll up to department via the area relation.
-  const rows = await prisma.aaccupRequirement.groupBy({
-    by: ["areaId"],
-    _count: { _all: true },
-    where: { deletedAt: null },
-  });
-  const areaCounts = new Map<string, number>(
-    rows.map((r) => [r.areaId, countOf(r)]),
-  );
-  const areas = await prisma.aaccupArea.findMany({
-    where: { deletedAt: null },
-    select: { id: true, departmentId: true },
-  });
-  const deptCounts = new Map<string, number>();
-  for (const a of areas) {
-    const c = areaCounts.get(a.id) ?? 0;
-    deptCounts.set(a.departmentId, (deptCounts.get(a.departmentId) ?? 0) + c);
-  }
-  return deptCounts;
-}
-
 // -----------------------------------------------------------------------------
 // 5. USER ACTIVITY REPORT
 // -----------------------------------------------------------------------------
@@ -302,7 +238,7 @@ export const USER_ACTIVITY_SELECT = {
   firstName: true,
   lastName: true,
   status: true,
-  departmentId: true,
+  programId: true,
   lastLogin: true,
   createdAt: true,
   role: { select: { name: true } },
@@ -318,7 +254,7 @@ export async function listUsers(
   const where: Prisma.UserWhereInput = { deletedAt: null, ...createdAtRange(filters) };
   if (filters.userId) where.id = filters.userId;
   if (filters.roleId) where.roleId = filters.roleId;
-  if (filters.departmentId) where.departmentId = filters.departmentId;
+  if (filters.programId) where.programId = filters.programId;
   if (filters.status) where.status = filters.status as UserStatus;
 
   const [rows, total] = await Promise.all([
@@ -339,7 +275,7 @@ export async function userActivityCounts(filters: ReportFilters): Promise<{
   activeUsers: number;
 }> {
   const where: Prisma.UserWhereInput = { deletedAt: null, ...createdAtRange(filters) };
-  if (filters.departmentId) where.departmentId = filters.departmentId;
+  if (filters.programId) where.programId = filters.programId;
   if (filters.roleId) where.roleId = filters.roleId;
   if (filters.status) where.status = filters.status as UserStatus;
 
@@ -377,7 +313,7 @@ export async function perUserCounts(filters: ReportFilters): Promise<{
   // user's createdAt — the user list filter retains its own dateRange.
   const userFilter: Prisma.UserWhereInput = { deletedAt: null };
   if (filters.userId) userFilter.id = filters.userId;
-  if (filters.departmentId) userFilter.departmentId = filters.departmentId;
+  if (filters.programId) userFilter.programId = filters.programId;
   if (filters.roleId) userFilter.roleId = filters.roleId;
 
   const docWhere: Prisma.DocumentWhereInput = { deletedAt: null, owner: userFilter };
@@ -431,10 +367,10 @@ export async function perUserCounts(filters: ReportFilters): Promise<{
 // 6. STORAGE REPORT (grouped by department)
 // -----------------------------------------------------------------------------
 
-export async function storageByDepartment(filters: ReportFilters): Promise<
+export async function storageByProgram(filters: ReportFilters): Promise<
   {
-    departmentId: string | null;
-    departmentName: string | null;
+    programId: string | null;
+    programName: string | null;
     _count: number;
     _sum: { sizeBytes: bigint | null };
   }[]
@@ -447,17 +383,17 @@ export async function storageByDepartment(filters: ReportFilters): Promise<
     versionWhere.uploadedAt = r;
   }
   const docWhere: Prisma.DocumentWhereInput = { deletedAt: null };
-  if (filters.departmentId) docWhere.departmentId = filters.departmentId;
+  if (filters.programId) docWhere.programId = filters.programId;
   if (filters.documentType) docWhere.classification = filters.documentType as DocumentClassification;
 
   // Group versions by their document's department. Prisma has no
   // groupBy across a relation + scalar in one go, so we go via the
   // document model and use the relation aggregate available there.
-  const byDept = await prisma.document.findMany({
+  const byProgram = await prisma.document.findMany({
     where: docWhere,
     select: {
-      departmentId: true,
-      department: { select: { name: true } },
+      programId: true,
+      program: { select: { name: true } },
       versions: {
         where: versionWhere,
         select: { sizeBytes: true },
@@ -472,10 +408,10 @@ export async function storageByDepartment(filters: ReportFilters): Promise<
     string | null,
     { name: string | null; versionCount: number; fileCount: number; bytes: bigint }
   >();
-  for (const d of byDept) {
-    const key = d.departmentId;
+  for (const d of byProgram) {
+    const key = d.programId;
     const existing = acc.get(key) ?? {
-      name: d.department?.name ?? null,
+      name: d.program?.name ?? null,
       versionCount: 0,
       fileCount: 0,
       bytes: 0n,
@@ -485,12 +421,12 @@ export async function storageByDepartment(filters: ReportFilters): Promise<
     for (const v of d.versions) existing.bytes += v.sizeBytes;
     // Preserve the first non-null department name we saw (departments may be
     // soft-deleted but their name is still meaningful in a historical report).
-    if (existing.name === null && d.department?.name) existing.name = d.department.name;
+    if (existing.name === null && d.program?.name) existing.name = d.program.name;
     acc.set(key, existing);
   }
-  return Array.from(acc.entries()).map(([departmentId, v]) => ({
-    departmentId,
-    departmentName: v.name,
+  return Array.from(acc.entries()).map(([programId, v]) => ({
+    programId,
+    programName: v.name,
     _count: v.versionCount,
     _sum: { sizeBytes: v.bytes },
   }));
@@ -534,6 +470,7 @@ export const AUDIT_REPORT_SELECT = {
   id: true,
   createdAt: true,
   action: true,
+  result: true,
   entity: true,
   entityId: true,
   ipAddress: true,
@@ -552,15 +489,34 @@ type AuditReportRowRaw = Prisma.AuditLogGetPayload<{
   select: typeof AUDIT_REPORT_SELECT;
 }>;
 
-const FAILED_AUDIT_ACTIONS = new Set<string>([
+// Legacy rows created before the `result` column existed were back-filled with
+// the DEFAULT 'SUCCESS' by the additive migration, so for those actions we must
+// fall back to the action name to avoid reporting a historical failed login or
+// denial as SUCCESS. NEW rows always carry the authoritative `result`.
+const LEGACY_DENIED_ACTIONS = new Set<string>([
+  "auth.permission_denied",
+  "auth.access_denied",
+]);
+const LEGACY_FAILED_ACTIONS = new Set<string>([
   "auth.login.failed",
   "auth.refresh.failed",
   "auth.refresh.reuse_detected",
-  "auth.permission_denied",
 ]);
 
-function deriveStatus(action: string): "SUCCESS" | "FAILED" {
-  return FAILED_AUDIT_ACTIONS.has(action) ? "FAILED" : "SUCCESS";
+/**
+ * Authoritative audit status for report rows:
+ *   - stored result wins (SUCCESS / FAILED / DENIED),
+ *   - legacy rows whose result was defaulted to SUCCESS fall back to the
+ *     action name so denials stay DENIED (never FAILED) and failures stay FAILED.
+ */
+export function reportAuditStatus(
+  result: string,
+  action: string,
+): "SUCCESS" | "FAILED" | "DENIED" {
+  if (result === "FAILED" || result === "DENIED") return result;
+  if (LEGACY_DENIED_ACTIONS.has(action)) return "DENIED";
+  if (isFailedAuditAction(action) || LEGACY_FAILED_ACTIONS.has(action)) return "FAILED";
+  return "SUCCESS";
 }
 
 /** Module label = action prefix before the first "." (matches audit module). */
@@ -568,8 +524,6 @@ export function deriveModule(action: string): string {
   const i = action.indexOf(".");
   return i === -1 ? action : action.slice(0, i);
 }
-
-export { deriveStatus };
 
 export async function listAuditForReport(
   filters: ReportFilters,
@@ -586,13 +540,13 @@ export async function listAuditForReport(
   if (filters.userId) where.userId = filters.userId;
   if (filters.entity) where.entity = { equals: filters.entity, mode: "insensitive" };
   if (filters.status) {
-    where.action = deriveStatus(filters.status) === "FAILED"
-      ? { in: [...FAILED_AUDIT_ACTIONS] }
-      : { notIn: [...FAILED_AUDIT_ACTIONS] };
+    // Filter on the stored result so FAILED excludes DENIED (authorization
+    // denials are not operation failures).
+    where.result = filters.status;
   }
   const userFilter: Prisma.UserWhereInput = {};
   if (filters.roleId) userFilter.roleId = filters.roleId;
-  if (filters.departmentId) userFilter.departmentId = filters.departmentId;
+  if (filters.programId) userFilter.programId = filters.programId;
   if (Object.keys(userFilter).length > 0) where.user = userFilter;
 
   const [rows, total] = await Promise.all([
@@ -611,6 +565,7 @@ export async function listAuditForReport(
 export async function auditAggregates(filters: ReportFilters): Promise<{
   total: number;
   byAction: { action: string; _count: number }[];
+  byActionResult: { action: string; result: string; _count: number }[];
 }> {
   const where: Prisma.AuditLogWhereInput = {};
   if (filters.from || filters.to) {
@@ -621,18 +576,22 @@ export async function auditAggregates(filters: ReportFilters): Promise<{
   }
   if (filters.userId) where.userId = filters.userId;
   if (filters.status) {
-    where.action = deriveStatus(filters.status) === "FAILED"
-      ? { in: [...FAILED_AUDIT_ACTIONS] }
-      : { notIn: [...FAILED_AUDIT_ACTIONS] };
+    where.result = filters.status;
   }
 
-  const [total, byAction] = await Promise.all([
+  const [total, byAction, byActionResult] = await Promise.all([
     prisma.auditLog.count({ where }),
     prisma.auditLog.groupBy({ by: ["action"], _count: { _all: true }, where }),
+    prisma.auditLog.groupBy({ by: ["action", "result"], _count: { _all: true }, where }),
   ]);
   return {
     total,
     byAction: byAction.map((r) => ({ action: r.action, _count: countOf(r) })),
+    byActionResult: byActionResult.map((r) => ({
+      action: r.action,
+      result: r.result,
+      _count: countOf(r),
+    })),
   };
 }
 

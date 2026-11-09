@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import type { AuditAction } from "@/config/constants";
-import { AUDIT_ACTIONS } from "@/config/constants";
+import { AUDIT_ACTIONS, isFailedAuditAction } from "@/config/constants";
+import { getRequestId } from "@/middlewares/requestContext";
 import * as repo from "@/modules/audit/audit.repository";
 import { FAILED_AUDIT_ACTIONS } from "@/modules/audit/audit.repository";
 import type {
@@ -54,39 +55,47 @@ export interface AuditWrite {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * Shared audit-row builder. Used by both the global writer and the
+ * transaction-aware writer so classification, sanitization and correlation
+ * behave identically on either path.
+ */
+function buildAuditData(entry: AuditWrite): Prisma.AuditLogUncheckedCreateInput {
+  const sanitizedNew = sanitizeForAudit(entry.newValue);
+  const sanitizedOld = sanitizeForAudit(entry.oldValue);
+  const sanitizedMeta = sanitizeForAudit(entry.metadata);
+
+  return {
+    action: entry.action,
+    userId: entry.userId ?? null,
+    entity: entry.entity ?? null,
+    entityId: entry.entityId ?? null,
+    oldValue: (sanitizedOld as Prisma.InputJsonValue | null) ?? undefined,
+    newValue: (sanitizedNew as Prisma.InputJsonValue | null) ?? undefined,
+    ipAddress: entry.ipAddress ?? null,
+    userAgent: entry.userAgent ?? null,
+    category: entry.category ?? deriveCategory(entry.action),
+    severity: entry.severity ?? deriveSeverity(entry.action),
+    result: entry.result ?? deriveResult(entry.action),
+    actorName: entry.actorName ?? null,
+    actorRole: entry.actorRole ?? null,
+    actorOrganization: entry.actorOrganization ?? null,
+    targetType: entry.targetType ?? entry.entity ?? null,
+    targetId: entry.targetId ?? entry.entityId ?? null,
+    targetName: entry.targetName ?? null,
+    correlationId: entry.correlationId ?? getRequestId() ?? null,
+    metadata: (sanitizedMeta as Prisma.InputJsonValue | null) ?? undefined,
+  };
+}
+
 export async function writeAudit(entry: AuditWrite): Promise<void> {
   try {
-    const sanitizedNew = sanitizeForAudit(entry.newValue);
-    const sanitizedOld = sanitizeForAudit(entry.oldValue);
-    const sanitizedMeta = sanitizeForAudit(entry.metadata);
-    const severity = entry.severity ?? deriveSeverity(entry.action);
+    const data = buildAuditData(entry);
 
-    await prisma.auditLog.create({
-      data: {
-        action: entry.action,
-        userId: entry.userId ?? null,
-        entity: entry.entity ?? null,
-        entityId: entry.entityId ?? null,
-        oldValue: (sanitizedOld as object | null) ?? undefined,
-        newValue: (sanitizedNew as object | null) ?? undefined,
-        ipAddress: entry.ipAddress ?? null,
-        userAgent: entry.userAgent ?? null,
-        category: entry.category ?? deriveCategory(entry.action),
-        severity,
-        result: entry.result ?? deriveResult(entry.action),
-        actorName: entry.actorName ?? null,
-        actorRole: entry.actorRole ?? null,
-        actorOrganization: entry.actorOrganization ?? null,
-        targetType: entry.targetType ?? entry.entity ?? null,
-        targetId: entry.targetId ?? entry.entityId ?? null,
-        targetName: entry.targetName ?? null,
-        correlationId: entry.correlationId ?? null,
-        metadata: (sanitizedMeta as object | null) ?? undefined,
-      },
-    });
+    await prisma.auditLog.create({ data });
 
     // Notify ROOT users on CRITICAL events
-    if (severity === "CRITICAL") {
+    if (data.severity === "CRITICAL") {
       void notifyRootOnCritical(entry).catch((err) => {
         console.error("[audit] failed to notify ROOT on critical event", err);
       });
@@ -97,6 +106,25 @@ export async function writeAudit(entry: AuditWrite): Promise<void> {
       err: err instanceof Error ? err.message : String(err),
     });
   }
+}
+
+/**
+ * Transaction-aware audit writer. The row is inserted through the caller's
+ * transaction client, so it commits with the business operation and rolls
+ * back with it — no orphaned SUCCESS event if the transaction aborts.
+ *
+ * Deliberately does NOT fire the CRITICAL ROOT notification: that side effect
+ * must only happen after a successful commit. Callers needing it for a
+ * CRITICAL event should notify after their transaction resolves.
+ *
+ * Unlike `writeAudit` (best-effort, swallows errors), this variant propagates
+ * a write failure so the enclosing transaction fails as a unit.
+ */
+export async function writeAuditInTransaction(
+  tx: Prisma.TransactionClient,
+  entry: AuditWrite,
+): Promise<void> {
+  await tx.auditLog.create({ data: buildAuditData(entry) });
 }
 
 async function notifyRootOnCritical(entry: AuditWrite): Promise<void> {
@@ -118,7 +146,7 @@ async function notifyRootOnCritical(entry: AuditWrite): Promise<void> {
       title,
       message,
       priority: "HIGH",
-      isRead: false,
+      readAt: null,
       entity: "audit_log",
       entityId: entry.userId ?? undefined,
     })),
@@ -190,12 +218,17 @@ function maskDetail(detail: AuditLogDetail): AuditLogDetail {
 // =============================================================================
 
 function deriveCategory(action: string): AuditCategory {
+  // Authorization denials are SECURITY events, not authentication events — the
+  // check must run before the generic `auth.` prefix so `auth.permission_denied`
+  // / `auth.access_denied` never land in the "Login Activity" preset.
+  if (action === AUDIT_ACTIONS.PERMISSION_DENIED
+    || action === AUDIT_ACTIONS.ACCESS_DENIED
+    || action.startsWith("auth.password")
+    || action.startsWith("auth.refresh.reuse"))
+    return "SECURITY";
   if (action.startsWith("auth.")) return "AUTHENTICATION";
   if (action.startsWith("aaccup") || action.startsWith("submission")) return "SUBMISSION";
   if (action.startsWith("request")) return "REQUEST";
-  if (action.startsWith("auth.password") || action.startsWith("auth.password_reset")
-    || action === AUDIT_ACTIONS.PERMISSION_DENIED || action.startsWith("auth.refresh.reuse"))
-    return "SECURITY";
   if (action.startsWith("user.role") || action.startsWith("role") || action === AUDIT_ACTIONS.PERMISSIONS_UPDATED)
     return "ACCESS_CONTROL";
   if (action.startsWith("document") || action.startsWith("folder") || action.startsWith("repository")
@@ -205,7 +238,10 @@ function deriveCategory(action: string): AuditCategory {
 }
 
 function deriveSeverity(action: string): AuditSeverity {
-  if (action === AUDIT_ACTIONS.LOGIN_FAILED
+  // Every terminal failure action is a warning, regardless of which module
+  // emitted it (document upload failed, email failed, maintenance failed, …).
+  if (isFailedAuditAction(action)
+    || action === AUDIT_ACTIONS.LOGIN_FAILED
     || action === AUDIT_ACTIONS.PERMISSION_DENIED
     || action === AUDIT_ACTIONS.PASSWORD_RESET_FAILED
     || action === AUDIT_ACTIONS.REFRESH_REUSE)
@@ -218,8 +254,11 @@ function deriveSeverity(action: string): AuditSeverity {
 }
 
 function deriveResult(action: string): AuditResult {
-  if (FAILED_AUDIT_ACTIONS.includes(action)) return "FAILED";
   if (action === AUDIT_ACTIONS.PERMISSION_DENIED || action === AUDIT_ACTIONS.ACCESS_DENIED) return "DENIED";
+  // `*.failed` / `*_failed` covers document.upload_failed, email.failed,
+  // auth.password_reset.failed, maintenance.*.failed; the explicit list covers
+  // the legacy non-failed-suffix names (e.g. auth.refresh.reuse_detected).
+  if (isFailedAuditAction(action) || FAILED_AUDIT_ACTIONS.includes(action)) return "FAILED";
   return "SUCCESS";
 }
 
@@ -241,11 +280,10 @@ function buildWhere(q: ListAuditQuery | ExportAuditQuery): Prisma.AuditLogWhereI
   if (q.from || q.to) where.createdAt = dateRange;
 
   if ("status" in q && q.status) {
-    actionConstraints.push(
-      q.status === "FAILED"
-        ? { in: [...FAILED_AUDIT_ACTIONS] }
-        : { notIn: [...FAILED_AUDIT_ACTIONS] },
-    );
+    // "Failed" must mean FAILED results only. Authorization denials are a
+    // distinct DENIED result and must not be conflated with login/operation
+    // failures in the status filter.
+    where.result = q.status;
   }
 
   if (q.module) {
@@ -267,7 +305,9 @@ function buildWhere(q: ListAuditQuery | ExportAuditQuery): Prisma.AuditLogWhereI
   const userFilter: Prisma.UserWhereInput = {};
   if (q.userId) userFilter.id = q.userId;
   if (q.roleId) userFilter.roleId = q.roleId;
-  if (q.departmentId) userFilter.departmentId = q.departmentId;
+  if (q.campusId) userFilter.campusId = q.campusId;
+  if (q.collegeId) userFilter.collegeId = q.collegeId;
+  if (q.programId) userFilter.programId = q.programId;
 
   if (q.q) {
     const t = q.q;
@@ -363,6 +403,25 @@ export async function exportAudit(
   const orderBy = buildOrderBy(q);
   const items = await repo.findManyForExport(where, orderBy, q.maxRows);
   return { items, format: q.format as "csv" | "json" | "pdf" };
+}
+
+/** Records that an operator exported (part of) the audit trail. */
+export async function logAuditExport(
+  userId: string,
+  format: string,
+  count: number,
+  ipAddress: string,
+  userAgent: string,
+): Promise<void> {
+  await writeAudit({
+    action: AUDIT_ACTIONS.AUDIT_LOG_EXPORTED as AuditAction,
+    userId,
+    ipAddress,
+    userAgent,
+    category: "SYSTEM",
+    severity: "INFO",
+    newValue: { format, count },
+  });
 }
 
 /**
@@ -704,12 +763,12 @@ export async function listMyActivity12m(
 export function scopeIpVisibility(
   items: AuditLogListItem[],
   viewerRole: string,
-  viewerDepartmentId: string | null,
+  viewerProgramId: string | null,
 ): AuditLogListItem[] {
   return items.map((item) => {
     if (viewerRole === "ROOT") return item;
     if (["ADMINISTRATOR", "QUALITY_ASSURANCE_OFFICER", "DEPARTMENT_COORDINATOR"].includes(viewerRole)) {
-      if (viewerDepartmentId && item.user.departmentId !== viewerDepartmentId) {
+      if (viewerProgramId && item.user.programId !== viewerProgramId) {
         return { ...item, ipAddress: null };
       }
       return item;
@@ -787,7 +846,7 @@ export async function getLoginGroups(q: LoginGroupsQuerySchema): Promise<LoginGr
     },
     include: {
       user: {
-        select: { id: true, firstName: true, lastName: true, email: true, departmentId: true, role: { select: { name: true } } },
+        select: { id: true, firstName: true, lastName: true, email: true, campusId: true, collegeId: true, programId: true, campus: { select: { name: true } }, college: { select: { name: true } }, program: { select: { name: true } }, role: { select: { name: true } } },
       },
     },
     orderBy: { createdAt: "desc" },

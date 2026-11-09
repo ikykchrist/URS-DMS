@@ -64,6 +64,7 @@ import {
 import DocumentRepository from "@/pages/DocumentRepository"
 import UserManagement from "@/pages/UserManagement"
 import AuditLogs from "@/pages/AuditLogs"
+import BugReports from "@/pages/BugReports"
 import Settings from "@/pages/Settings"
 import AACCUPGroupPage from "@/pages/AACCUPGroupPage"
 import RequestsReview from "@/pages/RequestsReview"
@@ -96,8 +97,6 @@ const RootUsers = lazy(() => import("@/pages/root/RootUsers"))
 const RootOrganization = lazy(() => import("@/pages/root/RootOrganization"))
 const RootFolderBuilder = lazy(() => import("@/pages/root/RootFolderBuilder"))
 const RootRequirementBuilder = lazy(() => import("@/pages/root/RootRequirementBuilder"))
-const RootWorkflowBuilder = lazy(() => import("@/pages/root/RootWorkflowBuilder"))
-const RootFormBuilder = lazy(() => import("@/pages/root/RootFormBuilder"))
 const RootSetupWizard = lazy(() => import("@/pages/root/RootSetupWizard"))
 import { UserSidebar } from "@/components/user/UserSidebar"
 import { UserTopNav } from "@/components/user/UserTopNav"
@@ -111,6 +110,7 @@ import UserNotifications from "@/pages/user/UserNotifications"
 import UserProfile from "@/pages/user/UserProfile"
 import UserSettings from "@/pages/user/UserSettings"
 import MyActivity from "@/pages/user/MyActivity"
+import UserBugReport from "@/pages/user/UserBugReport"
 
 function shortBucketLabel(label: string): string {
   const month = /^(\d{4})-(\d{2})$/.exec(label)
@@ -211,7 +211,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
     submissions: p.value,
   }))
 
-  const categoryChartData = (uploads?.perDepartment ?? []).map((b) => ({
+  const categoryChartData = (uploads?.perProgram ?? []).map((b) => ({
     category: b.label,
     count: b.value,
   }))
@@ -256,7 +256,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
         <PageHeader
           title="Dashboard"
           description="Welcome back! Here's an overview of your document management system."
@@ -268,7 +268,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
           }
         />
 
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 responsive-gap mb-6 lg:mb-8">
           <StatCard
             title="Total Folders"
             value={report ? String(report.documents.totalFolders) : "â€”"}
@@ -324,12 +324,11 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
           />
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 responsive-gap mb-6 lg:mb-8">
           {(
-            [
-              { key: "AACCUP", label: "AACCUP Compliance", bg: "bg-amber-50", text: "text-amber-600" },
-              { key: "ISO", label: "ISO Compliance", bg: "bg-primary-50", text: "text-primary-600" },
-              { key: "CERT", label: "Certification Compliance", bg: "bg-emerald-50", text: "text-emerald-600" },
+              [
+                { key: "AACCUP", label: "AACCUP Compliance", bg: "bg-amber-50", text: "text-amber-600" },
+               { key: "ISO", label: "ISO 21001:2025 Compliance", bg: "bg-primary-50", text: "text-primary-600" },
             ] as const
           ).map(({ key, label, bg, text }) => {
             const stats = report?.aaccup.byAreaSet[key]
@@ -337,9 +336,9 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
               <Card
                 key={key}
                 className="border-border/70 shadow-soft hover:shadow-lift transition-shadow cursor-pointer"
-                onClick={() => onNavigate(key === "AACCUP" ? "aaccup" : key === "ISO" ? "iso" : "certification")}
+                 onClick={() => onNavigate(key === "AACCUP" ? "aaccup" : "iso")}
               >
-                <CardContent className="p-4 md:p-5">
+                <CardContent className="p-5 md:p-6">
                   <div className="flex items-center justify-between">
                     <div className={`w-9 h-9 md:w-11 md:h-11 rounded-lg ${bg} flex items-center justify-center ${text}`}>
                       <Award className="w-5 h-5" />
@@ -367,7 +366,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
           })}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 mb-6 lg:mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 responsive-gap mb-6 lg:mb-8">
           <ChartCard
             title="Submission Trends"
             description="Monthly document submissions"
@@ -461,8 +460,8 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
           </ChartCard>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 mb-6 lg:mb-8">
-          <ChartCard title="Uploads by Department" description="Document uploads per department">
+        <div className="grid grid-cols-1 lg:grid-cols-2 responsive-gap mb-6 lg:mb-8">
+          <ChartCard title="Uploads by Program" description="Document uploads per program">
             <div className="h-[180px] sm:h-[200px] md:h-[220px]">
               {categoryChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -608,17 +607,17 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
                     <TableCell className="text-gray-500 text-[13px] whitespace-nowrap hidden sm:table-cell">{formatDate(submission.dateSubmitted)}</TableCell>
                     <TableCell className="whitespace-nowrap">{getStatusBadge(submission.status)}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-0.5">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900" onClick={() => onNavigate('requests')}>
-                          <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                      <div className="record-actions record-actions-table">
+                        <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-900" onClick={() => onNavigate('requests')}>
+                          <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span>View</span>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900" onClick={() => handleDownload(submission)}>
-                          <Download className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                        <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-900" onClick={() => handleDownload(submission)}>
+                          <Download className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span>Download</span>
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-gray-500 hover:text-gray-900">
-                              <MoreHorizontal className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                            <Button variant="outline" size="action" className="text-gray-600 hover:text-gray-900">
+                              <MoreHorizontal className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span>Actions</span>
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44">
@@ -649,7 +648,7 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
                 )}
               </TableBody>
             </Table>
-            <div className="mt-4 px-4 md:px-5 pb-4 md:pb-5 flex items-center justify-between gap-3">
+            <div className="table-footer">
               <p className="text-[12px] md:text-[13px] text-gray-500">
                 <span className="sm:hidden">{visibleRequests.length}/{recentRequests.length}</span>
                 <span className="hidden sm:inline">
@@ -666,6 +665,63 @@ export function LegacyDashboard({ onNavigate }: { onNavigate: (page: string) => 
         </Card>
     </div>
   )
+}
+
+const ADMIN_PAGE_TITLES: Record<string, string> = {
+  dashboard: "Dashboard",
+  documents: "My Documents",
+  submissions: "AACCUP | Submissions",
+  requests: "File Requests",
+  profile: "Account & Security",
+  users: "User Management",
+  audit: "Audit Logs",
+  "bug-reports": "Bug Reports",
+  settings: "Settings",
+  notifications: "Notifications",
+  aaccup: "AACCUP",
+  iso: "Accreditation | ISO 21001:2025",
+  root: "Platform Overview",
+  "root-organization": "Organization",
+  "root-folder-builder": "Folder Builder",
+  "root-requirement-builder": "Requirement Builder",
+  "root-setup-wizard": "Setup Wizard",
+  "root-config": "Configuration Engine",
+  "root-maintenance": "Storage Maintenance",
+  "root-roles-permissions": "Roles &amp; Permissions",
+  "root-audit": "System Audit",
+  "root-users": "System Users",
+}
+
+const USER_ROUTE_TO_PAGE: Record<string, string> = {
+  "/user": "dashboard",
+  "/user/dashboard": "dashboard",
+  "/user/documents": "documents",
+  "/user/requests": "requests",
+  "/user/requests/browse": "requests-browse",
+  "/user/aaccup": "aaccup",
+  "/user/iso": "iso",
+  "/user/submissions": "submissions",
+  "/user/tasks": "aaccup",
+  "/user/notifications": "notifications",
+  "/user/activity": "activity",
+  "/user/profile": "profile",
+  "/user/settings": "settings",
+  "/user/bug-report": "bug-report",
+}
+
+const USER_PAGE_TITLES: Record<string, string> = {
+  dashboard: "My Dashboard",
+  documents: "My Documents",
+  requests: "My Requests",
+  "requests-browse": "Browse Archive",
+  aaccup: "Accreditation",
+  iso: "ISO 21001:2025",
+  submissions: "My Submissions",
+  notifications: "Notifications",
+  activity: "My Activity",
+  profile: "My Profile",
+  settings: "Settings",
+  "bug-report": "Bug Report",
 }
 
 function AppContent() {
@@ -697,53 +753,30 @@ function AppContent() {
     const routeToPageMap: Record<string, string> = {
       "/": "dashboard", "/dashboard": "dashboard", "/documents": "documents", "/repository": "documents",
       "/submissions": "submissions", "/requests": "requests", "/profile": "profile", "/users": "users",
-      "/user-management": "users", "/audit": "audit", "/audit-logs": "audit", "/settings": "settings",
+      "/user-management": "users", "/audit": "audit", "/audit-logs": "audit", "/bug-reports": "bug-reports", "/settings": "settings",
       "/notifications": "notifications", "/aaccup": "aaccup", "/aaccup-management": "aaccup", "/iso": "iso",
-      "/certification": "certification", "/root": "root", "/root-organization": "root-organization",
+      "/root": "root", "/root-organization": "root-organization",
       "/root-folder-builder": "root-folder-builder", "/root-requirement-builder": "root-requirement-builder",
-      "/root-workflow-builder": "root-workflow-builder", "/root-form-builder": "root-form-builder",
+
       "/root-setup-wizard": "root-setup-wizard", "/root-config": "root-config",
       "/root-maintenance": "root-maintenance", "/root-roles-permissions": "root-roles-permissions", "/root-audit": "root-audit",
       "/root-users": "root-users",
     }
     const areaPage = location.pathname.match(/^\/(aaccup|iso)\/areas\/[^/]+$/)
-    const page = areaPage ? `${areaPage[1]}-area` : routeToPageMap[location.pathname]
+    let page = areaPage ? `${areaPage[1]}-area` : routeToPageMap[location.pathname]
     if (!page) return
-    setActivePage((prev) => prev !== page ? page : prev)
+    const tab = new URLSearchParams(location.search).get("tab")
+    if ((page === "aaccup" || page === "iso") && tab === "submissions") {
+      page = tab
+    }
+    setActivePage((prev) => (prev !== page ? page : prev))
     localStorage.setItem("activePage", page)
-  }, [location.pathname])
-
-  const pageTitles: Record<string, string> = {
-    dashboard: "Dashboard",
-    documents: "My Documents",
-    submissions: "AACCUP | Submissions",
-    requests: "File Requests",
-    profile: "Account & Security",
-    users: "User Management",
-    audit: "Audit Logs",
-    settings: "Settings",
-    notifications: "Notifications",
-    aaccup: "AACCUP",
-    iso: "AACCUP | ISO",
-    certification: "AACCUP | Certification",
-    root: "Platform Overview",
-    "root-organization": "Organization",
-    "root-folder-builder": "Folder Builder",
-    "root-requirement-builder": "Requirement Builder",
-    "root-workflow-builder": "Workflow Builder",
-    "root-form-builder": "Form Builder",
-    "root-setup-wizard": "Setup Wizard",
-    "root-config": "Configuration Engine",
-    "root-maintenance": "Storage Maintenance",
-    "root-roles-permissions": "Roles &amp; Permissions",
-    "root-audit": "System Audit",
-    "root-users": "System Users",
-  }
+  }, [location.pathname, location.search])
 
   useEffect(() => {
-    document.title = pageTitles[activePage]
-       ? `${pageTitles[activePage]} | URS-DMS`
-      : "URS-DMS"
+    document.title = ADMIN_PAGE_TITLES[activePage]
+       ? `${ADMIN_PAGE_TITLES[activePage]} | QA-DMS`
+      : "QA-DMS"
   }, [activePage])
 
   const handleNavigate = (page: string, query?: Record<string, string>) => {
@@ -755,18 +788,15 @@ function AppContent() {
       profile: "/profile",
       users: "/users",
       audit: "/audit",
+      "bug-reports": "/bug-reports",
       settings: "/settings",
       notifications: "/notifications",
       aaccup: "/aaccup",
       iso: "/iso",
-      certification: "/certification",
       root: "/root",
       "root-organization": "/root-organization",
       "root-folder-builder": "/root-folder-builder",
-      "root-requirement-builder": "/root-requirement-builder",
-      "root-workflow-builder": "/root-workflow-builder",
-      "root-form-builder": "/root-form-builder",
-      "root-setup-wizard": "/root-setup-wizard",
+      "root-requirement-builder": "/root-requirement-builder",      "root-setup-wizard": "/root-setup-wizard",
       "root-config": "/root-config",
       "root-maintenance": "/root-maintenance",
       "root-roles-permissions": "/root-roles-permissions",
@@ -774,7 +804,9 @@ function AppContent() {
       "root-users": "/root-users",
     }
     const route = pageToRouteMap[page] || "/dashboard"
-    const search = query ? new URLSearchParams(query).toString() : ""
+    const params = new URLSearchParams(query ?? {})
+    if (page === "submissions" && params.get("tab") === "submissions") params.delete("tab")
+    const search = params.toString()
     navigate(search ? `${route}?${search}` : route)
     setActivePage(page)
     localStorage.setItem("activePage", page)
@@ -804,6 +836,11 @@ function AppContent() {
     return null
   }
 
+  // Guard against a persisted ROOT-only page from a previous session being
+  // rendered for a non-ROOT administrator. Rendering it even for one frame
+  // fires /root/* requests that 403 and write PERMISSION_DENIED audit events.
+  const page = activePage.startsWith("root") && !isRootRole(user.role) ? "dashboard" : activePage
+
   // AppContent return â€” admin sees this
 
   return (
@@ -812,7 +849,7 @@ function AppContent() {
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={handleToggleSidebar}
-        activePage={activePage}
+        activePage={page}
         onNavigate={handleNavigate}
         showRoot={isRootRole(user.role)}
         className="hidden lg:flex"
@@ -836,37 +873,34 @@ function AppContent() {
               </div>
             }
           >
-          {activePage === "root" && <RootDashboard />}
-          {activePage === "root-organization" && <RootOrganization />}
-          {activePage === "root-folder-builder" && <RootFolderBuilder />}
-          {activePage === "root-requirement-builder" && <RootRequirementBuilder />}
-          {activePage === "root-workflow-builder" && <RootWorkflowBuilder />}
-          {activePage === "root-form-builder" && <RootFormBuilder />}
-          {activePage === "root-setup-wizard" && <RootSetupWizard />}
-          {activePage === "root-config" && <RootConfigurations />}
-          {activePage === "root-maintenance" && <RootMaintenance />}
-          {activePage === "root-roles-permissions" && <RootRolesPermissions />}
-          {activePage === "root-audit" && <RootAudit />}
-          {activePage === "root-users" && <RootUsers />}
-           {activePage === "dashboard" && <AdminDashboard onNavigate={handleNavigate} />}
-           {activePage === "aaccup-area" && <AdminAreaDetailPage areaSet="AACCUP" />}
-           {activePage === "iso-area" && <AdminAreaDetailPage areaSet="ISO" />}
-          {activePage === "documents" && <DocumentRepository />}
-          {activePage === "requests" && <RequestsReview />}
-          {activePage === "profile" && <AccountSecurity />}
-          {activePage === "users" && <UserManagement />}
-          {activePage === "audit" && <AuditLogs />}
-           {activePage === "settings" && <Settings />}
-           {activePage === "notifications" && <UserNotifications />}
-          {activePage === "aaccup" && <AACCUPGroupPage initialTab="AACCUP" />}
-          {activePage === "iso" && <AACCUPGroupPage initialTab="ISO" />}
-          {activePage === "certification" && <AACCUPGroupPage initialTab="CERT" />}
-          {activePage === "submissions" && <AACCUPGroupPage initialTab="submissions" />}
+          {page === "root" && <RootDashboard />}
+          {page === "root-organization" && <RootOrganization />}
+          {page === "root-folder-builder" && <RootFolderBuilder />}
+          {page === "root-requirement-builder" && <RootRequirementBuilder />}          {page === "root-setup-wizard" && <RootSetupWizard />}
+          {page === "root-config" && <RootConfigurations />}
+          {page === "root-maintenance" && <RootMaintenance />}
+          {page === "root-roles-permissions" && <RootRolesPermissions />}
+          {page === "root-audit" && <RootAudit />}
+          {page === "root-users" && <RootUsers />}
+           {page === "dashboard" && <AdminDashboard onNavigate={handleNavigate} />}
+           {page === "aaccup-area" && <AdminAreaDetailPage areaSet="AACCUP" />}
+           {page === "iso-area" && <AdminAreaDetailPage areaSet="ISO" />}
+          {page === "documents" && <DocumentRepository />}
+          {page === "requests" && <RequestsReview />}
+          {page === "profile" && <AccountSecurity />}
+          {page === "users" && <UserManagement />}
+          {page === "audit" && <AuditLogs />}
+          {page === "bug-reports" && <BugReports />}
+           {page === "settings" && <Settings />}
+           {page === "notifications" && <UserNotifications />}
+          {page === "aaccup" && <AACCUPGroupPage initialTab="AACCUP" />}
+          {page === "iso" && <AACCUPGroupPage initialTab="ISO" />}
+          {page === "submissions" && <AACCUPGroupPage initialTab="submissions" />}
           </Suspense>
         </main>
       </div>
     </div>
-    <MobileBottomBar activePage={activePage} onNavigate={handleNavigate} showRoot={isRootRole(user.role)} />
+    <MobileBottomBar activePage={page} onNavigate={handleNavigate} showRoot={isRootRole(user.role)} />
     <NavigationAssistant />
     </>
   )
@@ -881,7 +915,15 @@ function UserAppContent() {
     return saved ? JSON.parse(saved) : false
   })
   const [activePage, setActivePage] = useState("dashboard")
-  const [showBrowseArchive, setShowBrowseArchive] = useState(false)
+  const [compactMode, setCompactMode] = useState(() => localStorage.getItem("userCompactMode") === "true")
+  useEffect(() => {
+    const syncDisplay = () => {
+      setSidebarCollapsed(localStorage.getItem("userSidebarCollapsed") === "true")
+      setCompactMode(localStorage.getItem("userCompactMode") === "true")
+    }
+    window.addEventListener("urs:display-preferences", syncDisplay)
+    return () => window.removeEventListener("urs:display-preferences", syncDisplay)
+  }, [])
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [attention, setAttention] = useState<UserAttention>({
@@ -894,7 +936,7 @@ function UserAppContent() {
   useEffect(() => {
     if (!user) return
     const unsub = notificationService.subscribeUnread(setUnreadCount)
-    const unsubAttn = subscribeUserAttention(setAttention)
+    const unsubAttn = subscribeUserAttention(setAttention, user.id)
     return () => { unsub(); unsubAttn() }
   }, [user])
 
@@ -909,27 +951,15 @@ function UserAppContent() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [])
 
-  const userRouteToPageMap: Record<string, string> = {
-    "/user": "dashboard",
-    "/user/dashboard": "dashboard",
-    "/user/documents": "documents",
-    "/user/requests": "requests",
-    "/user/aaccup": "aaccup",
-    "/user/iso": "iso",
-    "/user/certification": "certification",
-    "/user/submissions": "submissions",
-    "/user/tasks": "tasks",
-    "/user/notifications": "notifications",
-    "/user/activity": "activity",
-    "/user/profile": "profile",
-    "/user/settings": "settings",
-  }
-
   useEffect(() => {
-    const page = userRouteToPageMap[location.pathname]
+    const page = USER_ROUTE_TO_PAGE[location.pathname]
     if (!page) return
     const tab = new URLSearchParams(location.search).get("tab")
-    setActivePage(page === "aaccup" && (tab === "tasks" || tab === "submissions") ? tab : page)
+    const resolved =
+      (page === "aaccup" || page === "iso") && tab === "submissions"
+        ? tab
+        : page
+    setActivePage(resolved)
   }, [location.pathname, location.search])
 
   const handleNavigate = (page: string, query?: Record<string, string>) => {
@@ -937,49 +967,37 @@ function UserAppContent() {
       dashboard: "/user/dashboard",
       documents: "/user/documents",
       requests: "/user/requests",
+      "requests-browse": "/user/requests/browse",
       aaccup: "/user/aaccup",
       iso: "/user/iso",
-      certification: "/user/certification",
-      submissions: "/user/aaccup?tab=submissions",
-      tasks: "/user/aaccup?tab=tasks",
+      submissions: "/user/aaccup",
       notifications: "/user/notifications",
       activity: "/user/activity",
       profile: "/user/profile",
       settings: "/user/settings",
+      "bug-report": "/user/bug-report",
     }
     const route = pageToRouteMap[page] || "/user/dashboard"
-    const search = query ? new URLSearchParams(query).toString() : ""
+    const params = new URLSearchParams(query ?? {})
+    if (page === "submissions" && !params.has("tab")) params.set("tab", "submissions")
+    if ((page === "aaccup" || page === "iso") && params.get("tab") === "submissions" && !params.has("areaSet")) {
+      params.set("areaSet", page === "iso" ? "ISO" : "AACCUP")
+    }
+    const search = params.toString()
     navigate(search ? `${route}?${search}` : route)
     setActivePage(page)
-    setShowBrowseArchive(false)
-  }
-
-  const userPageTitles: Record<string, string> = {
-    dashboard: "My Dashboard",
-    documents: "My Documents",
-    requests: "My Requests",
-    aaccup: "AACCUP",
-    notifications: "Notifications",
-    activity: "My Activity",
-    profile: "My Profile",
-    settings: "Settings",
   }
 
   useEffect(() => {
-    document.title = userPageTitles[activePage]
-       ? `${userPageTitles[activePage]} | URS-DMS`
-      : "URS-DMS"
+    document.title = USER_PAGE_TITLES[activePage]
+       ? `${USER_PAGE_TITLES[activePage]} | QA-DMS`
+      : "QA-DMS"
   }, [activePage])
 
   const handleToggleSidebar = () => {
     const newValue = !sidebarCollapsed
     setSidebarCollapsed(newValue)
     localStorage.setItem("userSidebarCollapsed", JSON.stringify(newValue))
-  }
-
-  const handleBrowseArchive = () => {
-    setShowBrowseArchive(true)
-    setActivePage("requests")
   }
 
   const handleLogout = async () => {
@@ -1017,7 +1035,7 @@ function UserAppContent() {
         onNavigate={handleNavigate}
         onLogout={handleLogout}
         unreadNotifications={unreadCount}
-        attention={{ returned: attention.returnedSubmissions, tasks: attention.dueSoonTasks + attention.overdueTasks, requests: attention.pendingRequests + attention.fulfilledRequests, documents: attention.fulfilledRequests }}
+        attention={{ returned: attention.returnedSubmissions, requests: attention.pendingRequests + attention.fulfilledRequests, documents: attention.fulfilledRequests }}
         className="hidden lg:flex"
       />
 
@@ -1031,31 +1049,28 @@ function UserAppContent() {
           open={isCommandPaletteOpen}
           onOpenChange={setIsCommandPaletteOpen}
           onNavigate={handleNavigate}
+          isUser
         />
-        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
+        <main className={cn("flex-1 overflow-y-auto pb-16 lg:pb-0", compactMode && "user-compact-mode")}>
           {activePage === "dashboard" && <UserDashboard onNavigate={handleNavigate} />}
           {activePage === "documents" && <UserDocuments />}
-          {activePage === "requests" && !showBrowseArchive && (
-            <UserRequests onBrowseArchive={handleBrowseArchive} />
+          {activePage === "requests" && (
+            <UserRequests onBrowseArchive={() => handleNavigate("requests-browse")} />
           )}
-          {activePage === "requests" && showBrowseArchive && (
+          {activePage === "requests-browse" && (
             <UserBrowseArchive
-              onBack={() => setShowBrowseArchive(false)}
+              onBack={() => handleNavigate("requests")}
               onSuccess={() => handleNavigate("requests")}
             />
           )}
-           {(activePage === "aaccup" || activePage === "iso" || activePage === "certification" || activePage === "submissions" || activePage === "tasks") && (
+            {(activePage === "aaccup" || activePage === "iso" || activePage === "submissions") && (
                <UserAACCUPGroup
                key={`${location.pathname}${location.search}`}
                initialTab={
-                 activePage === "iso"
-                   ? "ISO"
-                   : activePage === "certification"
-                   ? "CERT"
+                  activePage === "iso"
+                    ? "ISO"
                    : activePage === "submissions"
                    ? "submissions"
-                   : activePage === "tasks"
-                   ? "tasks"
                    : "AACCUP"
                }
             />
@@ -1064,10 +1079,11 @@ function UserAppContent() {
           {activePage === "activity" && <MyActivity />}
           {activePage === "profile" && <UserProfile />}
           {activePage === "settings" && <UserSettings />}
+          {activePage === "bug-report" && <UserBugReport />}
         </main>
       </div>
     </div>
-     <MobileBottomBar isUser activePage={activePage} onNavigate={handleNavigate} badges={{ documents: attention.fulfilledRequests, aaccup: attention.returnedSubmissions + attention.dueSoonTasks + attention.overdueTasks, requests: attention.pendingRequests + attention.fulfilledRequests, notifications: unreadCount }} />
+     <MobileBottomBar isUser activePage={activePage} onNavigate={handleNavigate} badges={{ documents: attention.fulfilledRequests, aaccup: attention.returnedSubmissions, requests: attention.pendingRequests + attention.fulfilledRequests, notifications: unreadCount }} />
      <NavigationAssistant />
     </>
   )
@@ -1144,6 +1160,10 @@ function AppRoutes() {
         element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
+        path="/bug-reports"
+        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+      />
+      <Route
         path="/settings"
         element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
@@ -1172,10 +1192,6 @@ function AppRoutes() {
         element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
       <Route
-        path="/certification"
-        element={authStatus === "AUTHENTICATED" && isAdminRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
-      />
-      <Route
         path="/root"
         element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
       />
@@ -1193,11 +1209,11 @@ function AppRoutes() {
       />
       <Route
         path="/root-workflow-builder"
-        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={<Navigate to="/root" replace />}
       />
       <Route
         path="/root-form-builder"
-        element={authStatus === "AUTHENTICATED" && isRootRole(user?.role) ? <AppContent /> : <Navigate to="/" replace />}
+        element={<Navigate to="/root" replace />}
       />
       <Route
         path="/root-setup-wizard"

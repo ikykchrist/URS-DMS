@@ -67,9 +67,9 @@ export function PreviewInfoPanel({ file, activities, versions }: PreviewInfoPane
             <div>
               <label className="text-[10px] font-medium text-gray-400 uppercase tracking-wide flex items-center gap-1 mb-1">
                 <Building2 className="w-3 h-3" />
-                Dept
+                Program
               </label>
-              <p className="text-[12px] text-gray-700 truncate">{file.department}</p>
+              <p className="text-[12px] text-gray-700 truncate">{file.program}</p>
             </div>
           </div>
 

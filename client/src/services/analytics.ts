@@ -20,19 +20,23 @@ export interface CategoryBucket {
 
 export interface UploadsAnalytics {
   overTime: TimeSeriesPoint[]
-  perDepartment: CategoryBucket[]
+  perProgram: CategoryBucket[]
 }
 
 export function getUploadsAnalytics(opts?: {
   granularity?: AnalyticsGranularity
   from?: string
   to?: string
-  departmentId?: string
+  campusId?: string
+  collegeId?: string
+  programId?: string
 }): Promise<UploadsAnalytics> {
   const params = new URLSearchParams()
   params.set("granularity", opts?.granularity ?? "monthly")
   if (opts?.from) params.set("from", opts.from)
   if (opts?.to) params.set("to", opts.to)
-  if (opts?.departmentId) params.set("departmentId", opts.departmentId)
+  if (opts?.campusId) params.set("campusId", opts.campusId)
+  if (opts?.collegeId) params.set("collegeId", opts.collegeId)
+  if (opts?.programId) params.set("programId", opts.programId)
   return apiGet<UploadsAnalytics>(`/analytics/uploads?${params.toString()}`)
 }

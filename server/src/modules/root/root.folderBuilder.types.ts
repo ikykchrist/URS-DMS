@@ -69,7 +69,7 @@ export interface FolderAssignmentView {
   id: string;
   templateId: string;
   templateName: string;
-  targetType: "UNIVERSITY" | "COLLEGE" | "DEPARTMENT" | "PROGRAM" | "OFFICE" | "AACCUP_AREA";
+  targetType: "UNIVERSITY" | "CAMPUS" | "COLLEGE" | "PROGRAM" | "OFFICE" | "AACCUP_AREA";
   targetId: string | null;
   targetName: string | null;
   createdAt: Date;

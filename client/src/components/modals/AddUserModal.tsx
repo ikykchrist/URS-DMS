@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState, useEffect } from "react"
 import { UserPlus } from "lucide-react"
 import {
@@ -19,19 +20,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/Select"
-import { createSystemUser, listSystemRoles, listSystemDepartments, listSystemColleges, type SystemRole, type SystemDepartment } from "@/services/admin"
-
-const CATEGORIZED_COLLEGES = [
-  "College of Science",
-  "College of Engineering",
-  "College of Industrial Technology",
-  "College of Education",
-]
+import { createSystemUser, listSystemRoles, type SystemRole } from "@/services/admin"
+import { getOrganizationTree, type OrgTreeNode } from "@/services/root"
 
 interface AddUserModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess?: (userData: { name: string; email: string; role: string; department: string }) => void
+  onSuccess?: (userData: { name: string; email: string; role: string; program: string }) => void
 }
 
 export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProps) {
@@ -40,10 +35,12 @@ export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProp
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [department, setDepartment] = useState("")
+  const [campus, setCampus] = useState("")
+  const [college, setCollege] = useState("")
+  const [program, setProgram] = useState("")
   const [role, setRole] = useState("")
   const [roles, setRoles] = useState<SystemRole[]>([])
-  const [departments, setDepartments] = useState<SystemDepartment[]>([])
+  const [campuses, setCampuses] = useState<OrgTreeNode[]>([])
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -52,22 +49,14 @@ export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProp
     listSystemRoles({ pageSize: 100 })
       .then((page) => {
         setRoles(page.items)
-        if (page.items.length > 0 && !role) setRole(page.items[0].id)
+        if (page.items.length > 0) {
+          setRole((current) => current || page.items[0]!.id)
+        }
       })
       .catch(() => setRoles([]))
-    Promise.all([
-      listSystemDepartments({ pageSize: 100 }).then((page) => page.items),
-      listSystemColleges({ pageSize: 100 }).then((page) => page.items),
-    ])
-      .then(([depts, colleges]) => {
-        const categorized = new Set(
-          colleges
-            .filter((c) => CATEGORIZED_COLLEGES.includes(c.name))
-            .map((c) => c.id),
-        )
-        setDepartments(depts.filter((d) => d.collegeId && categorized.has(d.collegeId)))
-      })
-      .catch(() => setDepartments([]))
+    getOrganizationTree()
+      .then((tree) => setCampuses(tree.campuses))
+      .catch(() => setCampuses([]))
   }, [open])
 
   const handleSubmit = async () => {
@@ -77,7 +66,9 @@ export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProp
     if (!password) { setError("Password is required"); return }
     if (password.length < 8) { setError("Password must be at least 8 characters"); return }
     if (password !== confirmPassword) { setError("Passwords do not match"); return }
-    if (!department) { setError("Department is required"); return }
+    if (!campus) { setError("Campus is required"); return }
+    if (!college) { setError("College is required"); return }
+    if (!program) { setError("Program is required"); return }
     if (!role) { setError("Role is required"); return }
     setSaving(true)
     try {
@@ -94,20 +85,27 @@ export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProp
         firstName,
         lastName,
         roleId: role,
-        departmentId: department,
+        campusId: campus,
+        collegeId: college,
+        programId: program,
         mustChangePassword: false,
       })
       const roleName = roles.find((r) => r.id === role)?.name ?? role
-      const deptName = departments.find((d) => d.id === department)?.name ?? department
-      onSuccess?.({ name: fullName, email, role: roleName, department: deptName })
+      const programName = programs.find((p) => p.id === program)?.name ?? program
+      onSuccess?.({ name: fullName, email, role: roleName, program: programName })
       onOpenChange(false)
-      setFullName(""); setEmail(""); setPassword(""); setConfirmPassword(""); setDepartment(""); setRole(roles[0]?.id ?? ""); setIsActive(true)
+      setFullName(""); setEmail(""); setPassword(""); setConfirmPassword(""); setCampus(""); setCollege(""); setProgram(""); setRole(roles[0]?.id ?? ""); setIsActive(true)
+      toast.success("User created")
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to create user")
     } finally {
       setSaving(false)
     }
   }
+
+  const selectedCampus = campuses.find((item) => item.id === campus)
+  const colleges = selectedCampus?.colleges ?? []
+  const programs = colleges.find((item) => item.id === college)?.programs ?? []
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -188,19 +186,37 @@ export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProp
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label className="text-[13px] font-medium text-gray-700">
-                College / Department <span className="text-red-500">*</span>
+                Campus <span className="text-red-500">*</span>
               </Label>
-              <Select value={department} onValueChange={setDepartment}>
+              <Select value={campus} onValueChange={(value) => { setCampus(value); setCollege(""); setProgram("") }}>
                 <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Select college" />
+                  <SelectValue placeholder="Select campus" />
                 </SelectTrigger>
                 <SelectContent>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
+                  {campuses.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label className="text-[13px] font-medium text-gray-700">
+                College <span className="text-red-500">*</span>
+              </Label>
+              <Select value={college} onValueChange={(value) => { setCollege(value); setProgram("") }} disabled={!campus}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Select college" /></SelectTrigger>
+                <SelectContent>{colleges.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label className="text-[13px] font-medium text-gray-700">
+                Program <span className="text-red-500">*</span>
+              </Label>
+              <Select value={program} onValueChange={setProgram} disabled={!college}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Select program" /></SelectTrigger>
+                <SelectContent>{programs.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">

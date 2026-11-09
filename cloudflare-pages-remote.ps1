@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $root = 'C:\Dev\URS-DMS'
 $healthLocal = 'http://127.0.0.1:4000/api/v1/health'
-$pagesUrl = 'https://urs-dms.pages.dev'
+$pagesUrl = 'https://urs-dms.online'
 $envRemote = "$root\.env.remote"
 
 Write-Host '============================================================'
@@ -24,7 +24,7 @@ if (-not (Test-Path $envRemote)) {
     # Keep provider settings current when .env.remote predates a new provider integration.
     $sourceContent = [IO.File]::ReadAllText("$root\.env")
     $remoteContent = [IO.File]::ReadAllText($envRemote)
-    foreach ($key in @('DEEPSEEK_API_KEY', 'DEEPSEEK_MODEL')) {
+    foreach ($key in @('ASSISTANT_API_KEY', 'ASSISTANT_API_URL', 'ASSISTANT_MODEL')) {
         $match = [regex]::Match($sourceContent, "(?m)^$key=.*$")
         if (-not $match.Success -or $match.Value -match "=$") { continue }
         if ($remoteContent -match "(?m)^$key=.*$") {
@@ -66,17 +66,15 @@ Write-Host '  PostgreSQL, Redis, MinIO, Express: OK'
 
 # 4. Expose ONLY Express through one Cloudflare quick tunnel.
 Write-Host '[3/6] Cloudflare backend tunnel'
-Get-Process ngrok -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Get-Process cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
 $cloudflared = (Get-Command cloudflared -ErrorAction SilentlyContinue).Source
 if (-not $cloudflared) { $cloudflared = 'C:\Program Files (x86)\cloudflared\cloudflared.exe' }
 if (-not (Test-Path $cloudflared)) { throw 'cloudflared is not installed.' }
 
-$outLog = "$root\logs\cloudflared-backend.log"
-$errLog = "$root\logs\cloudflared-backend.err.log"
-Set-Content -LiteralPath $outLog -Value ''
-Set-Content -LiteralPath $errLog -Value ''
+$logStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$outLog = "$root\logs\cloudflared-backend-$logStamp.log"
+$errLog = "$root\logs\cloudflared-backend-$logStamp.err.log"
 Start-Process -FilePath $cloudflared `
     -ArgumentList 'tunnel', '--url', 'http://127.0.0.1:4000', '--no-autoupdate' `
     -RedirectStandardOutput $outLog `

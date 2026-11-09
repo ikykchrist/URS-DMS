@@ -1,6 +1,7 @@
+import { actorAreaScope } from "@/modules/aaccup/aaccup.scope";
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS } from "@/config/constants";
-import { writeAudit } from "@/modules/audit/audit.service";
+import { writeAudit, writeAuditInTransaction } from "@/modules/audit/audit.service";
 import { notifyUser, notifyUsers } from "@/modules/notifications/notifications.service";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "@/utils/errors";
 import { streamZipArchive } from "@/lib/zipStream";
@@ -18,13 +19,15 @@ import type {
   AaccupSubmissionDetail,
   AaccupSubmissionListItem,
 } from "@/modules/aaccup/submissions/aaccup.submissions.types";
-import { assertRequirementUploadValid } from "@/modules/requirements/requirement.runtime";
+import { assertRequirementUploadValid, resolveRequirementAssignmentForArea } from "@/modules/requirements/requirement.runtime";
 import {
   bindWorkflowInstance,
   evaluateWorkflowAction,
   recordWorkflowAction,
   scopesForAaccupSubmission,
+  withdrawEntityWorkflow,
 } from "@/modules/workflow/workflow.engine";
+import { syncTaskProgressForRequirement } from "@/modules/aaccup/tasks/aaccup.tasks.service";
 
 // Sprint 7.4.5 — review decision → workflow action adapter (glue convention,
 // not workflow data: the action names themselves are authored by ROOT).
@@ -110,12 +113,14 @@ const SORT_FIELDS = new Set(["submittedAt", "createdAt", "updatedAt", "status"])
 // -----------------------------------------------------------------------------
 
 // Requirement must exist and not be archived. Returns the joined area
-// department so the document-belonging check can run afterwards.
+// program so the document-belonging check can run afterwards.
 interface RequirementContext {
   id: string;
-  areaDepartmentId: string;
+  areaProgramId: string | null;
+  areaCampusId: string | null;
+  areaCollegeId: string | null;
   dynamic: boolean;
-  area: { id: string; name: string; areaSet: string; departmentId: string };
+  area: { id: string; name: string; areaSet: string; programId: string | null };
 }
 
 async function assertRequirementUsable(requirementId: string): Promise<RequirementContext> {
@@ -125,8 +130,9 @@ async function assertRequirementUsable(requirementId: string): Promise<Requireme
       id: true,
       status: true,
       sourceNodeId: true,
+        sourceAssignmentId: true,
       area: {
-        select: { id: true, name: true, areaSet: true, deletedAt: true, departmentId: true, status: true },
+        select: { id: true, name: true, areaSet: true, deletedAt: true, programId: true, campusId: true, collegeId: true, status: true },
       },
     },
   });
@@ -142,25 +148,33 @@ async function assertRequirementUsable(requirementId: string): Promise<Requireme
   if (requirement.area.status !== "ACTIVE") {
     throw new BadRequestError("Parent AACCUP area is inactive");
   }
-  return {
+    if (requirement.sourceNodeId) {
+      const assignment = await resolveRequirementAssignmentForArea(requirement.area.id);
+      if (!assignment || assignment.id !== requirement.sourceAssignmentId) throw new BadRequestError("Requirement template is not attached to this area");
+    }
+    return {
     id: requirement.id,
-    areaDepartmentId: requirement.area.departmentId,
+    areaProgramId: requirement.area.programId,
+    areaCampusId: requirement.area.campusId,
+    areaCollegeId: requirement.area.collegeId,
     dynamic: requirement.sourceNodeId !== null,
     area: {
       id: requirement.area.id,
       name: requirement.area.name,
       areaSet: requirement.area.areaSet,
-      departmentId: requirement.area.departmentId,
+      programId: requirement.area.programId,
     },
   };
 }
 
-// Document must exist and not be soft-deleted. Returns its department + owner
+// Document must exist and not be soft-deleted. Returns its program + owner
 // for ownership scoping and the belonging check.
 interface DocumentContext {
   id: string;
   ownerId: string;
-  departmentId: string | null;
+  campusId: string | null;
+  collegeId: string | null;
+  programId: string | null;
   metadata: Prisma.JsonValue;
   currentVersion: {
     filename: string;
@@ -176,7 +190,9 @@ async function assertDocumentUsable(documentId: string, actor: Actor): Promise<D
     select: {
       id: true,
       ownerId: true,
-      departmentId: true,
+      campusId: true,
+      collegeId: true,
+      programId: true,
       deletedAt: true,
       status: true,
       metadata: true,
@@ -189,18 +205,19 @@ async function assertDocumentUsable(documentId: string, actor: Actor): Promise<D
   if (document.deletedAt) {
     throw new BadRequestError("Document is archived and cannot be submitted");
   }
-  // Submitters must own the document OR hold documents.update (manager
-  // delegation). We never re-assert documents.read here — that is enforced
-  // upstream when they fetched the document. We only block obvious abuse.
+  // Only the document owner or an AACCUP manager may attach a document to a
+  // submission. The previous `documents.update` fallback let any role holding
+  // that code (FACULTY/STAFF/DEPT_COORD/QAO) commandeer another user's
+  // document and have it silently moved into the AACCUP archive folder.
   if (document.ownerId !== actor.id && !isManager(actor)) {
-    if (!actor.permissions.includes("documents.update")) {
-      throw new ForbiddenError("You can only submit documents you own");
-    }
+    throw new ForbiddenError("You can only submit documents you own");
   }
   return {
     id: document.id,
     ownerId: document.ownerId,
-    departmentId: document.departmentId,
+    campusId: document.campusId,
+    collegeId: document.collegeId,
+    programId: document.programId,
     metadata: document.metadata,
     currentVersion: document.currentVersion,
   };
@@ -238,15 +255,18 @@ async function assertDynamicRules(
   });
 }
 
-// If the document has a department, it must match the requirement's area
-// department. Documents without a department are allowed (the sprint spec
+// If the document has a program, it must match the requirement's area
+// program. Documents without a program are allowed (the sprint spec
 // qualifies this check with "if applicable").
-function assertDocumentBelongsToAreaDepartment(
+function assertDocumentBelongsToAreaProgram(
   doc: DocumentContext,
   requirement: RequirementContext,
 ): void {
-  if (doc.departmentId && doc.departmentId !== requirement.areaDepartmentId) {
-    throw new BadRequestError("Document does not belong to the requirement's area department");
+  if (!requirement.areaProgramId && ((doc.campusId && doc.campusId !== requirement.areaCampusId) || (doc.collegeId && doc.collegeId !== requirement.areaCollegeId))) {
+    throw new BadRequestError("Document does not belong to the requirement's college");
+  }
+  if (requirement.areaProgramId && doc.programId && doc.programId !== requirement.areaProgramId) {
+    throw new BadRequestError("Document does not belong to the requirement's area program");
   }
 }
 
@@ -259,10 +279,16 @@ async function assertTaskUsable(
   areaId: string,
 ): Promise<void> {
   if (!taskId) return;
-  const task = await prisma.aaccupTask.findFirst({
+  const [task, requirement] = await Promise.all([
+    prisma.aaccupTask.findFirst({
     where: { id: taskId, deletedAt: null },
-    select: { areaId: true, status: true, requirementId: true },
-  });
+      select: { areaId: true, status: true, requirementId: true, requirementTemplateId: true, sourceAssignmentId: true },
+    }),
+    prisma.aaccupRequirement.findFirst({
+      where: { id: requirementId, deletedAt: null },
+      select: { sourceAssignmentId: true, sourceNode: { select: { templateId: true } } },
+    }),
+  ]);
   if (!task) throw new BadRequestError("Referenced AACCUP task not found");
   if (task.areaId !== areaId) {
     throw new BadRequestError("Task does not belong to the submission's area");
@@ -272,6 +298,14 @@ async function assertTaskUsable(
   }
   if (task.requirementId && task.requirementId !== requirementId) {
     throw new BadRequestError("Submission requirement does not match the task's requirement");
+  }
+  if (task.requirementTemplateId && (
+    !requirement ||
+    (task.sourceAssignmentId
+      ? requirement.sourceAssignmentId !== task.sourceAssignmentId
+      : requirement.sourceNode?.templateId !== task.requirementTemplateId)
+  )) {
+    throw new BadRequestError("Submission requirement does not belong to the task's requirement template");
   }
 }
 
@@ -445,26 +479,26 @@ export async function exportApprovedSubmissionsZip(
 // folder (AACCUP / ISO / CERT) with a per-area subfolder named after the area:
 //   <areaSet>/<area name>/<document>
 // Folders are created lazily on first submission, scoped to the area's
-// department so they surface in that department's File Archive.
+// program so they surface in that program's File Archive.
 // -----------------------------------------------------------------------------
 
 async function ensureAreaArchiveFolder(
   tx: Prisma.TransactionClient,
-  area: { id: string; name: string; areaSet: string; departmentId: string },
+  area: { id: string; name: string; areaSet: string; programId: string | null },
 ) {
   const setFolder =
     (await tx.folder.findFirst({
       where: { parentId: null, name: area.areaSet, deletedAt: null },
     })) ??
     (await tx.folder.create({
-      data: { name: area.areaSet, departmentId: area.departmentId },
+      data: { name: area.areaSet, programId: area.programId },
     }));
   const areaFolder =
     (await tx.folder.findFirst({
       where: { parentId: setFolder.id, name: area.name, deletedAt: null },
     })) ??
     (await tx.folder.create({
-      data: { name: area.name, parentId: setFolder.id, departmentId: area.departmentId },
+      data: { name: area.name, parentId: setFolder.id, programId: area.programId },
     }));
   return areaFolder;
 }
@@ -482,7 +516,10 @@ export async function createSubmission(
     assertRequirementUsable(input.requirementId),
     assertDocumentUsable(input.documentId, actor),
   ]);
-  assertDocumentBelongsToAreaDepartment(document, requirement);
+  if (!isManager(actor) && !await prisma.aaccupArea.findFirst({
+    where: { id: requirement.area.id, deletedAt: null, AND: [await actorAreaScope(actor.id)] }, select: { id: true },
+  })) throw new ForbiddenError("Accreditation area is outside your campus, college or program scope");
+  assertDocumentBelongsToAreaProgram(document, requirement);
   await assertDynamicRules(requirement, document);
   await assertTaskUsable(input.taskId, input.requirementId, requirement.area.id);
 
@@ -557,6 +594,9 @@ export async function createSubmission(
   // Rule 19: alert every reviewer (aaccup.submission.review / aaccup.manage)
   // that a new submission awaits their action (best-effort, once).
   await safeNotifyReviewers(detail);
+  if (detail.taskId) {
+    await syncTaskProgressForRequirement(detail.requirementId, "SUBMITTED", actor.id);
+  }
 
   return detail;
 }
@@ -654,6 +694,12 @@ export async function reviewSubmission(
   // PENDING or NEEDS_REVISION may proceed.
 
   const reviewed = await prisma.$transaction(async (tx) => {
+    // Serialize review against an owner withdrawal or another review.
+    const claim = await tx.aaccupSubmission.updateMany({
+      where: { id, deletedAt: null, status: { in: ["PENDING", "NEEDS_REVISION"] } },
+      data: { updatedAt: new Date() },
+    });
+    if (!claim.count) throw new ConflictError("Submission has changed or was unsubmitted. Refresh the review queue.");
     // Sprint 7.4.5 — workflow gate: if a published workflow controls this
     // submission, the review decision must be an allowed action from the
     // current step (legacy fallback when no instance is bound). The
@@ -716,6 +762,9 @@ export async function reviewSubmission(
 
   // Rule 19: notify the submitter of the review outcome (best-effort, once).
   await safeNotifySubmitter(existing.submittedById, input.decision, id);
+  if (existing.taskId) {
+    await syncTaskProgressForRequirement(existing.requirementId, input.decision, actor.id);
+  }
 
   return detail;
 }
@@ -760,6 +809,50 @@ async function safeNotifySubmitter(
 // -----------------------------------------------------------------------------
 // archiveSubmission (soft delete)
 // -----------------------------------------------------------------------------
+export async function unsubmitSubmission(id: string, actor: Actor): Promise<{ id: string; unsubmitted: true }> {
+  assertCanCreate(actor);
+  const existing = await repo.findById(id);
+  if (!existing) throw new NotFoundError("AACCUP submission not found");
+  if (existing.submittedById !== actor.id) throw new ForbiddenError("You can only unsubmit your own evidence");
+  if (existing.status !== "PENDING" && existing.status !== "NEEDS_REVISION") {
+    throw new ConflictError("Only pending or returned submissions can be unsubmitted. Approved evidence is locked.");
+  }
+  await prisma.$transaction(async (tx) => {
+    const claim = await tx.aaccupSubmission.updateMany({
+      where: { id, submittedBy: actor.id, deletedAt: null, status: { in: ["PENDING", "NEEDS_REVISION"] } },
+      data: { deletedAt: new Date(), isCurrent: false, updatedAt: new Date() },
+    });
+    if (!claim.count) throw new ConflictError("Submission was already reviewed or unsubmitted. Refresh and try again.");
+    // Submission filing moves evidence into an accreditation archive folder.
+    // Return the owner's file to their repository root when withdrawing it.
+    const document = await tx.document.findFirst({
+      where: { id: existing.documentId, ownerId: actor.id, deletedAt: null },
+      select: { id: true, folder: { select: { ownerId: true } } },
+    });
+    if (document?.folder && document.folder.ownerId !== actor.id) {
+      await tx.document.update({ where: { id: document.id }, data: { folderId: null } });
+    }
+    await withdrawEntityWorkflow(tx, "AACCUP_SUBMISSION", id, actor);
+    await writeAuditInTransaction(tx, { action: AUDIT_ACTIONS.AACCUP_SUBMISSION_UNSUBMITTED, userId: actor.id, entity: "aaccup_submission", entityId: id,
+      oldValue: { status: existing.status, isCurrent: existing.isCurrent }, newValue: { unsubmitted: true, isCurrent: false }, ipAddress: actor.ipAddress, userAgent: actor.userAgent });
+  });
+  // Keep the user-facing activity feed in sync with the withdrawal. This is
+  // deliberately best-effort so a notification outage never rolls back the
+  // successful unsubmit transaction.
+  try {
+    await notifyUser(actor.id, "AACCUP_SUBMISSION_RETURNED", {
+      title: "Submission withdrawn",
+      message: "Your evidence was removed from the review queue and can be submitted again.",
+      entity: "aaccup_submission",
+      entityId: id,
+      actionUrl: "/user/aaccup?tab=submissions",
+    });
+  } catch {
+    // notifications must never break the unsubmit operation
+  }
+  return { id, unsubmitted: true };
+}
+
 export async function archiveSubmission(id: string, actor: Actor): Promise<AaccupSubmissionDetail> {
   assertCanArchive(actor);
 

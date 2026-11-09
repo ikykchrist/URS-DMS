@@ -4,13 +4,13 @@ import { requirePermission } from "@/middlewares/authorize";
 import { validateParams, validateQuery } from "@/middlewares/validate";
 import {
   areaIdParamSchema,
-  departmentIdParamSchema,
+  programIdParamSchema,
   overviewAnalyticsQuerySchema,
   requirementIdParamSchema,
 } from "@/modules/aaccup/analytics/aaccup.analytics.validator";
 import {
   areaAnalyticsHandler,
-  departmentAnalyticsHandler,
+  programAnalyticsHandler,
   overviewAnalyticsHandler,
   requirementAnalyticsHandler,
 } from "@/modules/aaccup/analytics/aaccup.analytics.controller";
@@ -24,7 +24,7 @@ import {
 
 export const aaccupAnalyticsRouter: Router = Router();
 
-// GET /aaccup/analytics/overview?departmentId=...&areaId=...&areaStatus=...
+// GET /aaccup/analytics/overview?programId=...&areaId=...&areaStatus=...
 //      &minCompliance=0..100&maxCompliance=0..100&q=...
 aaccupAnalyticsRouter.get(
   "/overview",
@@ -33,12 +33,12 @@ aaccupAnalyticsRouter.get(
   asyncHandler(overviewAnalyticsHandler),
 );
 
-// GET /aaccup/analytics/department/:id
+// GET /aaccup/analytics/program/:id
 aaccupAnalyticsRouter.get(
-  "/department/:id",
+  "/program/:id",
   requirePermission("aaccup.analytics.read"),
-  validateParams(departmentIdParamSchema),
-  asyncHandler(departmentAnalyticsHandler),
+  validateParams(programIdParamSchema),
+  asyncHandler(programAnalyticsHandler),
 );
 
 // GET /aaccup/analytics/area/:id

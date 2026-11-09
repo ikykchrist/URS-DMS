@@ -6,12 +6,12 @@ import { z } from "zod";
 
 const idParam = z.object({ id: z.string().uuid() });
 
-export const departmentIdParamSchema = idParam;
+export const programIdParamSchema = idParam;
 export const areaIdParamSchema = idParam;
 export const requirementIdParamSchema = idParam;
 
 export const overviewAnalyticsQuerySchema = z.object({
-  departmentId: z.string().uuid().optional(),
+  programId: z.string().uuid().optional(),
   areaId: z.string().uuid().optional(),
   areaSet: z.enum(["AACCUP", "ISO", "CERT"]).optional(),
   areaStatus: z.enum(["ACTIVE", "INACTIVE"]).optional(),

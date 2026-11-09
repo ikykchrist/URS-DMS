@@ -7,8 +7,13 @@ import { cn } from "@/lib/utils"
 import { notificationService } from "@/services/notifications"
 import { resolveNotificationRoute, buildNotificationUrl } from "@/lib/notificationNav"
 import type { Notification } from "@/types/domain"
+import { toast } from "@/lib/toast"
 
-const POLL_INTERVAL_MS = 3_000
+// Notifications are background convenience data. Polling every three seconds
+// consumed the shared API rate-limit budget during normal use and could block
+// the refresh/login endpoints after enough activity. Keep this aligned with
+// the dashboard polling cadence instead.
+const POLL_INTERVAL_MS = 30_000
 
 const typeMeta: Record<string, { label: string; color: string; bg: string }> = {
   approval:     { label: "Approvals",    color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/30" },
@@ -32,18 +37,26 @@ export function NotificationCenter() {
   const [activeTab, setActiveTab] = useState<string>("All")
   const navigate = useNavigate()
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const loadInFlightRef = useRef<Promise<void> | null>(null)
 
   const load = useCallback(async () => {
-    try {
-      const n = await notificationService.listAll()
-      setNotifications(n)
-      setLoading(false)
-    } catch { /* silent */ }
+    if (loadInFlightRef.current) return loadInFlightRef.current
+    const request = notificationService.listAll()
+      .then((n) => {
+        setNotifications(n)
+        setLoading(false)
+      })
+      .catch(() => { /* silent */ })
+      .finally(() => {
+        loadInFlightRef.current = null
+      })
+    loadInFlightRef.current = request
+    return request
   }, [])
 
   useEffect(() => {
-    load()
-    intervalRef.current = setInterval(load, POLL_INTERVAL_MS)
+    void load()
+    intervalRef.current = setInterval(() => { void load() }, POLL_INTERVAL_MS)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [load])
 
@@ -65,14 +78,20 @@ export function NotificationCenter() {
   const getNotificationsByGroup = (group: string) =>
     notifications.filter((n) => getMeta(n).label === group)
 
-  const markRead = (id: string) => {
-    notificationService.markRead(id)
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+  const markRead = async (id: string) => {
+    try {
+      await notificationService.markRead(id)
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+      toast.success("Notification marked as read")
+    } catch { toast.error("Unable to mark notification as read") }
   }
 
-  const markAllRead = () => {
-    notificationService.markAllReadForUser()
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+  const markAllRead = async () => {
+    try {
+      await notificationService.markAllReadForUser()
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+      toast.success("All notifications marked as read")
+    } catch { toast.error("Unable to mark notifications as read") }
   }
 
   const handleViewNotification = (notif: Notification) => {
@@ -100,7 +119,7 @@ export function NotificationCenter() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative z-[110]">
       <Button
         variant="ghost"
         size="icon"
@@ -116,7 +135,7 @@ export function NotificationCenter() {
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-black/5" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-96 rounded-xl border border-border bg-white shadow-2xl z-[60] dark:border-gray-700 dark:bg-[#111827] overflow-hidden">
+          <div className="absolute right-0 top-full z-[120] mt-2 w-96 overflow-hidden rounded-xl border border-border bg-white opacity-100 shadow-2xl dark:border-gray-700 dark:bg-[#111827]">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-2">
                 <h3 className="text-[14px] font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
@@ -213,7 +232,7 @@ export function NotificationCenter() {
 
             <div className="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
               <button
-                onClick={() => { setIsOpen(false); navigate("/user/notifications") }}
+                onClick={() => { setIsOpen(false); navigate("/notifications") }}
                 className="w-full text-center text-[12px] text-primary hover:text-primary font-medium"
               >
                 View all notifications

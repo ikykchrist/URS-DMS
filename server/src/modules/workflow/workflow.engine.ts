@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS } from "@/config/constants";
-import { writeAudit } from "@/modules/audit/audit.service";
+import { writeAudit, writeAuditInTransaction } from "@/modules/audit/audit.service";
+import { getRequestId } from "@/middlewares/requestContext";
 import {
   invalidateWorkflowCache,
   workflowCacheGet,
@@ -149,7 +150,9 @@ export async function scopesForAaccupSubmission(
           id: true,
           accreditationCycleId: true,
           accreditationCycle: { select: { status: true, deletedAt: true } },
-          department: { select: { id: true, collegeId: true } },
+          campusId: true,
+          collegeId: true,
+          programId: true,
         },
       },
     },
@@ -164,10 +167,9 @@ export async function scopesForAaccupSubmission(
   ) {
     scopes.push({ targetType: "ACCREDITATION_CYCLE", targetId: area.accreditationCycleId });
   }
-  if (area.department.id) scopes.push({ targetType: "DEPARTMENT", targetId: area.department.id });
-  if (area.department.collegeId) {
-    scopes.push({ targetType: "COLLEGE", targetId: area.department.collegeId });
-  }
+  if (area.programId) scopes.push({ targetType: "PROGRAM", targetId: area.programId });
+  if (area.collegeId) scopes.push({ targetType: "COLLEGE", targetId: area.collegeId });
+  if (area.campusId) scopes.push({ targetType: "CAMPUS", targetId: area.campusId });
   scopes.push({ targetType: "UNIVERSITY", targetId: null });
   return scopes;
 }
@@ -180,24 +182,15 @@ export async function scopesForDocumentRequest(
   const user = await db.user.findFirst({
     where: { id: requesterId, deletedAt: null },
     select: {
-      departmentId: true,
-      departments: { where: { deletedAt: null }, select: { id: true, collegeId: true } },
+      campusId: true,
+      collegeId: true,
+      programId: true,
     },
   });
-  const departmentId = user?.departmentId ?? user?.departments[0]?.id ?? null;
-  let collegeId: string | null = null;
-  if (departmentId) {
-    const department = await db.department.findFirst({
-      where: { id: departmentId },
-      select: { collegeId: true },
-    });
-    collegeId = department?.collegeId ?? null;
-  }
   const scopes: WorkflowScope[] = [];
-  if (departmentId) {
-    scopes.push({ targetType: "DEPARTMENT", targetId: departmentId });
-    if (collegeId) scopes.push({ targetType: "COLLEGE", targetId: collegeId });
-  }
+  if (user?.programId) scopes.push({ targetType: "PROGRAM", targetId: user.programId });
+  if (user?.collegeId) scopes.push({ targetType: "COLLEGE", targetId: user.collegeId });
+  if (user?.campusId) scopes.push({ targetType: "CAMPUS", targetId: user.campusId });
   scopes.push({ targetType: "UNIVERSITY", targetId: null });
   return scopes;
 }
@@ -210,18 +203,19 @@ export async function scopesForDocument(
   const document = await db.document.findFirst({
     where: { id: documentId, deletedAt: null },
     select: {
-      department: { select: { id: true, collegeId: true } },
-      folder: { select: { departmentId: true } },
+      campusId: true,
+      collegeId: true,
+      programId: true,
+      folder: { select: { campusId: true, collegeId: true, programId: true } },
     },
   });
-  const departmentId = document?.department?.id ?? document?.folder?.departmentId ?? null;
+  const programId = document?.programId ?? document?.folder?.programId ?? null;
+  const collegeId = document?.collegeId ?? document?.folder?.collegeId ?? null;
+  const campusId = document?.campusId ?? document?.folder?.campusId ?? null;
   const scopes: WorkflowScope[] = [];
-  if (departmentId) {
-    scopes.push({ targetType: "DEPARTMENT", targetId: departmentId });
-    if (document?.department?.collegeId) {
-      scopes.push({ targetType: "COLLEGE", targetId: document.department.collegeId });
-    }
-  }
+  if (programId) scopes.push({ targetType: "PROGRAM", targetId: programId });
+  if (collegeId) scopes.push({ targetType: "COLLEGE", targetId: collegeId });
+  if (campusId) scopes.push({ targetType: "CAMPUS", targetId: campusId });
   scopes.push({ targetType: "UNIVERSITY", targetId: null });
   return scopes;
 }
@@ -254,6 +248,7 @@ async function writeAuditInTx(
         newValue: (entry.newValue as object | null) ?? undefined,
         ipAddress: entry.ipAddress ?? null,
         userAgent: entry.userAgent ?? null,
+        correlationId: getRequestId() ?? null,
       },
     });
     return;
@@ -537,6 +532,7 @@ export async function recordWorkflowAction(
       },
       ipAddress: actor.ipAddress ?? null,
       userAgent: actor.userAgent ?? null,
+      correlationId: getRequestId() ?? null,
     },
   });
 
@@ -555,6 +551,15 @@ export interface OverrideWorkflowInstanceInput {
   action: "COMPLETE" | "TERMINATE";
   actor: WorkflowActor;
   note?: string;
+}
+
+/** Called only after the owning service has claimed an authorized withdrawal. */
+export async function withdrawEntityWorkflow(tx: Prisma.TransactionClient, entityType: WorkflowEntityType, entityId: string, actor: WorkflowActor): Promise<void> {
+  const instance = await tx.workflowInstance.findUnique({ where: { entityType_entityId: { entityType, entityId } } });
+  if (!instance || instance.status !== "RUNNING") return;
+  await tx.workflowInstance.update({ where: { id: instance.id }, data: { status: "TERMINATED", currentStepCode: null, completedAt: new Date() } });
+  await tx.workflowStepInstance.updateMany({ where: { instanceId: instance.id, status: { in: ["PENDING", "ACTIVE"] } }, data: { status: "SKIPPED", completedAt: new Date(), note: "Submission withdrawn by its owner" } });
+  await writeAuditInTransaction(tx, { action: AUDIT_ACTIONS.WORKFLOW_INSTANCE_WITHDRAWN, userId: actor.id, entity: "WorkflowInstance", entityId: instance.id, newValue: { entityType, entityId, status: "TERMINATED" }, ipAddress: actor.ipAddress, userAgent: actor.userAgent });
 }
 
 export async function overrideWorkflowInstance(
@@ -588,6 +593,7 @@ export async function overrideWorkflowInstance(
         newValue: { action: input.action, status: targetStatus, note: input.note ?? null },
         ipAddress: input.actor.ipAddress ?? null,
         userAgent: input.actor.userAgent ?? null,
+        correlationId: getRequestId() ?? null,
       },
     });
     return { id: input.instanceId, status: targetStatus };

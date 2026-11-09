@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { isFailedAuditAction } from "@/config/constants";
 import type {
   AuditLogDetail,
   AuditLogListItem,
@@ -13,7 +14,12 @@ const AUDIT_INCLUDE = {
       firstName: true,
       lastName: true,
       email: true,
-      departmentId: true,
+      campusId: true,
+      collegeId: true,
+      programId: true,
+      campus: { select: { name: true } },
+      college: { select: { name: true } },
+      program: { select: { name: true } },
       role: { select: { name: true } },
     },
   },
@@ -41,8 +47,17 @@ function deriveModule(action: string): string {
   return i === -1 ? action : action.slice(0, i);
 }
 
-function deriveStatus(action: string): "SUCCESS" | "FAILED" {
-  return FAILED_ACTIONS.has(action) ? "FAILED" : "SUCCESS";
+const DENIED_ACTIONS = new Set<string>([
+  "auth.permission_denied",
+  "auth.access_denied",
+]);
+
+function deriveStatus(action: string): "SUCCESS" | "FAILED" | "DENIED" {
+  if (DENIED_ACTIONS.has(action)) return "DENIED";
+  // `*.failed` / `*_failed` keeps every module's terminal failure classified
+  // correctly (document.upload_failed, email.failed, maintenance.*.failed, …).
+  if (isFailedAuditAction(action) || FAILED_ACTIONS.has(action)) return "FAILED";
+  return "SUCCESS";
 }
 
 export function toListItem(row: AuditRow): AuditLogListItem {
@@ -61,7 +76,9 @@ export function toListItem(row: AuditRow): AuditLogListItem {
       name: fullName(u),
       email: u?.email ?? null,
       role: u?.role?.name ?? null,
-      departmentId: u?.departmentId ?? null,
+      campusId: u?.campusId ?? null,
+      collegeId: u?.collegeId ?? null,
+      programId: u?.programId ?? null,
     },
     entity: { type: row.entity, id: row.entityId },
     targetType: row.targetType,

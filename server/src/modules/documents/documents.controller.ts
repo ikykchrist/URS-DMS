@@ -8,6 +8,9 @@ import type {
   ShareDocumentInput,
   UpdateDocumentInput,
 } from "@/modules/documents/documents.validator";
+import { getObjectRange, getObjectStream, statObject } from "@/lib/storage";
+import { parseByteRange } from "@/utils/byteRange";
+import { setPreviewFrameHeaders } from "@/utils/previewFrameHeaders";
 
 // =============================================================================
 // URS-DMS â€” documents controller (thin)
@@ -78,6 +81,43 @@ export async function previewDocumentHandler(req: Request, res: Response): Promi
   const { id } = req.params as { id: string };
   const result = await service.getPreviewUrl(id, toActor(req));
   sendSuccess(res, result);
+}
+
+export async function previewDocumentContentHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as { id: string };
+  const result = await service.getPreviewUrl(id, toActor(req));
+  // Stream directly from private MinIO after the service has completed the
+  // document authorization check. Never fetch the public API URL from the
+  // backend itself; that creates a production-only Traefik/self-fetch loop.
+  const stat = await statObject(result.objectKey);
+  res.setHeader("Content-Type", result.mimeType || "application/octet-stream");
+  res.setHeader("Content-Disposition", `inline; filename="${result.filename.replace(/[^A-Za-z0-9._-]/g, "_")}"`);
+  res.setHeader("Cache-Control", "private, max-age=300");
+  res.setHeader("Accept-Ranges", "bytes");
+  setPreviewFrameHeaders(res);
+
+  const range = parseByteRange(req.headers.range, stat.size);
+  if (range === "invalid") {
+    res.status(416).setHeader("Content-Range", `bytes */${stat.size}`).end();
+    return;
+  }
+
+  const stream = range
+    ? await getObjectRange(result.objectKey, range.start, range.length)
+    : await getObjectStream(result.objectKey);
+  if (range) {
+    res.status(206);
+    res.setHeader("Content-Range", `bytes ${range.start}-${range.end}/${stat.size}`);
+    res.setHeader("Content-Length", String(range.length));
+  } else {
+    res.setHeader("Content-Length", String(stat.size));
+  }
+  res.on("close", () => stream.destroy());
+  stream.on("error", (error) => {
+    if (!res.headersSent) res.status(502);
+    res.destroy(error);
+  });
+  stream.pipe(res);
 }
 
 export async function addVersionHandler(req: Request, res: Response): Promise<void> {

@@ -128,10 +128,12 @@ export interface RootSystemUser {
   status: string
   roleId: string
   roleName: string
-  departmentId: string | null
-  departmentName: string | null
+  campusId: string | null
+  campusName: string | null
   collegeId: string | null
   collegeName: string | null
+  programId: string | null
+  programName: string | null
   mustChangePassword: boolean
   lastLogin: string | null
   createdAt: string
@@ -149,6 +151,12 @@ export interface RootAuditEntry {
   entity: { type: string; id: string } | null
   ipAddress: string | null
   userAgent: string | null
+  category?: string
+  severity?: string
+  result?: string
+  targetName?: string | null
+  actorName?: string | null
+  actorRole?: string | null
 }
 
 // Ã¢â€â‚¬Ã¢â€â‚¬ Server session bridge (Sprint 7.4.1) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
@@ -360,7 +368,7 @@ export async function getAuditSummary(days = 1): Promise<{
 // back to any earlier snapshot. Routes live at /root/organization/<collection>
 // with /root/<collection> aliases.
 
-export type OrgEntity = "college" | "department" | "office" | "program"
+export type OrgEntity = "campus" | "college" | "office" | "program"
 
 export type ProgramLevel =
   | "UNDERGRADUATE"
@@ -377,8 +385,8 @@ export type OrgChangeType =
   | "ROLLED_BACK"
 
 const ORG_COLLECTIONS: Record<OrgEntity, string> = {
+  campus: "campuses",
   college: "colleges",
-  department: "departments",
   office: "offices",
   program: "programs",
 }
@@ -389,10 +397,10 @@ export interface OrgRecord {
   code: string
   description: string | null
   displayOrder: number
+  campusId: string | null
+  campusName: string | null
   collegeId: string | null
   collegeName: string | null
-  departmentId: string | null
-  departmentName: string | null
   headId: string | null
   headName: string | null
   level: ProgramLevel | null
@@ -420,13 +428,13 @@ export interface OrgTreeNode {
   code: string
   description: string | null
   level: ProgramLevel | null
-  departments: OrgTreeNode[]
+  colleges: OrgTreeNode[]
   offices: OrgTreeNode[]
   programs: OrgTreeNode[]
 }
 
 export interface OrganizationTree {
-  colleges: OrgTreeNode[]
+  campuses: OrgTreeNode[]
   unassigned: OrgTreeNode
 }
 
@@ -435,8 +443,8 @@ export interface OrgWriteInput {
   code?: string
   description?: string | null
   displayOrder?: number
+  campusId?: string | null
   collegeId?: string | null
-  departmentId?: string | null
   headId?: string | null
   level?: ProgramLevel | null
 }
@@ -448,8 +456,8 @@ export async function listOrgRecords(
     pageSize?: number
     q?: string
     includeArchived?: boolean
+    campusId?: string
     collegeId?: string
-    departmentId?: string
   },
 ): Promise<RootListResult<OrgRecord>> {
   const params = new URLSearchParams()
@@ -457,8 +465,8 @@ export async function listOrgRecords(
   if (query?.pageSize) params.set("pageSize", String(query.pageSize))
   if (query?.q) params.set("q", query.q)
   if (query?.includeArchived) params.set("includeArchived", "true")
+  if (query?.campusId) params.set("campusId", query.campusId)
   if (query?.collegeId) params.set("collegeId", query.collegeId)
-  if (query?.departmentId) params.set("departmentId", query.departmentId)
   const qs = params.toString() ? `?${params.toString()}` : ""
   return apiGetPage<OrgRecord>(
     `/root/organization/${ORG_COLLECTIONS[entity]}${qs}`
@@ -523,7 +531,6 @@ export type FolderNodeStatus = "ACTIVE" | "INACTIVE"
 export type FolderAssignmentTargetType =
   | "UNIVERSITY"
   | "COLLEGE"
-  | "DEPARTMENT"
   | "PROGRAM"
   | "OFFICE"
   | "AACCUP_AREA"
@@ -851,13 +858,7 @@ export async function listFolderAssignmentTargets(
     const result = await apiGetPage<AaccupAreaOption>("/aaccup/areas?pageSize=100")
     return result.items.map((area) => ({ id: area.id, name: area.name, code: area.code }))
   }
-  const entity: OrgEntity = targetType === "COLLEGE"
-    ? "college"
-    : targetType === "DEPARTMENT"
-      ? "department"
-      : targetType === "PROGRAM"
-        ? "program"
-        : "office"
+  const entity: OrgEntity = targetType === "COLLEGE" ? "college" : targetType === "PROGRAM" ? "program" : "office"
   const result = await listOrgRecords(entity, { pageSize: 200 })
   return result.items.map((record) => ({ id: record.id, name: record.name, code: record.code }))
 }
@@ -871,14 +872,6 @@ export type RequirementNodeType =
   | "SUB_REQUIREMENT"
   | "SUPPORTING_DOCUMENT"
 export type RequirementNodeStatus = "ACTIVE" | "INACTIVE"
-export type RequirementAssignmentTargetType =
-  | "UNIVERSITY"
-  | "COLLEGE"
-  | "DEPARTMENT"
-  | "PROGRAM"
-  | "OFFICE"
-  | "AACCUP_AREA"
-  | "ACCREDITATION_CYCLE"
 export type RequirementChangeType =
   | "CREATED"
   | "UPDATED"
@@ -901,6 +894,7 @@ export interface RequirementTemplate {
   code: string
   description: string | null
   category: string | null
+  areaSet: "AACCUP" | "ISO" | "CERT"
   metadata: FolderJsonValue
   status: RequirementTemplateStatus
   version: number
@@ -952,20 +946,9 @@ export interface RequirementTreeNode {
   children: RequirementTreeNode[]
 }
 
-export interface RequirementAssignment {
-  id: string
-  templateId: string
-  templateName: string
-  targetType: RequirementAssignmentTargetType
-  targetId: string | null
-  targetName: string | null
-  createdAt: string
-}
-
 export interface RequirementTemplateDetail {
   template: RequirementTemplate
   tree: RequirementTreeNode[]
-  assignments: RequirementAssignment[]
 }
 
 export interface RequirementSnapshot {
@@ -982,11 +965,6 @@ export interface RequirementSnapshot {
     name: string
     type: RequirementNodeType
     validations: Array<{ id: string; type: RequirementValidationType }>
-  }>
-  assignments: Array<{
-    id: string
-    targetType: RequirementAssignmentTargetType
-    targetId: string | null
   }>
 }
 
@@ -1033,6 +1011,7 @@ export interface RequirementTemplateInput {
   code: string
   description?: string | null
   category?: string | null
+  areaSet?: "AACCUP" | "ISO"
   metadata?: Record<string, unknown> | null
   status?: RequirementTemplateStatus
 }
@@ -1209,36 +1188,6 @@ export async function archiveRequirementValidation(
   )
 }
 
-export async function listRequirementAssignments(query?: {
-  templateId?: string
-  targetType?: RequirementAssignmentTargetType
-}): Promise<RequirementAssignment[]> {
-  const params = new URLSearchParams()
-  if (query?.templateId) params.set("templateId", query.templateId)
-  if (query?.targetType) params.set("targetType", query.targetType)
-  const queryString = params.size ? `?${params.toString()}` : ""
-  return apiGet<RequirementAssignment[]>(`${REQUIREMENT_PATH}/assignments${queryString}`)
-}
-
-export async function assignRequirementTemplate(
-  templateId: string,
-  targetType: RequirementAssignmentTargetType,
-  targetId?: string | null,
-): Promise<RequirementTemplateDetail> {
-  return apiPost<RequirementTemplateDetail>(
-    `${REQUIREMENT_PATH}/${encodeURIComponent(templateId)}/assignments`,
-    { targetType, ...(targetType === "UNIVERSITY" ? {} : { targetId }) },
-  )
-}
-
-export async function unassignRequirementTemplate(
-  assignmentId: string,
-): Promise<RequirementTemplateDetail> {
-  return apiDelete<RequirementTemplateDetail>(
-    `${REQUIREMENT_PATH}/assignments/${encodeURIComponent(assignmentId)}`,
-  )
-}
-
 export async function listRequirementVersions(templateId: string): Promise<RequirementVersion[]> {
   return apiGet<RequirementVersion[]>(
     `${REQUIREMENT_PATH}/${encodeURIComponent(templateId)}/versions`,
@@ -1287,40 +1236,6 @@ export async function listAccreditationCycles(query?: {
   return apiGetPage<AccreditationCycle>(`${REQUIREMENT_PATH}/cycles${queryString}`)
 }
 
-export async function createAccreditationCycle(input: {
-  code: string
-  name: string
-  description?: string | null
-  startDate: string
-  endDate: string
-  status?: "ACTIVE" | "INACTIVE"
-}): Promise<AccreditationCycle> {
-  return apiPost<AccreditationCycle>(`${REQUIREMENT_PATH}/cycles`, input)
-}
-
-export async function listRequirementTargetOptions(
-  targetType: RequirementAssignmentTargetType,
-): Promise<RequirementTargetOption[]> {
-  if (targetType === "UNIVERSITY") return []
-  if (targetType === "ACCREDITATION_CYCLE") {
-    const result = await listAccreditationCycles({ pageSize: 200 })
-    return result.items.map((cycle) => ({ id: cycle.id, name: cycle.name, code: cycle.code }))
-  }
-  if (targetType === "AACCUP_AREA") {
-    const result = await apiGetPage<AaccupAreaOption>("/aaccup/areas?pageSize=100")
-    return result.items.map((area) => ({ id: area.id, name: area.name, code: area.code }))
-  }
-  const entity: OrgEntity = targetType === "COLLEGE"
-    ? "college"
-    : targetType === "DEPARTMENT"
-      ? "department"
-      : targetType === "PROGRAM"
-        ? "program"
-        : "office"
-  const result = await listOrgRecords(entity, { pageSize: 200 })
-  return result.items.map((record) => ({ id: record.id, name: record.name, code: record.code }))
-}
-
 // Ã¢â€â‚¬Ã¢â€â‚¬ Dynamic Workflow Builder (Sprint 7.4.5) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export type WorkflowDefinitionStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED"
@@ -1342,7 +1257,6 @@ export type WorkflowStepInstanceStatus = "PENDING" | "ACTIVE" | "COMPLETED" | "S
 export type WorkflowAssignmentTargetType =
   | "UNIVERSITY"
   | "COLLEGE"
-  | "DEPARTMENT"
   | "PROGRAM"
   | "OFFICE"
   | "AACCUP_AREA"
@@ -1778,13 +1692,7 @@ export async function listWorkflowTargetOptions(
     const result = await apiGetPage<AaccupAreaOption>("/aaccup/areas?pageSize=100")
     return result.items.map((area) => ({ id: area.id, name: area.name, code: area.code }))
   }
-  const entity: OrgEntity = targetType === "COLLEGE"
-    ? "college"
-    : targetType === "DEPARTMENT"
-      ? "department"
-      : targetType === "PROGRAM"
-        ? "program"
-        : "office"
+  const entity: OrgEntity = targetType === "COLLEGE" ? "college" : targetType === "PROGRAM" ? "program" : "office"
   const result = await listOrgRecords(entity, { pageSize: 200 })
   return result.items.map((record) => ({ id: record.id, name: record.name, code: record.code }))
 }
@@ -2056,7 +1964,7 @@ const SETUP_PATH = "/root/setup"
 export type SetupStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"
 
 export interface SetupSummary {
-  organizations: { colleges: number; departments: number; offices: number; programs: number }
+  organizations: { campuses: number; colleges: number; offices: number; programs: number }
   folderTemplates: number
   requirementTemplates: number
   workflows: number

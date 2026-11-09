@@ -64,7 +64,7 @@ export interface ReportResult<
 export interface ReportFilters {
   from?: Date;
   to?: Date;
-  departmentId?: string;
+  programId?: string;
   areaId?: string;
   status?: string;
   userId?: string;
@@ -86,8 +86,8 @@ export interface DocumentReportRow {
   classification: string;
   ownerId: string;
   ownerName: string;
-  departmentId: string | null;
-  departmentName: string | null;
+  programId: string | null;
+  programName: string | null;
   versionCount: number;
   totalSizeBytes: string;
   createdAt: Date;
@@ -98,7 +98,7 @@ export interface DocumentReportSummary {
   totalDocuments: number;
   byStatus: { label: string; value: number }[];
   byClassification: { label: string; value: number }[];
-  byDepartment: { label: string; value: number }[];
+  byProgram: { label: string; value: number }[];
   totalSizeBytes: string;
   totalVersions: number;
 }
@@ -139,8 +139,8 @@ export interface AaccupReportAreaRow {
   areaId: string;
   areaCode: string;
   areaName: string;
-  departmentId: string;
-  departmentName: string;
+  programId: string;
+  programName: string;
   totalRequirements: number;
   completedRequirements: number;
   compliancePercentage: number;
@@ -154,7 +154,7 @@ export interface AaccupReportAreaRow {
 }
 
 export interface AaccupReportSummary {
-  totalDepartments: number;
+  totalPrograms: number;
   totalAreas: number;
   totalRequirements: number;
   requirementStatusCounts: {
@@ -171,31 +171,6 @@ export interface AaccupReportSummary {
 }
 
 // -----------------------------------------------------------------------------
-// 4. DEPARTMENT REPORT
-// -----------------------------------------------------------------------------
-
-export interface DepartmentReportRow {
-  id: string;
-  name: string;
-  code: string;
-  headName: string | null;
-  userCount: number;
-  documentCount: number;
-  areaCount: number;
-  requirementCount: number;
-  compliancePercentage: number;
-  createdAt: Date;
-}
-
-export interface DepartmentReportSummary {
-  totalDepartments: number;
-  totalUsers: number;
-  totalDocuments: number;
-  totalAreas: number;
-  averageCompliancePercentage: number;
-}
-
-// -----------------------------------------------------------------------------
 // 5. USER ACTIVITY REPORT
 // -----------------------------------------------------------------------------
 
@@ -205,7 +180,7 @@ export interface UserActivityReportRow {
   email: string;
   fullName: string;
   roleName: string;
-  departmentId: string | null;
+  programId: string | null;
   status: string;
   documentCount: number;
   requestCount: number;
@@ -230,8 +205,8 @@ export interface UserActivityReportSummary {
 // -----------------------------------------------------------------------------
 
 export interface StorageReportRow {
-  departmentId: string | null;
-  departmentName: string | null;
+  programId: string | null;
+  programName: string | null;
   fileCount: number;
   versionCount: number;
   totalSizeBytes: string;
@@ -254,7 +229,7 @@ export interface AuditReportRow {
   timestamp: Date;
   action: string;
   module: string;
-  status: "SUCCESS" | "FAILED";
+  status: "SUCCESS" | "FAILED" | "DENIED";
   userId: string | null;
   userName: string | null;
   userEmail: string | null;
@@ -268,6 +243,7 @@ export interface AuditReportSummary {
   totalEvents: number;
   successCount: number;
   failedCount: number;
+  deniedCount: number;
   byModule: { label: string; value: number }[];
   byAction: { label: string; value: number }[];
 }

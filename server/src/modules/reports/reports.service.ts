@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
   calculateOverallCompliance,
-  calculateDepartmentCompliance,
 } from "@/modules/aaccup/services/compliance.service";
 import type { ReportFilters } from "@/modules/reports/reports.types";
 import type {
@@ -9,8 +8,6 @@ import type {
   AaccupReportSummary,
   AuditReportRow,
   AuditReportSummary,
-  DepartmentReportRow,
-  DepartmentReportSummary,
   DocumentReportRow,
   DocumentReportSummary,
   PaginationMeta,
@@ -97,20 +94,20 @@ export async function documentReport(
 
   // Resolve department names in ONE batch for the list page (groups come from
   // groupBy via aggregate).
-  const deptIds = rows
-    .map((r) => r.departmentId)
+  const programIds = rows
+    .map((r) => r.programId)
     .filter((id): id is string => id !== null);
-  const aggrDeptIds = agg.byDepartment
-    .map((d) => d.departmentId)
+  const aggrProgramIds = agg.byProgram
+    .map((d) => d.programId)
     .filter((id): id is string => id !== null);
-  const allDeptIds = Array.from(new Set([...deptIds, ...aggrDeptIds]));
-  const departments = allDeptIds.length
-    ? await prisma.department.findMany({
-        where: { id: { in: allDeptIds } },
+  const allProgramIds = Array.from(new Set([...programIds, ...aggrProgramIds]));
+  const programs = allProgramIds.length
+    ? await prisma.program.findMany({
+        where: { id: { in: allProgramIds } },
         select: { id: true, name: true },
       })
     : [];
-  const nameById = new Map(departments.map((d) => [d.id, d.name]));
+  const nameById = new Map(programs.map((d) => [d.id, d.name]));
 
   const records: DocumentReportRow[] = rows.map((d) => {
     const totalSizeBytes = d.versions.reduce((acc, v) => acc + v.sizeBytes, BigInt(0));
@@ -121,8 +118,8 @@ export async function documentReport(
       classification: d.classification,
       ownerId: d.ownerId,
       ownerName: fullName(d.owner.firstName, d.owner.lastName),
-      departmentId: d.departmentId,
-      departmentName: d.departmentId ? nameById.get(d.departmentId) ?? null : null,
+      programId: d.programId,
+      programName: d.programId ? nameById.get(d.programId) ?? null : null,
       versionCount: d._count.versions,
       totalSizeBytes: totalSizeBytes.toString(),
       createdAt: d.createdAt,
@@ -134,8 +131,8 @@ export async function documentReport(
     totalDocuments: total,
     byStatus: agg.byStatus.map((b) => ({ label: b.status, value: b._count })),
     byClassification: agg.byClassification.map((b) => ({ label: b.classification, value: b._count })),
-    byDepartment: agg.byDepartment.map((b) => ({
-      label: b.departmentId ? nameById.get(b.departmentId) ?? "Unassigned" : "Unassigned",
+    byProgram: agg.byProgram.map((b) => ({
+      label: b.programId ? nameById.get(b.programId) ?? "Unassigned" : "Unassigned",
       value: b._count,
     })),
     totalSizeBytes: agg.totalSize.toString(),
@@ -226,27 +223,27 @@ export async function aaccupReport(
   filters: ReportFilters,
 ): Promise<ReportResult<AaccupReportSummary, AaccupReportAreaRow, ReportFilters>> {
   const overall = await calculateOverallCompliance({
-    departmentId: filters.departmentId,
+    programId: filters.programId,
     areaId: filters.areaId,
   });
 
   // Enrich area rows with their department name in ONE batch (the
   // compliance service deliberately doesn't own the department join).
-  const deptIds = Array.from(new Set(overall.areaBreakdown.map((a) => a.departmentId)));
-  const departments = deptIds.length
-    ? await prisma.department.findMany({
-        where: { id: { in: deptIds } },
+  const programIds = Array.from(new Set(overall.areaBreakdown.map((a) => a.programId).filter((id): id is string => Boolean(id))));
+  const programs = programIds.length
+    ? await prisma.program.findMany({
+        where: { id: { in: programIds } },
         select: { id: true, name: true },
       })
     : [];
-  const nameById = new Map(departments.map((d) => [d.id, d.name]));
+  const nameById = new Map(programs.map((d) => [d.id, d.name]));
 
   const records: AaccupReportAreaRow[] = overall.areaBreakdown.map((a) => ({
     areaId: a.areaId,
     areaCode: a.areaCode,
     areaName: a.areaName,
-    departmentId: a.departmentId,
-    departmentName: nameById.get(a.departmentId) ?? "Unassigned",
+    programId: a.programId ?? "",
+    programName: a.programId ? nameById.get(a.programId) ?? "Unassigned" : "Unassigned",
     totalRequirements: a.totalRequirements,
     completedRequirements: a.completedRequirements,
     compliancePercentage: a.compliancePercentage,
@@ -254,7 +251,7 @@ export async function aaccupReport(
   }));
 
   const summary: AaccupReportSummary = {
-    totalDepartments: overall.totalDepartments,
+    totalPrograms: overall.totalPrograms,
     totalAreas: overall.totalAreas,
     totalRequirements: overall.totalRequirements,
     requirementStatusCounts: overall.requirementStatusCounts,
@@ -266,70 +263,6 @@ export async function aaccupReport(
 
   return {
     metadata: metadata("aaccup", filters),
-    summary,
-    records,
-  };
-}
-
-// -----------------------------------------------------------------------------
-// 4. DEPARTMENT REPORT
-// Reuses calculateDepartmentCompliance per department so every compliance
-// figure goes through the same code path as the AACCUP module.
-// -----------------------------------------------------------------------------
-export async function departmentReport(
-  filters: ReportFilters,
-): Promise<ReportResult<DepartmentReportSummary, DepartmentReportRow, ReportFilters>> {
-  const [departments, requirementCounts] = await Promise.all([
-    repo.departmentsWithCounts(filters),
-    repo.departmentRequirementCounts(),
-  ]);
-
-  // Compute compliance per department concurrently. Compliance service issues
-  // one nested include query per department; bounded by #departments.
-  const complianceByDept = await Promise.all(
-    departments.map((d) =>
-      calculateDepartmentCompliance(d.id).then(
-        (c) => [d.id, c] as const,
-      ).catch(() => [d.id, null] as const),
-    ),
-  );
-  const complianceMap = new Map(complianceByDept);
-
-  const records: DepartmentReportRow[] = departments.map((d) => {
-    const c = complianceMap.get(d.id);
-    return {
-      id: d.id,
-      name: d.name,
-      code: d.code,
-      headName: d.head ? fullName(d.head.firstName, d.head.lastName) : null,
-      userCount: d._count.users,
-      documentCount: d._count.documents,
-      areaCount: d._count.aaccupAreas,
-      requirementCount: requirementCounts.get(d.id) ?? 0,
-      compliancePercentage: c?.compliancePercentage ?? 0,
-      createdAt: d.createdAt,
-    };
-  });
-
-  const totalUsers = records.reduce((a, r) => a + r.userCount, 0);
-  const totalDocs = records.reduce((a, r) => a + r.documentCount, 0);
-  const totalAreas = records.reduce((a, r) => a + r.areaCount, 0);
-  const avgCompliance = records.length
-    ? Math.round(
-        (records.reduce((a, r) => a + r.compliancePercentage, 0) / records.length) * 10,
-      ) / 10
-    : 0;
-
-  const summary: DepartmentReportSummary = {
-    totalDepartments: records.length,
-    totalUsers,
-    totalDocuments: totalDocs,
-    totalAreas,
-    averageCompliancePercentage: avgCompliance,
-  };
-
-  return {
-    metadata: metadata("departments", filters),
     summary,
     records,
   };
@@ -355,7 +288,7 @@ export async function userActivityReport(
     email: u.email,
     fullName: fullName(u.firstName, u.lastName),
     roleName: u.role.name,
-    departmentId: u.departmentId,
+      programId: u.programId,
     status: u.status,
     documentCount: counts.documents.get(u.id) ?? 0,
     requestCount: counts.requests.get(u.id) ?? 0,
@@ -389,14 +322,14 @@ export async function userActivityReport(
 export async function storageReport(
   filters: ReportFilters,
 ): Promise<ReportResult<StorageReportSummary, StorageReportRow, ReportFilters>> {
-  const [byDept, totals] = await Promise.all([
-    repo.storageByDepartment(filters),
+  const [byProgram, totals] = await Promise.all([
+    repo.storageByProgram(filters),
     repo.storageTotals(filters),
   ]);
 
-  const records: StorageReportRow[] = byDept.map((d) => ({
-    departmentId: d.departmentId,
-    departmentName: d.departmentName,
+  const records: StorageReportRow[] = byProgram.map((d) => ({
+    programId: d.programId,
+    programName: d.programName,
     fileCount: d._count > 0 ? 1 : 0,
     versionCount: d._count,
     totalSizeBytes: (d._sum.sizeBytes ?? BigInt(0)).toString(),
@@ -447,13 +380,10 @@ export async function auditReport(
     timestamp: r.createdAt,
     action: r.action,
     module: deriveModule(r.action),
-    status:
-      r.action === "auth.login.failed" ||
-      r.action === "auth.refresh.failed" ||
-      r.action === "auth.refresh.reuse_detected" ||
-      r.action === "auth.permission_denied"
-        ? "FAILED"
-        : "SUCCESS",
+    // Authoritative status: stored result wins; legacy defaulted rows fall back
+    // to the action list so denials stay DENIED (never FAILED) and failures
+    // stay FAILED.
+    status: repo.reportAuditStatus(r.result, r.action),
     userId: r.user?.id ?? null,
     userName: r.user ? fullName(r.user.firstName, r.user.lastName) : null,
     userEmail: maskEmail(r.user?.email ?? null),
@@ -463,12 +393,19 @@ export async function auditReport(
     ipAddress: r.ipAddress,
   }));
 
-  const successCount = records.length
-    ? records.filter((r) => r.status === "SUCCESS").length
-    : agg.byAction
-        .filter((a) => a.action !== "auth.login.failed" && a.action !== "auth.refresh.failed" && a.action !== "auth.refresh.reuse_detected" && a.action !== "auth.permission_denied")
-        .reduce((a, r) => a + r._count, 0);
-  const failedCount = agg.total - successCount;
+  // Summary counts are computed per (action, result) group and classified with
+  // the same authoritative rule as the rows, so legacy rows defaulted to
+  // SUCCESS still count as failures/denials and new DENIED rows are never
+  // folded into FAILED.
+  let successCount = 0;
+  let failedCount = 0;
+  let deniedCount = 0;
+  for (const group of agg.byActionResult) {
+    const status = repo.reportAuditStatus(group.result, group.action);
+    if (status === "SUCCESS") successCount += group._count;
+    else if (status === "FAILED") failedCount += group._count;
+    else deniedCount += group._count;
+  }
 
   const byModuleMap = new Map<string, number>();
   for (const b of agg.byAction) {
@@ -480,6 +417,7 @@ export async function auditReport(
     totalEvents: agg.total,
     successCount,
     failedCount,
+    deniedCount,
     byModule: Array.from(byModuleMap.entries()).map(([label, value]) => ({ label, value })),
     byAction: agg.byAction.map((b) => ({ label: b.action, value: b._count })),
   };

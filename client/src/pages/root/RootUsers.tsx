@@ -105,7 +105,7 @@ export default function RootUsers() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
         title="System Users"
         description="All platform accounts — system administrator view"
@@ -118,7 +118,7 @@ export default function RootUsers() {
       />
 
       <Card className="border-border/70 shadow-soft mb-4">
-        <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
+        <CardContent className="toolbar-padding flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <Input
@@ -190,13 +190,13 @@ export default function RootUsers() {
                     </TableCell>
                     <TableCell>
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-primary-600"
+                        variant="outline"
+                        size="action"
+                        className="text-gray-600 hover:text-primary-600"
                         title="Reset password"
                         onClick={() => { setResetTarget(user); setNewPassword(""); setMustChange(true) }}
                       >
-                        <KeyRound className="w-4 h-4" />
+                        <KeyRound className="w-4 h-4" /> <span>Reset password</span>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -205,7 +205,7 @@ export default function RootUsers() {
             </Table>
           )}
         </CardContent>
-        <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+        <div className="table-footer">
           <span className="text-[12px] text-gray-500">{total} users</span>
           <Pagination>
             <PaginationContent>

@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { sendSuccess } from "@/utils/apiResponse";
 import {
   calculateAreaCompliance,
-  calculateDepartmentCompliance,
+  calculateProgramCompliance,
   calculateOverallCompliance,
   calculateRequirementStatus,
   type AnalyticsFilter,
@@ -20,7 +20,7 @@ export async function overviewAnalyticsHandler(
 ): Promise<void> {
   const query = req.query as unknown as OverviewAnalyticsQuery;
   const filter: AnalyticsFilter = {
-    departmentId: query.departmentId,
+    programId: query.programId,
     areaId: query.areaId,
     areaSet: query.areaSet,
     areaStatus: query.areaStatus,
@@ -32,12 +32,12 @@ export async function overviewAnalyticsHandler(
   sendSuccess(res, result);
 }
 
-export async function departmentAnalyticsHandler(
+export async function programAnalyticsHandler(
   req: Request,
   res: Response,
 ): Promise<void> {
   const { id } = req.params as { id: string };
-  const result = await calculateDepartmentCompliance(id);
+  const result = await calculateProgramCompliance(id);
   sendSuccess(res, result);
 }
 

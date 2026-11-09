@@ -1,23 +1,43 @@
 ﻿# =============================================================================
 # restart-server.ps1 - restart ONLY the URS-DMS API server
 # -----------------------------------------------------------------------------
-# Safe restart: finds the node.exe whose command line contains "dist/server.js"
-# and stops that single PID. NEVER runs Get-Process node | Stop-Process -Force,
-# so the Vite client (npm run dev), the opencode session, and any other node
-# process keep running untouched.
+# Safe restart: stops the dedicated API supervisor (or legacy direct API
+# process), never every node.exe. The supervisor restarts an API child after a
+# fatal application exit and retains stdout/stderr for diagnosis.
 # =============================================================================
 
 $ErrorActionPreference = "Stop"
 $serverDir = "C:\Dev\URS-DMS\server"
 $logOut = "C:\Dev\URS-DMS\urs-server.log"
 $logErr = "C:\Dev\URS-DMS\urs-server.err.log"
+$supervisorOut = "C:\Dev\URS-DMS\urs-server-supervisor.out.log"
+$supervisorErr = "C:\Dev\URS-DMS\urs-server-supervisor.err.log"
 $healthUrl = "http://localhost:4000/api/v1/health"
 $port = 4000
 
-# 1. Find the API server process by command line (not by "node" name).
+# 1. Stop the supervisor first, then fall back to the legacy direct API
+# process. Never stop unrelated Node processes such as Vite or Codex.
 $apiProcess = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" |
-    Where-Object { $_.CommandLine -like "*dist/server.js*" } |
+    Where-Object { $_.CommandLine -like "*scripts\\api-supervisor.cjs*" } |
     Select-Object -First 1
+
+if (-not $apiProcess) {
+    $apiProcess = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" |
+        Where-Object { $_.CommandLine -like "*dist/server.js*" } |
+        Select-Object -First 1
+}
+
+# Development instances run through tsx and therefore do not contain
+# dist/server.js. Port 4000 is reserved by this project for the API, so its
+# active listener is the safe final fallback (Vite and Codex use other ports).
+if (-not $apiProcess) {
+    $listener = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($listener) {
+        $portProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $($listener.OwningProcess)"
+        if ($portProcess) { $apiProcess = $portProcess }
+    }
+}
 
 if ($apiProcess) {
     Write-Host "Stopping API server PID $($apiProcess.ProcessId) ..."
@@ -42,25 +62,19 @@ if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyCon
 # 3. Set the runtime env overrides before launching (process-scoped).
 $env:DATABASE_URL = "postgresql://urs_user:urs_password@localhost:5432/urs_dms?schema=public"
 $env:MINIO_ENDPOINT = "localhost"
-# Sprint 8.9 — Email SMTP config (Gmail)
-$env:EMAIL_PROVIDER = "smtp"
-$env:SMTP_HOST = "smtp.gmail.com"
-$env:SMTP_PORT = "587"
-$env:SMTP_SECURE = "false"
-$env:SMTP_USER = "christbaldado@gmail.com"
-$env:SMTP_PASS = "hkja unju xsmp eqgu"
-$env:SMTP_FROM = "christbaldado@gmail.com"
+# SMTP credentials are read from .env (EMAIL_PROVIDER=console by default).
+# Never hardcode SMTP_PASS in this file - it would be committed to the repo.
 
-# 4. Start the server detached with output redirected to log files.
-Write-Host "Starting API server (detached) ..."
+# 4. Start the supervisor detached. It owns the API child and its logs.
+Write-Host "Starting API supervisor (detached) ..."
 $proc = Start-Process -FilePath "node.exe" `
-    -ArgumentList "--env-file=C:\Dev\URS-DMS\.env", "dist/server.js" `
-    -WorkingDirectory $serverDir `
-    -RedirectStandardOutput $logOut `
-    -RedirectStandardError $logErr `
+    -ArgumentList "--env-file=C:\Dev\URS-DMS\.env", "scripts\api-supervisor.cjs" `
+    -WorkingDirectory "C:\Dev\URS-DMS" `
+    -RedirectStandardOutput $supervisorOut `
+    -RedirectStandardError $supervisorErr `
     -WindowStyle Hidden `
     -PassThru
-Write-Host "API server PID $($proc.Id) started."
+Write-Host "API supervisor PID $($proc.Id) started."
 
 # 5. Poll the health endpoint and print the status.
 $ready = $false

@@ -32,7 +32,8 @@ import {
 } from "@/components/ui/Select"
 import { cn } from "@/lib/utils"
 import type { User } from "@/types/domain"
-import { listSystemDepartments, listSystemRoles, type SystemDepartment, type SystemRole } from "@/services/admin"
+import { listSystemRoles, type SystemRole } from "@/services/admin"
+import { getOrganizationTree, type OrgTreeNode } from "@/services/root"
 
 interface UserDetailsModalProps {
   open: boolean
@@ -40,7 +41,7 @@ interface UserDetailsModalProps {
   user: User | null
   onResetPassword?: () => void
   onDelete?: () => void
-  onSave?: (userId: string, data: { status: "Active" | "Inactive" | "Suspended"; departmentId?: string; roleId?: string }) => void
+  onSave?: (userId: string, data: { status: "Active" | "Inactive" | "Suspended"; firstName: string; middleName?: string | null; lastName: string; email: string; campusId?: string | null; collegeId?: string | null; programId?: string | null; roleId?: string }) => Promise<void> | void
 }
 
 const roleBadgeVariant: Record<string, "default" | "secondary" | "success" | "warning" | "danger"> = {
@@ -49,7 +50,7 @@ const roleBadgeVariant: Record<string, "default" | "secondary" | "success" | "wa
   "Reviewer": "warning",
   "Editor": "secondary",
   "Viewer": "secondary",
-  "Department User": "secondary",
+  "Program User": "secondary",
 }
 
 export function UserDetailsModal({
@@ -62,40 +63,67 @@ export function UserDetailsModal({
 }: UserDetailsModalProps) {
   const [isActive, setIsActive] = useState(user?.status === "Active")
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
-  const [departments, setDepartments] = useState<SystemDepartment[]>([])
+  const [campuses, setCampuses] = useState<OrgTreeNode[]>([])
   const [roles, setRoles] = useState<SystemRole[]>([])
-  const [selectedDepartment, setSelectedDepartment] = useState(user?.departmentId ?? "")
+  const [selectedCampus, setSelectedCampus] = useState(user?.campusId ?? "")
+  const [selectedCollege, setSelectedCollege] = useState(user?.collegeId ?? "")
+  const [selectedProgram, setSelectedProgram] = useState(user?.programId ?? "")
   const [selectedRole, setSelectedRole] = useState("")
+  const [fullName, setFullName] = useState(user?.name ?? "")
+  const [email, setEmail] = useState(user?.email ?? "")
   const [loadingOptions, setLoadingOptions] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!open || !user) return
     setIsActive(user.status === "Active")
-    setSelectedDepartment(user.departmentId ?? "")
+    setSelectedCampus(user.campusId ?? "")
+    setSelectedCollege(user.collegeId ?? "")
+    setSelectedProgram(user.programId ?? "")
     setSelectedRole("")
+    setFullName(user.name)
+    setEmail(user.email)
     setLoadingOptions(true)
     Promise.all([
-      listSystemDepartments({ page: 1, pageSize: 200 }),
+      getOrganizationTree(),
       listSystemRoles({ page: 1, pageSize: 50 }),
     ])
-      .then(([deptPage, rolePage]) => {
-        setDepartments(deptPage.items.filter((d) => !d.deletedAt))
+      .then(([tree, rolePage]) => {
+        setCampuses(tree.campuses)
         setRoles(rolePage.items.filter((r) => !r.deletedAt))
       })
       .finally(() => setLoadingOptions(false))
   }, [open, user])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!user) return
-    onSave?.(user.id, {
-      status: isActive ? "Active" : "Inactive",
-      ...(selectedDepartment ? { departmentId: selectedDepartment } : {}),
-      ...(selectedRole ? { roleId: selectedRole } : {}),
-    })
-    onOpenChange(false)
+    const nameParts = fullName.trim().split(/\s+/).filter(Boolean)
+    const firstName = nameParts[0] ?? ""
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : firstName
+    const middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(" ") : null
+    setSaving(true)
+    try {
+      await onSave?.(user.id, {
+        status: isActive ? "Active" : "Inactive",
+        firstName,
+        middleName,
+        lastName,
+        email: email.trim(),
+        ...(selectedCampus !== (user.campusId ?? "") ? { campusId: selectedCampus || null } : {}),
+        ...(selectedCollege !== (user.collegeId ?? "") ? { collegeId: selectedCollege || null } : {}),
+        ...(selectedProgram !== (user.programId ?? "") ? { programId: selectedProgram || null } : {}),
+        ...(selectedRole ? { roleId: selectedRole } : {}),
+      })
+      onOpenChange(false)
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (!user) return null
+
+  const colleges = campuses.find((item) => item.id === selectedCampus)?.colleges ?? []
+  const programs = colleges.find((item) => item.id === selectedCollege)?.programs ?? []
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -141,7 +169,8 @@ export function UserDetailsModal({
                     Full Name
                   </Label>
                   <Input
-                    defaultValue={user.name}
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
                     className="h-9 text-[14px]"
                   />
                 </div>
@@ -152,7 +181,8 @@ export function UserDetailsModal({
                   </Label>
                   <Input
                     type="email"
-                    defaultValue={user.email}
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
                     className="h-9 text-[14px]"
                   />
                 </div>
@@ -162,17 +192,31 @@ export function UserDetailsModal({
                 <div className="grid gap-2">
                   <Label className="text-[12px] text-gray-500 flex items-center gap-1.5">
                     <Building2 className="w-3 h-3" />
-                    Department
+                    Campus
                   </Label>
-                  <Select value={selectedDepartment} onValueChange={setSelectedDepartment} disabled={loadingOptions}>
+                  <Select value={selectedCampus} onValueChange={(value) => { setSelectedCampus(value); setSelectedCollege(""); setSelectedProgram("") }} disabled={loadingOptions}>
                     <SelectTrigger className="h-9 text-[14px]">
-                      {loadingOptions ? <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" /> : <SelectValue placeholder="Select department..." />}
+                      {loadingOptions ? <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" /> : <SelectValue placeholder="Select campus..." />}
                     </SelectTrigger>
                     <SelectContent>
-                      {departments.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                      {campuses.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
                       ))}
                     </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label className="text-[12px] text-gray-500 flex items-center gap-1.5"><Building2 className="w-3 h-3" />College</Label>
+                  <Select value={selectedCollege} onValueChange={(value) => { setSelectedCollege(value); setSelectedProgram("") }} disabled={loadingOptions || !selectedCampus}>
+                    <SelectTrigger className="h-9 text-[14px]"><SelectValue placeholder="Select college..." /></SelectTrigger>
+                    <SelectContent>{colleges.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label className="text-[12px] text-gray-500 flex items-center gap-1.5"><Building2 className="w-3 h-3" />Program</Label>
+                  <Select value={selectedProgram} onValueChange={setSelectedProgram} disabled={loadingOptions || !selectedCollege}>
+                    <SelectTrigger className="h-9 text-[14px]"><SelectValue placeholder="Select program..." /></SelectTrigger>
+                    <SelectContent>{programs.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="grid gap-2">
@@ -297,10 +341,11 @@ export function UserDetailsModal({
             Cancel
           </Button>
           <Button
-            onClick={handleSave}
+            onClick={() => void handleSave()}
+            disabled={saving}
             className="h-10 px-5 shadow-soft"
           >
-            Save Changes
+            {saving ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -38,6 +38,7 @@ export const COOKIE_NAMES = {
 } as const;
 
 export const AUDIT_ACTIONS = {
+  BUG_REPORT_CREATED: "bug_report.created",
   LOGIN_SUCCESS: "auth.login.success",
   LOGIN_FAILED: "auth.login.failed",
   LOGOUT: "auth.logout",
@@ -102,18 +103,15 @@ export const AUDIT_ACTIONS = {
   FOLDER_CREATED: "folder.created",
   FOLDER_UPDATED: "folder.updated",
   FOLDER_DELETED: "folder.deleted",
+  FOLDER_SHARED: "folder.shared",
+  FOLDER_SHARE_PERMISSION_CHANGED: "folder.share_permission_changed",
+  FOLDER_SHARE_REMOVED: "folder.share_removed",
 
   REQUEST_CREATED: "request.created",
   REQUEST_APPROVED: "request.approved",
   REQUEST_REJECTED: "request.rejected",
   REQUEST_FULFILLED: "request.fulfilled",
   REQUEST_CANCELLED: "request.cancelled",
-
-  DEPARTMENT_CREATED: "department.created",
-  DEPARTMENT_UPDATED: "department.updated",
-  DEPARTMENT_DELETED: "department.deleted",
-  DEPARTMENT_ARCHIVED: "department.archived",
-  DEPARTMENT_RESTORED: "department.restored",
 
   COLLEGE_CREATED: "college.created",
   COLLEGE_UPDATED: "college.updated",
@@ -136,6 +134,7 @@ export const AUDIT_ACTIONS = {
   AACCUP_SUBMISSION_UPDATED: "aaccup_submission.updated",
   AACCUP_SUBMISSION_REVIEWED: "aaccup_submission.reviewed",
   AACCUP_SUBMISSION_ARCHIVED: "aaccup_submission.archived",
+  AACCUP_SUBMISSION_UNSUBMITTED: "aaccup_submission.unsubmitted",
   AACCUP_SUBMISSION_RESTORED: "aaccup_submission.restored",
   AACCUP_SUBMISSIONS_EXPORTED: "aaccup_submissions.exported",
 
@@ -158,9 +157,8 @@ export const AUDIT_ACTIONS = {
   // Sprint 7.4.1 — System Administrator (ROOT) Foundation + Configuration
   // Engine. Configuration lifecycle + rollback actions are written by the
   // root config service on every mutation; ROOT_LOGIN / ROOT_LOGOUT are
-  // emitted by the root session watcher (modules/root/root.session.ts) — the
-  // auth module itself stays untouched (AI_CONTEXT §10), so root-session
-  // lifecycle is observed via the Session table instead.
+  // emitted by the auth service (login/logout) where the role and session
+  // are known — one authoritative event per session lifecycle.
   CONFIG_CREATED: "config.created",
   CONFIG_UPDATED: "config.updated",
   CONFIG_DELETED: "config.deleted",
@@ -170,8 +168,7 @@ export const AUDIT_ACTIONS = {
   ROOT_LOGOUT: "root.logout",
 
   // Sprint 7.4.2 — Organization Management Engine (ROOT-only master data).
-  // Colleges and departments reuse the Sprint 7.1 action constants above
-  // (same physical rows); offices and programs get their own. The rollback
+  // Offices and programs get their own action constants. The rollback
   // actions are written by the root organization service when a record is
   // rolled back to an earlier version snapshot.
   OFFICE_CREATED: "office.created",
@@ -183,9 +180,13 @@ export const AUDIT_ACTIONS = {
   PROGRAM_ARCHIVED: "program.archived",
   PROGRAM_RESTORED: "program.restored",
   ORGANIZATION_COLLEGE_ROLLED_BACK: "organization.college.rolled_back",
-  ORGANIZATION_DEPARTMENT_ROLLED_BACK: "organization.department.rolled_back",
   ORGANIZATION_OFFICE_ROLLED_BACK: "organization.office.rolled_back",
   ORGANIZATION_PROGRAM_ROLLED_BACK: "organization.program.rolled_back",
+  CAMPUS_CREATED: "campus.created",
+  CAMPUS_UPDATED: "campus.updated",
+  CAMPUS_ARCHIVED: "campus.archived",
+  CAMPUS_RESTORED: "campus.restored",
+  ORGANIZATION_CAMPUS_ROLLED_BACK: "organization.campus.rolled_back",
 
   // Sprint 7.4.3 — Dynamic Folder Builder. Template lifecycle actions are
   // written by the root folder-builder service; node actions cover tree
@@ -250,6 +251,7 @@ export const AUDIT_ACTIONS = {
   WORKFLOW_INSTANCE_TRANSITIONED: "workflow_instance.transitioned",
   WORKFLOW_INSTANCE_COMPLETED: "workflow_instance.completed",
   WORKFLOW_INSTANCE_OVERRIDDEN: "workflow_instance.overridden",
+  WORKFLOW_INSTANCE_WITHDRAWN: "workflow_instance.withdrawn",
 
   // Sprint 7.4.6 — Dynamic Form Builder. Template lifecycle + field actions
   // are written by the root form service on every mutation; version rows are
@@ -280,6 +282,7 @@ export const AUDIT_ACTIONS = {
   // Sprint: Personal Document Repository & File Lifecycle
   REPOSITORY_PROVISIONED: "repository.provisioned",
   REPOSITORY_EMERGENCY_GRANTED: "repository.emergency.granted",
+  REPOSITORY_EMERGENCY_ACCESS_USED: "repository.emergency.access_used",
   REPOSITORY_EMERGENCY_REVOKED: "repository.emergency.revoked",
   DOCUMENT_COPIED: "document.copied",
   DOCUMENT_PERMANENTLY_DELETED: "document.permanently_deleted",
@@ -313,3 +316,14 @@ export const AUDIT_ACTIONS = {
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
+
+// Terminal failure audit actions follow two naming conventions in the catalog:
+//   * `*.failed`  (auth.login.failed, email.failed, maintenance.*.failed, …)
+//   * `*_failed`  (document.upload_failed)
+// Central predicate so classification (result/severity/status) stays in sync
+// everywhere an audit action is interpreted.
+const FAILED_ACTION_PATTERN = /(?:\.|_)failed$/;
+
+export function isFailedAuditAction(action: string): boolean {
+  return FAILED_ACTION_PATTERN.test(action);
+}

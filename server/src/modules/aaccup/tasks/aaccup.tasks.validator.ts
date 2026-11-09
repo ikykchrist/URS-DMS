@@ -11,9 +11,9 @@ export const taskRequirementTemplatesQuerySchema = z.object({ areaId: z.string()
 
 export const listTasksQuerySchema = z.object({
   areaId: z.string().uuid().optional(),
-  status: z.enum(["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+  status: z.enum(["OPEN", "IN_PROGRESS", "NEEDS_REVISION", "COMPLETED", "CANCELLED"]).optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
-  assigneeType: z.enum(["USER", "DEPARTMENT"]).optional(),
+  assigneeType: z.enum(["USER", "PROGRAM"]).optional(),
   mine: z.enum(["true", "false"]).optional(),
   q: z.string().trim().max(200).optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -35,7 +35,7 @@ export const createTaskSchema = z
     dueDate: z.coerce.date().nullable().optional(),
     requirementId: z.string().uuid().nullable().optional(),
     requirementTemplateId: z.string().uuid().nullable().optional(),
-    assigneeType: z.enum(["USER", "DEPARTMENT"]).default("USER"),
+    assigneeType: z.enum(["USER", "PROGRAM"]).default("USER"),
     assigneeId: z.string().trim().min(1).max(100),
   })
   .strict();
@@ -47,11 +47,11 @@ export const updateTaskSchema = z
     description: z.string().trim().max(2000).optional(),
     category: z.string().trim().max(100).optional(),
     priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
-    status: z.enum(["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+    status: z.enum(["OPEN", "IN_PROGRESS", "NEEDS_REVISION", "COMPLETED", "CANCELLED"]).optional(),
     dueDate: z.coerce.date().nullable().optional(),
     requirementId: z.string().uuid().nullable().optional(),
     requirementTemplateId: z.string().uuid().nullable().optional(),
-    assigneeType: z.enum(["USER", "DEPARTMENT"]).optional(),
+    assigneeType: z.enum(["USER", "PROGRAM"]).optional(),
     assigneeId: z.string().trim().min(1).max(100).optional(),
   })
   .strict();

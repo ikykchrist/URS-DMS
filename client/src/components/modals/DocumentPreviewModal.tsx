@@ -1,3 +1,4 @@
+import { toast } from "@/lib/toast"
 import { useState, useEffect, useRef } from "react"
 import {
   ChevronLeft,
@@ -79,6 +80,7 @@ export function DocumentPreviewModal({
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [previewMimeType, setPreviewMimeType] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages] = useState(1)
   const [zoomLevel, setZoomLevel] = useState(100)
@@ -88,12 +90,17 @@ export function DocumentPreviewModal({
   useEffect(() => {
     if (!open || !document?.id) {
       setBlobUrl(null)
+      setPreviewMimeType(null)
       return
     }
     setLoading(true)
     setError(null)
+    setPreviewMimeType(null)
     apiGet<PreviewDownloadResult>(`/documents/${encodeURIComponent(document.id)}/preview`)
-      .then((result) => fetch(result.url))
+      .then((result) => {
+        setPreviewMimeType(result.mimeType ?? null)
+        return fetch(result.url)
+      })
       .then((response) => {
         if (!response.ok) throw new Error("Failed to load file preview")
         return response.blob()
@@ -116,7 +123,7 @@ export function DocumentPreviewModal({
     }
   }, [blobUrl])
 
-  const isPdf = document?.mimeType?.includes("pdf")
+  const isPdf = previewMimeType === "application/pdf" || document?.mimeType?.includes("pdf")
   const isImage = document?.mimeType?.startsWith("image/")
   const isPreviewable = isPdf || isImage
 
@@ -155,8 +162,11 @@ export function DocumentPreviewModal({
   }
   const handleDownload = async () => {
     if (!document?.id) return
-    const result = await apiGet<PreviewDownloadResult>(`/documents/${encodeURIComponent(document.id)}/download`)
-    window.open(result.url, "_blank", "noopener,noreferrer")
+    try {
+      const result = await apiGet<PreviewDownloadResult>(`/documents/${encodeURIComponent(document.id)}/download`)
+      window.open(result.url, "_blank", "noopener,noreferrer")
+      toast.success("Download link opened")
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Unable to open download link") }
   }
   const handleApprove = () => {
     if (!document) return
@@ -176,14 +186,14 @@ export function DocumentPreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 overflow-hidden flex flex-col">
+      <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 overflow-hidden flex flex-col max-md:max-w-none max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:rounded-none">
         <DialogHeader className="px-5 py-4 border-b border-gray-100 flex-shrink-0">
           <DialogTitle className="text-lg">Preview Document</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
           <div className="flex-1 flex flex-col bg-gray-100 min-h-[300px] lg:min-h-0 overflow-hidden">
-            <div className="h-12 bg-white border-b border-border flex items-center justify-between px-4 flex-shrink-0">
+            <div className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-white px-4 py-2">
               <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
@@ -234,16 +244,16 @@ export function DocumentPreviewModal({
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600" onClick={handleRotate} disabled={!isPreviewable}>
                   <RotateCw className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600" onClick={handlePrint} disabled={!isPreviewable}>
-                  <Printer className="w-4 h-4" />
+                <Button variant="outline" size="action" className="text-gray-600" onClick={handlePrint} disabled={!isPreviewable}>
+                  <Printer className="w-4 h-4" /> <span>Print</span>
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600" onClick={handleDownload} disabled={!blobUrl}>
-                  <Download className="w-4 h-4" />
+                <Button variant="outline" size="action" className="text-gray-600" onClick={handleDownload} disabled={!blobUrl}>
+                  <Download className="w-4 h-4" /> <span>Download</span>
                 </Button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 lg:p-8 flex items-start justify-center">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 flex items-start justify-center">
               {loading && (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400">
                   <Loader2 className="w-8 h-8 animate-spin mb-2" />
@@ -332,9 +342,9 @@ export function DocumentPreviewModal({
               <div>
                 <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wide flex items-center gap-1.5 mb-1.5">
                   <Building2 className="w-3 h-3" />
-                  Department
+                  Program
                 </label>
-                <p className="text-[13px] text-gray-700">{document?.department}</p>
+                <p className="text-[13px] text-gray-700">{document?.program}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

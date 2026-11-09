@@ -27,7 +27,7 @@ import type {
 //   - "managers" = users holding aaccup.manage (admins + QAOs). Mutations are
 //     manager-only; reads require aaccup.read OR manager status.
 //   - Assignees are validated at create/update time: USER targets must exist
-//     and be ACTIVE; DEPARTMENT targets must exist and not be archived. The
+//     and be ACTIVE; PROGRAM targets must exist and not be archived. The
 //     display label is snapshotted at write time.
 // No `if (role === "admin")` anywhere.
 // =============================================================================
@@ -112,26 +112,26 @@ async function assertRequirementTemplateForArea(areaId: string, templateId: stri
   }
 }
 
-function normalizeAssigneeType(assigneeType: "USER" | "DEPARTMENT"): "USER" | "DEPARTMENT" {
-  return assigneeType === "DEPARTMENT" ? "DEPARTMENT" : "USER";
+function normalizeAssigneeType(assigneeType: "USER" | "PROGRAM"): "USER" | "PROGRAM" {
+  return assigneeType === "PROGRAM" ? "PROGRAM" : "USER";
 }
 
 // Resolve an assignee target to a display label, validating existence.
-// USER targets must be ACTIVE and not archived; DEPARTMENT targets must not
+// USER targets must be ACTIVE and not archived; PROGRAM targets must not
 // be archived.
 async function resolveAssignee(
-  assigneeType: "USER" | "DEPARTMENT",
+  assigneeType: "USER" | "PROGRAM",
   assigneeId: string,
 ): Promise<string> {
-  if (assigneeType === "DEPARTMENT") {
-    const department = await prisma.department.findFirst({
+  if (assigneeType === "PROGRAM") {
+    const program = await prisma.program.findFirst({
       where: { id: assigneeId, deletedAt: null },
       select: { name: true },
     });
-    if (!department) {
-      throw new BadRequestError("Referenced department not found");
+    if (!program) {
+      throw new BadRequestError("Referenced program not found");
     }
-    return department.name;
+    return program.name;
   }
 
   const user = await prisma.user.findFirst({
@@ -149,20 +149,20 @@ async function resolveAssignee(
 
 // -----------------------------------------------------------------------------
 // listTaskAssignees — the aaccup.read-scoped picker for the Create Task modal
-// (active users + non-archived departments). QAOs can populate their task
+// (active users + non-archived programs). QAOs can populate their task
 // assignee dropdowns without needing the admin `user.read` permission.
 // -----------------------------------------------------------------------------
 export async function listTaskAssignees(
   actor: Actor,
-): Promise<{ users: Array<{ id: string; fullName: string }>; departments: Array<{ id: string; name: string }> }> {
+): Promise<{ users: Array<{ id: string; fullName: string }>; programs: Array<{ id: string; name: string }> }> {
   assertCanRead(actor);
-  const [users, departments] = await Promise.all([
+  const [users, programs] = await Promise.all([
     prisma.user.findMany({
       where: { status: "ACTIVE", deletedAt: null },
       select: { id: true, firstName: true, middleName: true, lastName: true },
       orderBy: { firstName: "asc" },
     }),
-    prisma.department.findMany({
+    prisma.program.findMany({
       where: { deletedAt: null },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
@@ -173,13 +173,13 @@ export async function listTaskAssignees(
       id: u.id,
       fullName: [u.firstName, u.middleName, u.lastName].filter(Boolean).join(" ").trim(),
     })),
-    departments: departments.map((d) => ({ id: d.id, name: d.name })),
+    programs: programs.map((p) => ({ id: p.id, name: p.name })),
   };
 }
 
 /** Best-effort "you have been assigned a task" notification — never fails creation. */
 async function safeNotifyAssignee(
-  assigneeType: "USER" | "DEPARTMENT",
+  assigneeType: "USER" | "PROGRAM",
   assigneeId: string,
   task: AaccupTaskDetail,
 ): Promise<void> {
@@ -196,7 +196,14 @@ async function safeNotifyAssignee(
       return;
     }
     const members = await prisma.user.findMany({
-      where: { departmentId: assigneeId, status: "ACTIVE", deletedAt: null },
+      where: {
+        status: "ACTIVE",
+        deletedAt: null,
+        OR: [
+          { programId: assigneeId },
+          { role: { permissions: { some: { permission: { code: "aaccup.manage" } } } } },
+        ],
+      },
       select: { id: true },
     });
     await notifyUsers(
@@ -230,20 +237,22 @@ export async function listTasks(query: ListTasksQuery, actor: Actor): Promise<Li
   if (query.assigneeType) where.assigneeType = query.assigneeType;
 
   // `mine=true` — tasks assigned to the caller (USER target) or to a
-  // DEPARTMENT the caller belongs to. Used by the user portal "My Tasks" tab.
+  // PROGRAM the caller belongs to. Used by the user portal "My Tasks" tab.
   if (query.mine === "true") {
     const me = await prisma.user.findUnique({
       where: { id: actor.id },
-      select: { departmentId: true },
+      select: { programId: true },
     });
-    where.AND = [
-      {
-        OR: [
-          { assigneeType: "USER", assigneeId: actor.id },
-          { assigneeType: "DEPARTMENT", assigneeId: me?.departmentId ?? "__none__" },
-        ],
-      },
-    ];
+    if (!isManager(actor)) {
+      where.AND = [
+        {
+          OR: [
+            { assigneeType: "USER", assigneeId: actor.id },
+            { assigneeType: "PROGRAM", assigneeId: me?.programId ?? "__none__" },
+          ],
+        },
+      ];
+    }
   }
 
   if (query.q) {
@@ -343,26 +352,92 @@ export async function createTask(input: CreateTaskInput, actor: Actor): Promise<
 // updateTask
 // -----------------------------------------------------------------------------
 // Managers (aaccup.manage) may edit everything. The ASSIGNEE (USER target
-// matching the caller, or any member of the assigned DEPARTMENT) may only
+// matching the caller, or any member of the assigned PROGRAM) may only
 // transition the status along the allowed path:
 //   OPEN → IN_PROGRESS → COMPLETED
 // This is what makes tasks actionable by the people they are assigned to.
 // -----------------------------------------------------------------------------
 const ASSIGNEE_STATUS_TRANSITIONS: Record<string, string[]> = {
   OPEN: ["IN_PROGRESS"],
-  IN_PROGRESS: ["COMPLETED"],
+  IN_PROGRESS: [],
+  NEEDS_REVISION: ["IN_PROGRESS"],
   COMPLETED: [],
   CANCELLED: [],
 };
 
+function requirementsApproved(task: AaccupTaskDetail): boolean {
+  if (!task.requirementId && !task.requirementTemplateId) return true;
+  const required = task.requirementProgress.filter((item) => item.isRequired);
+  return task.requirementProgress.length > 0 && required.every((item) => item.submissionStatus === "APPROVED");
+}
+
+/** Reconciles a shared task after evidence is submitted or reviewed. */
+export async function syncTaskProgressForRequirement(
+  requirementId: string,
+  event: "SUBMITTED" | "APPROVED" | "NEEDS_REVISION" | "REJECTED",
+  actorId?: string,
+): Promise<void> {
+  const requirement = await prisma.aaccupRequirement.findFirst({
+    where: { id: requirementId },
+    select: { areaId: true, sourceAssignmentId: true },
+  });
+  if (!requirement) return;
+
+  const tasks = await prisma.aaccupTask.findMany({
+    where: {
+      areaId: requirement.areaId,
+      deletedAt: null,
+      OR: [
+        { requirementId },
+        ...(requirement.sourceAssignmentId
+          ? [{ sourceAssignmentId: requirement.sourceAssignmentId }]
+          : []),
+      ],
+    },
+    select: { id: true },
+  });
+
+  for (const row of tasks) {
+    const task = await repo.findById(row.id);
+    if (!task || task.status === "CANCELLED") continue;
+
+    let nextStatus: AaccupTaskDetail["status"] | null = null;
+    if (event === "NEEDS_REVISION") {
+      nextStatus = task.status === "COMPLETED" ? null : "NEEDS_REVISION";
+    } else if (event === "SUBMITTED") {
+      nextStatus = task.status === "OPEN" || task.status === "NEEDS_REVISION" ? "IN_PROGRESS" : null;
+    } else if (event === "APPROVED" && task.status !== "COMPLETED") {
+      nextStatus = requirementsApproved(task) ? "COMPLETED" : "IN_PROGRESS";
+    }
+
+    if (!nextStatus || nextStatus === task.status) continue;
+    const updated = await repo.update({
+      id: task.id,
+      data: {
+        status: nextStatus,
+        completedAt: nextStatus === "COMPLETED" ? new Date() : null,
+        updatedBy: actorId,
+      },
+    });
+    void writeAudit({
+      action: AUDIT_ACTIONS.AACCUP_TASK_UPDATED,
+      userId: actorId,
+      entity: "aaccup_task",
+      entityId: task.id,
+      oldValue: { status: task.status },
+      newValue: { status: updated.status, reason: `requirement_${event.toLowerCase()}` },
+    });
+  }
+}
+
 async function isAssignee(actorId: string, task: AaccupTaskDetail): Promise<boolean> {
   if (task.assigneeType === "USER") return task.assigneeId === actorId;
-  if (task.assigneeType === "DEPARTMENT") {
+  if (task.assigneeType === "PROGRAM") {
     const me = await prisma.user.findUnique({
       where: { id: actorId },
-      select: { departmentId: true },
+      select: { programId: true },
     });
-    return Boolean(me?.departmentId && me.departmentId === task.assigneeId);
+    return Boolean(me?.programId && me.programId === task.assigneeId);
   }
   return false;
 }
@@ -390,13 +465,17 @@ export async function updateTask(
   // Status transition validation (applies to managers too — no arbitrary jumps).
   if (input.status !== undefined && input.status !== existing.status) {
     const allowed = manager
-      ? ["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"]
+      ? ["OPEN", "IN_PROGRESS", "NEEDS_REVISION", "COMPLETED", "CANCELLED"]
       : ASSIGNEE_STATUS_TRANSITIONS[existing.status] ?? [];
     if (!allowed.includes(input.status)) {
       throw new ConflictError(
         `Cannot move task from ${existing.status} to ${input.status}`,
       );
     }
+  }
+
+  if (input.status === "COMPLETED" && !requirementsApproved(existing)) {
+    throw new ConflictError("All required evidence must be approved before completing this task");
   }
 
   // If the related requirement changes, it must belong to the task's area.
@@ -416,7 +495,7 @@ export async function updateTask(
     input.assigneeType !== undefined ||
     (input.assigneeId !== undefined && input.assigneeId !== existing.assigneeId);
   let assigneeData:
-    | { assigneeType: "USER" | "DEPARTMENT"; assigneeId: string; assigneeLabel: string }
+    | { assigneeType: "USER" | "PROGRAM"; assigneeId: string; assigneeLabel: string }
     | undefined;
   if (assigneeChanged) {
     if (!newAssigneeId) throw new BadRequestError("Assignee is required");

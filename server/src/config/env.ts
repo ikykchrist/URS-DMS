@@ -22,6 +22,11 @@ const trustProxySchema = z.union([
   integerFromString,
 ]);
 
+const optionalEnvString = z.preprocess(
+  (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
+  z.string().trim().min(1).optional(),
+);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: integerFromString.pipe(z.number().int().min(1).max(65535)).default(4000),
@@ -38,10 +43,15 @@ const envSchema = z.object({
 
   PUBLIC_APP_URL: z.string().url().optional(),
 
-  // Optional until the navigation assistant is configured. Chatbot requests
-  // return a controlled service-unavailable error when this is absent.
-  DEEPSEEK_API_KEY: z.string().trim().min(1).optional(),
-  DEEPSEEK_MODEL: z.string().trim().min(1).default("deepseek-chat"),
+  // Navigation assistant provider: NVIDIA NIM with Nemotron, an
+  // OpenAI-compatible endpoint. When no key is configured, the assistant uses
+  // its built-in role-aware guidance engine and labels the reply as guide mode.
+  ASSISTANT_API_KEY: optionalEnvString,
+  // An optional chatbot provider must never prevent the core API/auth server
+  // from booting. Invalid values are ignored by providerConfig and use the
+  // safe NVIDIA/local fallback instead.
+  ASSISTANT_API_URL: optionalEnvString,
+  ASSISTANT_MODEL: optionalEnvString,
 
   DATABASE_URL: z.string().min(1),
 
@@ -63,6 +73,10 @@ const envSchema = z.object({
   MINIO_SECRET_KEY: z.string().default("urs_minio_secret"),
   MINIO_BUCKET: z.string().default("urs-dms"),
   MINIO_PUBLIC_ENDPOINT: z.string().url().optional(),
+  // Internal-only document converter. When unset, native browser previews
+  // continue to work while Office previews retain their existing fallback.
+  GOTENBERG_URL: z.string().url().default("http://localhost:3000"),
+  GOTENBERG_TIMEOUT_MS: integerFromString.pipe(z.number().int().min(5000).max(300000)).default(120000),
 
   RATE_LIMIT_WINDOW_MS: integerFromString.pipe(z.number().int().min(1000)).default(900000),
   RATE_LIMIT_MAX: integerFromString.pipe(z.number().int().min(1)).default(100),

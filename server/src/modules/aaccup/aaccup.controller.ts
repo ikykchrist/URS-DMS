@@ -20,6 +20,19 @@ function toActor(req: Request): service.Actor {
   };
 }
 
+export async function areaSetupProgramsHandler(req: Request, res: Response): Promise<void> {
+  sendSuccess(res, await service.listAreaSetupPrograms(toActor(req)));
+}
+export async function areaSetupOrganizationHandler(req: Request, res: Response): Promise<void> {
+  sendSuccess(res, await service.listAreaSetupOrganization(toActor(req)));
+}
+export async function areaTemplateSetupHandler(req: Request, res: Response): Promise<void> {
+  sendSuccess(res, await service.getAreaTemplateSetup(req.params.id!, toActor(req)));
+}
+export async function setAreaTemplateHandler(req: Request, res: Response): Promise<void> {
+  sendSuccess(res, await service.setAreaTemplate(req.params.id!, (req.body as { templateId: string | null }).templateId, toActor(req)));
+}
+
 export async function listAreasHandler(req: Request, res: Response): Promise<void> {
   const query = req.query as unknown as ListAreasQuery;
   const result = await service.listAreas(query, toActor(req));

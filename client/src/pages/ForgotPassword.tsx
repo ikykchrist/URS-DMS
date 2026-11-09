@@ -14,7 +14,7 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState("")
 
-  useEffect(() => { document.title = "Forgot Password | URS-DMS" }, [])
+  useEffect(() => { document.title = "Forgot Password | QA-DMS" }, [])
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
         </AuthCardHeader>
         {error && <div className="mb-5 flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
         {sent ? (
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-5 text-center text-sm text-emerald-700">
+          <div role="status" aria-live="polite" className="rounded-xl border border-emerald-100 bg-emerald-50 p-5 text-center text-sm text-emerald-700">
             <CheckCircle2 className="mx-auto mb-3 h-7 w-7" />
             If an account exists for this email, reset instructions have been sent. Check your inbox and spam folder.
           </div>

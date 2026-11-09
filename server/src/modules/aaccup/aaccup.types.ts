@@ -4,15 +4,21 @@
 
 export interface AaccupAreaListItem {
   id: string;
+  areaNumber: number;
   code: string;
   name: string;
   description: string | null;
-  departmentId: string;
-  departmentName: string;
+  campusId: string | null;
+  campusName: string | null;
+  collegeId: string | null;
+  collegeName: string | null;
+  programId: string | null;
+  programName: string | null;
   accreditationCycleId: string | null;
   accreditationCycleName: string | null;
   areaSet: string;
   status: string;
+  dueDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

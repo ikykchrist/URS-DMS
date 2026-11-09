@@ -3,7 +3,7 @@ export interface DocumentFile {
   name: string
   type: string
   area: string
-  department: string
+  program: string
   dateModified: string
   size: string
   status: string
@@ -37,6 +37,7 @@ export interface PreviewFileVersion {
 export interface PreviewDownloadResult {
   url: string
   filename: string
+  mimeType?: string
 }
 
 export interface ServerDocumentVersion {

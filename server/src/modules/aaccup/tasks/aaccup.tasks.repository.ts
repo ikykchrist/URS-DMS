@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { areaRequirementVisibility } from "@/modules/requirements/requirement.visibility";
 import type { Prisma } from "@prisma/client";
 import type {
   AaccupTaskDetail,
@@ -10,7 +11,23 @@ import type {
 // =============================================================================
 
 const TASK_INCLUDE = {
-  area: { select: { id: true, code: true, name: true, areaSet: true, departmentId: true } },
+  area: { select: {
+    id: true, code: true, name: true, areaSet: true, campusId: true, collegeId: true, programId: true,
+    requirements: {
+      where: { deletedAt: null, status: "ACTIVE", ...areaRequirementVisibility },
+      orderBy: { displayOrder: "asc" },
+      select: {
+        id: true, title: true, documentCode: true, isRequired: true, sourceAssignmentId: true,
+        sourceNode: { select: { templateId: true } },
+        submissions: {
+          where: { deletedAt: null, isCurrent: true },
+          orderBy: { submittedAt: "desc" },
+          take: 1,
+          select: { status: true, submittedAt: true },
+        },
+      },
+    },
+  } },
   requirement: { select: { id: true, title: true, documentCode: true } },
   requirementTemplate: { select: { id: true, name: true, version: true } },
   createdByUser: { select: { firstName: true, lastName: true } },
@@ -26,13 +43,24 @@ function fullName(firstName: string, lastName: string): string {
 }
 
 function toListItem(row: TaskWithRelations): AaccupTaskListItem {
+  const scopedRequirements = row.requirementId
+    ? row.area?.requirements.filter((requirement) => requirement.id === row.requirementId)
+    : row.requirementTemplateId
+      ? row.area?.requirements.filter((requirement) =>
+          requirement.sourceAssignmentId !== null &&
+          requirement.sourceNode?.templateId === row.requirementTemplateId &&
+          (row.sourceAssignmentId === null || requirement.sourceAssignmentId === row.sourceAssignmentId),
+        )
+      : [];
   return {
     id: row.id,
     areaId: row.areaId,
     areaCode: row.area?.code ?? "",
     areaName: row.area?.name ?? "",
     areaSet: row.area?.areaSet ?? "AACCUP",
-    departmentId: row.area?.departmentId ?? null,
+    campusId: row.area?.campusId ?? null,
+    collegeId: row.area?.collegeId ?? null,
+    programId: row.area?.programId ?? null,
     title: row.title,
     description: row.description,
     category: row.category,
@@ -45,7 +73,16 @@ function toListItem(row: TaskWithRelations): AaccupTaskListItem {
     requirementTemplateId: row.requirementTemplateId,
     requirementTemplateName: row.requirementTemplate?.name ?? null,
     requirementTemplateVersion: row.requirementTemplate?.version ?? null,
-    assigneeType: row.assigneeType === "DEPARTMENT" ? "DEPARTMENT" : "USER",
+    sourceAssignmentId: row.sourceAssignmentId,
+    requirementProgress: (scopedRequirements ?? []).map((requirement) => ({
+      id: requirement.id,
+      title: requirement.title,
+      documentCode: requirement.documentCode,
+      isRequired: requirement.isRequired,
+      submissionStatus: requirement.submissions[0]?.status ?? null,
+      submittedAt: requirement.submissions[0]?.submittedAt ?? null,
+    })),
+    assigneeType: row.assigneeType === "PROGRAM" ? "PROGRAM" : "USER",
     assigneeId: row.assigneeId,
     assigneeLabel: row.assigneeLabel,
     createdBy: row.createdBy,
@@ -109,7 +146,8 @@ export interface CreateTaskArgs {
   dueDate: Date | null;
   requirementId: string | null;
   requirementTemplateId: string | null;
-  assigneeType: "USER" | "DEPARTMENT";
+  sourceAssignmentId?: string | null;
+  assigneeType: "USER" | "PROGRAM";
   assigneeId: string;
   assigneeLabel: string;
   createdBy: string;
@@ -126,6 +164,7 @@ export async function create(args: CreateTaskArgs): Promise<AaccupTaskDetail> {
       dueDate: args.dueDate,
       requirementId: args.requirementId,
       requirementTemplateId: args.requirementTemplateId,
+      sourceAssignmentId: args.sourceAssignmentId ?? null,
       assigneeType: args.assigneeType,
       assigneeId: args.assigneeId,
       assigneeLabel: args.assigneeLabel,
@@ -143,11 +182,12 @@ export interface UpdateTaskArgs {
     description?: string | null;
     category?: string | null;
     priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-    status?: "OPEN" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+    status?: "OPEN" | "IN_PROGRESS" | "NEEDS_REVISION" | "COMPLETED" | "CANCELLED";
     dueDate?: Date | null;
     requirementId?: string | null;
     requirementTemplateId?: string | null;
-    assigneeType?: "USER" | "DEPARTMENT";
+    sourceAssignmentId?: string | null;
+    assigneeType?: "USER" | "PROGRAM";
     assigneeId?: string;
     assigneeLabel?: string;
     completedAt?: Date | null;
@@ -167,6 +207,7 @@ export async function update(args: UpdateTaskArgs): Promise<AaccupTaskDetail> {
       ...(args.data.dueDate !== undefined ? { dueDate: args.data.dueDate } : {}),
       ...(args.data.requirementId !== undefined ? { requirementId: args.data.requirementId } : {}),
       ...(args.data.requirementTemplateId !== undefined ? { requirementTemplateId: args.data.requirementTemplateId } : {}),
+      ...(args.data.sourceAssignmentId !== undefined ? { sourceAssignmentId: args.data.sourceAssignmentId } : {}),
       ...(args.data.assigneeType !== undefined ? { assigneeType: args.data.assigneeType } : {}),
       ...(args.data.assigneeId !== undefined ? { assigneeId: args.data.assigneeId } : {}),
       ...(args.data.assigneeLabel !== undefined ? { assigneeLabel: args.data.assigneeLabel } : {}),

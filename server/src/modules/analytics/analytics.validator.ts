@@ -13,7 +13,9 @@ export const analyticsQuerySchema = z.object({
     .default("monthly"),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
-  departmentId: z.string().uuid().optional(),
+  campusId: z.string().uuid().optional(),
+  collegeId: z.string().uuid().optional(),
+  programId: z.string().uuid().optional(),
   areaId: z.string().uuid().optional(),
 });
 

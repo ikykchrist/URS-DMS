@@ -10,26 +10,11 @@ import {
 // -----------------------------------------------------------------------------
 // Pure Prisma data access. The admin surface differs from the legacy
 // modules/users repository in three ways:
-//   1. College filter is reached via the department → college FK chain
-//      (`departmentId IN (SELECT id FROM departments WHERE collegeId = ?)`).
-//      The Prisma User model has NO `department` relation (only the reverse
-//      `UserDepartment` one-to-many to Department, which models a legacy
-//      many-to-many and is NOT the scalar `departmentId` we filter on). So
-//      the college filter resolves the matching department ids first, then
-//      scopes the user query by `departmentId IN ...`. Single round-trip for
-//      the user query, plus one bounded subquery for the department ids — no
-//      N+1.
 //   2. `includeArchived` is honoured separately from the soft-delete filter
 //      so archived users can be listed + restored via the admin surface.
 //   3. The `mustChangePassword` column added in Sprint 7.2 is read + written
 //      here.
 //
-// Department / college names are NOT reachable via a Prisma relation on User
-// (`User.department` does not exist — see AI_CONTEXT known issue #11, which
-// documents that `/audit` exposes `userDepartmentId` not `userDepartment` for
-// exactly this reason). Names are resolved in a single batched query against
-// Department (with its college FK) per list/detail call, then spliced into the
-// view rows. This mirrors the canonical reports.service.ts pattern.
 //
 // No business rules. RBAC + audit + uniqueness checks live in the service.
 // =============================================================================
@@ -45,7 +30,12 @@ const userSelect = {
   status: true,
   roleId: true,
   role: { select: { name: true } },
-  departmentId: true,
+  campusId: true,
+  campus: { select: { name: true } },
+  collegeId: true,
+  college: { select: { name: true } },
+  programId: true,
+  program: { select: { name: true } },
   mustChangePassword: true,
   lastLogin: true,
   createdAt: true,
@@ -56,44 +46,7 @@ const userSelect = {
 
 type UserRow = Prisma.UserGetPayload<{ select: typeof userSelect }>;
 
-// Resolved department + college rows for the set of departmentIds present in
-// a page of users. Cached per call (single batched query). Keyed by the
-// department id. Mirrors reports.service.ts's `nameById` map pattern.
-interface DeptInfo {
-  departmentName: string;
-  collegeId: string | null;
-  collegeName: string | null;
-}
-
-async function loadDeptInfos(departmentIds: (string | null)[]): Promise<Map<string, DeptInfo>> {
-  const uniqueIds = Array.from(
-    new Set(departmentIds.filter((id): id is string => id !== null)),
-  );
-  if (uniqueIds.length === 0) return new Map<string, DeptInfo>();
-
-  const rows = await prisma.department.findMany({
-    where: { id: { in: uniqueIds } },
-    select: {
-      id: true,
-      name: true,
-      collegeId: true,
-      college: { select: { name: true } },
-    },
-  });
-
-  const map = new Map<string, DeptInfo>();
-  for (const r of rows) {
-    map.set(r.id, {
-      departmentName: r.name,
-      collegeId: r.collegeId,
-      collegeName: r.college?.name ?? null,
-    });
-  }
-  return map;
-}
-
-function toView(u: UserRow, deptInfos: Map<string, DeptInfo>): AdminUserListItem {
-  const info = u.departmentId ? (deptInfos.get(u.departmentId) ?? null) : null;
+function toView(u: UserRow): AdminUserListItem {
   return {
     id: u.id,
     employeeId: u.employeeId,
@@ -105,10 +58,12 @@ function toView(u: UserRow, deptInfos: Map<string, DeptInfo>): AdminUserListItem
     status: u.status,
     roleId: u.roleId,
     roleName: u.role.name,
-    departmentId: u.departmentId,
-    departmentName: info?.departmentName ?? null,
-    collegeId: info?.collegeId ?? null,
-    collegeName: info?.collegeName ?? null,
+    campusId: u.campusId,
+    campusName: u.campus?.name ?? null,
+    collegeId: u.collegeId,
+    collegeName: u.college?.name ?? null,
+    programId: u.programId,
+    programName: u.program?.name ?? null,
     mustChangePassword: u.mustChangePassword,
     lastLogin: u.lastLogin,
     createdAt: u.createdAt,
@@ -126,8 +81,8 @@ export interface ListArgs {
   pageSize: number;
   includeArchived: boolean;
   roleId?: string;
-  departmentId?: string;
   collegeId?: string;
+  campusId?: string;
   status?: UserStatus;
   createdFrom?: Date;
   createdTo?: Date;
@@ -144,7 +99,8 @@ export async function list(
     deletedAt: args.includeArchived ? undefined : null,
   };
   if (args.roleId) where.roleId = args.roleId;
-  if (args.departmentId) where.departmentId = args.departmentId;
+  if (args.campusId) where.campusId = args.campusId;
+  if (args.collegeId) where.collegeId = args.collegeId;
   if (args.status) where.status = args.status;
   if (args.createdFrom || args.createdTo) {
     where.createdAt = {};
@@ -155,19 +111,6 @@ export async function list(
     where.updatedAt = {};
     if (args.updatedFrom) where.updatedAt.gte = args.updatedFrom;
     if (args.updatedTo) where.updatedAt.lte = args.updatedTo;
-  }
-
-  // College filter: User has no `department` relation. Resolve the set of
-  // department ids belonging to the college first, then scope the user query
-  // by `departmentId IN (...)`. An unknown college id yields an empty id set,
-  // which we turn into an unsatisfiable `id: { in: [] }` filter so the page is
-  // empty rather than unfiltered.
-  if (args.collegeId) {
-    const deptIds = await prisma.department.findMany({
-      where: { collegeId: args.collegeId },
-      select: { id: true },
-    });
-    where.departmentId = { in: deptIds.map((d) => d.id) };
   }
 
   if (args.q) {
@@ -197,9 +140,7 @@ export async function list(
     prisma.user.count({ where }),
   ]);
 
-  // Batched department + college name resolution in one round-trip.
-  const deptInfos = await loadDeptInfos(rows.map((r) => r.departmentId));
-  return { items: rows.map((r) => toView(r, deptInfos)), total };
+  return { items: rows.map((r) => toView(r)), total };
 }
 
 export async function findById(id: string, includeArchived = false): Promise<AdminUserDetail | null> {
@@ -208,8 +149,7 @@ export async function findById(id: string, includeArchived = false): Promise<Adm
     select: userSelect,
   });
   if (!row) return null;
-  const deptInfos = await loadDeptInfos([row.departmentId]);
-  return toView(row, deptInfos);
+  return toView(row);
 }
 
 // Uniqueness probes — return only the id (the service uses these for
@@ -245,7 +185,9 @@ export interface CreateArgs {
   lastName: string;
   suffix?: string | null;
   roleId: string;
-  departmentId?: string | null;
+  campusId?: string | null;
+  collegeId?: string | null;
+  programId?: string | null;
   mustChangePassword: boolean;
 }
 
@@ -260,14 +202,15 @@ export async function create(args: CreateArgs): Promise<AdminUserDetail> {
       lastName: args.lastName,
       suffix: args.suffix ?? null,
       roleId: args.roleId,
-      departmentId: args.departmentId ?? null,
+      campusId: args.campusId ?? null,
+      collegeId: args.collegeId ?? null,
+      programId: args.programId ?? null,
       mustChangePassword: args.mustChangePassword,
       status: "ACTIVE",
     },
     select: userSelect,
   });
-  const deptInfos = await loadDeptInfos([row.departmentId]);
-  return toView(row, deptInfos);
+  return toView(row);
 }
 
 export interface UpdateArgs {
@@ -279,7 +222,9 @@ export interface UpdateArgs {
     lastName?: string;
     suffix?: string | null;
     roleId?: string;
-    departmentId?: string | null;
+    campusId?: string | null;
+    collegeId?: string | null;
+    programId?: string | null;
   };
 }
 
@@ -293,12 +238,13 @@ export async function update(args: UpdateArgs): Promise<AdminUserDetail> {
       ...(args.data.lastName !== undefined ? { lastName: args.data.lastName } : {}),
       ...(args.data.suffix !== undefined ? { suffix: args.data.suffix } : {}),
       ...(args.data.roleId !== undefined ? { roleId: args.data.roleId } : {}),
-      ...(args.data.departmentId !== undefined ? { departmentId: args.data.departmentId } : {}),
+      ...(args.data.campusId !== undefined ? { campusId: args.data.campusId } : {}),
+      ...(args.data.collegeId !== undefined ? { collegeId: args.data.collegeId } : {}),
+      ...(args.data.programId !== undefined ? { programId: args.data.programId } : {}),
     },
     select: userSelect,
   });
-  const deptInfos = await loadDeptInfos([row.departmentId]);
-  return toView(row, deptInfos);
+  return toView(row);
 }
 
 export async function changeStatus(id: string, status: UserStatus): Promise<AdminUserDetail> {
@@ -307,8 +253,7 @@ export async function changeStatus(id: string, status: UserStatus): Promise<Admi
     data: { status },
     select: userSelect,
   });
-  const deptInfos = await loadDeptInfos([row.departmentId]);
-  return toView(row, deptInfos);
+  return toView(row);
 }
 
 export async function updatePasswordHash(
@@ -329,8 +274,7 @@ export async function updatePasswordHash(
     },
     select: userSelect,
   });
-  const deptInfos = await loadDeptInfos([row.departmentId]);
-  return toView(row, deptInfos);
+  return toView(row);
 }
 
 export async function setMustChangePassword(
@@ -342,8 +286,7 @@ export async function setMustChangePassword(
     data: { mustChangePassword },
     select: userSelect,
   });
-  const deptInfos = await loadDeptInfos([row.departmentId]);
-  return toView(row, deptInfos);
+  return toView(row);
 }
 
 export async function archive(id: string): Promise<AdminUserDetail> {
@@ -352,8 +295,7 @@ export async function archive(id: string): Promise<AdminUserDetail> {
     data: { deletedAt: new Date(), status: "INACTIVE" },
     select: userSelect,
   });
-  const deptInfos = await loadDeptInfos([row.departmentId]);
-  return toView(row, deptInfos);
+  return toView(row);
 }
 
 export async function restore(id: string): Promise<AdminUserDetail> {
@@ -362,8 +304,7 @@ export async function restore(id: string): Promise<AdminUserDetail> {
     data: { deletedAt: null, status: "ACTIVE" },
     select: userSelect,
   });
-  const deptInfos = await loadDeptInfos([row.departmentId]);
-  return toView(row, deptInfos);
+  return toView(row);
 }
 
 export async function revokeAllSessions(userId: string): Promise<void> {

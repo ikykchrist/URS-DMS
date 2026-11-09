@@ -74,8 +74,8 @@ export default function AccountSecurity() {
 
   const handleAvatarChange = async (file: File) => {
     if (!user) return
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Profile picture must be 2MB or smaller.")
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Profile picture must be 10MB or smaller.")
       return
     }
     try {
@@ -196,7 +196,7 @@ export default function AccountSecurity() {
   const otherSessions = sessions.filter((s) => !s.current)
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="content-padding">
       <PageHeader
         title="Account & Security"
         description="Manage your profile, password, and active sessions."
@@ -269,8 +269,8 @@ export default function AccountSecurity() {
                   <p className="text-[14px] text-gray-700 mt-1">{profile?.employeeId ?? "—"}</p>
                 </div>
                 <div>
-                  <Label className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Department</Label>
-                  <p className="text-[14px] text-gray-700 mt-1">{profile?.departmentName ?? "—"}</p>
+                  <Label className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Program</Label>
+                  <p className="text-[14px] text-gray-700 mt-1">{profile?.programName ?? "—"}</p>
                 </div>
                 <div>
                   <Label className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Member Since</Label>
