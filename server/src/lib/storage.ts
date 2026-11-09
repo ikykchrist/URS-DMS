@@ -193,6 +193,22 @@ export async function getObjectStream(objectKey: string): Promise<Readable> {
   }
 }
 
+/**
+ * Read only `length` bytes starting at `offset` so HTTP Range requests stream
+ * a slice straight from MinIO instead of buffering the whole object.
+ */
+export async function getObjectRange(objectKey: string, offset: number, length: number): Promise<Readable> {
+  const c = getClient();
+  try {
+    const stream = await c.getPartialObject(env.MINIO_BUCKET, objectKey, offset, length);
+    return stream as unknown as Readable;
+  } catch (err) {
+    throw new ServiceUnavailableError("Storage range fetch failed", {
+      reason: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 function buildProfilePhotoKey(userId: string): string {
   return `profile-photos/${userId}/photo`;
 }

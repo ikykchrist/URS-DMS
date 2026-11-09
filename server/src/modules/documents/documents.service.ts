@@ -625,7 +625,14 @@ async function getConvertedPreview(
   if (!OFFICE_PREVIEW_TYPES.has(mimeType) || !env.GOTENBERG_URL) return null;
 
   const convertedKey = previewObjectKey(objectKey);
-  if (!await objectExists(convertedKey)) {
+  // One stat instead of exists+stat: a hit skips a MinIO round trip entirely.
+  let convertedSize: number | null = null;
+  try {
+    convertedSize = (await statObject(convertedKey)).size;
+  } catch {
+    convertedSize = null;
+  }
+  if (convertedSize === null) {
     const source = await streamToBuffer(await getObjectStream(objectKey));
     const form = new FormData();
     form.append("files", new Blob([source], { type: mimeType }), filename);
@@ -643,6 +650,7 @@ async function getConvertedPreview(
       const pdf = Buffer.from(await response.arrayBuffer());
       if (pdf.length === 0) throw new ServiceUnavailableError("Document preview conversion returned no data");
       await putObject(convertedKey, pdf, pdf.length, "application/pdf");
+      convertedSize = pdf.length;
     } catch (error) {
       if (error instanceof ServiceUnavailableError) throw error;
       throw new ServiceUnavailableError("Document preview conversion is unavailable", {
@@ -653,14 +661,13 @@ async function getConvertedPreview(
     }
   }
 
-  const converted = await statObject(convertedKey);
   const download = await presignDownload(convertedKey, { inline: true });
   return {
     url: download.url,
     objectKey: convertedKey,
     expiresInSeconds: download.expiresInSeconds,
     filename: filename.replace(/\.[^.]+$/, "") + ".pdf",
-    sizeBytes: String(converted.size),
+    sizeBytes: String(convertedSize ?? 0),
     mimeType: "application/pdf",
   };
 }

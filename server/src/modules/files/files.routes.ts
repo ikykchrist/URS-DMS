@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { asyncHandler } from "@/utils/asyncHandler";
 import { verifyFileToken } from "@/lib/fileToken";
-import { getObjectStream, putObject, statObject } from "@/lib/storage";
+import { getObjectRange, getObjectStream, putObject, statObject } from "@/lib/storage";
 import { env } from "@/config/env";
 import { BadRequestError, UnauthorizedError } from "@/utils/errors";
+import { parseByteRange } from "@/utils/byteRange";
 
 // =============================================================================
 // URS-DMS — signed file streaming routes
@@ -114,7 +115,6 @@ filesRouter.get(
     })();
 
     const stat = await statObject(payload.k);
-    const stream = await getObjectStream(payload.k);
 
     const filename = payload.k.split("/").pop() ?? "file";
     const declared = normalizeContentType(stat.contentType);
@@ -124,7 +124,7 @@ filesRouter.get(
     const servedType = inlineRequested && !inlineSafe ? "application/octet-stream" : declared;
     res.setHeader("Content-Type", servedType);
     res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Content-Length", String(stat.size));
+    res.setHeader("Accept-Ranges", "bytes");
     res.setHeader(
       "Content-Disposition",
       `${disposition}; filename="${filename.replace(/[^A-Za-z0-9._-]/g, "_")}"`,
@@ -135,6 +135,29 @@ filesRouter.get(
     const frameAncestors = ["'self'", ...env.CLIENT_URL.map((o) => o.replace(/^https?:\/\//, ""))];
     res.setHeader("Content-Security-Policy", `frame-ancestors ${frameAncestors.join(" ")}`);
     res.setHeader("Cache-Control", "private, max-age=300");
+
+    // Byte ranges let the browser PDF viewer render page 1 and seek without
+    // downloading the entire file, and let <video>/<audio> seek immediately.
+    const range = parseByteRange(req.headers.range, stat.size);
+    if (range === "invalid") {
+      res.status(416).setHeader("Content-Range", `bytes */${stat.size}`).end();
+      return;
+    }
+
+    const stream = range
+      ? await getObjectRange(payload.k, range.start, range.length)
+      : await getObjectStream(payload.k);
+
+    if (range) {
+      res.status(206);
+      res.setHeader("Content-Range", `bytes ${range.start}-${range.end}/${stat.size}`);
+      res.setHeader("Content-Length", String(range.length));
+    } else {
+      res.setHeader("Content-Length", String(stat.size));
+    }
+
+    // Free the MinIO connection as soon as the client goes away (seek/close).
+    res.on("close", () => stream.destroy());
     stream.on("error", () => {
       if (!res.headersSent) res.status(500);
       res.end();

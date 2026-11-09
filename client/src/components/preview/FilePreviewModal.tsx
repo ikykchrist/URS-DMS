@@ -62,25 +62,26 @@ export function FilePreviewModal({ document, onClose, onRename, onMove, onDelete
   const [zoom, setZoom] = useState(100)
   const [rotation, setRotation] = useState(0)
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  // Keep the newest document object without re-running the loader when the
+  // parent re-renders with a fresh object for the same file/version.
+  const documentRef = useRef(document)
+  documentRef.current = document
+  const documentId = document?.id
+  const documentVersionId = document?.currentVersionId
 
   useEffect(() => {
-    if (!document) return
-    let previewObjectUrl: string | null = null
+    const currentDocument = documentRef.current
+    if (!currentDocument) return
     let cancelled = false
     setUrl(null); setError(null); setEditing(false); setTab("preview"); setActivity(null)
     setZoom(100); setRotation(0)
     setLoading(true)
-    getOnlineDocumentUrl(document, true)
-      .then(async (previewUrl) => {
-        const response = await fetch(previewUrl)
-        if (!response.ok) throw new Error("Unable to load file preview")
-        const preview = await response.blob()
-        previewObjectUrl = URL.createObjectURL(preview)
-        if (cancelled) {
-          URL.revokeObjectURL(previewObjectUrl)
-          return
-        }
-        setUrl(previewObjectUrl)
+    // Hand the signed URL straight to the browser instead of downloading the
+    // whole file into a blob first: the iframe/<img>/<video> then streams it
+    // progressively and can seek via HTTP range requests.
+    getOnlineDocumentUrl(currentDocument, true)
+      .then((previewUrl) => {
+        if (!cancelled) setUrl(previewUrl)
       })
       .catch(() => {
         if (!cancelled) setError("Unable to generate a preview link")
@@ -90,9 +91,8 @@ export function FilePreviewModal({ document, onClose, onRename, onMove, onDelete
       })
     return () => {
       cancelled = true
-      if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl)
     }
-  }, [document, previewAttempt])
+  }, [documentId, documentVersionId, previewAttempt])
 
   useEffect(() => {
     if (!document || tab !== "activity") return
