@@ -46,8 +46,7 @@ export type AssistantNoticeCode =
   | "billing"
   | "auth"
   | "rate_limited"
-  | "timeout"
-  | "provider_error";
+  | "timeout";
 
 export interface AssistantNotice {
   code: AssistantNoticeCode;
@@ -61,7 +60,6 @@ const NOTICES: Record<AssistantNoticeCode, string> = {
   auth: "Answers come from the built-in guide because the AI model rejected its API key.",
   rate_limited: "Answers come from the built-in guide because the AI model is rate limited right now.",
   timeout: "Answers come from the built-in guide because the AI model took too long to respond.",
-  provider_error: "Answers come from the built-in guide because the AI model is unavailable right now.",
 };
 
 function httpsUrl(value: string | undefined): string | undefined {
@@ -262,7 +260,7 @@ function safeProviderErrorCode(error: unknown): string {
 }
 
 /** Map a provider failure to a user-safe reason so the UI can explain guide mode. */
-function noticeForError(error: unknown): AssistantNotice {
+function noticeForError(error: unknown): AssistantNotice | undefined {
   if (error instanceof Error && error.name === "AbortError") {
     return { code: "timeout", text: NOTICES.timeout };
   }
@@ -270,7 +268,7 @@ function noticeForError(error: unknown): AssistantNotice {
   if (status === 402) return { code: "billing", text: NOTICES.billing };
   if (status === 401 || status === 403) return { code: "auth", text: NOTICES.auth };
   if (status === 429) return { code: "rate_limited", text: NOTICES.rate_limited };
-  return { code: "provider_error", text: NOTICES.provider_error };
+  return undefined;
 }
 
 /** Generate one navigation-assistant response without persisting context. */
@@ -380,7 +378,7 @@ async function generateProviderResponse(
     const notice = noticeForError(error);
     logger.warn("Navigation assistant fell back to built-in guide", {
       code: safeProviderErrorCode(error),
-      notice: notice.code,
+      notice: notice?.code,
       detail: (error as { providerMessage?: string }).providerMessage,
     });
     return {
