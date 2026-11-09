@@ -42,9 +42,9 @@ const envSchema = z.object({
   // navigation assistant uses its local role-aware guidance engine.
   DEEPSEEK_API_KEY: z.string().trim().min(1).optional(),
   DEEPSEEK_MODEL: z.string().trim().min(1).default("deepseek-chat"),
-  // Provider-neutral OpenAI-compatible navigation assistant. Groq is the
-  // recommended free-tier default; the legacy DeepSeek variables remain as
-  // a backward-compatible fallback during deployment.
+  // Provider-neutral OpenAI-compatible navigation assistant. NVIDIA NIM with
+  // Nemotron is the recommended hosted provider; the legacy DeepSeek
+  // variables remain as a backward-compatible fallback during deployment.
   ASSISTANT_API_KEY: z.string().trim().min(1).optional(),
   ASSISTANT_API_URL: z.string().url().optional(),
   ASSISTANT_MODEL: z.string().trim().min(1).optional(),

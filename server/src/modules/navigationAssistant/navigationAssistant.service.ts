@@ -12,7 +12,7 @@ import type { RoleName } from "@prisma/client";
 
 const SYSTEM_INSTRUCTION = "You are the URS-DMS Navigation Assistant. Your job is to help the authenticated user understand how to navigate and use URS-DMS. Use only the provided URS-DMS navigation knowledge and the user's authorized role context. Keep answers concise, practical, and easy to follow. Never invent pages, buttons, routes, permissions, or features. Never instruct a user to access functionality outside their role. If functionality is unavailable to the role, explain that briefly. You are guidance-only. You do not perform destructive or administrative actions. You do not read private documents, PDFs, submissions, audit records, or database records.";
 const REQUEST_TIMEOUT_MS = 15_000;
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
 const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 
 function providerConfig(): { apiKey: string; apiUrl: string; model: string } | null {
@@ -20,8 +20,8 @@ function providerConfig(): { apiKey: string; apiUrl: string; model: string } | n
   if (!apiKey) return null;
   return {
     apiKey,
-    apiUrl: env.ASSISTANT_API_URL ?? (env.ASSISTANT_API_KEY ? GROQ_API_URL : DEEPSEEK_API_URL),
-    model: env.ASSISTANT_MODEL ?? env.DEEPSEEK_MODEL,
+    apiUrl: env.ASSISTANT_API_URL ?? (env.ASSISTANT_API_KEY ? NVIDIA_API_URL : DEEPSEEK_API_URL),
+    model: env.ASSISTANT_MODEL ?? (env.ASSISTANT_API_KEY ? "nvidia/nvidia-nemotron-nano-9b-v2" : env.DEEPSEEK_MODEL),
   };
 }
 
