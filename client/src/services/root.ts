@@ -872,14 +872,6 @@ export type RequirementNodeType =
   | "SUB_REQUIREMENT"
   | "SUPPORTING_DOCUMENT"
 export type RequirementNodeStatus = "ACTIVE" | "INACTIVE"
-export type RequirementAssignmentTargetType =
-  | "UNIVERSITY"
-  | "CAMPUS"
-  | "COLLEGE"
-  | "PROGRAM"
-  | "OFFICE"
-  | "AACCUP_AREA"
-  | "ACCREDITATION_CYCLE"
 export type RequirementChangeType =
   | "CREATED"
   | "UPDATED"
@@ -954,21 +946,9 @@ export interface RequirementTreeNode {
   children: RequirementTreeNode[]
 }
 
-export interface RequirementAssignment {
-  id: string
-  templateId: string
-  templateName: string
-  targetType: RequirementAssignmentTargetType
-  targetId: string | null
-  targetName: string | null
-  dueDate: string | null
-  createdAt: string
-}
-
 export interface RequirementTemplateDetail {
   template: RequirementTemplate
   tree: RequirementTreeNode[]
-  assignments: RequirementAssignment[]
 }
 
 export interface RequirementSnapshot {
@@ -985,11 +965,6 @@ export interface RequirementSnapshot {
     name: string
     type: RequirementNodeType
     validations: Array<{ id: string; type: RequirementValidationType }>
-  }>
-  assignments: Array<{
-    id: string
-    targetType: RequirementAssignmentTargetType
-    targetId: string | null
   }>
 }
 
@@ -1213,37 +1188,6 @@ export async function archiveRequirementValidation(
   )
 }
 
-export async function listRequirementAssignments(query?: {
-  templateId?: string
-  targetType?: RequirementAssignmentTargetType
-}): Promise<RequirementAssignment[]> {
-  const params = new URLSearchParams()
-  if (query?.templateId) params.set("templateId", query.templateId)
-  if (query?.targetType) params.set("targetType", query.targetType)
-  const queryString = params.size ? `?${params.toString()}` : ""
-  return apiGet<RequirementAssignment[]>(`${REQUIREMENT_PATH}/assignments${queryString}`)
-}
-
-export async function assignRequirementTemplate(
-  templateId: string,
-  targetType: RequirementAssignmentTargetType,
-  dueDate: string | undefined,
-  targetId?: string | null,
-): Promise<RequirementTemplateDetail> {
-  return apiPost<RequirementTemplateDetail>(
-    `${REQUIREMENT_PATH}/${encodeURIComponent(templateId)}/assignments`,
-    { targetType, ...(targetType === "UNIVERSITY" ? {} : { targetId }), dueDate },
-  )
-}
-
-export async function unassignRequirementTemplate(
-  assignmentId: string,
-): Promise<RequirementTemplateDetail> {
-  return apiDelete<RequirementTemplateDetail>(
-    `${REQUIREMENT_PATH}/assignments/${encodeURIComponent(assignmentId)}`,
-  )
-}
-
 export async function listRequirementVersions(templateId: string): Promise<RequirementVersion[]> {
   return apiGet<RequirementVersion[]>(
     `${REQUIREMENT_PATH}/${encodeURIComponent(templateId)}/versions`,
@@ -1290,41 +1234,6 @@ export async function listAccreditationCycles(query?: {
   if (query?.includeArchived) params.set("includeArchived", "true")
   const queryString = params.size ? `?${params.toString()}` : ""
   return apiGetPage<AccreditationCycle>(`${REQUIREMENT_PATH}/cycles${queryString}`)
-}
-
-export async function createAccreditationCycle(input: {
-  code: string
-  name: string
-  description?: string | null
-  startDate: string
-  endDate: string
-  status?: "ACTIVE" | "INACTIVE"
-}): Promise<AccreditationCycle> {
-  return apiPost<AccreditationCycle>(`${REQUIREMENT_PATH}/cycles`, input)
-}
-
-export async function listRequirementTargetOptions(
-  targetType: RequirementAssignmentTargetType,
-): Promise<RequirementTargetOption[]> {
-  if (targetType === "UNIVERSITY") return []
-  if (targetType === "ACCREDITATION_CYCLE") {
-    const result = await listAccreditationCycles({ pageSize: 200 })
-    return result.items.map((cycle) => ({ id: cycle.id, name: cycle.name, code: cycle.code }))
-  }
-  if (targetType === "AACCUP_AREA") {
-    const result = await apiGetPage<AaccupAreaOption>("/aaccup/areas?pageSize=100")
-    return result.items.map((area) => ({ id: area.id, name: area.name, code: area.code }))
-  }
-  const entity: OrgEntity =
-    targetType === "CAMPUS"
-      ? "campus"
-      : targetType === "COLLEGE"
-        ? "college"
-        : targetType === "PROGRAM"
-          ? "program"
-          : "office"
-  const result = await listOrgRecords(entity, { pageSize: 200 })
-  return result.items.map((record) => ({ id: record.id, name: record.name, code: record.code }))
 }
 
 // Ã¢â€â‚¬Ã¢â€â‚¬ Dynamic Workflow Builder (Sprint 7.4.5) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬

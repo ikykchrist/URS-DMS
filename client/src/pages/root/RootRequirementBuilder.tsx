@@ -9,7 +9,6 @@ import {
   Archive,
   ArrowDown,
   ArrowUp,
-  CalendarRange,
   ChevronDown,
   ChevronRight,
   CircleAlert,
@@ -78,32 +77,24 @@ import {
   archiveRequirementNode,
   archiveRequirementTemplate,
   archiveRequirementValidation,
-  assignRequirementTemplate,
-  createAccreditationCycle,
   createRequirementNode,
   createRequirementTemplate,
   createRequirementValidation,
   getRequirementTemplate,
-  listRequirementAssignments,
   listRequirementHistory,
   listRequirementNodes,
-  listRequirementTargetOptions,
   listRequirementTemplates,
   listRequirementVersions,
   moveRequirementNode,
   restoreRequirementNode,
   restoreRequirementTemplate,
   rollbackRequirementTemplate,
-  unassignRequirementTemplate,
   updateRequirementNode,
   updateRequirementTemplate,
   updateRequirementValidation,
-  type RequirementAssignment,
-  type RequirementAssignmentTargetType,
   type RequirementChangeType,
   type RequirementHistoryEntry,
   type RequirementNodeType,
-  type RequirementTargetOption,
   type RequirementTemplate,
   type RequirementTemplateDetail,
   type RequirementTemplateStatus,
@@ -118,9 +109,8 @@ import {
 const PAGE_SIZE = 10;
 const HISTORY_PAGE_SIZE = 20;
 const ALL = "ALL";
-const NO_TARGET = "__NO_TARGET__";
 
- type MainTab = "builder" | "preview" | "assignments" | "history";
+type MainTab = "builder" | "preview" | "history";
 type TemplateDialog =
   | { mode: "create" }
   | { mode: "edit"; template: RequirementTemplate };
@@ -186,13 +176,6 @@ const EMPTY_RULE: RuleForm = {
   valueTwo: ".pdf",
 };
 
-const TARGET_TYPES: Array<{
-  value: RequirementAssignmentTargetType;
-  label: string;
-}> = [
-  { value: "AACCUP_AREA", label: "AACCUP Area" },
-];
-
 const NODE_TYPES: Array<{ value: RequirementNodeType; label: string }> = [
   { value: "SECTION", label: "Group" },
   { value: "REQUIREMENT", label: "Required document" },
@@ -253,10 +236,6 @@ function flatten(nodes: RequirementTreeNode[]): RequirementTreeNode[] {
 
 function nodeTypeLabel(type: RequirementNodeType): string {
   return NODE_TYPES.find((item) => item.value === type)?.label ?? type;
-}
-
-function targetLabel(type: RequirementAssignmentTargetType): string {
-  return TARGET_TYPES.find((item) => item.value === type)?.label ?? type;
 }
 
 function ruleLabel(type: RequirementValidationType): string {
@@ -712,29 +691,6 @@ export default function RootRequirementBuilder() {
   );
   const [ruleForm, setRuleForm] = useState<RuleForm>({ ...EMPTY_RULE });
 
-  const [assignments, setAssignments] = useState<RequirementAssignment[]>([]);
-  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
-  const [assignmentsError, setAssignmentsError] = useState<string | null>(null);
-  const [assignmentOpen, setAssignmentOpen] = useState(false);
-  const [assignmentTemplateId, setAssignmentTemplateId] = useState<string | null>(null);
-  const [assignmentType, setAssignmentType] =
-    useState<RequirementAssignmentTargetType>("AACCUP_AREA");
-  const [assignmentTarget, setAssignmentTarget] = useState(NO_TARGET);
-  const [assignmentDueDate, setAssignmentDueDate] = useState("");
-  const [targetOptions, setTargetOptions] = useState<RequirementTargetOption[]>(
-    [],
-  );
-  const [targetsLoading, setTargetsLoading] = useState(false);
-
-  const [cycleOpen, setCycleOpen] = useState(false);
-  const [cycleForm, setCycleForm] = useState({
-    code: "",
-    name: "",
-    description: "",
-    startDate: "",
-    endDate: "",
-  });
-
   const [historyRows, setHistoryRows] = useState<RequirementHistoryEntry[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPages, setHistoryPages] = useState(1);
@@ -806,17 +762,6 @@ export default function RootRequirementBuilder() {
     }
   }, []);
 
-  const loadAssignments = useCallback(async () => {
-    setAssignmentsLoading(true);
-    setAssignmentsError(null);
-    try {
-      setAssignments(await listRequirementAssignments());
-    } catch (error) {
-      setAssignmentsError(errorText(error, "Failed to load assignments"));
-    } finally {
-      setAssignmentsLoading(false);
-    }
-  }, []);
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -843,9 +788,6 @@ export default function RootRequirementBuilder() {
     if (selectedId) void loadDetail(selectedId);
   }, [loadDetail, selectedId]);
   useEffect(() => {
-    if (mainTab === "assignments") void loadAssignments();
-  }, [loadAssignments, mainTab]);
-  useEffect(() => {
     if (mainTab === "history") void loadHistory();
   }, [loadHistory, mainTab]);
 
@@ -854,10 +796,8 @@ export default function RootRequirementBuilder() {
     const currentId = selectedIdRef.current;
     if (currentId) await loadDetail(currentId, false);
     else { setDetail(null); setAllNodes([]); }
-    if (mainTab === "assignments") await loadAssignments();
     if (mainTab === "history") await loadHistory();
   }, [
-    loadAssignments,
     loadDetail,
     loadHistory,
     loadTemplates,
@@ -1095,56 +1035,6 @@ export default function RootRequirementBuilder() {
     );
   };
 
-  const loadTargets = async (type: RequirementAssignmentTargetType) => {
-    setAssignmentType(type);
-    setAssignmentTarget(NO_TARGET);
-    if (type === "UNIVERSITY") {
-      setTargetOptions([]);
-      return;
-    }
-    setTargetsLoading(true);
-    try {
-      setTargetOptions(await listRequirementTargetOptions(type));
-    } catch (error) {
-      toast.error(errorText(error, "Failed to load assignment targets"));
-      setTargetOptions([]);
-    } finally {
-      setTargetsLoading(false);
-    }
-  };
-
-  const openAssignment = () => {
-    const initialTemplateId =
-      selectedId ?? templates.find((template) => !template.deletedAt)?.id ?? null;
-    setAssignmentTemplateId(initialTemplateId);
-    if (initialTemplateId && initialTemplateId !== selectedId) {
-      selectTemplate(initialTemplateId);
-    }
-    setAssignmentOpen(true);
-    setAssignmentDueDate("");
-    void loadTargets("AACCUP_AREA");
-  };
-
-  const saveAssignment = async () => {
-    const templateId = assignmentTemplateId ?? selectedId;
-    if (!templateId) return;
-    if (assignmentType !== "UNIVERSITY" && assignmentTarget === NO_TARGET)
-      return;
-    await run(
-      "assign",
-      async () => {
-        await assignRequirementTemplate(
-          templateId,
-          assignmentType,
-          assignmentDueDate ? new Date(`${assignmentDueDate}T23:59:59`).toISOString() : undefined,
-          assignmentType === "UNIVERSITY" ? null : assignmentTarget,
-        );
-        setAssignmentOpen(false);
-      },
-      "Requirement template assigned",
-    );
-  };
-
   const openVersions = async (template: RequirementTemplate) => {
     setVersionTemplate(template);
     setVersionsLoading(true);
@@ -1167,8 +1057,6 @@ export default function RootRequirementBuilder() {
     liveNodes.length === 0 ? "Add at least one group or document." : null,
     liveNodeList.some((node) => node.type !== "SECTION" && !node.validations.length)
       ? "Some documents do not have upload rules yet." : null,
-    selectedTemplate && selectedTemplate.assignmentCount === 0
-      ? "This template is not assigned to an area or organization yet." : null,
   ].filter((warning): warning is string => Boolean(warning));
 
   return (
@@ -1326,7 +1214,7 @@ export default function RootRequirementBuilder() {
                         <div className="mt-2 flex gap-3 text-[11px] text-slate-500">
                           <span>{template.nodeCount} nodes</span>
                           <span>{template.validationCount} rules</span>
-                          <span>{template.assignmentCount} scopes</span>
+                          <span>{template.assignmentCount} areas</span>
                         </div>
                       </button>
                     ))}
@@ -1466,7 +1354,7 @@ export default function RootRequirementBuilder() {
                       {[
                         ["Nodes", selectedTemplate.nodeCount],
                         ["Rules", selectedTemplate.validationCount],
-                        ["Assignments", selectedTemplate.assignmentCount],
+                        ["Attached areas", selectedTemplate.assignmentCount],
                         ["Category", selectedTemplate.category ?? "None"],
                       ].map(([label, value]) => (
                         <div
@@ -1677,102 +1565,6 @@ export default function RootRequirementBuilder() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="assignments" className="mt-5">
-          <Card className="overflow-hidden">
-            <CardHeader className="flex-row items-center justify-between border-b border-slate-100 pb-4">
-              <div>
-                <CardTitle className="text-[15px]">Assignment Matrix</CardTitle>
-                <p className="mt-1 text-[12px] text-slate-500">
-                  Users receive requirements only after a template is attached to their accreditation area.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCycleOpen(true)}
-                >
-                  <CalendarRange className="mr-1.5 h-4 w-4" />
-                  New Cycle
-                </Button>
-                <Button size="sm" onClick={openAssignment} disabled={templates.length === 0}>
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Assign Selected
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {assignmentsLoading ? (
-                <div className="space-y-2 p-5">
-                  <Skeleton variant="rectangular" className="h-12" />
-                  <Skeleton variant="rectangular" className="h-12" />
-                </div>
-              ) : assignmentsError ? (
-                <InlineError
-                  message={assignmentsError}
-                  retry={() => void loadAssignments()}
-                />
-              ) : assignments.length === 0 ? (
-                <EmptyState
-                  variant="users"
-                  title="No assignments"
-                  description="Assign the selected template to a university or organization scope."
-                />
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Template</TableHead>
-                        <TableHead>Scope</TableHead>
-                        <TableHead>Target</TableHead>
-                        <TableHead>Assigned</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {assignments.map((assignment) => (
-                        <TableRow key={assignment.id}>
-                          <TableCell className="font-medium">
-                            {assignment.templateName}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {targetLabel(assignment.targetType)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{assignment.targetName}</TableCell>
-                          <TableCell className="text-slate-500">
-                            {formatDate(assignment.createdAt)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-600"
-                              onClick={() =>
-                                void run(
-                                  `unassign-${assignment.id}`,
-                                  () =>
-                                    unassignRequirementTemplate(assignment.id),
-                                  "Assignment removed",
-                                )
-                              }
-                            >
-                              <Trash2 className="mr-1 h-3.5 w-3.5" />
-                              Remove
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="history" className="mt-5">
           <Card className="overflow-hidden">
             <CardHeader className="flex-row items-center justify-between border-b border-slate-100 pb-4">
@@ -1903,7 +1695,7 @@ export default function RootRequirementBuilder() {
             </DialogTitle>
             <DialogDescription>
               Templates are versioned automatically after every structural
-              change. Active templates remain editable; changes apply to their assigned scopes.
+              change. Active templates remain editable; changes apply to their matching areas.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-3 sm:grid-cols-2">
@@ -2328,229 +2120,7 @@ export default function RootRequirementBuilder() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={assignmentOpen} onOpenChange={setAssignmentOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Selected Template</DialogTitle>
-            <DialogDescription>
-              Choose the requirement template and scope to assign.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-3">
-            <div className="space-y-2">
-              <Label>Requirement template</Label>
-              <Select
-                value={assignmentTemplateId ?? NO_TARGET}
-                onValueChange={(value) => {
-                  const nextTemplateId = value === NO_TARGET ? null : value;
-                  setAssignmentTemplateId(nextTemplateId);
-                  if (nextTemplateId) selectTemplate(nextTemplateId);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates
-                    .filter((template) => !template.deletedAt)
-                    .map((template) => (
-                      <SelectItem key={template.id} value={template.id}>
-                        {template.name} ({template.code})
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Scope</Label>
-              <Select
-                value={assignmentType}
-                onValueChange={(value) =>
-                  void loadTargets(value as RequirementAssignmentTargetType)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TARGET_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {assignmentType !== "UNIVERSITY" && (
-              <div className="space-y-2">
-                <Label>Target</Label>
-                <Select
-                  value={assignmentTarget}
-                  onValueChange={setAssignmentTarget}
-                  disabled={targetsLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        targetsLoading ? "Loading targets..." : "Select target"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {targetOptions.map((target) => (
-                      <SelectItem key={target.id} value={target.id}>
-                        {target.name}
-                        {target.code ? ` (${target.code})` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label>Requirement deadline (optional)</Label>
-              <Input
-                type="date"
-                value={assignmentDueDate}
-                min={new Date().toISOString().slice(0, 10)}
-                onChange={(event) => setAssignmentDueDate(event.target.value)}
-              />
-              <p className="text-[11px] text-slate-500">Requirements attach to this area. Accreditation administrators create tasks separately.</p>
-            </div>
-            <div className="rounded-lg bg-amber-50 p-3 text-[11px] text-amber-800">
-              One template is attached per area. Library and organization-wide assignments do not automatically appear for users.
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignmentOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => void saveAssignment()}
-              disabled={
-                busy === "assign" ||
-                !assignmentTemplateId && !selectedId ||
-                (assignmentType !== "UNIVERSITY" &&
-                  assignmentTarget === NO_TARGET)
-              }
-            >
-              Assign Template
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      <Dialog open={cycleOpen} onOpenChange={setCycleOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Accreditation Cycle</DialogTitle>
-            <DialogDescription>
-              Cycles can be linked to AACCUP areas and used as requirement
-              assignment targets.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-3 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input
-                value={cycleForm.name}
-                onChange={(event) =>
-                  setCycleForm((form) => ({
-                    ...form,
-                    name: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Code</Label>
-              <Input
-                value={cycleForm.code}
-                onChange={(event) =>
-                  setCycleForm((form) => ({
-                    ...form,
-                    code: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Start Date</Label>
-              <Input
-                type="date"
-                value={cycleForm.startDate}
-                onChange={(event) =>
-                  setCycleForm((form) => ({
-                    ...form,
-                    startDate: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <Input
-                type="date"
-                value={cycleForm.endDate}
-                onChange={(event) =>
-                  setCycleForm((form) => ({
-                    ...form,
-                    endDate: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Description</Label>
-              <Textarea
-                value={cycleForm.description}
-                onChange={(event) =>
-                  setCycleForm((form) => ({
-                    ...form,
-                    description: event.target.value,
-                  }))
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCycleOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={
-                busy === "cycle" ||
-                !cycleForm.name ||
-                !cycleForm.code ||
-                !cycleForm.startDate ||
-                !cycleForm.endDate
-              }
-              onClick={() =>
-                void run(
-                  "cycle",
-                  async () => {
-                    await createAccreditationCycle({
-                      ...cycleForm,
-                      description: cycleForm.description || null,
-                    });
-                    setCycleOpen(false);
-                    setCycleForm({
-                      code: "",
-                      name: "",
-                      description: "",
-                      startDate: "",
-                      endDate: "",
-                    });
-                  },
-                  "Accreditation cycle created",
-                )
-              }
-            >
-              Create Cycle
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={Boolean(versionTemplate)}
@@ -2600,7 +2170,6 @@ export default function RootRequirementBuilder() {
                       </div>
                       <p className="mt-1 text-[11px] text-slate-500">
                         {version.data.nodes.length} nodes / {ruleCount} rules /{" "}
-                        {version.data.assignments.length} assignments /{" "}
                         {formatDate(version.createdAt)}
                       </p>
                       {version.version !== versionTemplate?.version && (
@@ -2693,7 +2262,7 @@ export default function RootRequirementBuilder() {
           <DialogHeader>
             <DialogTitle>Archive Template?</DialogTitle>
             <DialogDescription>
-              Assigned AACCUP areas will immediately resolve the next applicable
+              AACCUP areas using this template will immediately resolve the next applicable
               template or return to their preserved legacy rows.
             </DialogDescription>
           </DialogHeader>
