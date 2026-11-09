@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Bot, Loader2, MessageCircle, Send, Sparkles, X } from "lucide-react"
+import { Bot, Loader2, MessageCircle, RotateCcw, Send, Sparkles, X } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { apiPost, ApiRequestError } from "@/lib/http"
 import { cn } from "@/lib/utils"
@@ -18,15 +18,17 @@ type AssistantMessage = {
 type AssistantActionTarget = "DASHBOARD" | "MY_DOCUMENTS" | "MY_REQUESTS" | "REQUESTS" | "AACCUP" | "ISO" | "NOTIFICATIONS" | "MY_ACTIVITY" | "PROFILE" | "SETTINGS" | "USER_MANAGEMENT" | "AUDIT_LOGS" | "ORGANIZATION" | "ROOT_CONSOLE" | "ROLES_PERMISSIONS"
 type AssistantAction = { label: string; target: AssistantActionTarget }
 
-const WELCOME = "Hi! I can help you navigate QA-DMS. Ask me where to find a feature or how to use a page."
+const WELCOME = "Hi! I'm the QA-DMS Assistant. I can help with QA-DMS only — finding a page, explaining what a button does, or walking you through a workflow. I remember this conversation, so you can ask follow-up questions."
 const MAX_MESSAGE_LENGTH = 1000
+const MAX_HISTORY_TURNS = 8
+const MAX_STORED_MESSAGES = 40
 
 const suggestions = {
   user: [
     "How do I upload a document?",
     "Where are my requests?",
     "How do I submit to AACCUP?",
-    "Where can I find ISO?",
+    "Where can I see my area deadlines?",
   ],
   admin: [
     "Where can I review submissions?",
@@ -49,9 +51,29 @@ function assistantAudience(role?: string): keyof typeof suggestions {
 }
 
 function welcomeFor(audience: keyof typeof suggestions): string {
-  if (audience === "root") return "I can help you navigate QA-DMS and Root Console features."
-  if (audience === "admin") return "I can help you navigate submissions, accreditation areas, requests, users, and audit tools."
-  return "I can help you with My Documents, My Requests, AACCUP/ISO, Notifications, and other User Portal features."
+  if (audience === "root") return "Ask me about Root Console tools — organization, builders, roles, audit, or configuration."
+  if (audience === "admin") return "Ask me about submissions, area deadlines, requests, user management, and audit tools."
+  return "Ask me about My Documents, My Requests, Accreditation (AACCUP/ISO), Notifications, or your account."
+}
+
+function storageKeyFor(userId?: string): string {
+  return `qa-dms-assistant:${userId ?? "guest"}`
+}
+
+function readStoredMessages(userId: string | undefined, welcome: string): AssistantMessage[] {
+  try {
+    const raw = window.sessionStorage.getItem(storageKeyFor(userId))
+    if (!raw) return [{ id: "welcome", role: "assistant", content: welcome }]
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return [{ id: "welcome", role: "assistant", content: welcome }]
+    const restored = parsed
+      .filter((item): item is AssistantMessage => Boolean(item) && typeof item === "object" && typeof (item as AssistantMessage).content === "string" && ((item as AssistantMessage).role === "user" || (item as AssistantMessage).role === "assistant") && !(item as AssistantMessage).pending)
+      .slice(-MAX_STORED_MESSAGES)
+      .map((item) => ({ ...item, actions: undefined }))
+    return restored.length > 0 ? restored : [{ id: "welcome", role: "assistant", content: welcome }]
+  } catch {
+    return [{ id: "welcome", role: "assistant", content: welcome }]
+  }
 }
 
 function renderAssistantContent(content: string) {
@@ -70,17 +92,35 @@ export function NavigationAssistant() {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
-  const [messages, setMessages] = useState<AssistantMessage[]>([
-    { id: "welcome", role: "assistant", content: `${WELCOME}\n\n${welcomeFor(audience)}` },
-  ])
+  const welcomeMessage = `${WELCOME}\n\n${welcomeFor(audience)}`
+  const [messages, setMessages] = useState<AssistantMessage[]>(() => readStoredMessages(user?.id, welcomeMessage))
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setMessages([{ id: `welcome-${user?.id ?? "guest"}`, role: "assistant", content: `${WELCOME}\n\n${welcomeFor(audience)}` }])
+    setMessages(readStoredMessages(user?.id, welcomeMessage))
     setInput("")
     setSending(false)
     setOpen(false)
-  }, [user?.id, audience])
+    // Re-hydrate only when the signed-in account or role changes.
+  }, [user?.id, audience, welcomeMessage])
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(storageKeyFor(user?.id), JSON.stringify(messages.filter((message) => !message.pending).slice(-MAX_STORED_MESSAGES)))
+    } catch {
+      // Storage can be unavailable (private mode/quota); conversation still works in memory.
+    }
+  }, [messages, user?.id])
+
+  const resetConversation = () => {
+    try {
+      window.sessionStorage.removeItem(storageKeyFor(user?.id))
+    } catch {
+      // Ignore storage failures.
+    }
+    setMessages([{ id: "welcome", role: "assistant", content: welcomeMessage }])
+    setInput("")
+  }
 
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -98,8 +138,12 @@ export function NavigationAssistant() {
       { id: pendingId, role: "assistant", content: "Thinking", pending: true },
     ])
     setSending(true)
+    const history = messages
+      .filter((item) => item.id !== "welcome" && !item.pending)
+      .slice(-MAX_HISTORY_TURNS)
+      .map((item) => ({ role: item.role, content: item.content }))
     try {
-      const response = await apiPost<{ message: string; actions: AssistantAction[] }>("/assistant/navigation", { message: content })
+      const response = await apiPost<{ message: string; actions: AssistantAction[] }>("/assistant/navigation", { message: content, history })
       setMessages((current) => current.map((item) => item.id === pendingId ? { id: pendingId, role: "assistant", content: response.message, actions: response.actions } : item))
     } catch (error) {
       const errorMessage = error instanceof ApiRequestError && error.status === 429
@@ -132,12 +176,17 @@ export function NavigationAssistant() {
               </div>
               <div className="min-w-0">
                 <h2 className="truncate text-[14px] font-bold">QA-DMS Assistant</h2>
-                <p className="text-[11px] text-blue-200">Navigation Guide</p>
+                <p className="text-[11px] text-blue-200">QA-DMS help only</p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" aria-label="Close QA-DMS Assistant" onClick={() => setOpen(false)} className="h-9 w-9 text-blue-100 hover:bg-white/10 hover:text-white">
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" aria-label="Start a new conversation" title="New conversation" onClick={resetConversation} className="h-9 w-9 text-blue-100 hover:bg-white/10 hover:text-white">
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" aria-label="Close QA-DMS Assistant" onClick={() => setOpen(false)} className="h-9 w-9 text-blue-100 hover:bg-white/10 hover:text-white">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </header>
 
           <div className="flex-1 space-y-3 overflow-y-auto bg-gray-50/70 p-4 dark:bg-gray-950">

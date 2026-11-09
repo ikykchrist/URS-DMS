@@ -4,9 +4,10 @@ import { generateNavigationResponse } from "@/modules/navigationAssistant/naviga
 import type { NavigationAssistantBody } from "@/modules/navigationAssistant/navigationAssistant.validator";
 
 export async function navigationAssistantHandler(req: Request, res: Response): Promise<void> {
-  const { message } = req.body as NavigationAssistantBody;
+  const { message, history } = req.body as NavigationAssistantBody;
   const response = await generateNavigationResponse({
     message,
+    history,
     // Role comes from authenticate middleware, never from the request body.
     role: req.auth!.roleName,
   });
