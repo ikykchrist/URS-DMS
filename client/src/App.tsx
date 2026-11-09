@@ -983,6 +983,8 @@ function UserAppContent() {
       "requests-browse": "/user/requests/browse",
       aaccup: "/user/aaccup",
       iso: "/user/iso",
+      "aaccup-area": "/user/aaccup",
+      "iso-area": "/user/iso",
       submissions: "/user/aaccup",
       notifications: "/user/notifications",
       activity: "/user/activity",
@@ -993,8 +995,8 @@ function UserAppContent() {
     const route = pageToRouteMap[page] || "/user/dashboard"
     const params = new URLSearchParams(query ?? {})
     if (page === "submissions" && !params.has("tab")) params.set("tab", "submissions")
-    if ((page === "aaccup" || page === "iso") && params.get("tab") === "submissions" && !params.has("areaSet")) {
-      params.set("areaSet", page === "iso" ? "ISO" : "AACCUP")
+    if ((page === "aaccup" || page === "iso" || page === "aaccup-area" || page === "iso-area") && params.get("tab") === "submissions" && !params.has("areaSet")) {
+      params.set("areaSet", page === "iso" || page === "iso-area" ? "ISO" : "AACCUP")
     }
     const search = params.toString()
     navigate(search ? `${route}?${search}` : route)
@@ -1076,11 +1078,11 @@ function UserAppContent() {
               onSuccess={() => handleNavigate("requests")}
             />
           )}
-            {(activePage === "aaccup" || activePage === "iso" || activePage === "submissions") && (
+            {(activePage === "aaccup" || activePage === "iso" || activePage === "submissions" || activePage === "aaccup-area" || activePage === "iso-area") && (
                <UserAACCUPGroup
                key={`${location.pathname}${location.search}`}
                initialTab={
-                  activePage === "iso"
+                  activePage === "iso" || activePage === "iso-area"
                     ? "ISO"
                    : activePage === "submissions"
                    ? "submissions"

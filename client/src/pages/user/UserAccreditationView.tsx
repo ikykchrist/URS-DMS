@@ -105,12 +105,12 @@ function groups(requirements: OnlineAaccupRequirement[]): Array<[string, OnlineA
   return [...map.entries()]
 }
 
-export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSet; navigation?: ReactNode }) {
+export function UserAccreditationView({ areaSet, navigation, initialAreaId }: { areaSet: AreaSet; navigation?: ReactNode; initialAreaId?: string }) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const canUpload = Boolean(user && hasPermission(user.role, "canUpload"))
   const [areas, setAreas] = useState<OnlineAaccupArea[]>([])
-  const [activeAreaId, setActiveAreaId] = useState("")
+  const [activeAreaId, setActiveAreaId] = useState(initialAreaId ?? "")
   const [areaScope, setAreaScope] = useState<"college" | "program">("program")
   const [requirements, setRequirements] = useState<OnlineAaccupRequirement[]>([])
   const [submissions, setSubmissions] = useState<OnlineAaccupSubmission[]>([])

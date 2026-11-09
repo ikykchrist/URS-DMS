@@ -28,6 +28,7 @@ export default function UserAACCUPGroup({ initialTab = "AACCUP" }: UserAACCUPGro
   const [searchParams] = useSearchParams()
   const urlTab = searchParams.get("tab")
   const urlAreaSet = searchParams.get("areaSet")
+  const urlAreaId = searchParams.get("areaId")
   const isSupportedTab = (value: string | null): value is string => Boolean(value && SUPPORTED_TAB_VALUES.has(value))
   const [tab, setTab] = useState<string>(isSupportedTab(urlTab) ? urlTab : initialTab)
 
@@ -71,6 +72,7 @@ export default function UserAACCUPGroup({ initialTab = "AACCUP" }: UserAACCUPGro
           key={tab}
           areaSet={tab as AreaSet}
           navigation={navigation}
+          initialAreaId={urlAreaId ?? undefined}
         />
       )}
     </div>
