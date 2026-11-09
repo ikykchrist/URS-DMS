@@ -430,38 +430,9 @@ export function isOnlineDocument(document: Document): boolean {
 }
 
 export async function getOnlineDocumentUrl(document: Document, preview = false): Promise<string> {
-  const officeTypes = new Set([
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-powerpoint",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "pdf",
-    "application/pdf",
-  ])
-  const normalizedType = document.type.toLowerCase()
-  const isPdfOrOffice = officeTypes.has(normalizedType)
-  if (preview && isPdfOrOffice) {
-    // Preview bytes are streamed by the authenticated API. This guarantees
-    // that Office files use the server's cached Gotenberg PDF and that PDF.js
-    // never receives a signed-token redirect/HTML response.
-    return `${API_BASE}/documents/${encodeURIComponent(document.id)}/preview/content`
-  }
-  const mediaTypes = new Set(["png", "jpg", "jpeg", "gif", "webp", "mp4", "webm", "mov", "avi", "mkv", "mp3", "wav", "ogg", "m4a", "aac"])
-  const endpoint = preview && mediaTypes.has(normalizedType) ? "download" : (preview ? "preview" : "download")
+  const endpoint = preview ? "preview" : "download"
   const result = await apiGet<DownloadResult>(`/documents/${encodeURIComponent(document.id)}/${endpoint}`)
-  // Keep file delivery on the origin where the authenticated session lives.
-  // PUBLIC_APP_URL can be the apex domain while the user is on www (or vice
-  // versa); following that absolute URL can fail DNS/CORS before the signed
-  // token is consumed. The API already returned a signed file path, so retain
-  // only its path/query and let the current origin serve it.
-  try {
-    const resolved = new URL(result.url, window.location.origin)
-    return `${resolved.pathname}${resolved.search}`
-  } catch {
-    return result.url
-  }
+  return result.url
 }
 
 export async function getOnlineDocumentThumbnail(document: Document): Promise<string> {
