@@ -38,7 +38,7 @@ const toneClasses: Record<DeadlineTone, string> = {
   critical: "border-red-300 bg-red-50 text-red-800 ring-1 ring-red-200",
 }
 
-export function AreaDeadlineBadge({ area, prominent = false }: { area: AreaDeadlineItem; prominent?: boolean }) {
+export function AreaDeadlineBadge({ area, prominent = false, onClick }: { area: AreaDeadlineItem; prominent?: boolean; onClick?: () => void }) {
   if (!area.dueDate) return null
   const state = getAreaDeadlineState(area.dueDate)
   const formatted = new Date(area.dueDate).toLocaleDateString(undefined, {
@@ -48,18 +48,22 @@ export function AreaDeadlineBadge({ area, prominent = false }: { area: AreaDeadl
   })
 
   return (
-    <div className={cn("flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2", toneClasses[state.tone], prominent && "px-4 py-3 shadow-sm")}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn("w-full flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors hover:bg-primary-50/50 focus:outline-none focus:ring-2 focus:ring-primary", toneClasses[state.tone], prominent && "px-4 py-3 shadow-sm")}
+    >
       <CalendarClock className={cn("shrink-0", prominent ? "h-5 w-5" : "h-4 w-4")} />
       <div className="min-w-0 flex-1">
         <p className={cn("truncate font-semibold", prominent ? "text-sm" : "text-xs")}>{area.name}</p>
         <p className="mt-0.5 text-[11px] font-medium opacity-90">Deadline {formatted} · {state.label}</p>
       </div>
       {state.tone === "critical" && <span className="shrink-0 rounded-full bg-red-600 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-white">Critical</span>}
-    </div>
+    </button>
   )
 }
 
-export function AreaDeadlineList({ areas, emptyText }: { areas: AreaDeadlineItem[]; emptyText?: string }) {
+export function AreaDeadlineList({ areas, emptyText, onClick }: { areas: AreaDeadlineItem[]; emptyText?: string; onClick?: (areaId: string) => void }) {
   const deadlines = areas
     .filter((area): area is AreaDeadlineItem & { dueDate: string } => Boolean(area.dueDate))
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
@@ -67,5 +71,5 @@ export function AreaDeadlineList({ areas, emptyText }: { areas: AreaDeadlineItem
   if (deadlines.length === 0) {
     return emptyText ? <p className="px-2 text-xs text-slate-400">{emptyText}</p> : null
   }
-  return <div className="mt-3 grid gap-2 sm:grid-cols-2">{deadlines.map((area) => <AreaDeadlineBadge key={area.id} area={area} />)}</div>
+  return <div className="mt-3 grid gap-2 sm:grid-cols-2">{deadlines.map((area) => <AreaDeadlineBadge key={area.id} area={area} onClick={() => onClick?.(area.id)} />)}</div>
 }

@@ -806,6 +806,19 @@ function AppContent() {
     const route = pageToRouteMap[page] || "/dashboard"
     const params = new URLSearchParams(query ?? {})
     if (page === "submissions" && params.get("tab") === "submissions") params.delete("tab")
+
+    // Handle area detail pages: /aaccup/areas/:areaId or /iso/areas/:areaId
+    if (page === "aaccup-area" || page === "iso-area") {
+      const areaId = params.get("areaId")
+      const set = page === "aaccup-area" ? "aaccup" : "iso"
+      if (areaId) {
+        navigate(`/${set}/areas/${areaId}`)
+        setActivePage(page)
+        localStorage.setItem("activePage", page)
+      }
+      return
+    }
+
     const search = params.toString()
     navigate(search ? `${route}?${search}` : route)
     setActivePage(page)

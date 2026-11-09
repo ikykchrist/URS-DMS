@@ -170,7 +170,10 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     <button type="button" className="text-amber-600 hover:underline font-semibold" onClick={() => nav("submissions", { areaSet: key, status: "PENDING" })}>Pending {stats?.pending ?? "—"}</button>
                     <button type="button" className="text-orange-600 hover:underline font-semibold" onClick={() => nav("submissions", { areaSet: key, status: "NEEDS_REVISION" })}>Returned {stats?.needsRevision ?? "—"}</button>
                   </div>
-                  <AreaDeadlineList areas={(areas.data ?? []).filter((area) => area.areaSet === key).map(({ id, name, dueDate }) => ({ id, name, dueDate }))} />
+                  <AreaDeadlineList
+                    areas={(areas.data ?? []).filter((area) => area.areaSet === key).map(({ id, name, dueDate }) => ({ id, name, dueDate }))}
+                    onClick={(areaId) => nav(key === "AACCUP" ? "aaccup-area" : "iso-area", { areaId })}
+                  />
                 </div>
               )
             })

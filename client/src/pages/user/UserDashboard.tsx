@@ -222,7 +222,10 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
                    <button type="button" className="text-amber-600 hover:underline font-semibold" onClick={() => nav(row.page, { tab: "submissions", status: "PENDING" })}>Pending {row.pending}</button>
                    <button type="button" className="text-orange-600 hover:underline font-semibold" onClick={() => nav(row.page, { tab: "submissions", status: "NEEDS_REVISION" })}>Returned {row.returned}</button>
                 </div>
-                <AreaDeadlineList areas={row.deadlines} />
+                <AreaDeadlineList
+                  areas={row.deadlines}
+                  onClick={(areaId) => nav(row.page === "aaccup" ? "aaccup-area" : "iso-area", { areaId })}
+                />
               </div>
             ))
           )}
