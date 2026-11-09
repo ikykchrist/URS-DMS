@@ -18,9 +18,18 @@ const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 function providerConfig(): { apiKey: string; apiUrl: string; model: string } | null {
   const apiKey = env.ASSISTANT_API_KEY ?? env.DEEPSEEK_API_KEY;
   if (!apiKey) return null;
+  let configuredUrl: string | undefined;
+  if (env.ASSISTANT_API_URL) {
+    try {
+      const parsed = new URL(env.ASSISTANT_API_URL);
+      if (parsed.protocol === "https:" || parsed.protocol === "http:") configuredUrl = parsed.toString();
+    } catch {
+      logger.warn("Ignoring invalid optional ASSISTANT_API_URL; using provider default");
+    }
+  }
   return {
     apiKey,
-    apiUrl: env.ASSISTANT_API_URL ?? (env.ASSISTANT_API_KEY ? NVIDIA_API_URL : DEEPSEEK_API_URL),
+    apiUrl: configuredUrl ?? (env.ASSISTANT_API_KEY ? NVIDIA_API_URL : DEEPSEEK_API_URL),
     model: env.ASSISTANT_MODEL ?? (env.ASSISTANT_API_KEY ? "nvidia/nvidia-nemotron-nano-9b-v2" : env.DEEPSEEK_MODEL),
   };
 }

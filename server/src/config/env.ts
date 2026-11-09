@@ -22,6 +22,11 @@ const trustProxySchema = z.union([
   integerFromString,
 ]);
 
+const optionalEnvString = z.preprocess(
+  (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
+  z.string().trim().min(1).optional(),
+);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: integerFromString.pipe(z.number().int().min(1).max(65535)).default(4000),
@@ -45,9 +50,12 @@ const envSchema = z.object({
   // Provider-neutral OpenAI-compatible navigation assistant. NVIDIA NIM with
   // Nemotron is the recommended hosted provider; the legacy DeepSeek
   // variables remain as a backward-compatible fallback during deployment.
-  ASSISTANT_API_KEY: z.string().trim().min(1).optional(),
-  ASSISTANT_API_URL: z.string().url().optional(),
-  ASSISTANT_MODEL: z.string().trim().min(1).optional(),
+  ASSISTANT_API_KEY: optionalEnvString,
+  // An optional chatbot provider must never prevent the core API/auth server
+  // from booting. Invalid values are ignored by providerConfig and use the
+  // safe NVIDIA/local fallback instead.
+  ASSISTANT_API_URL: optionalEnvString,
+  ASSISTANT_MODEL: optionalEnvString,
 
   DATABASE_URL: z.string().min(1),
 
