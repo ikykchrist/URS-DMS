@@ -139,18 +139,30 @@ export const NOTIFICATION_EVENTS: Record<NotificationType, NotificationEventSpec
     defaultTitle: "Submission approved",
     defaultMessage: "Your AACCUP document submission has been approved.",
     defaultPriority: "MEDIUM",
+    email: {
+      subject: "URS-DMS — Submission approved",
+      body: "<p>Your accreditation document submission has been approved. Open URS-DMS to view the reviewed submission.</p>",
+    },
   },
   AACCUP_SUBMISSION_RETURNED: {
     type: "AACCUP_SUBMISSION_RETURNED",
     defaultTitle: "Submission returned",
     defaultMessage: "Your AACCUP document submission was returned for revision.",
     defaultPriority: "HIGH",
+    email: {
+      subject: "URS-DMS — Submission returned for revision",
+      body: "<p>Your accreditation document submission was returned for revision. Open URS-DMS to review the remarks and resubmit.</p>",
+    },
   },
   AACCUP_SUBMISSION_REJECTED: {
     type: "AACCUP_SUBMISSION_REJECTED",
     defaultTitle: "Submission rejected",
     defaultMessage: "Your AACCUP document submission has been rejected.",
     defaultPriority: "HIGH",
+    email: {
+      subject: "URS-DMS — Submission rejected",
+      body: "<p>Your accreditation document submission has been rejected. Open URS-DMS to review the remarks.</p>",
+    },
   },
   AACCUP_SUBMISSION_PENDING_REVIEW: {
     type: "AACCUP_SUBMISSION_PENDING_REVIEW",
@@ -244,6 +256,10 @@ export const NOTIFICATION_EVENTS: Record<NotificationType, NotificationEventSpec
     defaultTitle: "Storage warning",
     defaultMessage: "Platform storage usage exceeds the configured warning threshold.",
     defaultPriority: "HIGH",
+    email: {
+      subject: "URS-DMS — Storage warning",
+      body: "<p>Platform storage usage exceeds the configured warning threshold. Open URS-DMS to review storage usage and take the appropriate action.</p>",
+    },
   },
   PASSWORD_RESET: {
     type: "PASSWORD_RESET",
@@ -272,5 +288,9 @@ export const NOTIFICATION_EVENTS: Record<NotificationType, NotificationEventSpec
     defaultTitle: "Folder shared with you",
     defaultMessage: "A folder has been shared with you in the document repository.",
     defaultPriority: "MEDIUM",
+    email: {
+      subject: "URS-DMS — Folder shared with you",
+      body: "<p>A folder has been shared with you in the URS-DMS document repository. Open URS-DMS to view the folder and your granted access.</p>",
+    },
   },
 };
