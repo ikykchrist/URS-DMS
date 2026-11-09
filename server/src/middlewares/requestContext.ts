@@ -52,8 +52,12 @@ function resolveRequestId(req: Request): string {
 }
 
 export function requestContext(req: Request, res: Response, next: NextFunction): void {
+  // Use socket.remoteAddress as primary (raw connection IP).
+  // Fall back to req.ip only when socket address is unavailable.
+  // This avoids IPv4-mapped IPv6 formats (::ffff:a.b.c.d) from X-Forwarded-For.
+  const rawIp = req.socket.remoteAddress ?? "unknown";
   req.context = {
-    ipAddress: req.socket.remoteAddress ?? req.ip ?? "unknown",
+    ipAddress: rawIp,
     userAgent: req.header("user-agent") ?? "",
   };
   const requestId = resolveRequestId(req);
