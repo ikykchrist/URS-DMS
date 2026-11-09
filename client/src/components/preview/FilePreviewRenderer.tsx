@@ -83,7 +83,7 @@ const getFileTypeColor = (type: DocumentFile["type"]) => {
   }
 }
 
-function PdfPreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string | null }) {
+function PdfPreview({ file, previewUrl }: { file: DocumentFile; previewUrl: string | null }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [zoomLevel, setZoomLevel] = useState(100)
 
@@ -95,7 +95,7 @@ function PdfPreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string | n
     void downloadFile(file)
   }
 
-  if (!blobUrl) {
+  if (!previewUrl) {
     return (
       <div className="flex flex-1 items-center justify-center bg-gray-100">
         <div className="flex flex-col items-center text-gray-400">
@@ -173,7 +173,7 @@ function PdfPreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string | n
 
       <div className="flex-1 overflow-auto bg-gray-100 p-4 flex items-start justify-center">
         <iframe
-          src={blobUrl}
+          src={previewUrl}
           className="bg-white shadow-lg w-full h-auto border rounded-md"
           title={file.name}
           allowFullScreen
@@ -183,7 +183,7 @@ function PdfPreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string | n
   )
 }
 
-function ImagePreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string | null }) {
+function ImagePreview({ file, previewUrl }: { file: DocumentFile; previewUrl: string | null }) {
   const [zoomLevel, setZoomLevel] = useState(100)
 
   const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 25, 200))
@@ -233,14 +233,14 @@ function ImagePreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string |
       </div>
 
       <div className="flex-1 overflow-auto bg-gray-100 p-6 flex items-start justify-center">
-        {!blobUrl ? (
+        {!previewUrl ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400">
             <Loader2 className="w-8 h-8 animate-spin mb-2" />
             <span className="text-sm">Loading image…</span>
           </div>
         ) : (
           <img
-            src={blobUrl}
+            src={previewUrl}
             alt={file.name}
             className="bg-white shadow-lg object-contain transition-all duration-200"
             style={{
@@ -348,23 +348,27 @@ function NoPreviewAvailable({ file }: { file: DocumentFile }) {
 }
 
 export function FilePreviewRenderer({ file, className }: FilePreviewRendererProps) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [previewMimeType, setPreviewMimeType] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
 
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
   useEffect(() => {
     if (!file.id) {
-      setBlobUrl(null)
+      setPreviewUrl(null)
       setPreviewMimeType(null)
       return
     }
     setLoading(true)
     setError(false)
     setPreviewMimeType(null)
+    // Build same-origin preview URL for iframe: the API endpoint itself serves
+    // the document inline with proper frame-ancestors CSP headers. Mobile browsers
+    // block cross-origin iframes, so we must load from the app's own origin.
+    setPreviewUrl(`/documents/${encodeURIComponent(file.id)}/preview`)
     apiGet<PreviewDownloadResult>(`/documents/${encodeURIComponent(file.id)}/preview`)
       .then((result) => {
-        setBlobUrl(result.url)
         setPreviewMimeType(result.mimeType ?? null)
         setLoading(false)
       })
@@ -373,14 +377,6 @@ export function FilePreviewRenderer({ file, className }: FilePreviewRendererProp
         setLoading(false)
       })
   }, [file.id])
-
-  useEffect(() => {
-    return () => {
-      if (blobUrl && blobUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(blobUrl)
-      }
-    }
-  }, [blobUrl])
 
   const isPdf = file.mimeType?.includes("pdf") || file.type?.toUpperCase() === "PDF"
   const isImage = file.mimeType?.startsWith("image/") || ["JPG", "PNG", "JPEG", "WEBP"].includes(file.type?.toUpperCase())
@@ -407,8 +403,8 @@ export function FilePreviewRenderer({ file, className }: FilePreviewRendererProp
         </div>
       )
     }
-    if (isPdf || previewMimeType === "application/pdf") return <PdfPreview file={file} blobUrl={blobUrl} />
-    if (isImage) return <ImagePreview file={file} blobUrl={blobUrl} />
+    if (isPdf || previewMimeType === "application/pdf") return <PdfPreview file={file} previewUrl={previewUrl} />
+    if (isImage) return <ImagePreview file={file} previewUrl={previewUrl} />
     if (["DOCX", "DOC", "XLSX", "XLS", "PPTX", "PPT"].includes(file.type?.toUpperCase())) {
       return <OfficePreview file={file} />
     }
