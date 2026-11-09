@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom"
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   FileCheck2,
   FileText,
@@ -129,12 +131,35 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
   const [metadata, setMetadata] = useState<Record<string, string>>({})
   const [uploading, setUploading] = useState(false)
   const [validationMessages, setValidationMessages] = useState<string[]>([])
+  const areaTabsRef = useRef<HTMLDivElement>(null)
+  const [areaTabsScroll, setAreaTabsScroll] = useState({ overflow: false, left: false, right: false })
 
   const collegeAreas = areas.filter((area) => !area.programId)
   const programAreas = areas.filter((area) => Boolean(area.programId))
   const visibleAreas = areaScope === "college" ? collegeAreas : programAreas
   const activeArea = visibleAreas.find((area) => area.id === activeAreaId) ?? null
   const meta = SET_META[areaSet]
+
+  const syncAreaTabsScroll = useCallback(() => {
+    const el = areaTabsRef.current
+    if (!el) return
+    const overflow = el.scrollWidth > el.clientWidth + 4
+    const left = el.scrollLeft > 4
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 4
+    setAreaTabsScroll((prev) => (prev.overflow === overflow && prev.left === left && prev.right === right ? prev : { overflow, left, right }))
+  }, [])
+
+  const scrollAreaTabs = (direction: -1 | 1) => {
+    const el = areaTabsRef.current
+    if (!el) return
+    el.scrollBy({ left: direction * Math.max(220, el.clientWidth * 0.7), behavior: "smooth" })
+  }
+
+  useEffect(() => {
+    syncAreaTabsScroll()
+    window.addEventListener("resize", syncAreaTabsScroll)
+    return () => window.removeEventListener("resize", syncAreaTabsScroll)
+  }, [syncAreaTabsScroll, areaScope, areasLoading, visibleAreas.length])
 
   const loadAreas = useCallback(async () => {
     setAreasLoading(true)
@@ -313,7 +338,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
         <CardContent className="p-2 pt-2 pb-2 md:p-2 md:pt-2 md:pb-2">
           {areasLoading ? <Skeleton variant="rectangular" className="h-11" />
             : areas.length === 0 ? <p className="py-3 text-center text-[12px] text-slate-500">No active {meta.title} areas are assigned to your account.</p>
-              : <Tabs value={activeAreaId} onValueChange={setActiveAreaId}><TabsList className="flex h-9 w-full justify-start gap-1 overflow-x-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{visibleAreas.map((area) => {
+              : <Tabs value={activeAreaId} onValueChange={setActiveAreaId}><div className="relative"><TabsList ref={areaTabsRef} onScroll={syncAreaTabsScroll} className={`flex h-9 w-full justify-start gap-1 overflow-x-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${areaTabsScroll.overflow ? "pl-11 pr-11" : ""}`}>{visibleAreas.map((area) => {
                 const count = areaSubmissionCounts[area.id] ?? 0
                 return (
                   <TabsTrigger key={area.id} value={area.id} className="min-w-max px-4 py-1.5 text-[12px]">
@@ -325,7 +350,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
                     )}
                   </TabsTrigger>
                 )
-              })}</TabsList></Tabs>}
+              })}</TabsList>{areaTabsScroll.overflow && (<div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-1"><Button type="button" variant="outline" size="icon-sm" aria-label="Scroll areas left" disabled={!areaTabsScroll.left} onClick={() => scrollAreaTabs(-1)} className="pointer-events-auto h-8 w-8 shadow-soft"><ChevronLeft className="h-4 w-4" /></Button></div>)}{areaTabsScroll.overflow && (<div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center pr-1"><Button type="button" variant="outline" size="icon-sm" aria-label="Scroll areas right" disabled={!areaTabsScroll.right} onClick={() => scrollAreaTabs(1)} className="pointer-events-auto h-8 w-8 shadow-soft"><ChevronRight className="h-4 w-4" /></Button></div>)}</div></Tabs>}
         </CardContent>
       </Card>
 
