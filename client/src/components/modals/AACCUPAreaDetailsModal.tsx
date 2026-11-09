@@ -50,6 +50,7 @@ import { FilePreviewModal } from "@/components/preview/FilePreviewModal"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/context/AuthContext"
 import { hasPermission } from "@/lib/permissions"
+import { AreaRequirementTemplate } from "@/components/aaccup/AreaRequirementTemplate"
 import type { Document, DocumentStatus } from "@/types/domain"
 
 interface AACCUPArea {
@@ -393,6 +394,7 @@ export function AACCUPAreaDetailsModal({
             <div className="flex-1 overflow-auto p-6">
               {view === "requirements" ? (
                 <div>
+                  {canManageTasks && area.serverId && <AreaRequirementTemplate areaId={area.serverId} onApplied={loadRequirements} />}
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-[14px] font-semibold text-gray-900">Submission Requirements</h3>

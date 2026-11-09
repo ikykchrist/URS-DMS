@@ -30,7 +30,9 @@ export async function areaTemplateSetup(areaId: string, areaSet: "AACCUP" | "ISO
   const templates = await prisma.requirementTemplate.findMany({ where: { areaSet, status: "ACTIVE", deletedAt: null },
       orderBy: [{ updatedAt: "desc" }, { name: "asc" }], select: { id: true, name: true, code: true, version: true } });
   const assignment = await prisma.requirementAssignment.findFirst({ where: { targetType: "AACCUP_AREA", targetId: areaId, deletedAt: null }, select: { templateId: true } });
-  const templateId = assignment?.templateId ?? templates[0]?.id ?? null;
+  // Only an explicit AACCUP_AREA attachment counts; never fall back to the first
+  // active template so the administrator chooses the template deliberately.
+  const templateId = assignment?.templateId ?? null;
   return { templates, templateId };
 }
 

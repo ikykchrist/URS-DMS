@@ -77,39 +77,11 @@ export async function resolveRequirementAssignmentForArea(
     },
   });
 
-  // Requirement templates are universal libraries. Area is the only runtime
-  // scope, so an area-specific assignment is preferred for compatibility, but
-  // an active template for the same area set is a valid universal fallback.
-  let universalResolved: ResolvedRequirementAssignment | null = null;
-  if (assignments.length === 0) {
-    const universal = await prisma.requirementTemplate.findFirst({
-      where: { deletedAt: null, status: "ACTIVE", areaSet: area.areaSet },
-      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
-      select: {
-        id: true,
-        version: true,
-        assignments: {
-          where: { deletedAt: null },
-          orderBy: { createdAt: "asc" },
-          take: 1,
-          select: { id: true, targetType: true, targetId: true, dueDate: true },
-        },
-      },
-    });
-    const assignment = universal?.assignments[0];
-    if (universal && assignment) {
-      universalResolved = {
-        id: assignment.id,
-        templateId: universal.id,
-        templateVersion: universal.version,
-        targetType: assignment.targetType,
-        targetId: assignment.targetId,
-        dueDate: assignment.dueDate,
-      };
-    }
-  }
-
-  let resolved: ResolvedRequirementAssignment | null = universalResolved;
+  // Requirements resolve only through an explicit AACCUP_AREA attachment. A
+  // template library entry (or an attachment to any other scope) never exposes
+  // requirements to an area on its own; the administrator attaches a template
+  // to the area deliberately from the area's Requirements tab.
+  let resolved: ResolvedRequirementAssignment | null = null;
   for (const scope of scopes) {
     const row = assignments.find(
       (assignment) =>
