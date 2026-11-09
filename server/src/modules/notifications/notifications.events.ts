@@ -37,6 +37,7 @@ export const NOTIFICATION_TYPE_VALUES = [
   "AACCUP_AREA_DUE_IN_1_MONTH",
   "AACCUP_AREA_DUE_IN_7_DAYS",
   "AACCUP_AREA_DUE_IN_3_DAYS",
+  "AACCUP_AREA_DEADLINE_SET",
   "RECYCLE_BIN_CLEANUP",
   "STORAGE_WARNING",
   "PASSWORD_RESET",
@@ -221,6 +222,16 @@ export const NOTIFICATION_EVENTS: Record<NotificationType, NotificationEventSpec
     type: "AACCUP_AREA_DUE_IN_3_DAYS", defaultTitle: "Area deadline in 3 days",
     defaultMessage: "An accreditation area and its required files are due in 3 days.", defaultPriority: "HIGH",
     email: { subject: "URS-DMS — Area deadline in 3 days", body: "<p>An accreditation area and its required files are due in 3 days.</p>" },
+  },
+  AACCUP_AREA_DEADLINE_SET: {
+    type: "AACCUP_AREA_DEADLINE_SET",
+    defaultTitle: "Accreditation area deadline set",
+    defaultMessage: "A deadline was set for an accreditation area and its required files.",
+    defaultPriority: "HIGH",
+    email: {
+      subject: "URS-DMS — Accreditation area deadline",
+      body: "<p>A deadline was set for an accreditation area and its required files. Open URS-DMS to review the requirements.</p>",
+    },
   },
   RECYCLE_BIN_CLEANUP: {
     type: "RECYCLE_BIN_CLEANUP",

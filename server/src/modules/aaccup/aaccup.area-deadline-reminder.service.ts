@@ -1,6 +1,6 @@
 import { Prisma, type NotificationType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { notifyUser } from "@/modules/notifications/notifications.service";
+import { notifyUser, notifyUsers } from "@/modules/notifications/notifications.service";
 import { logger } from "@/utils/logger";
 
 type AreaReminder = { key: string; type: NotificationType; label: string };
@@ -18,19 +18,52 @@ export function areaReminderFor(dueDate: Date, now: Date): AreaReminder | null {
   return null;
 }
 
-async function recipientsForArea(area: { campusId: string | null; collegeId: string | null; programId: string | null }) {
+type AreaScope = { campusId: string | null; collegeId: string | null; programId: string | null };
+
+export function affectedUserWhere(area: AreaScope) {
+  return {
+    status: "ACTIVE" as const,
+    deletedAt: null,
+    ...(area.campusId ? { campusId: area.campusId } : {}),
+    ...(area.collegeId ? { collegeId: area.collegeId } : {}),
+    ...(area.programId ? { programId: area.programId } : {}),
+  };
+}
+
+export async function affectedUserIdsForArea(area: AreaScope): Promise<string[]> {
+  const users = await prisma.user.findMany({ where: affectedUserWhere(area), select: { id: true } });
+  return users.map((user) => user.id);
+}
+
+async function reminderRecipientsForArea(area: AreaScope) {
   const users = await prisma.user.findMany({
     where: {
-      status: "ACTIVE", deletedAt: null,
       OR: [
-        ...(area.programId ? [{ programId: area.programId }] : []),
-        ...(area.collegeId ? [{ collegeId: area.collegeId, programId: null }] : []),
+        affectedUserWhere(area),
         { role: { permissions: { some: { permission: { code: "aaccup.manage" } } } } },
       ],
     },
     select: { id: true },
   });
   return [...new Set(users.map((user) => user.id))];
+}
+
+export async function announceAreaDeadline(area: AreaScope & { id: string; name: string; areaSet: string; dueDate: Date }): Promise<number> {
+  const userIds = await affectedUserIdsForArea(area);
+  if (userIds.length === 0) return 0;
+  const deadline = new Intl.DateTimeFormat("en-PH", { dateStyle: "long", timeZone: "Asia/Manila" }).format(area.dueDate);
+  return notifyUsers(userIds, "AACCUP_AREA_DEADLINE_SET", {
+    title: `${area.areaSet} area deadline set`,
+    message: `“${area.name}” and all required files are due on ${deadline}.`,
+    entity: "aaccup_area",
+    entityId: area.id,
+    actionUrl: `/user/${area.areaSet === "ISO" ? "iso" : "aaccup"}?area=${encodeURIComponent(area.id)}`,
+    metadata: { areaSet: area.areaSet, dueDate: area.dueDate.toISOString() },
+    email: {
+      subject: `URS-DMS — ${area.areaSet} area deadline: ${area.name}`,
+      body: `<p>The deadline for <strong>${area.name}</strong> and all required files is <strong>${deadline}</strong>.</p><p>Open URS-DMS to review the area requirements and submit the required evidence.</p>`,
+    },
+  });
 }
 
 export async function runAreaDeadlineReminderSweep(now = new Date()): Promise<number> {
@@ -43,7 +76,7 @@ export async function runAreaDeadlineReminderSweep(now = new Date()): Promise<nu
     if (!area.dueDate) continue;
     const reminder = areaReminderFor(area.dueDate, now);
     if (!reminder) continue;
-    for (const userId of await recipientsForArea(area)) {
+    for (const userId of await reminderRecipientsForArea(area)) {
       try {
         await prisma.aaccupAreaDeadlineReminder.create({ data: { areaId: area.id, userId, reminderKey: reminder.key } });
       } catch (error) {

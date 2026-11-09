@@ -16,6 +16,8 @@ import {
   invalidateRequirementResolutionCache,
   syncAreaRequirementProjection,
 } from "@/modules/requirements/requirement.runtime";
+import { announceAreaDeadline } from "@/modules/aaccup/aaccup.area-deadline-reminder.service";
+import { logger } from "@/utils/logger";
 
 // =============================================================================
 // URS-DMS — AACCUP service
@@ -209,6 +211,11 @@ export async function createArea(input: CreateAreaInput, actor: Actor): Promise<
     userAgent: actor.userAgent,
   });
 
+  if (area.dueDate) {
+    try { await announceAreaDeadline({ ...area, dueDate: area.dueDate }); }
+    catch (error) { logger.warn("Area deadline announcement failed", { areaId: area.id, error: error instanceof Error ? error.message : String(error) }); }
+  }
+
   return area;
 }
 
@@ -281,6 +288,12 @@ export async function updateArea(
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
   });
+
+  const deadlineChanged = input.dueDate !== undefined && (existing.dueDate?.getTime() ?? null) !== (updated.dueDate?.getTime() ?? null);
+  if (deadlineChanged && updated.dueDate) {
+    try { await announceAreaDeadline({ ...updated, dueDate: updated.dueDate }); }
+    catch (error) { logger.warn("Area deadline announcement failed", { areaId: updated.id, error: error instanceof Error ? error.message : String(error) }); }
+  }
 
   return updated;
 }
