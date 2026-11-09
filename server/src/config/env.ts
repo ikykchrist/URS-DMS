@@ -79,7 +79,7 @@ const envSchema = z.object({
   GOTENBERG_TIMEOUT_MS: integerFromString.pipe(z.number().int().min(5000).max(300000)).default(120000),
 
   RATE_LIMIT_WINDOW_MS: integerFromString.pipe(z.number().int().min(1000)).default(900000),
-  RATE_LIMIT_MAX: integerFromString.pipe(z.number().int().min(1)).default(100),
+  RATE_LIMIT_MAX: integerFromString.pipe(z.number().int().min(1)).default(1000),
 
   // Sprint 2 additions
   MAX_FAILED_LOGIN_ATTEMPTS: integerFromString.pipe(z.number().int().min(1).max(20)).default(5),
