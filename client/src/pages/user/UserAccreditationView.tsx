@@ -209,7 +209,11 @@ export function UserAccreditationView({ areaSet, navigation, initialAreaId }: { 
     if (areasLoading) return
     const matching = areas.filter((area) => areaScope === "college" ? !area.programId : Boolean(area.programId))
     if (!matching.length && areas.length) { setAreaScope(areaScope === "college" ? "program" : "college"); return }
-    setActiveAreaId((current) => matching.some((area) => area.id === current) ? current : matching[0]?.id ?? "")
+    // Keep current areaId if it exists in areas (from URL); otherwise default to first matching area
+    setActiveAreaId((current) => {
+      if (current && areas.some((area) => area.id === current)) return current
+      return matching[0]?.id ?? ""
+    })
   }, [areas, areasLoading, areaScope])
   useEffect(() => { void loadAreas() }, [loadAreas])
   useEffect(() => { if (activeAreaId) void loadAreaData(activeAreaId) }, [activeAreaId, loadAreaData])
@@ -359,7 +363,7 @@ export function UserAccreditationView({ areaSet, navigation, initialAreaId }: { 
           <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Area deadlines</p>
           <AreaDeadlineList
             areas={visibleAreas.filter((area) => area.dueDate).map((area) => ({ id: area.id, name: accreditationAreaLabel(area), dueDate: area.dueDate }))}
-            onClick={(areaId) => navigate(`/${areaSet.toLowerCase()}/areas/${areaId}`)}
+            onClick={(areaId) => navigate(`/user/${areaSet.toLowerCase()}?areaId=${areaId}`)}
           />
         </div>
       )}
