@@ -17,6 +17,7 @@ import { listMyActivity, type AuditEntry } from "@/services/admin"
 import { listOnlineAaccupAreas, listOnlineRequirements, type AreaSet } from "@/services/aaccup"
 import { refreshUserAttention, subscribeUserAttention, type UserAttention } from "@/lib/userAttention"
 import { cn } from "@/lib/utils"
+import { AreaDeadlineList, type AreaDeadlineItem } from "@/components/aaccup/AreaDeadlineBadge"
 
 interface UserDashboardProps {
   onNavigate?: (page: string, query?: Record<string, string>) => void
@@ -32,8 +33,8 @@ type ProgressRow = {
   approved: number
   pending: number
   returned: number
-  missing: number
   pct: number
+  deadlines: AreaDeadlineItem[]
 }
 
 function activityDest(entry: AuditEntry): { page: string; query?: Record<string, string> } | null {
@@ -41,7 +42,7 @@ function activityDest(entry: AuditEntry): { page: string; query?: Record<string,
   const id = entry.entity?.id ?? entry.targetId ?? undefined
   if ((entity === "submission" || entity === "aaccup_submission") && id) return { page: "aaccup", query: { tab: "submissions", highlight: id } }
   if ((entity === "request" || entity === "document_request") && id) return { page: "requests", query: { highlight: id } }
-  if ((entity === "task" || entity === "aaccup_task") && id) return { page: "aaccup", query: { tab: "tasks", highlight: id } }
+  if (entity === "task" || entity === "aaccup_task") return { page: "aaccup" }
   return null
 }
 
@@ -133,7 +134,7 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
           const approved = statuses.filter((submission) => submission.status === "APPROVED").length
           const pending = statuses.filter((submission) => submission.status === "PENDING").length
           const returned = statuses.filter((submission) => submission.status === "NEEDS_REVISION" || submission.status === "REJECTED").length
-          return { key, label, page, total: requirements.length, approved, pending, returned, missing: Math.max(0, requirements.length - statuses.length), pct: requirements.length ? Math.round((approved / requirements.length) * 100) : 0 }
+          return { key, label, page, total: requirements.length, approved, pending, returned, pct: requirements.length ? Math.round((approved / requirements.length) * 100) : 0, deadlines: areas.map(({ id, name, dueDate }) => ({ id, name, dueDate })) }
         }))
         if (!cancelled) {
           setProgressRows(rows)
@@ -157,14 +158,14 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 responsive-gap mb-6 lg:mb-8">
-        <Card className="border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200 cursor-pointer" onClick={() => nav("aaccup", { tab: "tasks", taskFilter: "due-soon" })}>
+        <Card className="border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200 cursor-pointer" onClick={() => nav("aaccup")}>
           <CardContent className="p-5 md:p-6">
             <div className="flex items-start justify-between gap-3">
-              <span className="text-[12px] font-medium text-gray-500 md:text-[13px]">Tasks needing action</span>
+              <span className="text-[12px] font-medium text-gray-500 md:text-[13px]">Area deadlines</span>
               <Clock3 className="h-4 w-4 text-primary-600" />
             </div>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-navy-900 md:text-3xl">{attention.loading ? <Skeleton className="h-9 w-12" /> : attention.dueSoonTasks + attention.overdueTasks}</p>
-            <p className="mt-3 text-[11px] text-gray-500">{attention.loading ? "Checking deadlines..." : `${attention.overdueTasks} overdue · ${attention.dueSoonTasks} due soon`}</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-navy-900 md:text-3xl">{progressRows.reduce((count, row) => count + row.deadlines.filter((area) => area.dueDate).length, 0)}</p>
+            <p className="mt-3 text-[11px] text-gray-500">Deadlines connected directly to accreditation areas</p>
           </CardContent>
         </Card>
         <Card className="border-border/70 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all duration-200 cursor-pointer" onClick={() => nav("aaccup", { tab: "submissions", status: "NEEDS_REVISION" })}>
@@ -220,8 +221,8 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
                    <button type="button" className="text-emerald-600 hover:underline font-semibold" onClick={() => nav(row.page, { tab: "submissions", status: "APPROVED" })}>Approved {row.approved}</button>
                    <button type="button" className="text-amber-600 hover:underline font-semibold" onClick={() => nav(row.page, { tab: "submissions", status: "PENDING" })}>Pending {row.pending}</button>
                    <button type="button" className="text-orange-600 hover:underline font-semibold" onClick={() => nav(row.page, { tab: "submissions", status: "NEEDS_REVISION" })}>Returned {row.returned}</button>
-                   <span className="text-gray-400">Missing {row.missing}</span>
                 </div>
+                <AreaDeadlineList areas={row.deadlines} />
               </div>
             ))
           )}
@@ -232,13 +233,13 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-[15px] font-semibold">Needs Your Attention</CardTitle>
-            <Button variant="ghost" size="sm" className="h-9 text-[12px] text-primary" onClick={() => nav("aaccup", { tab: "tasks" })}>View All</Button>
+            <Button variant="ghost" size="sm" className="h-9 text-[12px] text-primary" onClick={() => nav("aaccup", { tab: "submissions" })}>View All</Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-1.5">
           {attention.loading ? (
             <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" className="h-10" />)}</div>
-          ) : attention.returnedSubmissionsList.length + attention.overdueTasksList.length + attention.dueSoonTasksList.length + attention.recentRequestUpdates.length === 0 ? (
+          ) : attention.returnedSubmissionsList.length + attention.recentRequestUpdates.length === 0 ? (
             <p className="text-[13px] text-gray-400 py-3 text-center">Nothing needs your attention right now.</p>
           ) : (
             <>
@@ -256,34 +257,6 @@ export default function UserDashboard({ onNavigate }: UserDashboardProps) {
                   <Badge variant="warning" className="text-[10px]">Returned</Badge>
                 </button>
               ))}
-              {attention.overdueTasksList.slice(0, 2).map((task) => (
-                <button key={`ovr-${task.id}`} type="button" onClick={() => nav("aaccup", { tab: "tasks", highlight: task.id, taskFilter: "overdue" })} className="w-full flex items-center justify-between gap-3 p-2.5 rounded-xl hover:bg-primary-50/40 transition-colors text-left">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
-                      <Clock3 className="w-4 h-4 text-red-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-semibold text-gray-900 truncate">{task.title}</p>
-                      <p className="text-[12px] text-gray-500">{task.areaSet} · Overdue {formatDate(task.dueDate)}</p>
-                    </div>
-                  </div>
-                  <Badge variant="danger" className="text-[10px]">Overdue</Badge>
-                </button>
-              ))}
-               {attention.dueSoonTasksList.slice(0, 2).map((task) => (
-                <button key={`soon-${task.id}`} type="button" onClick={() => nav("aaccup", { tab: "tasks", highlight: task.id, taskFilter: "due-soon" })} className="w-full flex items-center justify-between gap-3 p-2.5 rounded-xl hover:bg-primary-50/40 transition-colors text-left">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
-                      <Clock3 className="w-4 h-4 text-amber-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-semibold text-gray-900 truncate">{task.title}</p>
-                      <p className="text-[12px] text-gray-500">{task.areaSet} · Due {formatDate(task.dueDate)}</p>
-                    </div>
-                  </div>
-                  <Badge variant="warning" className="text-[10px]">Due Soon</Badge>
-                </button>
-               ))}
               {attention.recentRequestUpdates.slice(0, 3).map((request) => (
                 <button key={`req-${request.id}`} type="button" onClick={() => nav("requests", { highlight: request.id })} className="w-full flex items-center justify-between gap-3 p-2.5 rounded-xl hover:bg-primary-50/40 transition-colors text-left">
                   <div className="flex items-center gap-3 min-w-0">

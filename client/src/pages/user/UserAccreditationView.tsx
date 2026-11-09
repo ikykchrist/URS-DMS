@@ -50,6 +50,7 @@ import {
 import { RepositoryDocumentPicker } from "@/components/aaccup/RepositoryDocumentPicker"
 import type { Document } from "@/types/domain"
 import { requirementUploadHints } from "@/lib/requirementUploadHints"
+import { AreaDeadlineBadge, AreaDeadlineList } from "@/components/aaccup/AreaDeadlineBadge"
 
 // =============================================================================
 // UserAccreditationView — shared accreditation surface for the user portal
@@ -328,6 +329,13 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
         </CardContent>
       </Card>
 
+      {!areasLoading && visibleAreas.some((area) => area.dueDate) && (
+        <div className="mt-3 rounded-xl border border-border/70 bg-white p-3">
+          <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Area deadlines</p>
+          <AreaDeadlineList areas={visibleAreas.filter((area) => area.dueDate).map((area) => ({ id: area.id, name: accreditationAreaLabel(area), dueDate: area.dueDate }))} />
+        </div>
+      )}
+
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="overflow-hidden border-border/70">
           <CardHeader className="border-b border-border/70 bg-primary-50/40 p-4 sm:p-5">
@@ -335,6 +343,7 @@ export function UserAccreditationView({ areaSet, navigation }: { areaSet: AreaSe
               <div className="min-w-0">
                 <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">{areaSet} area</p>
                 <CardTitle className="text-[17px] break-words">{activeArea ? accreditationAreaLabel(activeArea) : "Select an area"}</CardTitle>
+                {activeArea?.dueDate && <div className="mt-3"><AreaDeadlineBadge area={{ id: activeArea.id, name: accreditationAreaLabel(activeArea), dueDate: activeArea.dueDate }} prominent /></div>}
                 {activeArea && <>
                   <p className="mt-1 text-xs text-gray-500">{[activeArea.campusName, activeArea.collegeName].filter(Boolean).join(" / ")}</p>
                   <p className="mt-1 text-xs font-medium text-primary">Applies to: {activeArea.programName ?? "Entire college"}</p>

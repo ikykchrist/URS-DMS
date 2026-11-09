@@ -671,7 +671,6 @@ const ADMIN_PAGE_TITLES: Record<string, string> = {
   dashboard: "Dashboard",
   documents: "My Documents",
   submissions: "AACCUP | Submissions",
-  tasks: "Accreditation | Tasks",
   requests: "File Requests",
   profile: "Account & Security",
   users: "User Management",
@@ -702,7 +701,7 @@ const USER_ROUTE_TO_PAGE: Record<string, string> = {
   "/user/aaccup": "aaccup",
   "/user/iso": "iso",
   "/user/submissions": "submissions",
-  "/user/tasks": "tasks",
+  "/user/tasks": "aaccup",
   "/user/notifications": "notifications",
   "/user/activity": "activity",
   "/user/profile": "profile",
@@ -718,7 +717,6 @@ const USER_PAGE_TITLES: Record<string, string> = {
   aaccup: "Accreditation",
   iso: "ISO 21001:2025",
   submissions: "My Submissions",
-  tasks: "My Tasks",
   notifications: "Notifications",
   activity: "My Activity",
   profile: "My Profile",
@@ -768,7 +766,7 @@ function AppContent() {
     let page = areaPage ? `${areaPage[1]}-area` : routeToPageMap[location.pathname]
     if (!page) return
     const tab = new URLSearchParams(location.search).get("tab")
-    if ((page === "aaccup" || page === "iso") && (tab === "tasks" || tab === "submissions")) {
+    if ((page === "aaccup" || page === "iso") && tab === "submissions") {
       page = tab
     }
     setActivePage((prev) => (prev !== page ? page : prev))
@@ -795,7 +793,6 @@ function AppContent() {
       notifications: "/notifications",
       aaccup: "/aaccup",
       iso: "/iso",
-      tasks: "/aaccup",
       root: "/root",
       "root-organization": "/root-organization",
       "root-folder-builder": "/root-folder-builder",
@@ -808,7 +805,6 @@ function AppContent() {
     }
     const route = pageToRouteMap[page] || "/dashboard"
     const params = new URLSearchParams(query ?? {})
-    if (page === "tasks" && !params.has("tab")) params.set("tab", "tasks")
     if (page === "submissions" && params.get("tab") === "submissions") params.delete("tab")
     const search = params.toString()
     navigate(search ? `${route}?${search}` : route)
@@ -900,7 +896,6 @@ function AppContent() {
           {page === "aaccup" && <AACCUPGroupPage initialTab="AACCUP" />}
           {page === "iso" && <AACCUPGroupPage initialTab="ISO" />}
           {page === "submissions" && <AACCUPGroupPage initialTab="submissions" />}
-          {page === "tasks" && <AACCUPGroupPage initialTab="tasks" />}
           </Suspense>
         </main>
       </div>
@@ -961,7 +956,7 @@ function UserAppContent() {
     if (!page) return
     const tab = new URLSearchParams(location.search).get("tab")
     const resolved =
-      (page === "aaccup" || page === "iso") && (tab === "tasks" || tab === "submissions")
+      (page === "aaccup" || page === "iso") && tab === "submissions"
         ? tab
         : page
     setActivePage(resolved)
@@ -976,7 +971,6 @@ function UserAppContent() {
       aaccup: "/user/aaccup",
       iso: "/user/iso",
       submissions: "/user/aaccup",
-      tasks: "/user/aaccup",
       notifications: "/user/notifications",
       activity: "/user/activity",
       profile: "/user/profile",
@@ -986,7 +980,6 @@ function UserAppContent() {
     const route = pageToRouteMap[page] || "/user/dashboard"
     const params = new URLSearchParams(query ?? {})
     if (page === "submissions" && !params.has("tab")) params.set("tab", "submissions")
-    if (page === "tasks" && !params.has("tab")) params.set("tab", "tasks")
     if ((page === "aaccup" || page === "iso") && params.get("tab") === "submissions" && !params.has("areaSet")) {
       params.set("areaSet", page === "iso" ? "ISO" : "AACCUP")
     }
@@ -1042,7 +1035,7 @@ function UserAppContent() {
         onNavigate={handleNavigate}
         onLogout={handleLogout}
         unreadNotifications={unreadCount}
-        attention={{ returned: attention.returnedSubmissions, tasks: attention.dueSoonTasks + attention.overdueTasks, requests: attention.pendingRequests + attention.fulfilledRequests, documents: attention.fulfilledRequests }}
+        attention={{ returned: attention.returnedSubmissions, requests: attention.pendingRequests + attention.fulfilledRequests, documents: attention.fulfilledRequests }}
         className="hidden lg:flex"
       />
 
@@ -1070,7 +1063,7 @@ function UserAppContent() {
               onSuccess={() => handleNavigate("requests")}
             />
           )}
-            {(activePage === "aaccup" || activePage === "iso" || activePage === "submissions" || activePage === "tasks") && (
+            {(activePage === "aaccup" || activePage === "iso" || activePage === "submissions") && (
                <UserAACCUPGroup
                key={`${location.pathname}${location.search}`}
                initialTab={
@@ -1078,8 +1071,6 @@ function UserAppContent() {
                     ? "ISO"
                    : activePage === "submissions"
                    ? "submissions"
-                   : activePage === "tasks"
-                   ? "tasks"
                    : "AACCUP"
                }
             />
@@ -1092,7 +1083,7 @@ function UserAppContent() {
         </main>
       </div>
     </div>
-     <MobileBottomBar isUser activePage={activePage} onNavigate={handleNavigate} badges={{ documents: attention.fulfilledRequests, aaccup: attention.returnedSubmissions + attention.dueSoonTasks + attention.overdueTasks, requests: attention.pendingRequests + attention.fulfilledRequests, notifications: unreadCount }} />
+     <MobileBottomBar isUser activePage={activePage} onNavigate={handleNavigate} badges={{ documents: attention.fulfilledRequests, aaccup: attention.returnedSubmissions, requests: attention.pendingRequests + attention.fulfilledRequests, notifications: unreadCount }} />
      <NavigationAssistant />
     </>
   )

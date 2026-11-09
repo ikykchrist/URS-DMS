@@ -94,7 +94,7 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, isUser: user
       : adminMoreTabs.filter((tab) => tab.id !== "audit" || canViewAudit)
   const isTabActive = (id: string) => {
     if (id === "aaccup") {
-       return ["aaccup", "iso", "aaccup-area", "iso-area", "submissions", "tasks"].includes(activePage)
+       return ["aaccup", "iso", "aaccup-area", "iso-area", "submissions"].includes(activePage)
     }
     return id === activePage
   }
@@ -128,7 +128,6 @@ export function MobileBottomBar({ activePage, onNavigate, showRoot, isUser: user
                    <DropdownMenuItem onClick={() => onNavigate("aaccup")} className={cn("text-[13px] gap-2.5", activePage === "aaccup" && "bg-primary/10 dark:bg-primary/20")}><GraduationCap className="h-4 w-4" />AACCUP</DropdownMenuItem>
                    <DropdownMenuItem onClick={() => onNavigate("iso")} className={cn("text-[13px] gap-2.5", activePage === "iso" && "bg-primary/10 dark:bg-primary/20")}><ShieldCheck className="h-4 w-4" />ISO 21001:2025</DropdownMenuItem>
                    <DropdownMenuItem onClick={() => onNavigate("submissions")} className={cn("text-[13px] gap-2.5", activePage === "submissions" && "bg-primary/10 dark:bg-primary/20")}><FileText className="h-4 w-4" />{isUser ? "My Submissions" : "Submissions"}</DropdownMenuItem>
-                   <DropdownMenuItem onClick={() => onNavigate("tasks")} className={cn("text-[13px] gap-2.5", activePage === "tasks" && "bg-primary/10 dark:bg-primary/20")}><ClipboardList className="h-4 w-4" />{isUser ? "My Tasks" : "Tasks"}</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )

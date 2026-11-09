@@ -76,7 +76,7 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
   // hiding the item keeps the UI aligned with the server gate.
   const canViewAudit = hasServerPermission(user, "audit.read")
   const visibleItems = sidebarItems.filter((item) => item.id !== "audit" || canViewAudit)
-  const accreditationActive = ["aaccup", "iso", "aaccup-area", "iso-area", "submissions", "tasks"].includes(activePage)
+  const accreditationActive = ["aaccup", "iso", "aaccup-area", "iso-area", "submissions"].includes(activePage)
   const [aaccupOpen, setAaccupOpen] = useState(accreditationActive)
   const rootConsoleActive = rootConsoleItems.some((item) => item.id === activePage)
   const rootConsoleHighlighted = rootConsoleActive
@@ -138,7 +138,6 @@ export function Sidebar({ collapsed = false, onToggle, activePage = "dashboard",
                           { id: "aaccup", label: "AACCUP", icon: GraduationCap },
                           { id: "iso", label: "ISO 21001:2025", icon: ShieldCheck },
                           { id: "submissions", label: "Submissions", icon: FileCheck2 },
-                          { id: "tasks", label: "Tasks", icon: ClipboardList },
                         ].map((child) => {
                           const ChildIcon = child.icon
                           return (

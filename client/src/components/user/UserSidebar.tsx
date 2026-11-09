@@ -12,7 +12,6 @@ import {
   Activity,
   ChevronDown,
   ShieldCheck,
-  ClipboardList,
   Bug,
 } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -48,7 +47,7 @@ interface UserSidebarProps {
   onNavigate?: (page: string) => void
   onLogout?: () => void
   unreadNotifications?: number
-  attention?: { returned: number; tasks: number; requests: number; documents: number }
+  attention?: { returned: number; requests: number; documents: number }
   className?: string
 }
 
@@ -73,7 +72,7 @@ export function UserSidebar({
     if (item.id === "requests") return canUseRequests
     return true
   })
-  const accreditationActive = ["aaccup", "iso", "submissions", "tasks"].includes(activePage)
+  const accreditationActive = ["aaccup", "iso", "submissions"].includes(activePage)
   const [aaccupOpen, setAaccupOpen] = useState(accreditationActive)
   const activeNavPage = accreditationActive
     ? "aaccup"
@@ -122,7 +121,7 @@ export function UserSidebar({
               const Icon = item.icon
               const isActive = activeNavPage === item.id
               if (item.id === "aaccup") {
-                const badgeCount = attention ? attention.returned + attention.tasks : 0
+                const badgeCount = attention ? attention.returned : 0
                 return (
                   <div key={item.id}>
                     <button
@@ -143,7 +142,6 @@ export function UserSidebar({
                     {!collapsed && aaccupOpen && (
                       <div className="mt-1 ml-5 space-y-1 border-l border-white/10 pl-3">
                         {[
-                          { id: "tasks", label: "My Tasks", icon: ClipboardList },
                           { id: "submissions", label: "My Submissions", icon: FileText },
                           { id: "aaccup", label: "AACCUP", icon: GraduationCap },
                           { id: "iso", label: "ISO 21001:2025", icon: ShieldCheck },
@@ -171,7 +169,7 @@ export function UserSidebar({
               }
               let badgeCount = 0
               if (item.id === "notifications") badgeCount = unreadNotifications
-              else if (item.id === "aaccup" && attention) badgeCount = attention.returned + attention.tasks
+              else if (item.id === "aaccup" && attention) badgeCount = attention.returned
               else if (item.id === "requests" && attention) badgeCount = attention.requests
               else if (item.id === "documents" && attention) badgeCount = attention.documents
               const showBadge = badgeCount > 0

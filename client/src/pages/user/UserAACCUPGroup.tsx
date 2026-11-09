@@ -2,23 +2,21 @@ import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { AACCUPGroupTabs } from "@/components/aaccup/AACCUPGroupTabs"
 import { UserAccreditationView } from "@/pages/user/UserAccreditationView"
-import { UserTasksTab } from "@/pages/user/UserTasksTab"
 import UserSubmissionsTab from "@/pages/user/UserSubmissionsTab"
 import type { AreaSet } from "@/services/aaccup"
 
 // =============================================================================
 // UserAACCUPGroup — grouped user surface for the accreditation sets, the
-// user's own submissions, and their assigned tasks. Deep links /user/iso and
+// user's own submissions. Deep links /user/iso and
 // /user/aaccup preserve the set via `initialTab`.
 // =============================================================================
 
-const SUPPORTED_TAB_VALUES = new Set(["AACCUP", "ISO", "submissions", "tasks"])
+const SUPPORTED_TAB_VALUES = new Set(["AACCUP", "ISO", "submissions"])
 
 const USER_TABS = [
   { value: "AACCUP", label: "AACCUP" },
   { value: "ISO", label: "ISO 21001:2025" },
   { value: "submissions", label: "My Submissions" },
-  { value: "tasks", label: "My Tasks" },
 ]
 
 interface UserAACCUPGroupProps {
@@ -57,7 +55,7 @@ export default function UserAACCUPGroup({ initialTab = "AACCUP" }: UserAACCUPGro
           else if (value === "submissions") {
             const areaSet = resolvedAreaSet === "ISO" || tab === "ISO" ? "ISO" : "AACCUP"
             navigate(`/user/aaccup?tab=submissions&areaSet=${areaSet}`)
-          } else if (value === "tasks") navigate("/user/aaccup?tab=tasks")
+          }
         }}
       />
     ),
@@ -68,8 +66,6 @@ export default function UserAACCUPGroup({ initialTab = "AACCUP" }: UserAACCUPGro
     <div>
       {tab === "submissions" ? (
         <UserSubmissionsTab navigation={navigation} areaSet={resolvedAreaSet} />
-      ) : tab === "tasks" ? (
-        <UserTasksTab navigation={navigation} />
       ) : (
         <UserAccreditationView
           key={tab}

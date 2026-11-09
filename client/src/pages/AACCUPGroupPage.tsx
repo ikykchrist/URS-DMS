@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { AACCUPGroupTabs } from "@/components/aaccup/AACCUPGroupTabs"
 import AACCUPManagement from "@/pages/AACCUPManagement"
 import Submissions from "@/pages/Submissions"
-import { UserTasksTab } from "@/pages/user/UserTasksTab"
 import type { AreaSet } from "@/services/aaccup"
 
 // =============================================================================
@@ -14,13 +13,12 @@ import type { AreaSet } from "@/services/aaccup"
 // and the active tab is synced to the URL (?tab=).
 // =============================================================================
 
-const SUPPORTED_TAB_VALUES = new Set(["AACCUP", "ISO", "submissions", "tasks"])
+const SUPPORTED_TAB_VALUES = new Set(["AACCUP", "ISO", "submissions"])
 
 const ADMIN_TABS = [
   { value: "AACCUP", label: "AACCUP" },
   { value: "ISO", label: "ISO 21001:2025" },
   { value: "submissions", label: "Submissions" },
-  { value: "tasks", label: "Tasks" },
 ]
 
 interface AACCUPGroupPageProps {
@@ -63,7 +61,7 @@ export default function AACCUPGroupPage({ initialTab = "AACCUP" }: AACCUPGroupPa
                     ? "AACCUP"
                     : undefined
             navigate(areaSet ? `/submissions?areaSet=${areaSet}` : "/submissions")
-          } else if (value === "tasks") navigate("/aaccup?tab=tasks")
+          }
         }}
       />
     ),
@@ -77,8 +75,6 @@ export default function AACCUPGroupPage({ initialTab = "AACCUP" }: AACCUPGroupPa
           navigation={navigation}
           areaSet={urlAreaSet === "AACCUP" || urlAreaSet === "ISO" ? urlAreaSet : undefined}
         />
-      ) : tab === "tasks" ? (
-        <UserTasksTab navigation={navigation} />
       ) : (
         <AACCUPManagement
           key={tab}
