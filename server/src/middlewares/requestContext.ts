@@ -52,12 +52,19 @@ function resolveRequestId(req: Request): string {
 }
 
 export function requestContext(req: Request, res: Response, next: NextFunction): void {
-  // Use socket.remoteAddress as primary (raw connection IP).
-  // Fall back to req.ip only when socket address is unavailable.
-  // This avoids IPv4-mapped IPv6 formats (::ffff:a.b.c.d) from X-Forwarded-For.
-  const rawIp = req.socket.remoteAddress ?? "unknown";
+  // Prefer req.ip (reads X-Forwarded-For when trust proxy is configured).
+  // This gives the real client public IP behind Traefik/load balancer.
+  // Fall back to socket.remoteAddress for direct connections.
+  const rawIp = req.ip ?? req.socket.remoteAddress ?? "unknown";
+
+  // Strip IPv4-mapped IPv6 prefix (::ffff:a.b.c.d) from socket/proxy addresses
+  const normalizedIp =
+    typeof rawIp === "string" && rawIp.startsWith("::ffff:")
+      ? rawIp.substring(7)
+      : rawIp;
+
   req.context = {
-    ipAddress: rawIp,
+    ipAddress: normalizedIp,
     userAgent: req.header("user-agent") ?? "",
   };
   const requestId = resolveRequestId(req);
