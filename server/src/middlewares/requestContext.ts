@@ -53,7 +53,7 @@ function resolveRequestId(req: Request): string {
 
 export function requestContext(req: Request, res: Response, next: NextFunction): void {
   req.context = {
-    ipAddress: req.ip ?? req.socket.remoteAddress ?? "unknown",
+    ipAddress: req.socket.remoteAddress ?? req.ip ?? "unknown",
     userAgent: req.header("user-agent") ?? "",
   };
   const requestId = resolveRequestId(req);
