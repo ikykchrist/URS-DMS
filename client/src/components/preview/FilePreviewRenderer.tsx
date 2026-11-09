@@ -176,7 +176,7 @@ function PdfPreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string | n
           src={blobUrl}
           className="bg-white shadow-lg w-full h-auto border rounded-md"
           title={file.name}
-          allowfullscreen
+          allowFullScreen
         />
       </div>
     </div>
