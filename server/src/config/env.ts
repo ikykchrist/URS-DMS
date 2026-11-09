@@ -38,10 +38,16 @@ const envSchema = z.object({
 
   PUBLIC_APP_URL: z.string().url().optional(),
 
-  // Optional until the navigation assistant is configured. Chatbot requests
-  // return a controlled service-unavailable error when this is absent.
+  // Optional legacy provider. When no remote key is configured, the
+  // navigation assistant uses its local role-aware guidance engine.
   DEEPSEEK_API_KEY: z.string().trim().min(1).optional(),
   DEEPSEEK_MODEL: z.string().trim().min(1).default("deepseek-chat"),
+  // Provider-neutral OpenAI-compatible navigation assistant. Groq is the
+  // recommended free-tier default; the legacy DeepSeek variables remain as
+  // a backward-compatible fallback during deployment.
+  ASSISTANT_API_KEY: z.string().trim().min(1).optional(),
+  ASSISTANT_API_URL: z.string().url().optional(),
+  ASSISTANT_MODEL: z.string().trim().min(1).optional(),
 
   DATABASE_URL: z.string().min(1),
 
