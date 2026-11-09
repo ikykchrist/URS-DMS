@@ -10,6 +10,7 @@ import type {
 } from "@/modules/documents/documents.validator";
 import { getObjectRange, getObjectStream, statObject } from "@/lib/storage";
 import { parseByteRange } from "@/utils/byteRange";
+import { setPreviewFrameHeaders } from "@/utils/previewFrameHeaders";
 
 // =============================================================================
 // URS-DMS â€” documents controller (thin)
@@ -93,6 +94,7 @@ export async function previewDocumentContentHandler(req: Request, res: Response)
   res.setHeader("Content-Disposition", `inline; filename="${result.filename.replace(/[^A-Za-z0-9._-]/g, "_")}"`);
   res.setHeader("Cache-Control", "private, max-age=300");
   res.setHeader("Accept-Ranges", "bytes");
+  setPreviewFrameHeaders(res);
 
   const range = parseByteRange(req.headers.range, stat.size);
   if (range === "invalid") {

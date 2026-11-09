@@ -429,10 +429,27 @@ export function isOnlineDocument(document: Document): boolean {
   return document.blobId.startsWith("online:")
 }
 
+/**
+ * The backend mints signed file URLs against the origin it saw on the request.
+ * That can differ from the page origin (www vs apex, or a proxied API host),
+ * and a cross-origin iframe is rejected by X-Frame-Options — the preview then
+ * shows "… refused to connect" and never renders. Rewrite our own API paths to
+ * the page origin so previews stay same-origin (the app host proxies /api).
+ */
+function toSameOriginFileUrl(url: string): string {
+  try {
+    const parsed = new URL(url, window.location.origin)
+    if (parsed.pathname.startsWith("/api/")) return `${parsed.pathname}${parsed.search}`
+  } catch {
+    // Keep unknown/opaque URLs untouched.
+  }
+  return url
+}
+
 export async function getOnlineDocumentUrl(document: Document, preview = false): Promise<string> {
   const endpoint = preview ? "preview" : "download"
   const result = await apiGet<DownloadResult>(`/documents/${encodeURIComponent(document.id)}/${endpoint}`)
-  return result.url
+  return toSameOriginFileUrl(result.url)
 }
 
 export async function getOnlineDocumentThumbnail(document: Document): Promise<string> {

@@ -2,9 +2,9 @@ import { Router } from "express";
 import { asyncHandler } from "@/utils/asyncHandler";
 import { verifyFileToken } from "@/lib/fileToken";
 import { getObjectRange, getObjectStream, putObject, statObject } from "@/lib/storage";
-import { env } from "@/config/env";
 import { BadRequestError, UnauthorizedError } from "@/utils/errors";
 import { parseByteRange } from "@/utils/byteRange";
+import { setPreviewFrameHeaders } from "@/utils/previewFrameHeaders";
 
 // =============================================================================
 // URS-DMS — signed file streaming routes
@@ -129,11 +129,10 @@ filesRouter.get(
       "Content-Disposition",
       `${disposition}; filename="${filename.replace(/[^A-Za-z0-9._-]/g, "_")}"`,
     );
-    // Previews render in iframes on the frontend origins (Cloudflare Pages
-    // remotely, localhost in dev). Helmet's default CSP would block framing
-    // from any other origin, so allowlist the configured client origins here.
-    const frameAncestors = ["'self'", ...env.CLIENT_URL.map((o) => o.replace(/^https?:\/\//, ""))];
-    res.setHeader("Content-Security-Policy", `frame-ancestors ${frameAncestors.join(" ")}`);
+    // Previews render in iframes on the frontend origins (the deployed domain
+    // in production, localhost in dev). Helmet's defaults would block framing
+    // whenever the API host differs from the page host.
+    if (inlineSafe) setPreviewFrameHeaders(res);
     res.setHeader("Cache-Control", "private, max-age=300");
 
     // Byte ranges let the browser PDF viewer render page 1 and seek without
