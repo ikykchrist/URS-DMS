@@ -7,7 +7,6 @@ import {
   Activity,
   CheckCircle,
   XCircle,
-  Trash2,
   ChevronDown,
   ChevronUp,
   ShieldAlert,
@@ -33,20 +32,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/Select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/Dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
 import { ExportLogsModal } from "@/components/modals/ExportLogsModal"
-import { listAuditEntries, exportAuditEntries, clearAuditLogs, type AuditEntry } from "@/services/admin"
+import { listAuditEntries, exportAuditEntries, type AuditEntry } from "@/services/admin"
 import { apiGet } from "@/lib/http"
-import { useAuth } from "@/context/AuthContext"
-import { isRootRole } from "@/lib/permissions"
 import { toast } from "@/lib/toast"
 
 interface AuditLog {
@@ -89,14 +78,8 @@ const PRESETS = [
 ]
 
 export default function AuditLogs() {
-  const { user } = useAuth()
-  // Clearing the audit trail is a ROOT-only destructive action (server gate
-  // matches); hiding the control keeps the UI aligned with the backend.
-  const canClearLogs = isRootRole(user?.role)
   const [searchParams, setSearchParams] = useSearchParams()
   const [isExportLogsModalOpen, setIsExportLogsModalOpen] = useState(() => searchParams.get("modal") === "generate-report")
-  const [isClearDialogOpen, setIsClearDialogOpen] = useState(false)
-  const [clearing, setClearing] = useState(false)
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [total, setTotal] = useState(0)
   const [successTotal, setSuccessTotal] = useState(0)
@@ -108,7 +91,7 @@ export default function AuditLogs() {
   const [actionFilter, setActionFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [activePreset, setActivePreset] = useState("")
-  const [reloadKey, setReloadKey] = useState(0)
+  const [reloadKey] = useState(0)
   const [loginGroups, setLoginGroups] = useState<LoginGroup[]>([])
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
   const [showLoginGroups, setShowLoginGroups] = useState(false)
@@ -257,19 +240,6 @@ export default function AuditLogs() {
     setPage(1)
   }
 
-  const handleClearLogs = async () => {
-    setClearing(true)
-    try {
-      const cleared = await clearAuditLogs()
-      toast.success(`Cleared ${cleared.toLocaleString()} audit log${cleared === 1 ? "" : "s"}`)
-      setIsClearDialogOpen(false)
-      handleResetFilters()
-      setReloadKey((k) => k + 1)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to clear audit logs")
-    } finally { setClearing(false) }
-  }
-
   const handleExportCSV = async () => {
     try {
       const dates = getPresetDates(activePreset)
@@ -306,12 +276,6 @@ export default function AuditLogs() {
               <Download className="w-4 h-4 mr-2" />
               Export CSV
             </Button>
-            {canClearLogs && (
-              <Button variant="destructive" onClick={() => setIsClearDialogOpen(true)}>
-                <Trash2 className="w-4 h-4 mr-2" />
-                Clear Logs
-              </Button>
-            )}
           </>
         }
       />
@@ -524,20 +488,6 @@ export default function AuditLogs() {
 
       <ExportLogsModal open={isExportLogsModalOpen} onOpenChange={(open: boolean) => { setIsExportLogsModalOpen(open); if (!open) { searchParams.delete("modal"); setSearchParams(searchParams) } }} />
 
-      <Dialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
-        <DialogContent className="sm:max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle className="text-lg">Clear Audit Logs</DialogTitle>
-            <DialogDescription className="text-[14px]">This will permanently delete every audit log entry. This action cannot be undone.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 pt-2">
-            <Button variant="outline" className="h-9" onClick={() => setIsClearDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" className="h-9" disabled={clearing} onClick={() => void handleClearLogs()}>
-              {clearing ? "Clearing..." : "Clear Logs"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

@@ -1359,7 +1359,201 @@ export async function assignTemplate(
     null,
   );
 
+  // When a template is assigned to a scope, automatically create a shared
+  // folder on the repository for all users affected by that scope.
+  await createSharedFolderForAssignment(templateId, input.targetType, targetId, actor).catch((err) => {
+    logger.error("Failed to auto-create shared folder for folder template assignment", {
+      templateId,
+      targetType: input.targetType,
+      targetId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+
   return getTemplate(templateId, actor);
+}
+
+/**
+ * Creates a shared repository folder based on the assigned template and shares
+ * it with every active user affected by the assignment scope.
+ *
+ * Scope rules:
+ *   - CAMPUS   → folder scoped to campus, shared with all users in that campus
+ *   - COLLEGE  → folder scoped to college (+campus), shared with all users in that college
+ *   - PROGRAM  → folder scoped to program (+campus/college), shared with the program (PROGRAM share)
+ *   - OFFICE   → folder scoped to office (+campus/college), shared with office head
+ *   - AACCUP_AREA → folder scoped to area (+campus/college/program), shared with program or area users
+ *   - UNIVERSITY → folder unscoped, shared with all active users
+ */
+async function createSharedFolderForAssignment(
+  templateId: string,
+  targetType: string,
+  targetId: string | null,
+  actor: Actor,
+): Promise<void> {
+  const template = await repo.findTemplateById(templateId);
+  if (!template) return;
+
+  const nodes = await repo.listTemplateNodes(templateId);
+
+  let campusId: string | null = null;
+  let collegeId: string | null = null;
+  let programId: string | null = null;
+  let userIds: string[] = [];
+  let shareProgramId: string | null = null;
+
+  switch (targetType) {
+    case "CAMPUS":
+      campusId = targetId;
+      userIds = (await prisma.user.findMany({
+        where: { campusId: targetId, status: "ACTIVE", deletedAt: null },
+        select: { id: true },
+      })).map((u) => u.id);
+      break;
+    case "COLLEGE":
+      collegeId = targetId;
+      const college = await prisma.college.findUnique({
+        where: { id: targetId },
+        select: { campusId: true },
+      });
+      campusId = college?.campusId ?? null;
+      userIds = (await prisma.user.findMany({
+        where: { collegeId: targetId, status: "ACTIVE", deletedAt: null },
+        select: { id: true },
+      })).map((u) => u.id);
+      break;
+    case "PROGRAM":
+      programId = targetId;
+      const program = await prisma.program.findUnique({
+        where: { id: targetId },
+        select: { campusId: true, collegeId: true },
+      });
+      campusId = program?.campusId ?? null;
+      collegeId = program?.collegeId ?? null;
+      shareProgramId = targetId;
+      userIds = (await prisma.user.findMany({
+        where: { programId: targetId, status: "ACTIVE", deletedAt: null },
+        select: { id: true },
+      })).map((u) => u.id);
+      break;
+    case "OFFICE":
+      const office = await prisma.office.findUnique({
+        where: { id: targetId },
+        select: { campusId: true, collegeId: true, headId: true },
+      });
+      campusId = office?.campusId ?? null;
+      collegeId = office?.collegeId ?? null;
+      if (office?.headId) userIds.push(office.headId);
+      break;
+    case "AACCUP_AREA":
+      const area = await prisma.aaccupArea.findUnique({
+        where: { id: targetId },
+        select: { campusId: true, collegeId: true, programId: true },
+      });
+      campusId = area?.campusId ?? null;
+      collegeId = area?.collegeId ?? null;
+      programId = area?.programId ?? null;
+      if (programId) {
+        shareProgramId = programId;
+        const areaUsers = await prisma.user.findMany({
+          where: { programId, status: "ACTIVE", deletedAt: null },
+          select: { id: true },
+        });
+        userIds = areaUsers.map((u) => u.id);
+      }
+      break;
+    case "UNIVERSITY":
+      userIds = (await prisma.user.findMany({
+        where: { status: "ACTIVE", deletedAt: null },
+        select: { id: true },
+      })).map((u) => u.id);
+      break;
+  }
+
+  // Create the root shared folder from the template name.
+  const rootFolder = await prisma.folder.create({
+    data: {
+      name: template.name,
+      campusId,
+      collegeId,
+      programId,
+      ownerId: actor.id,
+    },
+  });
+
+  // Recursively create sub-folders from the template node tree.
+  async function createSubFolders(parentFolderId: string, parentNodeId: string | null): Promise<void> {
+    const children = nodes.filter((n) => n.parentId === parentNodeId);
+    for (const child of children) {
+      const childFolder = await prisma.folder.create({
+        data: {
+          name: child.name,
+          parentId: parentFolderId,
+          campusId,
+          collegeId,
+          programId,
+          ownerId: actor.id,
+        },
+      });
+      await createSubFolders(childFolder.id, child.id);
+    }
+  }
+
+  const rootNodes = nodes.filter((n) => !n.parentId);
+  for (const rootNode of rootNodes) {
+    const rootNodeFolder = await prisma.folder.create({
+      data: {
+        name: rootNode.name,
+        parentId: rootFolder.id,
+        campusId,
+        collegeId,
+        programId,
+        ownerId: actor.id,
+      },
+    });
+    await createSubFolders(rootNodeFolder.id, rootNode.id);
+  }
+
+  // Share the root folder with affected users.
+  if (shareProgramId) {
+    await prisma.folderShare.create({
+      data: {
+        folderId: rootFolder.id,
+        recipientType: "PROGRAM",
+        programId: shareProgramId,
+        permission: "READ",
+        createdById: actor.id,
+      },
+    });
+  } else {
+    for (const userId of userIds) {
+      await prisma.folderShare.create({
+        data: {
+          folderId: rootFolder.id,
+          recipientType: "USER",
+          userId,
+          permission: "READ",
+          createdById: actor.id,
+        },
+      });
+    }
+  }
+
+  await writeAudit({
+    action: AUDIT_ACTIONS.FOLDER_SHARED,
+    userId: actor.id,
+    entity: "folder",
+    entityId: rootFolder.id,
+    newValue: {
+      folderName: template.name,
+      targetType,
+      targetId,
+      userCount: userIds.length,
+      shareProgramId,
+    },
+    ipAddress: actor.ipAddress,
+    userAgent: actor.userAgent,
+  });
 }
 
 export async function unassignTemplate(
