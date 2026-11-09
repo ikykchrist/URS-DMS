@@ -21,6 +21,14 @@ export function setPreviewFrameHeaders(res: Response): void {
   for (const configured of env.CLIENT_URL) {
     const origin = configured.trim().replace(/\/+$/, "");
     if (origin) ancestors.add(origin);
+    // Also add the counterpart origin (e.g., www ↔ apex, or http ↔ https)
+    try {
+      const parsed = new URL(origin);
+      const counterpart = `${parsed.protocol}//${parsed.hostname}`;
+      ancestors.add(counterpart);
+    } catch {
+      // Ignore malformed origins
+    }
   }
   // Prefer the CSP directive; it supersedes X-Frame-Options, but removing the
   // inherited header keeps older browsers from blocking on it instead.

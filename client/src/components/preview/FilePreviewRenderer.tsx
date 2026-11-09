@@ -174,14 +174,9 @@ function PdfPreview({ file, blobUrl }: { file: DocumentFile; blobUrl: string | n
       <div className="flex-1 overflow-auto bg-gray-100 p-4 flex items-start justify-center">
         <iframe
           src={blobUrl}
-          className="bg-white shadow-lg"
-          style={{
-            width: `${(8.5 * zoomLevel) / 100 * 82.5}px`,
-            height: `${(11 * zoomLevel) / 100 * 82.5}px`,
-            minWidth: "640px",
-            minHeight: "825px",
-          }}
+          className="bg-white shadow-lg w-full h-auto border rounded-md"
           title={file.name}
+          allowfullscreen
         />
       </div>
     </div>
@@ -293,8 +288,7 @@ function OfficePreview({ file }: { file: DocumentFile }) {
 
           <div className="flex items-center gap-2 w-full">
             <Button variant="outline" className="flex-1 h-10" aria-label="Download file" onClick={handleDownload}>
-              <Download className="w-4 h-4 mr-2" />
-              Download
+              <Download className="w-4 h-4 mr-2" /> Download
             </Button>
           </div>
         </div>
@@ -324,8 +318,7 @@ function UnsupportedPreview({ file }: { file: DocumentFile }) {
           </p>
 
           <Button variant="outline" className="h-10" aria-label="Download file" onClick={handleDownload}>
-            <Download className="w-4 h-4 mr-2" />
-            Download File
+            <Download className="w-4 h-4 mr-2" /> Download File
           </Button>
         </div>
       </div>
@@ -347,8 +340,7 @@ function NoPreviewAvailable({ file }: { file: DocumentFile }) {
           This document has no associated file data.
         </p>
         <Button size="sm" onClick={handleDownload} className="flex items-center gap-2 mx-auto">
-          <Download className="w-4 h-4" />
-          Download
+          <Download className="w-4 h-4" /> Download
         </Button>
       </div>
     </div>
