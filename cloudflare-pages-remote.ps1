@@ -24,7 +24,7 @@ if (-not (Test-Path $envRemote)) {
     # Keep provider settings current when .env.remote predates a new provider integration.
     $sourceContent = [IO.File]::ReadAllText("$root\.env")
     $remoteContent = [IO.File]::ReadAllText($envRemote)
-    foreach ($key in @('DEEPSEEK_API_KEY', 'DEEPSEEK_MODEL')) {
+    foreach ($key in @('ASSISTANT_API_KEY', 'ASSISTANT_API_URL', 'ASSISTANT_MODEL')) {
         $match = [regex]::Match($sourceContent, "(?m)^$key=.*$")
         if (-not $match.Success -or $match.Value -match "=$") { continue }
         if ($remoteContent -match "(?m)^$key=.*$") {

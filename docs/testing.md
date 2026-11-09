@@ -15,7 +15,7 @@ npm --workspace server test
 npm --workspace server run test:coverage
 ```
 
-The server also declares `test:watch`, `format:check`, `prisma:generate`, `prisma:migrate`, `prisma:deploy`, `prisma:seed`, and `deepseek:smoke`. `scripts/lint.sh` runs server lint/Prettier/typecheck and client typecheck; it is a Bash script. `scripts/load-test.ps1` is present. The previously documented `scripts/smoke-*.ps1` files are not present in committed `main`.
+The server also declares `test:watch`, `format:check`, `prisma:generate`, `prisma:migrate`, `prisma:deploy`, and `prisma:seed`. `scripts/lint.sh` runs server lint/Prettier/typecheck and client typecheck; it is a Bash script. `scripts/load-test.ps1` is present. The previously documented `scripts/smoke-*.ps1` files are not present in committed `main`.
 
 ## Tests
 

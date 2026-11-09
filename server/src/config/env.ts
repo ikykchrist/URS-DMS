@@ -43,13 +43,9 @@ const envSchema = z.object({
 
   PUBLIC_APP_URL: z.string().url().optional(),
 
-  // Optional legacy provider. When no remote key is configured, the
-  // navigation assistant uses its local role-aware guidance engine.
-  DEEPSEEK_API_KEY: z.string().trim().min(1).optional(),
-  DEEPSEEK_MODEL: z.string().trim().min(1).default("deepseek-chat"),
-  // Provider-neutral OpenAI-compatible navigation assistant. NVIDIA NIM with
-  // Nemotron is the recommended hosted provider; the legacy DeepSeek
-  // variables remain as a backward-compatible fallback during deployment.
+  // Navigation assistant provider: NVIDIA NIM with Nemotron, an
+  // OpenAI-compatible endpoint. When no key is configured, the assistant uses
+  // its built-in role-aware guidance engine and labels the reply as guide mode.
   ASSISTANT_API_KEY: optionalEnvString,
   // An optional chatbot provider must never prevent the core API/auth server
   // from booting. Invalid values are ignored by providerConfig and use the

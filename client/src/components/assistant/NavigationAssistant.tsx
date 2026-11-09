@@ -13,6 +13,14 @@ type AssistantMessage = {
   content: string
   pending?: boolean
   actions?: AssistantAction[]
+  notice?: string
+}
+
+type AssistantReply = {
+  message: string
+  actions: AssistantAction[]
+  mode?: "ai" | "guide"
+  notice?: { code: string; text: string }
 }
 
 type AssistantActionTarget = "DASHBOARD" | "MY_DOCUMENTS" | "MY_REQUESTS" | "REQUESTS" | "AACCUP" | "ISO" | "NOTIFICATIONS" | "MY_ACTIVITY" | "PROFILE" | "SETTINGS" | "USER_MANAGEMENT" | "AUDIT_LOGS" | "ORGANIZATION" | "ROOT_CONSOLE" | "ROLES_PERMISSIONS"
@@ -143,8 +151,9 @@ export function NavigationAssistant() {
       .slice(-MAX_HISTORY_TURNS)
       .map((item) => ({ role: item.role, content: item.content }))
     try {
-      const response = await apiPost<{ message: string; actions: AssistantAction[] }>("/assistant/navigation", { message: content, history })
-      setMessages((current) => current.map((item) => item.id === pendingId ? { id: pendingId, role: "assistant", content: response.message, actions: response.actions } : item))
+      const response = await apiPost<AssistantReply>("/assistant/navigation", { message: content, history })
+      const notice = response.mode === "guide" ? response.notice?.text ?? "Answers come from the built-in guide." : undefined
+      setMessages((current) => current.map((item) => item.id === pendingId ? { id: pendingId, role: "assistant", content: response.message, actions: response.actions, notice } : item))
     } catch (error) {
       const errorMessage = error instanceof ApiRequestError && error.status === 429
         ? "You've sent several requests quickly. Please wait a moment and try again."
@@ -199,6 +208,9 @@ export function NavigationAssistant() {
                     : "rounded-bl-md border border-border/70 bg-white text-gray-700 shadow-soft dark:bg-gray-900 dark:text-gray-200",
                 )}>
                   {message.pending ? <span className="inline-flex items-center gap-1.5 text-gray-500"><Loader2 className="h-3.5 w-3.5 animate-spin" />Thinking...</span> : renderAssistantContent(message.content)}
+                  {!message.pending && message.notice && (
+                    <p className="mt-2 border-t border-border/60 pt-2 text-[10px] leading-4 text-amber-700 dark:text-amber-400">{message.notice}</p>
+                  )}
                   {!message.pending && message.actions && message.actions.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2 border-t border-border/60 pt-2.5">
                       {message.actions.map((action) => (

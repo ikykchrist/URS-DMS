@@ -19,8 +19,7 @@
     "prisma:studio": "prisma studio",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "deepseek:smoke": "tsx --env-file=../.env src/scripts/deepseek-smoke.ts"
+    "test:coverage": "vitest run --coverage"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

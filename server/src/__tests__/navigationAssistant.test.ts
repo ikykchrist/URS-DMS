@@ -2,8 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/config/env", () => ({
   env: {
-    DEEPSEEK_API_KEY: undefined,
-    DEEPSEEK_MODEL: "deepseek-chat",
     ASSISTANT_API_KEY: undefined,
     ASSISTANT_API_URL: undefined,
     ASSISTANT_MODEL: undefined,
@@ -77,6 +75,56 @@ describe("navigation assistant service", () => {
     expect(response.message).toContain("Root-only");
   });
 
+  it("answers small talk instead of repeating the generic paragraph", async () => {
+    const { generateNavigationResponse } = await import("@/modules/navigationAssistant/navigationAssistant.service");
+    const greeting = await generateNavigationResponse({ message: "hi", role: "FACULTY" });
+    expect(greeting.message).toMatch(/^(Hi|Hello|Hi there)/);
+    expect(greeting.message).not.toContain("I can help you find URS-DMS pages and explain Documents");
+
+    const thanks = await generateNavigationResponse({ message: "salamat", role: "FACULTY" });
+    expect(thanks.message.toLowerCase()).toContain("welcome");
+
+    const capability = await generateNavigationResponse({ message: "what can you do?", role: "FACULTY" });
+    expect(capability.message).toContain("Documents");
+  });
+
+  it("varies repeated small talk across turns", async () => {
+    const { generateNavigationResponse } = await import("@/modules/navigationAssistant/navigationAssistant.service");
+    const first = await generateNavigationResponse({ message: "hello", role: "FACULTY" });
+    const second = await generateNavigationResponse({
+      message: "hello",
+      role: "FACULTY",
+      history: [
+        { role: "user", content: "hello" },
+        { role: "assistant", content: first.message },
+      ],
+    });
+    expect(second.message).not.toBe(first.message);
+  });
+
+  it("expands on a topic when the same topic comes up again", async () => {
+    const { generateNavigationResponse } = await import("@/modules/navigationAssistant/navigationAssistant.service");
+    const first = await generateNavigationResponse({ message: "How do I upload a document?", role: "FACULTY" });
+    const second = await generateNavigationResponse({
+      message: "How do I upload a document?",
+      role: "FACULTY",
+      history: [
+        { role: "user", content: "How do I upload a document?" },
+        { role: "assistant", content: first.message },
+      ],
+    });
+    expect(second.message.length).toBeGreaterThan(first.message.length);
+    expect(second.message).toContain("stream");
+  });
+
+  it("reports guide mode with an unconfigured notice when no provider is set", async () => {
+    const { generateNavigationResponse } = await import("@/modules/navigationAssistant/navigationAssistant.service");
+    const response = await generateNavigationResponse({ message: "Where are notifications?", role: "FACULTY" });
+    expect(response.mode).toBe("guide");
+    expect(response.notice?.code).toBe("unconfigured");
+    expect(response.message).toContain("Notifications");
+  });
+
   it("ignores malformed history instead of failing", async () => {
     const { generateNavigationResponse } = await import("@/modules/navigationAssistant/navigationAssistant.service");
     const response = await generateNavigationResponse({
@@ -113,5 +161,36 @@ describe("navigation assistant request schema", () => {
     expect(navigationAssistantBodySchema.safeParse({ message: "hi", history: tooLong }).success).toBe(false);
     expect(navigationAssistantBodySchema.safeParse({ message: "hi", role: "ROOT" }).success).toBe(false);
     expect(navigationAssistantBodySchema.safeParse({ message: "hi", history: [{ role: "system", content: "x" }] }).success).toBe(false);
+  });
+});
+
+describe("navigation assistant provider failures", () => {
+  it("classifies a 402 as a billing notice and still answers from the guide", async () => {
+    vi.resetModules();
+    vi.doMock("@/config/env", () => ({
+      env: {
+        ASSISTANT_API_KEY: "test-key",
+        ASSISTANT_API_URL: undefined,
+        ASSISTANT_MODEL: undefined,
+        NODE_ENV: "test",
+        LOG_LEVEL: "error",
+      },
+    }));
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: { message: "Insufficient Balance" } }), { status: 402 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const { generateNavigationResponse } = await import("@/modules/navigationAssistant/navigationAssistant.service");
+      const response = await generateNavigationResponse({ message: "Where are my documents?", role: "FACULTY" });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(response.mode).toBe("guide");
+      expect(response.notice?.code).toBe("billing");
+      expect(response.message).toContain("My Documents");
+    } finally {
+      vi.unstubAllGlobals();
+      vi.doUnmock("@/config/env");
+      vi.resetModules();
+    }
   });
 });
