@@ -31,7 +31,6 @@ import {
   Search,
   ShieldCheck,
   Trash2,
-  Users,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -1176,7 +1175,7 @@ export default function RootRequirementBuilder() {
     <div className="content-padding">
       <PageHeader
         title="Requirement Builder"
-        description="Author versioned accreditation structures, upload rules, and organization assignments."
+        description="Author universal requirement templates. Areas determine where each template applies."
         actions={
           <div className="flex gap-2">
             <Button
@@ -1200,7 +1199,7 @@ export default function RootRequirementBuilder() {
         onValueChange={(value) => setMainTab(value as MainTab)}
         className="mt-6"
       >
-          <TabsList className="grid w-full max-w-2xl grid-cols-4 overflow-x-auto">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3 overflow-x-auto">
           <TabsTrigger value="builder">
             <FolderTree className="mr-2 h-4 w-4" />
             Builder
@@ -1208,10 +1207,6 @@ export default function RootRequirementBuilder() {
           <TabsTrigger value="preview">
             <Eye className="mr-2 h-4 w-4" />
             Preview
-          </TabsTrigger>
-          <TabsTrigger value="assignments">
-            <Users className="mr-2 h-4 w-4" />
-            Assignments
           </TabsTrigger>
           <TabsTrigger value="history">
             <History className="mr-2 h-4 w-4" />
@@ -1505,7 +1500,7 @@ export default function RootRequirementBuilder() {
                   <Card className="border-emerald-200 bg-emerald-50/50">
                     <CardContent className="flex items-center gap-2 p-4 text-[12px] text-emerald-800">
                       <CheckCircle2 className="h-4 w-4" />
-                      This template is ready to use. Changes save a new version and apply to assigned scopes.
+                      This template is ready to use. Changes save a new version and apply to matching areas.
                     </CardContent>
                   </Card>
                 )}

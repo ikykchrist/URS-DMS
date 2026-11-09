@@ -25,6 +25,8 @@
 
 ## Version 2.0 backlog (out of 1.0 scope)
 
+The one-sprint Area deadline and Requirement Builder simplification work is complete in Sprint 8.9; no follow-up sprint is required for that scope.
+
 - Custom roles at runtime (Role.isSystem=false + admin CRUD).
 - Full-text search across extracted document content (PDF/DOCX index).
 - Saved searches / saved filter views per user.

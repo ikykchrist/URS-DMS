@@ -60,7 +60,7 @@ interface AACCUPArea {
   description: string
   status: "Completed" | "In Progress" | "Pending" | "Overdue"
   completion: number
-  dueDate: string
+  dueDate: string | null
 }
 
 interface AACCUPAreaDetailsModalProps {
@@ -131,7 +131,6 @@ export function AACCUPAreaDetailsModal({
   area,
   areaSet = "AACCUP",
   onAddSubmission,
-  onCreateTask,
   onEditArea,
   page = false,
 }: AACCUPAreaDetailsModalProps) {
@@ -322,6 +321,7 @@ export function AACCUPAreaDetailsModal({
                   <Badge variant={areaStatusVariant[currentStatus]} className="text-[10px] flex-shrink-0">
                     {currentStatus}
                   </Badge>
+                  <span className="text-[12px] text-gray-500">Deadline: {area.dueDate ? formatDate(area.dueDate) : "Not set"}</span>
                 </div>
               </div>
             </div>
@@ -330,12 +330,6 @@ export function AACCUPAreaDetailsModal({
                 <Button variant="outline" size="sm" className="h-9" onClick={onEditArea}>
                   <Pencil className="w-4 h-4 mr-2" />
                   Edit
-                </Button>
-              )}
-              {canManageTasks && (
-                <Button variant="outline" size="sm" className="h-9" onClick={onCreateTask}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Task
                 </Button>
               )}
               <Button size="sm" className="h-9 shadow-soft" onClick={onAddSubmission}>
@@ -370,17 +364,6 @@ export function AACCUPAreaDetailsModal({
                   >
                      <FileText className="w-3.5 h-3.5" />
                      Submissions ({submissions.length})
-                  </button>
-                  <button
-                    type="button"
-                     onClick={() => changeView("tasks")}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-                      view === "tasks" ? "bg-white text-gray-900 shadow-soft" : "text-gray-500 hover:text-gray-700"
-                    )}
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    Tasks ({tasks.length})
                   </button>
                   <button
                     type="button"

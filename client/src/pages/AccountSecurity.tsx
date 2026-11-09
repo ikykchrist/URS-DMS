@@ -74,8 +74,8 @@ export default function AccountSecurity() {
 
   const handleAvatarChange = async (file: File) => {
     if (!user) return
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Profile picture must be 2MB or smaller.")
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Profile picture must be 10MB or smaller.")
       return
     }
     try {

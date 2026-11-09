@@ -67,7 +67,7 @@ interface AACCUPArea {
   description: string
   status: "Completed" | "In Progress" | "Pending" | "Overdue"
   completion: number
-  dueDate: string
+  dueDate: string | null
   campusId: string
   collegeId: string
   programId: string
@@ -289,7 +289,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
       description: area.description ?? "",
       status,
       completion,
-      dueDate: area.accreditationCycleName ?? area.updatedAt.slice(0, 10),
+      dueDate: area.dueDate,
       campusId: area.campusId ?? "",
       collegeId: area.collegeId ?? "",
       programId: area.programId ?? "",
@@ -341,6 +341,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
     collegeId: area.collegeId,
     programId: area.programId,
     isActive: area.isActive,
+    dueDate: area.dueDate,
   })
 
   const handleViewArea = (area: AACCUPArea) => {
@@ -621,7 +622,7 @@ export default function AACCUPManagement({ areaSet = "AACCUP", navigation }: AAC
                       </div>
                       <div className="flex items-center gap-1.5 text-[12px] text-gray-500 shrink-0">
                         <Calendar className="w-3.5 h-3.5" />
-                        <span>{area.dueDate}</span>
+                        <span>{area.dueDate ? new Date(area.dueDate).toLocaleDateString() : "No deadline"}</span>
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">

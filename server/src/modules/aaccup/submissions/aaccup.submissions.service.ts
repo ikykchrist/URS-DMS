@@ -836,6 +836,20 @@ export async function unsubmitSubmission(id: string, actor: Actor): Promise<{ id
     await writeAuditInTransaction(tx, { action: AUDIT_ACTIONS.AACCUP_SUBMISSION_UNSUBMITTED, userId: actor.id, entity: "aaccup_submission", entityId: id,
       oldValue: { status: existing.status, isCurrent: existing.isCurrent }, newValue: { unsubmitted: true, isCurrent: false }, ipAddress: actor.ipAddress, userAgent: actor.userAgent });
   });
+  // Keep the user-facing activity feed in sync with the withdrawal. This is
+  // deliberately best-effort so a notification outage never rolls back the
+  // successful unsubmit transaction.
+  try {
+    await notifyUser(actor.id, "AACCUP_SUBMISSION_RETURNED", {
+      title: "Submission withdrawn",
+      message: "Your evidence was removed from the review queue and can be submitted again.",
+      entity: "aaccup_submission",
+      entityId: id,
+      actionUrl: "/user/aaccup?tab=submissions",
+    });
+  } catch {
+    // notifications must never break the unsubmit operation
+  }
   return { id, unsubmitted: true };
 }
 

@@ -1149,7 +1149,7 @@ export default function RootFolderBuilder() {
     <div className="min-w-0 content-padding">
       <PageHeader
         title="Dynamic Folder Builder"
-        description="Design, version, and assign the folder structures used across the platform"
+        description="Design versioned folder templates for campus, college, and program repositories"
         actions={
           <>
             <Button
@@ -1178,14 +1178,10 @@ export default function RootFolderBuilder() {
       />
 
       <Tabs value={mainTab} onValueChange={handleMainTabChange}>
-        <TabsList className="mb-4 grid h-auto w-full grid-cols-3 sm:inline-grid sm:w-auto overflow-x-auto">
+        <TabsList className="mb-4 grid h-auto w-full grid-cols-2 sm:inline-grid sm:w-auto overflow-x-auto">
           <TabsTrigger value="templates" className="gap-1.5 px-2 sm:px-4">
             <GitBranch className="h-4 w-4" />
             Templates
-          </TabsTrigger>
-          <TabsTrigger value="assignments" className="gap-1.5 px-2 sm:px-4">
-            <Users className="h-4 w-4" />
-            Assignments
           </TabsTrigger>
           <TabsTrigger value="history" className="gap-1.5 px-2 sm:px-4">
             <History className="h-4 w-4" />

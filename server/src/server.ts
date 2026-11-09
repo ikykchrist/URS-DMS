@@ -6,7 +6,7 @@ import { startEmailWorker } from "@/modules/email/email.service";
 import { disconnectRedis } from "@/lib/redis";
 import { shutdownQueues } from "@/lib/queue";
 import { prisma } from "@/lib/prisma";
-import { startTaskReminderWorker } from "@/modules/aaccup/tasks/aaccup.task-reminder.service";
+import { startAreaDeadlineReminderWorker } from "@/modules/aaccup/aaccup.area-deadline-reminder.service";
 
 // =============================================================================
 // URS-DMS — server bootstrap with graceful shutdown (Sprint 8.5).
@@ -34,7 +34,7 @@ void boot()
     // Legacy in-process email worker — continues to serve as a fallback.
     // The BullMQ worker (email.worker.ts) handles the primary delivery path.
     startEmailWorker();
-    startTaskReminderWorker();
+    startAreaDeadlineReminderWorker();
 
     // Sprint 8.5 — start BullMQ workers for background jobs
     import("@/workers/startup")

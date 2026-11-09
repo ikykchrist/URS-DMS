@@ -622,6 +622,21 @@ export async function findFolderTemplateAssignment(
   return null;
 }
 
+/** Universal fallback used when no organization-specific assignment exists. */
+export async function findActiveFolderTemplate(): Promise<{
+  id: string; templateId: string; targetType: string; targetId: string | null
+} | null> {
+  const template = await prisma.folderTemplate.findFirst({
+    where: { deletedAt: null, status: "ACTIVE" },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+    select: { id: true, assignments: { where: { deletedAt: null }, orderBy: { createdAt: "asc" }, take: 1, select: { id: true, targetType: true, targetId: true } } },
+  });
+  const assignment = template?.assignments[0];
+  return template && assignment
+    ? { id: assignment.id, templateId: template.id, targetType: assignment.targetType, targetId: assignment.targetId }
+    : null;
+}
+
 export async function findTemplateBrief(templateId: string): Promise<{
   id: string;
   name: string;

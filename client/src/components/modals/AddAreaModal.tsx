@@ -13,7 +13,7 @@ interface AddAreaModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   areaSet?: "aaccup" | "iso"
-  area?: { id: string; name: string; description: string; campusId: string; collegeId: string; programId: string; isActive: boolean } | null
+  area?: { id: string; name: string; description: string; campusId: string; collegeId: string; programId: string; isActive: boolean; dueDate?: string | null } | null
   scopeContext?: { campusId: string; collegeId: string; programId: string | null }
   onSuccess?: (area: { id: string; title: string }) => void
 }
@@ -31,6 +31,7 @@ export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", area, sco
   const [collegeWide, setCollegeWide] = useState(false)
   const [programId, setProgramId] = useState("")
   const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE")
+  const [dueDate, setDueDate] = useState("")
   const [campuses, setCampuses] = useState<AccreditationCampus[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -45,6 +46,7 @@ export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", area, sco
     setProgramId(area?.programId ?? scopeContext?.programId ?? "")
     setCollegeWide(area ? !area.programId : scopeContext?.programId === null)
     setStatus(area?.isActive === false ? "INACTIVE" : "ACTIVE"); setError(""); setLoading(true)
+    setDueDate(area?.dueDate?.slice(0, 10) ?? "")
     listAreaSetupOrganization().then((items) => { if (active) setCampuses(items) })
       .catch((reason: unknown) => { if (active) { setCampuses([]); setError(reason instanceof Error ? reason.message : "Unable to load organization.") } })
       .finally(() => { if (active) setLoading(false) })
@@ -59,7 +61,7 @@ export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", area, sco
     if (!name.trim() || !validScope || saving) return
     setSaving(true); setError("")
     try {
-      const details = { name: name.trim(), description: description.trim(), programId: collegeWide ? null : program!.id, campusId, collegeId, status }
+      const details = { name: name.trim(), description: description.trim(), programId: collegeWide ? null : program!.id, campusId, collegeId, status, dueDate: dueDate ? new Date(`${dueDate}T23:59:59.999Z`).toISOString() : null }
       const result = area ? await updateOnlineArea(area.id, details) : await createOnlineArea({ ...details, code: areaCode(name, areaSet, collegeWide ? collegeId : program!.id), areaSet: areaSet.toUpperCase() as "AACCUP" | "ISO" })
       onSuccess?.({ id: result.id, title: result.name }); onOpenChange(false)
       toast.success(area ? "Area updated" : "Area created")
@@ -70,7 +72,7 @@ export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", area, sco
     <DialogContent className="sm:max-w-[520px]">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">{area ? <Pencil className="h-4 w-4 text-primary" /> : <Award className="h-4 w-4 text-primary" />}{area ? "Edit" : "Add"} {areaSet.toUpperCase()} Area</DialogTitle>
-        <DialogDescription>{area ? "Update the area details." : "Name the area. Choose its requirement template inside the area afterward."}</DialogDescription>
+        <DialogDescription>{area ? "Update the area details and deadline." : "Create the area and set the deadline for all of its required files."}</DialogDescription>
       </DialogHeader>
       <div className="space-y-5 py-3">
         {error && <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}{!campuses.length && <Button variant="ghost" size="sm" onClick={() => setRetry((value) => value + 1)}>Retry</Button>}</div>}
@@ -84,6 +86,7 @@ export function AddAreaModal({ open, onOpenChange, areaSet = "aaccup", area, sco
         <details className="rounded-lg border border-border p-3" open={Boolean(area)}>
           <summary className="cursor-pointer text-sm font-medium text-gray-600">Optional details</summary>
           <div className="mt-3 space-y-4">
+            <div className="space-y-2"><Label htmlFor="area-deadline">Area deadline</Label><Input id="area-deadline" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} disabled={saving} /><p className="text-xs text-gray-500">Email and in-app reminders are sent 3 months, 1 month, 7 days, and 3 days before this deadline.</p></div>
             <div className="space-y-2"><Label htmlFor="area-description">Description</Label><Textarea id="area-description" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={2000} disabled={saving} /></div>
             <div className="space-y-2"><Label htmlFor="area-status">Status</Label><Select value={status} onValueChange={(value) => setStatus(value as "ACTIVE" | "INACTIVE")} disabled={saving}><SelectTrigger id="area-status"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ACTIVE">Active</SelectItem><SelectItem value="INACTIVE">Inactive</SelectItem></SelectContent></Select><p className="text-xs text-gray-500">Inactive areas do not accept new submissions.</p></div>
           </div>

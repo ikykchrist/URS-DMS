@@ -267,13 +267,15 @@ export function DocumentPreviewModal({
                 </div>
               )}
               {!loading && !error && blobUrl && isPdf && (
-                <iframe
-                  ref={previewFrameRef}
-                  src={blobUrl}
+                <object
+                  data={blobUrl}
+                  type="application/pdf"
                   className="bg-white shadow-xl w-full max-w-[700px] aspect-[8.5/11]"
                   style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: "top center" }}
-                  title={document?.name}
-                />
+                  aria-label={document?.name}
+                >
+                  <a href={blobUrl} target="_blank" rel="noreferrer">Open PDF</a>
+                </object>
               )}
               {!loading && !error && blobUrl && isImage && (
                 <img

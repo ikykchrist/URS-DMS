@@ -65,7 +65,7 @@ export type UpdateSelfInput = z.infer<typeof updateSelfSchema>;
 
 export const profilePhotoPresignSchema = z.object({
   mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
-  sizeBytes: z.number().int().positive().max(2 * 1024 * 1024),
+  sizeBytes: z.number().int().positive().max(10 * 1024 * 1024),
 });
 export type ProfilePhotoPresignInput = z.infer<typeof profilePhotoPresignSchema>;
 

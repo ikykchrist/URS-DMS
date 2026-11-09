@@ -95,7 +95,7 @@ export default function AdminAreaDetailPage({ areaSet }: { areaSet: AreaSet }) {
     description: area.description ?? "",
     status: completion === 100 && submissions.length > 0 ? "Completed" as const : submissions.length > 0 ? "In Progress" as const : "Pending" as const,
     completion,
-    dueDate: area.accreditationCycleName ?? area.updatedAt.slice(0, 10),
+    dueDate: area.dueDate,
   }
 
   return (
@@ -146,7 +146,7 @@ export default function AdminAreaDetailPage({ areaSet }: { areaSet: AreaSet }) {
         open={editOpen}
         onOpenChange={setEditOpen}
         areaSet={areaSet.toLowerCase() as "aaccup" | "iso"}
-        area={{ id: area.id, name: area.name, description: area.description ?? "", campusId: area.campusId ?? "", collegeId: area.collegeId ?? "", programId: area.programId ?? "", isActive: area.status === "ACTIVE" }}
+        area={{ id: area.id, name: area.name, description: area.description ?? "", campusId: area.campusId ?? "", collegeId: area.collegeId ?? "", programId: area.programId ?? "", isActive: area.status === "ACTIVE", dueDate: area.dueDate }}
         onSuccess={() => {
           setEditOpen(false)
           setReloadKey((key) => key + 1)

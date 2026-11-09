@@ -18,6 +18,7 @@ export interface AaccupAreaListItem {
   accreditationCycleName: string | null;
   areaSet: string;
   status: string;
+  dueDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

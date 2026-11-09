@@ -13,6 +13,50 @@ import { openOnlineDocument, getOnlineDocumentUrl, getDocumentActivity, type Doc
 import type { Document } from "@/types/domain"
 import { cn } from "@/lib/utils"
 import { toast } from "@/lib/toast"
+import { API_BASE, getAccessToken, setServerToken } from "@/lib/http"
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs"
+
+function PdfCanvasPreview({ src, zoom }: { src: string; zoom: number }) {
+  const hostRef = useRef<HTMLDivElement>(null)
+  const [renderError, setRenderError] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    const render = async () => {
+      try {
+        const response = await fetch(src)
+        if (!response.ok) throw new Error(`Preview fetch failed (${response.status})`)
+        const bytes = new Uint8Array(await response.arrayBuffer())
+        // Pass bytes explicitly and keep PDF.js fully in the main thread. This
+        // avoids detached ArrayBuffer issues in Chromium when a blob URL is
+        // rendered inside a modal and makes the Gotenberg-produced PDF path
+        // deterministic for every office document type.
+        const pdf = await pdfjsLib.getDocument({
+          data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+          disableWorker: true,
+        }).promise
+        if (!hostRef.current) return
+        hostRef.current.replaceChildren()
+        for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
+          const page = await pdf.getPage(pageNo)
+          if (cancelled || !hostRef.current) return
+          const viewport = page.getViewport({ scale: (1.15 * zoom) / 100 })
+          const canvas = document.createElement("canvas")
+          canvas.className = "block mx-auto mb-4 bg-white shadow-lg"
+          canvas.width = Math.ceil(viewport.width)
+          canvas.height = Math.ceil(viewport.height)
+          hostRef.current.appendChild(canvas)
+          await page.render({ canvasContext: canvas.getContext("2d")!, viewport }).promise
+        }
+      } catch {
+        if (!cancelled) setRenderError(true)
+      }
+    }
+    void render()
+    return () => { cancelled = true }
+  }, [src, zoom])
+  if (renderError) return <div className="p-8 text-sm text-gray-500">Unable to render this document.</div>
+  return <div ref={hostRef} className="w-full overflow-auto bg-gray-100 p-4" />
+}
 
 interface FilePreviewModalProps {
   document: Document | null
@@ -65,17 +109,39 @@ export function FilePreviewModal({ document, onClose, onRename, onMove, onDelete
 
   useEffect(() => {
     if (!document) return
-    let previewObjectUrl: string | null = null
     let cancelled = false
     setUrl(null); setError(null); setEditing(false); setTab("preview"); setActivity(null)
     setZoom(100); setRotation(0)
     setLoading(true)
     getOnlineDocumentUrl(document, true)
       .then(async (previewUrl) => {
-        const response = await fetch(previewUrl)
+        const token = getAccessToken()
+        let response = await fetch(previewUrl, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
+        })
+        if (response.status === 401) {
+          const refreshed = await fetch(`${API_BASE}/auth/refresh`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: "{}",
+          })
+          if (refreshed.ok) {
+            const payload = await refreshed.json() as { success?: boolean; data?: { accessToken?: string } }
+            const accessToken = payload.data?.accessToken
+            if (payload.success && accessToken) {
+              setServerToken(accessToken)
+              response = await fetch(previewUrl, {
+                headers: { Authorization: `Bearer ${accessToken}` },
+                credentials: "include",
+              })
+            }
+          }
+        }
         if (!response.ok) throw new Error("Unable to load file preview")
         const preview = await response.blob()
-        previewObjectUrl = URL.createObjectURL(preview)
+        const previewObjectUrl = URL.createObjectURL(preview)
         if (cancelled) {
           URL.revokeObjectURL(previewObjectUrl)
           return
@@ -90,7 +156,6 @@ export function FilePreviewModal({ document, onClose, onRename, onMove, onDelete
       })
     return () => {
       cancelled = true
-      if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl)
     }
   }, [document, previewAttempt])
 
@@ -300,6 +365,8 @@ export function FilePreviewModal({ document, onClose, onRename, onMove, onDelete
             <div className="flex h-full w-full items-center justify-center overflow-auto p-2">
               <img src={url} alt={document.name} className="block max-h-full max-w-full rounded-lg object-contain shadow-lg" style={mediaStyle} />
             </div>
+          ) : isPdf ? (
+            <PdfCanvasPreview src={url} zoom={zoom} />
           ) : (
             <iframe ref={iframeRef} src={url} title={document.name} className="w-full h-full min-h-[60vh] rounded-lg bg-white dark:bg-[#111827] shadow-soft" />
           )}

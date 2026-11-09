@@ -31,25 +31,30 @@ interface NotificationVisual {
 const getNotificationVisual = (notif: NotificationItem): NotificationVisual => {
   const text = `${notif.title} ${notif.message}`.toLowerCase()
 
+  // Approval is the semantic state, regardless of the backend event family
+  // (document, request, or AACCUP submission).
+  if (/(approved|approval|accepted)/.test(text)) {
+    return { Icon: Check, className: "bg-success/10 text-success dark:bg-success/20 dark:text-success" }
+  }
   if (notif.type === "rejection" && /(return|revision)/.test(text)) {
-    return { Icon: RotateCcw, className: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400" }
+    return { Icon: RotateCcw, className: "bg-warning/10 text-warning dark:bg-warning/20 dark:text-warning" }
   }
   if (notif.type === "rejection") {
-    return { Icon: AlertTriangle, className: "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400" }
+    return { Icon: AlertTriangle, className: "bg-danger/10 text-danger dark:bg-danger/20 dark:text-danger" }
   }
   if (notif.type === "approval") {
-    return { Icon: Check, className: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400" }
+    return { Icon: Check, className: "bg-success/10 text-success dark:bg-success/20 dark:text-success" }
   }
   if (notif.type === "document" || notif.type === "upload" || notif.entity === "folder") {
-    return { Icon: notif.type === "upload" ? Upload : FileText, className: "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400" }
+    return { Icon: notif.type === "upload" ? Upload : FileText, className: "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary" }
   }
   if (notif.type === "request") {
-    return { Icon: Inbox, className: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400" }
+    return { Icon: Inbox, className: "bg-warning/10 text-warning dark:bg-warning/20 dark:text-warning" }
   }
   if (notif.type === "submission") {
-    return { Icon: GraduationCap, className: "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400" }
+    return { Icon: GraduationCap, className: "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary" }
   }
-  return { Icon: Bell, className: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" }
+  return { Icon: Bell, className: "bg-surface-secondary text-text-secondary dark:bg-surface-dark-secondary dark:text-text-secondary" }
 }
 
 const getTimeAgo = (dateStr: string) => {

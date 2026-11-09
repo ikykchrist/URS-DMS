@@ -139,6 +139,7 @@ model User {
   systemSettingsUpdated         SystemSetting[]         @relation("SystemSettingUpdater")
   notifications                 Notification[]
   taskReminders                 AaccupTaskReminder[]
+  areaDeadlineReminders         AaccupAreaDeadlineReminder[]
   configCategoriesCreated       ConfigurationCategory[] @relation("ConfigCategoryCreatedBy")
   configCategoriesUpdated       ConfigurationCategory[] @relation("ConfigCategoryUpdatedBy")
   configurationsCreated         Configuration[]         @relation("ConfigurationCreatedBy")
@@ -585,6 +586,7 @@ model AaccupArea {
   accreditationCycle   AccreditationCycle? @relation(fields: [accreditationCycleId], references: [id], onDelete: SetNull)
   areaSet              AreaSet             @default(AACCUP)
   status               AreaStatus          @default(ACTIVE)
+  dueDate              DateTime?
   createdBy            String
   createdByUser        User                @relation("AaccupAreaCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updatedBy            String?
@@ -594,6 +596,7 @@ model AaccupArea {
   deletedAt            DateTime?
   requirements         AaccupRequirement[]
   tasks                AaccupTask[]
+  deadlineReminders    AaccupAreaDeadlineReminder[]
 
   @@index([campusId])
   @@index([collegeId])
@@ -601,6 +604,7 @@ model AaccupArea {
   @@index([accreditationCycleId])
   @@index([areaSet])
   @@index([status])
+  @@index([dueDate])
   @@index([deletedAt])
   @@map("aaccup_areas")
 }
@@ -798,6 +802,10 @@ enum NotificationType {
   AACCUP_TASK_DUE_TOMORROW
   AACCUP_TASK_DUE_TODAY
   AACCUP_TASK_OVERDUE
+  AACCUP_AREA_DUE_IN_3_MONTHS
+  AACCUP_AREA_DUE_IN_1_MONTH
+  AACCUP_AREA_DUE_IN_7_DAYS
+  AACCUP_AREA_DUE_IN_3_DAYS
   RECYCLE_BIN_CLEANUP
   STORAGE_WARNING
   PASSWORD_RESET
@@ -849,6 +857,20 @@ model AaccupTaskReminder {
   @@index([taskId])
   @@index([userId, sentAt])
   @@map("aaccup_task_reminders")
+}
+
+model AaccupAreaDeadlineReminder {
+  id          String     @id @default(uuid())
+  areaId      String
+  area        AaccupArea @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminderKey String
+  createdAt   DateTime   @default(now())
+
+  @@unique([areaId, userId, reminderKey])
+  @@index([userId])
+  @@map("aaccup_area_deadline_reminders")
 }
 
 enum EmailStatus {

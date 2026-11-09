@@ -788,7 +788,7 @@ export async function resolveMyFolderStructure(actor: Actor): Promise<ResolvedFo
   if (context?.campusId) targets.push({ type: "CAMPUS", id: context.campusId });
   targets.push({ type: "UNIVERSITY", id: null });
 
-  const assignment = await repo.findFolderTemplateAssignment(targets);
+  const assignment = await repo.findFolderTemplateAssignment(targets) ?? await repo.findActiveFolderTemplate();
   if (assignment) {
     const template = await repo.findTemplateBrief(assignment.templateId);
     const rows = await repo.listFolderTemplateNodes(assignment.templateId);

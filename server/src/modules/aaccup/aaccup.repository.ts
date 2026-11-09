@@ -27,13 +27,11 @@ export function listSetupPrograms() {
 }
 
 export async function areaTemplateSetup(areaId: string, areaSet: "AACCUP" | "ISO" | "CERT") {
-  const [templates, assignment] = await Promise.all([
-    prisma.requirementTemplate.findMany({ where: { areaSet, status: "ACTIVE", deletedAt: null },
-      orderBy: { name: "asc" }, select: { id: true, name: true, code: true, version: true } }),
-    prisma.requirementAssignment.findFirst({ where: { targetType: "AACCUP_AREA", targetId: areaId, deletedAt: null },
-      select: { templateId: true } }),
-  ]);
-  return { templates, templateId: assignment?.templateId ?? null };
+  const templates = await prisma.requirementTemplate.findMany({ where: { areaSet, status: "ACTIVE", deletedAt: null },
+      orderBy: [{ updatedAt: "desc" }, { name: "asc" }], select: { id: true, name: true, code: true, version: true } });
+  const assignment = await prisma.requirementAssignment.findFirst({ where: { targetType: "AACCUP_AREA", targetId: areaId, deletedAt: null }, select: { templateId: true } });
+  const templateId = assignment?.templateId ?? templates[0]?.id ?? null;
+  return { templates, templateId };
 }
 
 // =============================================================================
@@ -74,6 +72,7 @@ function toListItem(row: AreaWithRelations, areaNumber: number): AaccupAreaListI
     accreditationCycleName: row.accreditationCycle?.name ?? null,
     areaSet: row.areaSet,
     status: row.status,
+    dueDate: row.dueDate,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -152,6 +151,7 @@ export interface CreateArgs {
   areaSet: "AACCUP" | "ISO" | "CERT";
   createdBy: string;
   status?: "ACTIVE" | "INACTIVE";
+  dueDate?: Date | null;
 }
 
 export async function create(args: CreateArgs): Promise<AaccupAreaDetail> {
@@ -166,6 +166,7 @@ export async function create(args: CreateArgs): Promise<AaccupAreaDetail> {
       accreditationCycleId: args.accreditationCycleId,
       areaSet: args.areaSet,
       status: args.status ?? "ACTIVE",
+      dueDate: args.dueDate ?? null,
       createdBy: args.createdBy,
     },
     include: AREA_WITH_RELATIONS_INCLUDE,
@@ -185,6 +186,7 @@ export interface UpdateArgs {
     accreditationCycleId?: string | null;
     areaSet?: "AACCUP" | "ISO" | "CERT";
     status?: "ACTIVE" | "INACTIVE";
+    dueDate?: Date | null;
     updatedBy?: string;
   };
 }
@@ -204,6 +206,7 @@ export async function update(args: UpdateArgs): Promise<AaccupAreaDetail> {
         : {}),
       ...(args.data.areaSet !== undefined ? { areaSet: args.data.areaSet } : {}),
       ...(args.data.status !== undefined ? { status: args.data.status } : {}),
+      ...(args.data.dueDate !== undefined ? { dueDate: args.data.dueDate } : {}),
       ...(args.data.updatedBy !== undefined ? { updatedBy: args.data.updatedBy } : {}),
       updatedAt: new Date(),
     },

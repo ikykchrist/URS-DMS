@@ -42,6 +42,7 @@ export const createAreaSchema = z.object({
   accreditationCycleId: z.string().uuid().nullable().optional(),
   areaSet: z.enum(["AACCUP", "ISO", "CERT"]).default("AACCUP"),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+  dueDate: z.coerce.date().nullable().optional(),
 });
 export type CreateAreaInput = z.infer<typeof createAreaSchema>;
 
@@ -65,6 +66,7 @@ export const updateAreaSchema = z
     accreditationCycleId: z.string().uuid().nullable().optional(),
     areaSet: z.enum(["AACCUP", "ISO", "CERT"]).optional(),
     status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+    dueDate: z.coerce.date().nullable().optional(),
   })
   .strict();
 export type UpdateAreaInput = z.infer<typeof updateAreaSchema>;

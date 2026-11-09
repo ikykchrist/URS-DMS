@@ -14,10 +14,6 @@ import type {
 import type { ValidateRequirementUploadBody } from "@/modules/root/root.requirement.validator";
 import { BadRequestError, NotFoundError } from "@/utils/errors";
 import { logger } from "@/utils/logger";
-import type { Prisma } from "@prisma/client";
-import {
-  archiveAutomatedTasksForAreaTemplate,
-} from "@/modules/aaccup/tasks/aaccup.task-automation.service";
 
 export interface ResolvedRequirementAssignment {
   id: string;
@@ -81,7 +77,39 @@ export async function resolveRequirementAssignmentForArea(
     },
   });
 
-  let resolved: ResolvedRequirementAssignment | null = null;
+  // Requirement templates are universal libraries. Area is the only runtime
+  // scope, so an area-specific assignment is preferred for compatibility, but
+  // an active template for the same area set is a valid universal fallback.
+  let universalResolved: ResolvedRequirementAssignment | null = null;
+  if (assignments.length === 0) {
+    const universal = await prisma.requirementTemplate.findFirst({
+      where: { deletedAt: null, status: "ACTIVE", areaSet: area.areaSet },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        version: true,
+        assignments: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: { id: true, targetType: true, targetId: true, dueDate: true },
+        },
+      },
+    });
+    const assignment = universal?.assignments[0];
+    if (universal && assignment) {
+      universalResolved = {
+        id: assignment.id,
+        templateId: universal.id,
+        templateVersion: universal.version,
+        targetType: assignment.targetType,
+        targetId: assignment.targetId,
+        dueDate: assignment.dueDate,
+      };
+    }
+  }
+
+  let resolved: ResolvedRequirementAssignment | null = universalResolved;
   for (const scope of scopes) {
     const row = assignments.find(
       (assignment) =>
@@ -299,11 +327,8 @@ export async function refreshRequirementProjectionsForTemplate(
   actorId: string,
 ): Promise<void> {
   invalidateRequirementResolutionCache();
-  const [assignments, existingProjections] = await Promise.all([
-    prisma.requirementAssignment.findMany({
-      where: { templateId, deletedAt: null },
-      select: { targetType: true, targetId: true },
-    }),
+  const [template, existingProjections] = await Promise.all([
+    prisma.requirementTemplate.findFirst({ where: { id: templateId }, select: { areaSet: true } }),
     prisma.aaccupRequirement.findMany({
       where: {
         area: { deletedAt: null },
@@ -314,41 +339,10 @@ export async function refreshRequirementProjectionsForTemplate(
     }),
   ]);
 
-  const areaIds = assignments
-    .filter((assignment) => assignment.targetType === "AACCUP_AREA" && assignment.targetId)
-    .map((assignment) => assignment.targetId!);
-  const cycleIds = assignments
-    .filter((assignment) => assignment.targetType === "ACCREDITATION_CYCLE" && assignment.targetId)
-    .map((assignment) => assignment.targetId!);
-  const campusIds = assignments
-    .filter((assignment) => assignment.targetType === "CAMPUS" && assignment.targetId)
-    .map((assignment) => assignment.targetId!);
-  const programIds = assignments
-    .filter((assignment) => assignment.targetType === "PROGRAM" && assignment.targetId)
-    .map((assignment) => assignment.targetId!);
-  const collegeIds = assignments
-    .filter((assignment) => assignment.targetType === "COLLEGE" && assignment.targetId)
-    .map((assignment) => assignment.targetId!);
-  const university = assignments.some((assignment) => assignment.targetType === "UNIVERSITY");
-  const scopeFilters: Prisma.AaccupAreaWhereInput[] = [];
-  if (areaIds.length > 0) scopeFilters.push({ id: { in: areaIds } });
-  if (cycleIds.length > 0) {
-    scopeFilters.push({ accreditationCycleId: { in: cycleIds } });
-  }
-  if (campusIds.length > 0) {
-    scopeFilters.push({ campusId: { in: campusIds } });
-  }
-  if (programIds.length > 0) {
-    scopeFilters.push({ programId: { in: programIds } });
-  }
-  if (collegeIds.length > 0) {
-    scopeFilters.push({ collegeId: { in: collegeIds } });
-  }
-
   const scopedAreas = await prisma.aaccupArea.findMany({
     where: {
       deletedAt: null,
-      ...(university ? {} : { OR: scopeFilters }),
+      ...(template ? { areaSet: template.areaSet } : {}),
     },
     select: { id: true },
   });
@@ -360,14 +354,6 @@ export async function refreshRequirementProjectionsForTemplate(
   ];
   await refreshProjectionAreas(refreshedAreaIds, actorId);
 
-  // Assignment changes are the single source of truth for automated tasks.
-  // Existing manual tasks have no sourceAssignmentId and are never touched.
-  for (const areaId of refreshedAreaIds) {
-    const resolved = await resolveRequirementAssignmentForArea(areaId);
-    if (resolved?.templateId !== templateId) {
-      await archiveAutomatedTasksForAreaTemplate(areaId, templateId, null, actorId);
-    }
-  }
 }
 
 export async function refreshRequirementProjectionsForTemplateBestEffort(

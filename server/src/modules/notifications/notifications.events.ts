@@ -33,6 +33,10 @@ export const NOTIFICATION_TYPE_VALUES = [
   "AACCUP_TASK_DUE_TOMORROW",
   "AACCUP_TASK_DUE_TODAY",
   "AACCUP_TASK_OVERDUE",
+  "AACCUP_AREA_DUE_IN_3_MONTHS",
+  "AACCUP_AREA_DUE_IN_1_MONTH",
+  "AACCUP_AREA_DUE_IN_7_DAYS",
+  "AACCUP_AREA_DUE_IN_3_DAYS",
   "RECYCLE_BIN_CLEANUP",
   "STORAGE_WARNING",
   "PASSWORD_RESET",
@@ -197,6 +201,26 @@ export const NOTIFICATION_EVENTS: Record<NotificationType, NotificationEventSpec
     defaultMessage: "An accreditation task assigned to you is overdue.",
     defaultPriority: "HIGH",
     email: { subject: "URS-DMS — Accreditation task overdue", body: "<p>An accreditation task assigned to you is overdue. Open URS-DMS to complete the outstanding requirements.</p>" },
+  },
+  AACCUP_AREA_DUE_IN_3_MONTHS: {
+    type: "AACCUP_AREA_DUE_IN_3_MONTHS", defaultTitle: "Area deadline in 3 months",
+    defaultMessage: "An accreditation area and its required files are due in 3 months.", defaultPriority: "MEDIUM",
+    email: { subject: "URS-DMS — Area deadline in 3 months", body: "<p>An accreditation area and its required files are due in 3 months.</p>" },
+  },
+  AACCUP_AREA_DUE_IN_1_MONTH: {
+    type: "AACCUP_AREA_DUE_IN_1_MONTH", defaultTitle: "Area deadline in 1 month",
+    defaultMessage: "An accreditation area and its required files are due in 1 month.", defaultPriority: "MEDIUM",
+    email: { subject: "URS-DMS — Area deadline in 1 month", body: "<p>An accreditation area and its required files are due in 1 month.</p>" },
+  },
+  AACCUP_AREA_DUE_IN_7_DAYS: {
+    type: "AACCUP_AREA_DUE_IN_7_DAYS", defaultTitle: "Area deadline in 7 days",
+    defaultMessage: "An accreditation area and its required files are due in 7 days.", defaultPriority: "HIGH",
+    email: { subject: "URS-DMS — Area deadline in 7 days", body: "<p>An accreditation area and its required files are due in 7 days.</p>" },
+  },
+  AACCUP_AREA_DUE_IN_3_DAYS: {
+    type: "AACCUP_AREA_DUE_IN_3_DAYS", defaultTitle: "Area deadline in 3 days",
+    defaultMessage: "An accreditation area and its required files are due in 3 days.", defaultPriority: "HIGH",
+    email: { subject: "URS-DMS — Area deadline in 3 days", body: "<p>An accreditation area and its required files are due in 3 days.</p>" },
   },
   RECYCLE_BIN_CLEANUP: {
     type: "RECYCLE_BIN_CLEANUP",

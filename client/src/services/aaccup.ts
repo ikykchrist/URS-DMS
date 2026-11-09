@@ -19,6 +19,7 @@ export interface OnlineAaccupArea {
   accreditationCycleName: string | null
   areaSet: AreaSet
   status: "ACTIVE" | "INACTIVE"
+  dueDate: string | null
   createdAt: string
   updatedAt: string
 }
@@ -116,6 +117,7 @@ export async function listAllOnlineAaccupAreas(query?: {
   collegeId?: string
   programId?: string
   status?: "ACTIVE" | "INACTIVE"
+  dueDate?: string | null
   areaSet?: AreaSet
 }): Promise<OnlineAaccupArea[]> {
   const params = new URLSearchParams()

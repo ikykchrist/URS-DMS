@@ -187,6 +187,7 @@ export async function createArea(input: CreateAreaInput, actor: Actor): Promise<
     areaSet: input.areaSet ?? "AACCUP",
     createdBy: actor.id,
     status: input.status ?? "ACTIVE",
+    dueDate: input.dueDate ?? null,
   });
 
   invalidateRequirementResolutionCache();
@@ -252,6 +253,7 @@ export async function updateArea(
       accreditationCycleId: input.accreditationCycleId,
       areaSet: input.areaSet,
       status: input.status,
+      dueDate: input.dueDate,
       updatedBy: actor.id,
     },
   });
@@ -268,11 +270,13 @@ export async function updateArea(
       code: existing.code,
       name: existing.name,
       status: existing.status,
+      dueDate: existing.dueDate,
     },
     newValue: {
       code: updated.code,
       name: updated.name,
       status: updated.status,
+      dueDate: updated.dueDate,
     },
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
