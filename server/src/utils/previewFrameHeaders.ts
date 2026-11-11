@@ -1,6 +1,33 @@
 import type { Response } from "express";
 import { env } from "@/config/env";
 
+// Active content such as HTML or SVG must never run in a preview frame.
+const SAFE_INLINE_TYPES = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/bmp",
+  "image/tiff",
+  "image/avif",
+  "video/mp4",
+  "video/webm",
+  "video/ogg",
+  "video/quicktime",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/ogg",
+  "audio/wav",
+  "audio/webm",
+  "text/plain",
+  "text/csv",
+]);
+
+export function isInlinePreviewType(mimeType: string): boolean {
+  return SAFE_INLINE_TYPES.has(mimeType);
+}
+
 /**
  * Allow previewable files (PDF, images, video, audio, plain text) to render
  * inside an iframe on the configured frontend origins.

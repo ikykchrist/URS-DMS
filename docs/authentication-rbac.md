@@ -10,11 +10,13 @@ Password hashing uses Argon2. Login rate limiting is configured at five unsucces
 
 ## Roles and permissions
 
-Declared roles are `ROOT`, `ADMINISTRATOR`, `QUALITY_ASSURANCE_OFFICER`, `DEPARTMENT_COORDINATOR`, `FACULTY`, `STAFF`, and `READ_ONLY`. The permission catalog is `server/src/modules/permissions/permissions.constants.ts`; default bindings are in `server/src/modules/roles/roles.constants.ts` and seed behavior.
+Declared roles are `ROOT`, `ADMINISTRATOR`, `QUALITY_ASSURANCE_OFFICER`, `DEPARTMENT_COORDINATOR`, `FACULTY`, `STAFF`, `READ_ONLY`, and `ACCREDITOR`. The permission catalog is `server/src/modules/permissions/permissions.constants.ts`. The default bindings are in `server/src/modules/roles/roles.constants.ts` and the seed script.
 
 `ROOT` receives every catalog permission. `ADMINISTRATOR` receives every permission except the explicit ROOT-only codes. The remaining roles receive the documented default subsets in the role matrix. A custom database role can only exercise permissions assigned in `RolePermission` and allowed by route/service behavior.
 
 ## Enforcement points
+
+The `ACCREDITOR` system role is provisioned by migration and is assignable in Admin User Management. It signs in to the Accreditation workspace and can browse active AACCUP and ISO areas and preview their current approved evidence. Preview access is tied to the submitted version. The role has fixed workspace access and no general permission bindings.
 
 - API routes use `authenticate`, then `requirePermission`, `requireAnyPermission`, or `requireRole` where declared.
 - Services also implement resource/ownership rules in areas such as documents, folders, repositories, and administration; route permission alone is not the complete access rule.

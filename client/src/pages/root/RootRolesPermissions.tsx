@@ -80,7 +80,7 @@ export default function RootRolesPermissions() {
   }, [selectedRole, modified])
 
   const togglePermission = (code: string) => {
-    if (!selectedRole || selectedRole.name === "ROOT") return
+    if (!selectedRole || selectedRole.name === "ROOT" || selectedRole.name === "ACCREDITOR") return
     const mods = new Set(modified.get(selectedRole.id) ?? selectedRole.boundPermissions)
     if (mods.has(code)) {
       mods.delete(code)
@@ -93,7 +93,8 @@ export default function RootRolesPermissions() {
   }
 
   const isProtected = (code: string) =>
-    selectedRole?.name === "ROOT" || (selectedRole?.name === "ADMINISTRATOR" && matrix?.rootOnlyCodes.includes(code))
+    selectedRole?.name === "ROOT" || selectedRole?.name === "ACCREDITOR" ||
+    (selectedRole?.name === "ADMINISTRATOR" && matrix?.rootOnlyCodes.includes(code))
 
   const modules = useMemo(() => {
     if (!matrix) return []
@@ -231,11 +232,13 @@ export default function RootRolesPermissions() {
                     <div className="text-[13px] leading-tight truncate">
                       {role.name === "ROOT"
                         ? "System Root"
-                        : role.name === "ADMINISTRATOR"
-                          ? "Administrator"
-                          : role.name
-                              .replace(/_/g, " ")
-                              .replace(/\b\w/g, (c) => c.toUpperCase())}
+                        : role.name === "ACCREDITOR"
+                          ? "Accreditor"
+                          : role.name === "ADMINISTRATOR"
+                            ? "Administrator"
+                            : role.name
+                                .replace(/_/g, " ")
+                                .replace(/\b\w/g, (c) => c.toUpperCase())}
                     </div>
                     <div className="text-[11px] text-gray-400 truncate">
                       {role.permissionCount} permissions · {role.userCount} users

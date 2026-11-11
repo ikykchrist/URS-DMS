@@ -230,7 +230,7 @@ export function UserDetailsModal({
                     </SelectTrigger>
                     <SelectContent>
                       {roles.map((r) => (
-                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                        <SelectItem key={r.id} value={r.id}>{r.name === "ACCREDITOR" ? "Accreditor" : r.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

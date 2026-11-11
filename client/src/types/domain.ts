@@ -2,6 +2,7 @@ export type UserRole =
   | "super_admin"
   | "qa_office"
   | "department_head"
+  | "accreditor"
   | "faculty"
   | "staff"
   | "student"

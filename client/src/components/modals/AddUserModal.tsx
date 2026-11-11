@@ -195,7 +195,7 @@ export function AddUserModal({ open, onOpenChange, onSuccess }: AddUserModalProp
                 <SelectContent>
                   {campuses.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
-                      {item.name}
+                      {item.name === "ACCREDITOR" ? "Accreditor" : item.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

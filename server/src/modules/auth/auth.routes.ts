@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "@/utils/asyncHandler";
 import { validateBody } from "@/middlewares/validate";
-import { authenticate } from "@/middlewares/authenticate";
+import { authenticate, authenticateIncludingAccreditor } from "@/middlewares/authenticate";
 import { requirePermission } from "@/middlewares/authorize";
 import { authLimiter } from "@/middlewares/rateLimiter";
 import { changePasswordSchema, loginSchema, refreshSchema, registrationRequestSchema, registrationSchema, registrationTokenSchema } from "@/modules/auth/auth.validator";
@@ -42,7 +42,7 @@ authRouter.post("/registration/request", authLimiter, validateBody(registrationR
 
 authRouter.post("/logout", asyncHandler(logoutHandler));
 
-authRouter.get("/me", authenticate, asyncHandler(meHandler));
+authRouter.get("/me", authenticateIncludingAccreditor, asyncHandler(meHandler));
 
 authRouter.post(
   "/change-password",

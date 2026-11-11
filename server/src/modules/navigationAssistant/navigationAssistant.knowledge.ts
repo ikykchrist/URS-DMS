@@ -1,4 +1,5 @@
 import type { RoleName } from "@prisma/client";
+import { ForbiddenError } from "@/utils/errors";
 
 export type NavigationAudience = "USER" | "ADMIN" | "ROOT";
 
@@ -50,7 +51,7 @@ AUTHORIZED ROOT / SYSTEM ADMINISTRATOR NAVIGATION
 - Deadline reminders and email notifications are configured through the notification catalog and environment settings, not through a UI screen.
 `;
 
-const ROLE_AUDIENCE: Record<RoleName, NavigationAudience> = {
+const ROLE_AUDIENCE: Record<Exclude<RoleName, "ACCREDITOR">, NavigationAudience> = {
   ROOT: "ROOT",
   ADMINISTRATOR: "ADMIN",
   QUALITY_ASSURANCE_OFFICER: "ADMIN",
@@ -61,6 +62,9 @@ const ROLE_AUDIENCE: Record<RoleName, NavigationAudience> = {
 };
 
 export function audienceForRole(role: RoleName): NavigationAudience {
+  if (role === "ACCREDITOR") {
+    throw new ForbiddenError("Accreditors can only access the Accreditation workspace");
+  }
   return ROLE_AUDIENCE[role];
 }
 

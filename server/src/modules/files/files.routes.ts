@@ -4,7 +4,7 @@ import { verifyFileToken } from "@/lib/fileToken";
 import { getObjectRange, getObjectStream, putObject, statObject } from "@/lib/storage";
 import { BadRequestError, UnauthorizedError } from "@/utils/errors";
 import { parseByteRange } from "@/utils/byteRange";
-import { setPreviewFrameHeaders } from "@/utils/previewFrameHeaders";
+import { isInlinePreviewType, setPreviewFrameHeaders } from "@/utils/previewFrameHeaders";
 
 // =============================================================================
 // URS-DMS — signed file streaming routes
@@ -20,32 +20,6 @@ import { setPreviewFrameHeaders } from "@/utils/previewFrameHeaders";
 // =============================================================================
 
 export const filesRouter: Router = Router();
-
-// Only these MIME types may be rendered inline (preview) in a browser.
-// Everything else is forced to an octet-stream attachment so a crafted upload
-// (text/html, image/svg+xml, application/xhtml+xml, …) can never execute
-// script on the API origin via the preview iframe.
-const SAFE_INLINE_TYPES = new Set<string>([
-  "application/pdf",
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/webp",
-  "image/bmp",
-  "image/tiff",
-  "image/avif",
-  "video/mp4",
-  "video/webm",
-  "video/ogg",
-  "video/quicktime",
-  "audio/mpeg",
-  "audio/mp4",
-  "audio/ogg",
-  "audio/wav",
-  "audio/webm",
-  "text/plain",
-  "text/csv",
-]);
 
 // Active-content types are stored as opaque bytes regardless of what the
 // client declared, keeping MinIO metadata from misrepresenting the payload.
@@ -119,7 +93,7 @@ filesRouter.get(
     const filename = payload.k.split("/").pop() ?? "file";
     const declared = normalizeContentType(stat.contentType);
     const inlineRequested = payload.i === 1;
-    const inlineSafe = inlineRequested && SAFE_INLINE_TYPES.has(declared);
+    const inlineSafe = inlineRequested && isInlinePreviewType(declared);
     const disposition = inlineSafe ? "inline" : "attachment";
     const servedType = inlineRequested && !inlineSafe ? "application/octet-stream" : declared;
     res.setHeader("Content-Type", servedType);

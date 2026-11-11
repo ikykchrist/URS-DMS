@@ -48,7 +48,9 @@ export function LoginForm() {
 
     if (result.success) {
       toast.success("Signed in successfully")
-      if (isAdminRole(result.role)) {
+      if (result.role === "accreditor") {
+        navigate("/accreditation")
+      } else if (isAdminRole(result.role)) {
         navigate("/dashboard")
       } else {
         navigate("/user/dashboard")

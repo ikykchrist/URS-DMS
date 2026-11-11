@@ -21,7 +21,8 @@ export interface RolePermissionMatrix {
     | "DEPARTMENT_COORDINATOR"
     | "FACULTY"
     | "STAFF"
-    | "READ_ONLY";
+    | "READ_ONLY"
+    | "ACCREDITOR";
   description: string;
   permissions: PermissionCode[];
 }
@@ -98,6 +99,11 @@ const ROOT_ONLY_CODES = new Set<string>([
 ]);
 
 export const DEFAULT_ROLE_MATRIX: RolePermissionMatrix[] = [
+  {
+    name: "ACCREDITOR",
+    description: "View and preview approved accreditation evidence",
+    permissions: [],
+  },
   {
     name: "ROOT",
     description: "System administrator with full platform control",

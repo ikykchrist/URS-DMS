@@ -82,6 +82,7 @@ function roleKey(roleName: string): User["role"] {
     case "FACULTY": return "faculty"
     case "STAFF": return "staff"
     case "READ_ONLY": return "student"
+    case "ACCREDITOR": return "accreditor"
     default: return "staff"
   }
 }
@@ -95,6 +96,7 @@ function roleKeyLabel(role: string): string {
     case "faculty": return "Faculty"
     case "staff": return "Staff"
     case "student": return "Read Only"
+    case "accreditor": return "Accreditor"
     default: return role
   }
 }

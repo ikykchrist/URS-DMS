@@ -58,6 +58,10 @@ function assertCanRead(actor: Actor): void {
 
 export async function listAreaSetupOrganization(actor: Actor) {
   assertCanManage(actor);
+  return listAccreditationOrganization();
+}
+
+export async function listAccreditationOrganization() {
   return (await repo.listSetupOrganization()).map((campus) => ({
     ...campus, colleges: campus.colleges.map((college) => ({
       ...college, programs: college.programs.filter((program) => program.campusId === campus.id),

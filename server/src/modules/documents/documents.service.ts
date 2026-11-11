@@ -617,7 +617,7 @@ async function streamToBuffer(stream: Readable): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-async function getConvertedPreview(
+export async function getConvertedPreview(
   objectKey: string,
   filename: string,
   mimeType: string,

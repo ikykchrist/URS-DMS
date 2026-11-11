@@ -23,6 +23,7 @@ import { aaccupRequirementsRouter } from "@/modules/aaccup/requirements/aaccup.r
 import { aaccupSubmissionsRouter } from "@/modules/aaccup/submissions/aaccup.submissions.routes";
 import { aaccupAnalyticsRouter } from "@/modules/aaccup/analytics/aaccup.analytics.routes";
 import { aaccupTasksRouter } from "@/modules/aaccup/tasks/aaccup.tasks.routes";
+import { accreditorRouter } from "./accreditor/accreditor.routes";
 
 // =============================================================================
 // URS-DMS — AACCUP routes
@@ -34,6 +35,7 @@ import { aaccupTasksRouter } from "@/modules/aaccup/tasks/aaccup.tasks.routes";
 
 export const aaccupRouter: Router = Router();
 
+aaccupRouter.use("/accreditor", accreditorRouter);
 aaccupRouter.use(authenticate);
 
 aaccupRouter.get("/setup/programs", requirePermission("aaccup.manage"), asyncHandler(areaSetupProgramsHandler));

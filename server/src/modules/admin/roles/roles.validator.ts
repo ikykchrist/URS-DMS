@@ -20,8 +20,8 @@ export const adminListRolesQuerySchema = z.object({
 });
 export type AdminListRolesQuery = z.infer<typeof adminListRolesQuerySchema>;
 
-// `name` is the Prisma `RoleName` enum. ROOT is protected separately, so the
-// admin create endpoint accepts only one of the six non-ROOT seeded values
+// `name` is the Prisma `RoleName` enum. ROOT and ACCREDITOR are provisioned
+// separately, so the admin create endpoint accepts the six other seeded values
 // and rejects if a role with that name already exists (live OR archived, since
 // the @unique constraint spans soft-deleted rows).
 export const createAdminRoleSchema = z.object({

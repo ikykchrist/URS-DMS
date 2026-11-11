@@ -21,6 +21,7 @@ const ROLE_MAP: Record<string, UserRole> = {
   FACULTY: "faculty",
   STAFF: "staff",
   READ_ONLY: "student",
+  ACCREDITOR: "accreditor",
 }
 
 // Map server auth errors to precise, non-leaky user-facing messages. The

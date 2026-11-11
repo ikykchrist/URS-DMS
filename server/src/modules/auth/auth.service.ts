@@ -90,7 +90,7 @@ async function buildUserView(userId: string): Promise<AuthenticatedUser> {
     },
   });
   if (!user) throw new NotFoundError("User not found");
-  const permissions = await loadCodesByRoleId(user.roleId);
+  const permissions = user.role.name === "ACCREDITOR" ? [] : await loadCodesByRoleId(user.roleId);
   return {
     id: user.id,
     employeeId: user.employeeId,

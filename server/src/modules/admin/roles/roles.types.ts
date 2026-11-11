@@ -8,12 +8,12 @@ import type { RoleName } from "@prisma/client";
 // projection (single round-trip).
 //
 // Schema constraint worth calling out: `Role.name` is a Prisma `RoleName` enum
-// (seven system roles seeded by `prisma/seed.ts`, including protected ROOT).
+// (system roles seeded by `prisma/seed.ts`, including protected ROOT and ACCREDITOR).
 // There is NO `String`-named custom role surface in 1.0. The admin create
-// endpoint accepts only one of the six non-ROOT values; "create a custom role" is a 2.0 backlog item that
+// endpoint accepts only one of the six non-protected values; "create a custom role" is a 2.0 backlog item that
 // would require a schema migration widening `Role.name` to `String`.
 //
-// `isSystem` flags the seven seeded roles. Archive/restore respects this: an
+// `isSystem` flags the seeded roles. Archive/restore respects this: an
 // archived system role is restorable; a non-existent enum name is not
 // creatable in 1.0 (see schema note above).
 // =============================================================================

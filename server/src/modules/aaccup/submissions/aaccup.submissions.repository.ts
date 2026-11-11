@@ -41,6 +41,79 @@ type SubmissionWithRelations = Prisma.AaccupSubmissionGetPayload<{
   include: typeof SUBMISSION_INCLUDE;
 }>;
 
+const VIEWER_EVIDENCE_WHERE = {
+  status: "APPROVED",
+  isCurrent: true,
+  deletedAt: null,
+  document: { deletedAt: null },
+  requirement: {
+    deletedAt: null,
+    area: { deletedAt: null, status: "ACTIVE", areaSet: { in: ["AACCUP", "ISO"] } },
+  },
+} satisfies Prisma.AaccupSubmissionWhereInput;
+
+export async function listApprovedEvidence(areaId: string, page: number, pageSize: number) {
+  const where = {
+    ...VIEWER_EVIDENCE_WHERE,
+    requirement: { ...VIEWER_EVIDENCE_WHERE.requirement, areaId },
+  };
+  const [rows, total] = await Promise.all([
+    prisma.aaccupSubmission.findMany({
+      where,
+      orderBy: [{ submittedAt: "desc" }, { id: "asc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        snapshotFilename: true,
+        requirement: { select: { title: true, documentCode: true } },
+      },
+    }),
+    prisma.aaccupSubmission.count({ where }),
+  ]);
+  return {
+    items: rows.map((row) => ({
+      id: row.id,
+      filename: row.snapshotFilename ?? row.requirement.title,
+      requirementTitle: row.requirement.title,
+      requirementCode: row.requirement.documentCode,
+    })),
+    total,
+  };
+}
+
+export function findApprovedEvidence(id: string) {
+  return prisma.aaccupSubmission.findFirst({
+    where: { ...VIEWER_EVIDENCE_WHERE, id },
+    select: {
+      documentId: true,
+      snapshotChecksum: true,
+      snapshotSizeBytes: true,
+      snapshotFilename: true,
+      snapshotMimeType: true,
+      submittedAt: true,
+    },
+  });
+}
+
+export async function findEvidenceVersion(evidence: NonNullable<Awaited<ReturnType<typeof findApprovedEvidence>>>) {
+  const { documentId, snapshotChecksum, snapshotSizeBytes, snapshotFilename, snapshotMimeType, submittedAt } = evidence;
+  // Legacy records without a digest cannot prove which bytes were approved.
+  if (!snapshotChecksum || snapshotSizeBytes === null) return null;
+  return prisma.documentVersion.findFirst({
+    where: {
+      documentId,
+      checksum: snapshotChecksum,
+      sizeBytes: snapshotSizeBytes,
+      ...(snapshotFilename ? { filename: snapshotFilename } : {}),
+      ...(snapshotMimeType ? { mimeType: snapshotMimeType } : {}),
+      uploadedAt: { lte: submittedAt },
+    },
+    orderBy: { versionNumber: "desc" },
+    select: { id: true, filename: true, mimeType: true, objectKey: true },
+  });
+}
+
 function fullName(firstName: string, lastName: string): string {
   return `${firstName} ${lastName}`.trim();
 }

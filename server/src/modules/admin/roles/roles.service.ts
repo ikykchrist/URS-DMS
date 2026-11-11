@@ -126,7 +126,7 @@ export async function createRole(
 ): Promise<AdminRoleDetail> {
   assertCanCreate(actor);
 
-  // The schema only allows one of the six non-ROOT RoleName enums. Refuse if a
+  // The create validator allows one of the six non-protected roles. Refuse if a
   // role row already exists for that name — the @unique constraint on
   // Role.name spans soft-deleted rows, so an archived role with the same
   // enum name still blocks a fresh create. The right move for restoring an
@@ -303,6 +303,9 @@ export async function updateRolePermissions(
   // bug could silently strip Root's platform access.
   if (existing.name === "ROOT") {
     throw new ForbiddenError("The ROOT role's permissions are fixed and cannot be modified");
+  }
+  if (existing.name === "ACCREDITOR") {
+    throw new ForbiddenError("The Accreditor role has fixed read-only access");
   }
 
   // Privilege-escalation guard. Every code the actor is granting must already

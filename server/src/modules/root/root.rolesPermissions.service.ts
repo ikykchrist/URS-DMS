@@ -112,6 +112,9 @@ export async function updateRoleBindings(
   if (existing.name === "ROOT") {
     throw new ForbiddenError("The ROOT role's permissions are fixed and cannot be modified");
   }
+  if (existing.name === "ACCREDITOR") {
+    throw new ForbiddenError("The Accreditor role has fixed read-only access");
+  }
 
   // ADMINISTRATOR also gets partial protection: cannot remove ROOT_ONLY_CODES
   // but CAN otherwise manage its own permissions through the root console.

@@ -1,7 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import { verifyAccessToken, type AccessTokenPayload } from "@/modules/auth/auth.tokens";
 import { prisma } from "@/lib/prisma";
-import { TokenInvalidError, TokenExpiredError } from "@/utils/errors";
+import { ForbiddenError, TokenInvalidError, TokenExpiredError } from "@/utils/errors";
+import { AUDIT_ACTIONS } from "@/config/constants";
+import { writeAudit } from "@/modules/audit/audit.service";
 
 // =============================================================================
 // URS-DMS — authenticate middleware
@@ -18,10 +20,10 @@ function extractToken(req: Request): string | null {
   return cookie ?? null;
 }
 
-export async function authenticate(
+async function authenticateSession(
   req: Request,
-  _res: Response,
   next: NextFunction,
+  allowAccreditor: boolean,
 ): Promise<void> {
   try {
     const token = extractToken(req);
@@ -61,7 +63,24 @@ export async function authenticate(
       throw new TokenInvalidError("User is not active");
     }
 
-    const permissions = await prisma.permission.findMany({
+    const isAccreditor = user.role.name === "ACCREDITOR";
+    if (isAccreditor && !allowAccreditor) {
+      await writeAudit({
+        action: AUDIT_ACTIONS.PERMISSION_DENIED,
+        userId: user.id,
+        entity: "route",
+        entityId: req.originalUrl,
+        ipAddress: req.context.ipAddress,
+        userAgent: req.context.userAgent,
+        newValue: { reason: "accreditor_workspace_only" },
+        category: "SECURITY",
+        severity: "WARNING",
+        result: "DENIED",
+      });
+      throw new ForbiddenError("Accreditors can only access the Accreditation workspace");
+    }
+
+    const permissions = isAccreditor ? [] : await prisma.permission.findMany({
       where: { roles: { some: { roleId: user.roleId } } },
       select: { code: true },
     });
@@ -77,4 +96,12 @@ export async function authenticate(
   } catch (err) {
     next(err);
   }
+}
+
+export function authenticate(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  return authenticateSession(req, next, false);
+}
+
+export function authenticateIncludingAccreditor(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  return authenticateSession(req, next, true);
 }

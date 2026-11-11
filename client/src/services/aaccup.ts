@@ -150,6 +150,33 @@ export interface AccreditationCampus {
   colleges: Array<{ id: string; name: string; programs: Array<{ id: string; name: string; campusId: string | null }> }>
 }
 export function listAreaSetupOrganization() { return apiGet<AccreditationCampus[]>("/aaccup/setup/organization") }
+
+export interface ApprovedEvidence {
+  id: string
+  filename: string
+  requirementTitle: string
+  requirementCode: string
+}
+
+const ACCREDITOR_PATH = "/aaccup/accreditor"
+
+export function listAccreditorOrganization() {
+  return apiGet<AccreditationCampus[]>(`${ACCREDITOR_PATH}/organization`)
+}
+
+export function listAccreditorAreas(areaSet: AreaSet) {
+  return everyPage<OnlineAaccupArea>(`${ACCREDITOR_PATH}/areas?areaSet=${areaSet}`)
+}
+
+export function listAccreditorEvidence(areaId: string) {
+  return everyPage<ApprovedEvidence>(`${ACCREDITOR_PATH}/evidence?areaId=${encodeURIComponent(areaId)}`)
+}
+
+export function getAccreditorPreview(id: string) {
+  return apiGet<{ url: string; filename: string; mimeType: string }>(
+    `${ACCREDITOR_PATH}/evidence/${encodeURIComponent(id)}/preview`,
+  )
+}
 export interface AreaTemplateSetup { templateId: string | null; templates: Array<{ id: string; name: string; code: string; version: number }> }
 export function listAreaSetupPrograms() { return apiGet<AreaSetupProgram[]>("/aaccup/setup/programs") }
 export function getAreaTemplateSetup(id: string) { return apiGet<AreaTemplateSetup>(`/aaccup/areas/${encodeURIComponent(id)}/requirement-template`) }

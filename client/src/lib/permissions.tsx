@@ -58,6 +58,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   faculty: "Faculty",
   staff: "Staff",
   student: "Student",
+  accreditor: "Accreditor",
   root: "System Root",
 }
 
@@ -68,10 +69,26 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   faculty: "Uploads and manages own documents",
   staff: "Supports document handling operations",
   student: "Limited browsing and request access",
+  accreditor: "Views approved accreditation evidence",
   root: "Platform-level system administrator (Root Console)",
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
+  accreditor: {
+    canUpload: false,
+    canApprove: false,
+    canReject: false,
+    canDelete: false,
+    canManageUsers: false,
+    canViewAuditLogs: false,
+    canManageAACCUP: false,
+    canExport: false,
+    canArchive: false,
+    canAssignTasks: false,
+    canRestore: false,
+    canManageSettings: false,
+    canViewReports: false,
+  },
   root: {
     canUpload: true,
     canApprove: true,

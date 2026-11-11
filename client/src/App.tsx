@@ -75,6 +75,7 @@ import { ThemeProvider } from "@/lib/theme"
 import { MobileBottomBar } from "@/components/layout/MobileBottomBar"
 import { ToastContainer, toast } from "@/lib/toast"
 import { isAdminRole, isRootRole } from "@/lib/permissions"
+import AccreditorAccreditation from "@/pages/AccreditorAccreditation"
 import { getDashboardOverview, type DashboardOverview } from "@/services/dashboard"
 import { getUploadsAnalytics, type UploadsAnalytics } from "@/services/analytics"
 import { listRequests } from "@/services/requests"
@@ -1118,6 +1119,15 @@ function AppRoutes() {
           <p className="text-[13px] text-gray-500 font-medium">Restoring session&hellip;</p>
         </div>
       </div>
+    )
+  }
+
+  if (authStatus === "AUTHENTICATED" && user?.role === "accreditor") {
+    return (
+      <Routes>
+        <Route path="/accreditation" element={<AccreditorAccreditation />} />
+        <Route path="*" element={<Navigate to="/accreditation" replace />} />
+      </Routes>
     )
   }
 
